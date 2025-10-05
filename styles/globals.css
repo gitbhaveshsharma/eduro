@@ -1,0 +1,296 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  /* 🎨 Primary Brand Colors */
+  /* Deep Blue #1D4ED8 - Trust, authority, professional */
+  --color-brand-primary: oklch(0.421 0.180 264.376);
+  --color-primary: var(--color-brand-primary);
+  --color-primary-foreground: oklch(0.985 0.003 247.858);
+  
+  /* Sky Blue #3B82F6 - Friendly & fresh */
+  --color-brand-secondary: oklch(0.621 0.180 264.376);
+  --color-secondary: var(--color-brand-secondary);
+  --color-secondary-foreground: oklch(0.985 0.003 247.858);
+  
+  /* Orange #F97316 - Attention-grabbing CTA */
+  --color-brand-highlight: oklch(0.721 0.150 45.899);
+  --color-highlight: var(--color-brand-highlight);
+  --color-highlight-foreground: oklch(0.985 0.003 247.858);
+  
+  /* 🎨 Semantic Status Colors */
+  /* Green #10B981 - Success messages, confirmations */
+  --color-success: oklch(0.721 0.130 162.48);
+  --color-success-foreground: oklch(0.985 0.003 247.858);
+  
+  /* Amber #F59E0B - Warnings, unpaid fees */
+  --color-warning: oklch(0.821 0.140 85.872);
+  --color-warning-foreground: oklch(0.145 0.003 247.858);
+  
+  /* Red #EF4444 - Errors, failed actions */
+  --color-error: oklch(0.621 0.210 25.331);
+  --color-error-foreground: oklch(0.985 0.003 247.858);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-error-foreground);
+  
+  /* 🎨 Neutral Background & Typography */
+  /* Light Gray #F3F4F6 - Clean interface, reduces eye strain */
+  --color-background: oklch(0.976 0.003 247.858);
+  --color-foreground: oklch(0.145 0.003 247.858);
+  
+  /* White #FFFFFF - Posts, cards, LMS panels */
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.145 0.003 247.858);
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.145 0.003 247.858);
+  
+  /* Dark Gray #111827 - Body text, good readability */
+  --color-text-primary: oklch(0.145 0.003 247.858);
+  
+  /* Medium Gray #6B7280 - Less important text, meta info */
+  --color-text-secondary: oklch(0.556 0.003 247.858);
+  --color-muted-foreground: var(--color-text-secondary);
+  
+  /* Light Gray #E5E7EB - Subtle separation borders */
+  --color-border: oklch(0.922 0.003 247.858);
+  --color-input: var(--color-border);
+  
+  /* Additional UI Colors */
+  --color-muted: oklch(0.971 0.003 247.858);
+  --color-accent: oklch(0.971 0.003 247.858);
+  --color-accent-foreground: oklch(0.145 0.003 247.858);
+  --color-ring: var(--color-brand-primary);
+  
+  /* Chart Colors - Using brand palette */
+  --color-chart-1: var(--color-brand-primary);    /* Headers, primary data */
+  --color-chart-2: var(--color-brand-secondary);  /* Secondary data */
+  --color-chart-3: var(--color-brand-highlight);  /* Call-to-action data */
+  --color-chart-4: var(--color-success);          /* Positive metrics */
+  --color-chart-5: var(--color-warning);          /* Warning metrics */
+  
+  /* Radius */
+  --radius: 0.625rem;
+  
+  /* Sidebar Colors - Professional theme */
+  --color-sidebar: oklch(0.985 0.003 247.858);
+  --color-sidebar-foreground: var(--color-text-primary);
+  --color-sidebar-primary: var(--color-brand-primary);
+  --color-sidebar-primary-foreground: oklch(0.985 0.003 247.858);
+  --color-sidebar-accent: var(--color-muted);
+  --color-sidebar-accent-foreground: var(--color-text-primary);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-ring: var(--color-brand-primary);
+}
+
+.dark {
+  /* 🎨 Dark Theme Adaptations */
+  /* Adjusted for better dark mode contrast */
+  --color-background: oklch(0.145 0.003 247.858);
+  --color-foreground: oklch(0.985 0.003 247.858);
+  
+  /* Brand colors - lighter for dark backgrounds */
+  --color-brand-primary: oklch(0.721 0.180 264.376);
+  --color-primary: var(--color-brand-primary);
+  --color-primary-foreground: oklch(0.145 0.003 247.858);
+  
+  --color-brand-secondary: oklch(0.821 0.180 264.376);
+  --color-secondary: var(--color-brand-secondary);
+  --color-secondary-foreground: oklch(0.145 0.003 247.858);
+  
+  --color-brand-highlight: oklch(0.821 0.150 45.899);
+  --color-highlight: var(--color-brand-highlight);
+  --color-highlight-foreground: oklch(0.145 0.003 247.858);
+  
+  /* Semantic colors - enhanced for dark mode */
+  --color-success: oklch(0.821 0.130 162.48);
+  --color-success-foreground: oklch(0.145 0.003 247.858);
+  
+  --color-warning: oklch(0.921 0.140 85.872);
+  --color-warning-foreground: oklch(0.145 0.003 247.858);
+  
+  --color-error: oklch(0.721 0.210 25.331);
+  --color-error-foreground: oklch(0.145 0.003 247.858);
+  --color-destructive: var(--color-error);
+  --color-destructive-foreground: var(--color-error-foreground);
+  
+  /* Dark surfaces */
+  --color-card: oklch(0.205 0.003 247.858);
+  --color-card-foreground: oklch(0.985 0.003 247.858);
+  --color-popover: oklch(0.205 0.003 247.858);
+  --color-popover-foreground: oklch(0.985 0.003 247.858);
+  
+  /* Dark text colors */
+  --color-text-primary: oklch(0.985 0.003 247.858);
+  --color-text-secondary: oklch(0.708 0.003 247.858);
+  --color-muted-foreground: var(--color-text-secondary);
+  
+  /* Dark borders and inputs */
+  --color-border: oklch(0.269 0.003 247.858);
+  --color-input: var(--color-border);
+  --color-muted: oklch(0.269 0.003 247.858);
+  --color-accent: oklch(0.269 0.003 247.858);
+  --color-accent-foreground: oklch(0.985 0.003 247.858);
+  --color-ring: var(--color-brand-primary);
+  
+  /* Dark sidebar */
+  --color-sidebar: oklch(0.205 0.003 247.858);
+  --color-sidebar-foreground: oklch(0.985 0.003 247.858);
+  --color-sidebar-primary: var(--color-brand-primary);
+  --color-sidebar-primary-foreground: oklch(0.145 0.003 247.858);
+  --color-sidebar-accent: oklch(0.269 0.003 247.858);
+  --color-sidebar-accent-foreground: oklch(0.985 0.003 247.858);
+  --color-sidebar-border: oklch(0.269 0.003 247.858);
+  --color-sidebar-ring: var(--color-brand-primary);
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  
+  /* System Colors */
+  --color-background: var(--color-background);
+  --color-foreground: var(--color-foreground);
+  --color-card: var(--color-card);
+  --color-card-foreground: var(--color-card-foreground);
+  --color-popover: var(--color-popover);
+  --color-popover-foreground: var(--color-popover-foreground);
+  
+  /* Brand Colors */
+  --color-primary: var(--color-primary);
+  --color-primary-foreground: var(--color-primary-foreground);
+  --color-secondary: var(--color-secondary);
+  --color-secondary-foreground: var(--color-secondary-foreground);
+  --color-highlight: var(--color-highlight);
+  --color-highlight-foreground: var(--color-highlight-foreground);
+  
+  /* Semantic Colors */
+  --color-success: var(--color-success);
+  --color-success-foreground: var(--color-success-foreground);
+  --color-warning: var(--color-warning);
+  --color-warning-foreground: var(--color-warning-foreground);
+  --color-error: var(--color-error);
+  --color-error-foreground: var(--color-error-foreground);
+  --color-destructive: var(--color-destructive);
+  --color-destructive-foreground: var(--color-destructive-foreground);
+  
+  /* UI Colors */
+  --color-muted: var(--color-muted);
+  --color-muted-foreground: var(--color-muted-foreground);
+  --color-accent: var(--color-accent);
+  --color-accent-foreground: var(--color-accent-foreground);
+  --color-border: var(--color-border);
+  --color-input: var(--color-input);
+  --color-ring: var(--color-ring);
+  
+  /* Chart Colors */
+  --color-chart-1: var(--color-chart-1);
+  --color-chart-2: var(--color-chart-2);
+  --color-chart-3: var(--color-chart-3);
+  --color-chart-4: var(--color-chart-4);
+  --color-chart-5: var(--color-chart-5);
+  
+  /* Radius Values */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  
+  /* Sidebar Colors */
+  --color-sidebar: var(--color-sidebar);
+  --color-sidebar-foreground: var(--color-sidebar-foreground);
+  --color-sidebar-primary: var(--color-sidebar-primary);
+  --color-sidebar-primary-foreground: var(--color-sidebar-primary-foreground);
+  --color-sidebar-accent: var(--color-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--color-sidebar-accent-foreground);
+  --color-sidebar-border: var(--color-sidebar-border);
+  --color-sidebar-ring: var(--color-sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    color-scheme: light dark;
+  }
+}
+
+/* 🎨 Semantic Utility Classes */
+@layer utilities {
+  /* Brand Colors */
+  .bg-brand-primary { background-color: var(--color-brand-primary); }
+  .bg-brand-secondary { background-color: var(--color-brand-secondary); }
+  .bg-brand-highlight { background-color: var(--color-brand-highlight); }
+  
+  .text-brand-primary { color: var(--color-brand-primary); }
+  .text-brand-secondary { color: var(--color-brand-secondary); }
+  .text-brand-highlight { color: var(--color-brand-highlight); }
+  
+  .border-brand-primary { border-color: var(--color-brand-primary); }
+  .border-brand-secondary { border-color: var(--color-brand-secondary); }
+  .border-brand-highlight { border-color: var(--color-brand-highlight); }
+  
+  /* Semantic Status Colors */
+  .bg-success { background-color: var(--color-success); }
+  .bg-warning { background-color: var(--color-warning); }
+  .bg-error { background-color: var(--color-error); }
+  
+  .text-success { color: var(--color-success); }
+  .text-warning { color: var(--color-warning); }
+  .text-error { color: var(--color-error); }
+  
+  .border-success { border-color: var(--color-success); }
+  .border-warning { border-color: var(--color-warning); }
+  .border-error { border-color: var(--color-error); }
+  
+  /* Typography Utilities */
+  .text-primary { color: var(--color-text-primary); }
+  .text-secondary { color: var(--color-text-secondary); }
+  
+  /* Ring Colors */
+  .ring-brand-primary { --tw-ring-color: var(--color-brand-primary); }
+  .ring-success { --tw-ring-color: var(--color-success); }
+  .ring-warning { --tw-ring-color: var(--color-warning); }
+  .ring-error { --tw-ring-color: var(--color-error); }
+}
+
+/* 🎨 Component-Specific Semantic Classes */
+@layer components {
+  /* Header/Navigation - Trust & Authority */
+  .header-primary {
+    background-color: var(--color-brand-primary);
+    color: var(--color-primary-foreground);
+  }
+  
+  /* Call-to-Action Elements - Attention-grabbing */
+  .cta-button {
+    background-color: var(--color-brand-highlight);
+    color: var(--color-highlight-foreground);
+  }
+  
+  /* Cards/Panels - Clean & Professional */
+  .panel-surface {
+    background-color: var(--color-card);
+    border-color: var(--color-border);
+    color: var(--color-card-foreground);
+  }
+  
+  /* Status Indicators */
+  .status-success {
+    background-color: var(--color-success);
+    color: var(--color-success-foreground);
+  }
+  
+  .status-warning {
+    background-color: var(--color-warning);
+    color: var(--color-warning-foreground);
+  }
+  
+  .status-error {
+    background-color: var(--color-error);
+    color: var(--color-error-foreground);
+  }
+}
