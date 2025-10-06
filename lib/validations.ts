@@ -80,7 +80,6 @@ export const onboardingPersonalInfoSchema = z.object({
     .min(6, 'Pin code must be at least 6 characters')
     .max(10, 'Pin code must be less than 10 characters')
     .regex(/^[0-9]+$/, 'Pin code can only contain numbers')
-    .optional(),
 })
 
 // Profile update validation schemas

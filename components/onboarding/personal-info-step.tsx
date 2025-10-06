@@ -209,7 +209,7 @@ export function PersonalInfoStep({
                     <div className="space-y-2">
                         <Label htmlFor="pinCode" className="text-sm font-medium flex items-center gap-2">
                             <MapPin className="w-4 h-4" />
-                            Pin Code <span className="text-muted-foreground text-xs">(Optional)</span>
+                            Pin Code
                         </Label>
                         <div className="relative">
                             <Input

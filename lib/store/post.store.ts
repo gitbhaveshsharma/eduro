@@ -11,6 +11,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
 import { supabase } from '../supabase';
+import { withAuth } from '../api-interceptor';
 import { PostService } from '../service/post.service';
 import type {
   PublicPost,
@@ -250,6 +251,18 @@ export const usePostStore = create<PostStore>()(
           // Optimistic update
           if (originalPost) {
             get().updatePostOptimistic(postId, updates);
+          }
+
+          // Ensure we have a valid session before making the request
+          const { authSessionManager } = await import('../auth-session');
+          const isValid = await authSessionManager.validateSession();
+          
+          if (!isValid) {
+            // Revert optimistic update
+            if (originalPost) {
+              get().revertPostOptimistic(postId, originalPost);
+            }
+            return false;
           }
 
           const result = await PostService.updatePost(postId, updates);

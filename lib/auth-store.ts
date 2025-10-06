@@ -43,6 +43,39 @@ const cookieStorage = {
   },
 }
 
+// Enhanced cookie storage for Supabase session
+const enhancedCookieStorage = {
+  getItem: (name: string): string | null => {
+    return cookieStorage.getItem(name)
+  },
+  setItem: (name: string, value: string): void => {
+    cookieStorage.setItem(name, value)
+    
+    // Also set with Supabase standard naming for middleware compatibility
+    if (name.includes('auth-storage')) {
+      try {
+        const sessionData = JSON.parse(value)
+        if (sessionData?.user && sessionData?.session) {
+          cookieStorage.setItem('supabase-auth-token', sessionData.session.access_token)
+          cookieStorage.setItem('supabase-refresh-token', sessionData.session.refresh_token || '')
+        }
+      } catch (e) {
+        // Not JSON, set as is
+        cookieStorage.setItem('supabase-auth-token', value)
+      }
+    }
+  },
+  removeItem: (name: string): void => {
+    cookieStorage.removeItem(name)
+    
+    // Also remove Supabase standard cookies
+    if (name.includes('auth-storage')) {
+      cookieStorage.removeItem('supabase-auth-token')
+      cookieStorage.removeItem('supabase-refresh-token')
+    }
+  },
+}
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
@@ -146,11 +179,7 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => ({
-        getItem: (name) => cookieStorage.getItem(name),
-        setItem: (name, value) => cookieStorage.setItem(name, value),
-        removeItem: (name) => cookieStorage.removeItem(name),
-      })),
+      storage: createJSONStorage(() => enhancedCookieStorage),
       partialize: (state) => ({
         // Only persist essential user data, not loading states
         user: state.user,

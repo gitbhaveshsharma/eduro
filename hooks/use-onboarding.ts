@@ -39,7 +39,7 @@ export function useOnboardingRedirect() {
 
     // If user has completed onboarding (level >= 3) but is on onboarding page, redirect to dashboard
     if (onboardingLevel >= 3 && isOnOnboardingPage) {
-      console.log('Redirecting to dashboard - level:', onboardingLevel)
+      // console.log('Redirecting to dashboard - level:', onboardingLevel)
       router.push('/')
       return
     }

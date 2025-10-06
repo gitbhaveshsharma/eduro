@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/auth-store'
 import { useProfileStore } from '@/lib/store/profile.store'
+import { authSessionManager } from '@/lib/auth-session'
 import { AuthLoadingSpinner } from '@/components/ui/loading-spinner'
 
 interface AuthProviderProps {
@@ -15,36 +16,32 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const { loadCurrentProfile, clearCurrentProfile } = useProfileStore()
 
     useEffect(() => {
-        // Get initial session
+        // Get initial session with validation
         const getInitialSession = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession()
+                // Use the session manager to validate and get session
+                const isValid = await authSessionManager.validateSession()
 
-                if (error) {
-                    console.error('Error getting session:', error)
-                    clearAuth()
-                    clearCurrentProfile()
-                    return
-                }
+                if (isValid) {
+                    const { session } = useAuthStore.getState()
 
-                if (session?.user) {
-                    setAuth(session.user, session)
+                    if (session?.user) {
+                        // Fetch user profile for auth store
+                        const { data: profile, error: profileError } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', session.user.id)
+                            .single()
 
-                    // Fetch user profile for auth store
-                    const { data: profile, error: profileError } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single()
+                        if (!profileError && profile) {
+                            setProfile(profile)
 
-                    if (!profileError && profile) {
-                        setProfile(profile)
+                            // Also load into profile store for consistency
+                            await loadCurrentProfile()
 
-                        // Also load into profile store for consistency
-                        await loadCurrentProfile()
-
-                        // Update online status
-                        await supabase.rpc('update_online_status', { is_online_status: true })
+                            // Update online status
+                            await supabase.rpc('update_online_status', { is_online_status: true })
+                        }
                     }
                 } else {
                     clearAuth()
@@ -62,16 +59,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         getInitialSession()
 
-        // Listen for auth changes
+        // Listen for auth changes (the session manager will handle token refresh)
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
-                // console.log('Auth state changed:', event, session?.user?.id)
-
                 // Don't interfere if we're on the OAuth callback page - let it handle its own auth
                 const isCallbackPage = window.location.pathname === '/auth/callback'
 
                 if (isCallbackPage) {
-                    // console.log('On callback page, skipping auth provider handling')
                     return
                 }
 
@@ -106,6 +100,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
                     case 'TOKEN_REFRESHED':
                         if (session?.user) {
+                            console.log('Token refreshed, updating auth state')
                             setAuth(session.user, session)
                         }
                         break
@@ -133,11 +128,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
         }
 
-        // Handle visibility change to update online status
+        // Handle visibility change to update online status and check session
         const handleVisibilityChange = async () => {
             try {
                 const isOnline = !document.hidden
+
+                // Update online status
                 await supabase.rpc('update_online_status', { is_online_status: isOnline })
+
+                // If page becomes visible, validate session
+                if (isOnline) {
+                    await authSessionManager.validateSession()
+                }
             } catch (error) {
                 console.error('Error updating online status on visibility change:', error)
             }

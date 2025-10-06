@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../supabase';
+import { SupabaseRequestWrapper } from '../api-interceptor';
 import type {
   Profile,
   PublicProfile,
@@ -24,34 +25,19 @@ export class ProfileService {
    * Get current user's profile
    */
   static async getCurrentProfile(): Promise<ProfileOperationResult<Profile>> {
-    try {
+    return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (authError) {
-        return { success: false, error: 'Authentication error' };
-      }
-      
-      if (!user) {
-        return { success: false, error: 'User not authenticated' };
+      if (authError || !user) {
+        return { data: null, error: { message: 'User not authenticated' } };
       }
 
-      const { data, error } = await supabase
+      return await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    });
   }
 
   /**
@@ -164,20 +150,20 @@ export class ProfileService {
    * Update current user's profile
    */
   static async updateProfile(updates: ProfileUpdate & { is_active?: boolean }): Promise<ProfileOperationResult<Profile>> {
-    try {
+    // Validate updates before making request
+    const validationResult = this.validateProfileUpdate(updates);
+    if (!validationResult.success) {
+      return validationResult as ProfileOperationResult<Profile>;
+    }
+
+    return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
-        return { success: false, error: 'User not authenticated' };
+        return { data: null, error: { message: 'User not authenticated' } };
       }
 
-      // Validate updates before sending to database
-      const validationResult = this.validateProfileUpdate(updates);
-      if (!validationResult.success) {
-        return validationResult as ProfileOperationResult<Profile>;
-      }
-
-      const { data, error } = await supabase
+      return await supabase
         .from('profiles')
         .update({
           ...updates,
@@ -186,18 +172,7 @@ export class ProfileService {
         .eq('id', user.id)
         .select()
         .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    });
   }
 
   /**
@@ -418,31 +393,20 @@ export class ProfileService {
    * Update onboarding level
    */
   static async updateOnboardingLevel(level: OnboardingLevel): Promise<ProfileOperationResult<Profile>> {
-    try {
+    return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
-        return { success: false, error: 'User not authenticated' };
+        return { data: null, error: { message: 'User not authenticated' } };
       }
 
-      const { data, error } = await supabase
+      return await supabase
         .from('profiles')
         .update({ onboarding_level: level })
         .eq('id', user.id)
         .select()
         .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
+    });
   }
 
   /**

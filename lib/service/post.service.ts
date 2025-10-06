@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../supabase';
+import { withAuth, withProfileAuth } from '../api-interceptor';
 import type {
   Post,
   PublicPost,
@@ -46,43 +47,59 @@ export class PostService {
    */
   static async createPost(postData: PostCreate): Promise<PostOperationResult<Post>> {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
-      if (authError || !user) {
-        return { success: false, error: POST_ERROR_CODES.NOT_AUTHENTICATED };
+      const result = await withAuth(async () => {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !user) {
+          return {
+            data: null,
+            error: { message: 'User not authenticated' }
+          };
+        }
+
+        // Validate post data
+        if (!postData.content || postData.content.trim().length === 0) {
+          return {
+            data: null,
+            error: { message: 'Post content is required' }
+          };
+        }
+
+        // Ensure author_id matches authenticated user
+        const postToCreate = {
+          ...postData,
+          author_id: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          published_at: postData.scheduled_at || new Date().toISOString(),
+          last_activity_at: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+          .from('posts')
+          .insert(postToCreate)
+          .select()
+          .single();
+
+        return { data, error };
+      });
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error?.message || 'Failed to create post'
+        };
       }
 
-      // Validate post data
-      const validationResult = this.validatePostCreate(postData);
-      if (!validationResult.success) {
-        return validationResult as PostOperationResult<Post>;
-      }
-
-      // Ensure author_id matches authenticated user
-      const postToCreate = {
-        ...postData,
-        author_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        published_at: postData.scheduled_at || new Date().toISOString(),
-        last_activity_at: new Date().toISOString()
+      return {
+        success: true,
+        data: result.data
       };
-
-      const { data, error } = await supabase
-        .from('posts')
-        .insert(postToCreate)
-        .select()
-        .single();
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      console.error('Error creating post:', error);
+      return {
+        success: false,
+        error: 'An unexpected error occurred while creating the post'
       };
     }
   }

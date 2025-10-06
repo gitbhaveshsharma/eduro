@@ -74,17 +74,31 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
 
             if (success) {
                 // Update onboarding level to 2
-                await updateOnboardingLevel('2' as OnboardingLevel)
+                const levelSuccess = await updateOnboardingLevel('2' as OnboardingLevel)
 
-                setCompletedSteps(prev => [...prev, 1])
-                setCurrentStep(2)
-                showSuccessToast('Role updated successfully!')
+                if (levelSuccess) {
+                    setCompletedSteps(prev => [...prev, 1])
+                    setCurrentStep(2)
+                    showSuccessToast('Role updated successfully!')
+                } else {
+                    showErrorToast('Failed to update onboarding level. Please try again.')
+                }
             } else {
                 showErrorToast('Failed to update role. Please try again.')
             }
         } catch (error) {
             console.error('Error updating role:', error)
-            showErrorToast('An error occurred. Please try again.')
+            if (error instanceof Error && error.message.includes('timeout')) {
+                showErrorToast('Request timed out. Please check your connection and try again.')
+            } else if (error instanceof Error && error.message.includes('Session expired')) {
+                showErrorToast('Your session has expired. Please refresh the page and log in again.')
+                // Redirect to login after a delay
+                setTimeout(() => {
+                    window.location.href = '/login'
+                }, 2000)
+            } else {
+                showErrorToast('An error occurred. Please try again.')
+            }
         } finally {
             setLoading(false)
         }
