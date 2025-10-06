@@ -157,9 +157,6 @@ class AuthService {
       // Fetch user profile
       if (authData.user) {
         await this.fetchUserProfile(authData.user.id)
-        
-        // Update online status
-        await supabase.rpc('update_online_status', { is_online_status: true })
       }
 
       return {
@@ -196,9 +193,6 @@ class AuthService {
       // Fetch user profile
       if (authData.user) {
         await this.fetchUserProfile(authData.user.id)
-        
-        // Update online status
-        await supabase.rpc('update_online_status', { is_online_status: true })
       }
 
       return {

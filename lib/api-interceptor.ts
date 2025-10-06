@@ -4,6 +4,7 @@
  */
 
 import { authSessionManager } from '@/lib/auth-session'
+import { useAuthStore } from '@/lib/auth-store'
 
 export class ApiRequestInterceptor {
   private static instance: ApiRequestInterceptor
@@ -25,11 +26,11 @@ export class ApiRequestInterceptor {
    */
   async fetch(url: string, options: RequestInit = {}): Promise<Response> {
     // Get valid session
-    const session = await authSessionManager.getValidSession()
-    
+    const session = await authSessionManager.getSession()
+
     // Prepare headers
     const headers = new Headers(options.headers)
-    
+
     // Add authentication header if session exists
     if (session?.access_token) {
       headers.set('Authorization', `Bearer ${session.access_token}`)
@@ -51,22 +52,22 @@ export class ApiRequestInterceptor {
     // If unauthorized, try to refresh token and retry
     if (response.status === 401) {
       console.log('[API] Received 401, attempting token refresh...')
-      
-      const refreshSuccess = await authSessionManager.forceRefresh()
-      
+
+      const refreshSuccess = await authSessionManager.refreshSession()
+
       if (refreshSuccess) {
-        // Get the new session and retry
-        const newSession = await authSessionManager.getValidSession()
-        
+        // Get the new session from the store and retry
+        const newSession = useAuthStore.getState().session
+
         if (newSession?.access_token) {
           headers.set('Authorization', `Bearer ${newSession.access_token}`)
-          
+
           // Retry the original request
           response = await fetch(url, {
             ...options,
             headers,
           })
-          
+
           console.log('[API] Request retried with new token, status:', response.status)
         }
       } else {
@@ -143,16 +144,17 @@ export class SupabaseRequestWrapper {
    */
   static async request<T>(
     requestFn: () => Promise<{ data: T | null; error: any }>,
-    timeoutMs: number = 10000
+    timeoutMs: number = 20000 // Reduced from 30s to 20s
   ): Promise<{ data: T | null; error: any; success: boolean }> {
     try {
-      // Validate session before making request
-      const isValid = await authSessionManager.validateSession()
+      // Get current session with corruption recovery
+      const session = await authSessionManager.getSession()
       
-      if (!isValid) {
+      if (!session) {
+        console.error('[SUPABASE] No valid session available')
         return {
           data: null,
-          error: { message: 'Session expired. Please log in again.' },
+          error: { message: 'Authentication required. Please log in again.' },
           success: false
         }
       }
@@ -169,14 +171,25 @@ export class SupabaseRequestWrapper {
       if (result.error && this.isAuthError(result.error)) {
         console.log('[SUPABASE] Auth error detected, attempting refresh...')
         
-        const refreshSuccess = await authSessionManager.forceRefresh()
+        const refreshSuccess = await authSessionManager.refreshSession()
         
         if (refreshSuccess) {
           console.log('[SUPABASE] Retrying request after refresh...')
-          const retryResult = await Promise.race([requestFn(), timeoutPromise])
+          // Create new timeout for retry
+          const retryTimeoutPromise = new Promise<{ data: T | null; error: any }>((_, reject) =>
+            setTimeout(() => reject(new Error(`Retry timeout after ${timeoutMs}ms`)), timeoutMs)
+          )
+          const retryResult = await Promise.race([requestFn(), retryTimeoutPromise])
           return {
             ...retryResult,
-            success: !retryResult.error
+            success: !retryResult.error,
+          }
+        } else {
+          console.error('[SUPABASE] Token refresh failed, cannot retry request')
+          return {
+            data: null,
+            error: { message: 'Authentication failed. Please log in again.' },
+            success: false,
           }
         }
       }
@@ -187,6 +200,16 @@ export class SupabaseRequestWrapper {
       }
     } catch (error) {
       console.error('[SUPABASE] Request wrapper error:', error)
+      
+      // Handle timeout specifically
+      if (error instanceof Error && error.message.includes('timeout')) {
+        return {
+          data: null,
+          error: { message: 'Request timed out. Please check your connection and try again.' },
+          success: false
+        }
+      }
+      
       return {
         data: null,
         error: error,

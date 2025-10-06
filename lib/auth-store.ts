@@ -1,10 +1,22 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, type Database } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import Cookies from 'js-cookie'
 
-type Profile = Database['public']['Tables']['profiles']['Row']
+// Define Profile type directly
+interface Profile {
+  id: string
+  full_name: string | null
+  username: string | null
+  email: string | null
+  phone: string | null
+  avatar_url: string | null
+  role: string
+  is_online: boolean
+  last_seen_at: string | null
+  [key: string]: any
+}
 
 interface AuthState {
   user: User | null
@@ -116,12 +128,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true })
           
-          // Update online status before signing out
-          const { profile } = get()
-          if (profile) {
-            await supabase.rpc('update_online_status', { is_online_status: false })
-          }
-
+          // Sign out user
           await supabase.auth.signOut()
           
           // Clear all auth data
@@ -147,7 +154,19 @@ export const useAuthStore = create<AuthStore>()(
           const { user } = get()
           if (!user) return
 
-          await supabase.rpc('update_online_status', { is_online_status: isOnline })
+          // Update profile directly
+          const { error } = await supabase
+            .from('profiles')
+            .update({ 
+              is_online: isOnline,
+              last_seen_at: new Date().toISOString()
+            })
+            .eq('id', user.id)
+          
+          if (error) {
+            console.error('Error updating online status:', error)
+            return
+          }
           
           // Update local profile state
           const { profile } = get()
