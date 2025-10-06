@@ -163,7 +163,13 @@ export default function AuthCallbackPage() {
 
                 // Update online status (non-blocking)
                 try {
-                    await supabase.rpc('update_online_status', { is_online_status: true })
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            is_online: true,
+                            last_seen_at: new Date().toISOString()
+                        })
+                        .eq('id', user.id)
                     console.log('Online status updated')
                 } catch (statusError) {
                     console.warn('Failed to update online status:', statusError)

@@ -366,10 +366,10 @@ export class ProfileService {
         return { success: false, error: 'User not authenticated' };
       }
 
-      const updates: any = { is_online: isOnline };
-      if (isOnline) {
-        updates.last_seen_at = new Date().toISOString();
-      }
+      const updates: any = { 
+        is_online: isOnline,
+        last_seen_at: new Date().toISOString()
+      };
 
       const { error } = await supabase
         .from('profiles')

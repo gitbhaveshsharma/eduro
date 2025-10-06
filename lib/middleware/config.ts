@@ -129,6 +129,16 @@ const routeProtections = {
     sanitizeInput: true,
     logRequests: true
   },
+  // feed routes
+  '/feed': {
+    securityLevel: SecurityLevel.AUTHENTICATED,
+    rateLimiting: {
+      requests: 100,
+      window: RateLimitWindow.MINUTE
+    },
+    logRequests: true
+  },
+
   
   // Admin routes - require admin role
   '/admin/*': {

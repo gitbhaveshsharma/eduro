@@ -391,9 +391,17 @@ export class PostService {
         return { success: false, error: POST_ERROR_CODES.NOT_AUTHENTICATED };
       }
 
-      // For now, implement toggle logic directly
-      // TODO: Implement toggle_reaction database function for atomic operations
-      
+      // Validate reaction ID exists in reactions table
+      const { data: reactionExists, error: reactionError } = await supabase
+        .from('reactions')
+        .select('id')
+        .eq('id', reactionId)
+        .single();
+
+      if (reactionError || !reactionExists) {
+        return { success: false, error: 'Invalid reaction ID' };
+      }
+
       // Check if reaction exists
       const { data: existingReaction } = await supabase
         .from('post_reactions')
@@ -449,7 +457,7 @@ export class PostService {
   }
 
   /**
-   * Get user's reaction to a post or comment
+   * Get user's reaction to a post or comment with reaction details
    */
   static async getUserReaction(
     targetType: ReactionTargetType,
@@ -464,7 +472,15 @@ export class PostService {
 
       const { data, error } = await supabase
         .from('post_reactions')
-        .select('*')
+        .select(`
+          *,
+          reactions!inner(
+            name,
+            emoji_unicode,
+            category,
+            description
+          )
+        `)
         .eq('user_id', user.id)
         .eq('target_type', targetType)
         .eq('target_id', targetId)
@@ -475,6 +491,125 @@ export class PostService {
       }
 
       return { success: true, data: data || null };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Get reaction summary for a post or comment
+   */
+  static async getReactionSummary(
+    targetType: ReactionTargetType,
+    targetId: string
+  ): Promise<PostOperationResult<{ reaction_id: number; reaction_name: string; emoji_unicode: string; category: string; count: number; user_reacted: boolean }[]>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Get all reactions for the target with reaction details
+      const { data: reactions, error } = await supabase
+        .from('post_reactions')
+        .select(`
+          reaction_id,
+          user_id,
+          reactions!inner(
+            name,
+            emoji_unicode,
+            category
+          )
+        `)
+        .eq('target_type', targetType)
+        .eq('target_id', targetId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Count reactions and check user's reactions
+      const reactionCounts = new Map<number, { 
+        count: number; 
+        reaction: any; 
+        userReacted: boolean 
+      }>();
+
+      reactions?.forEach(reaction => {
+        const reactionId = reaction.reaction_id;
+        const isUserReaction = user && reaction.user_id === user.id;
+        
+        if (reactionCounts.has(reactionId)) {
+          const existing = reactionCounts.get(reactionId)!;
+          existing.count++;
+          if (isUserReaction) existing.userReacted = true;
+        } else {
+          reactionCounts.set(reactionId, {
+            count: 1,
+            reaction: reaction.reactions,
+            userReacted: isUserReaction || false,
+          });
+        }
+      });
+
+      // Convert to summary format
+      const summary = Array.from(reactionCounts.entries()).map(([reactionId, data]) => ({
+        reaction_id: reactionId,
+        reaction_name: data.reaction.name,
+        emoji_unicode: data.reaction.emoji_unicode,
+        category: data.reaction.category,
+        count: data.count,
+        user_reacted: data.userReacted,
+      }));
+
+      // Sort by count (most popular first)
+      summary.sort((a, b) => b.count - a.count);
+
+      return { success: true, data: summary };
+
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Get all user reactions for a specific target
+   */
+  static async getAllUserReactions(
+    targetType: ReactionTargetType,
+    targetId: string
+  ): Promise<PostOperationResult<PostReaction[]>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return { success: false, error: POST_ERROR_CODES.NOT_AUTHENTICATED };
+      }
+
+      const { data, error } = await supabase
+        .from('post_reactions')
+        .select(`
+          *,
+          reactions!inner(
+            name,
+            emoji_unicode,
+            category,
+            description
+          )
+        `)
+        .eq('user_id', user.id)
+        .eq('target_type', targetType)
+        .eq('target_id', targetId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
+
     } catch (error) {
       return { 
         success: false, 
