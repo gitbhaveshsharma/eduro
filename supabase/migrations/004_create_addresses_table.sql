@@ -22,8 +22,8 @@ CREATE TABLE addresses (
     
     -- Foreign key relationships
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-    branch_id UUID DEFAULT NULL, -- Will reference branches table when created
-    
+    branch_id UUID REFERENCES coaching_branches(id) ON DELETE CASCADE NULL, -- Will reference branches table when created
+    coaching_id UUID REFERENCES coaching_centers(id) ON DELETE CASCADE NULL, -- Will reference coachings table when created
     -- Address type and labeling
     address_type address_type NOT NULL DEFAULT 'HOME',
     label TEXT, -- Custom label like "Home", "Office", "Mom's House"

@@ -17,8 +17,17 @@ export default function OnboardingPage() {
         if (!loading && profile) {
             // Check if user should be on onboarding page
             const onboardingLevel = parseInt(profile.onboarding_level)
+            const userRole = profile.role || 'S'
 
-            if (onboardingLevel >= 3) {
+            // Different completion levels based on role
+            const getRequiredOnboardingLevel = (role: string) => {
+                if (role === 'C') return 4; // Coaching centers need 4 steps
+                return 3; // Others need 3 steps
+            }
+
+            const requiredLevel = getRequiredOnboardingLevel(userRole)
+
+            if (onboardingLevel >= requiredLevel) {
                 // User has completed onboarding, redirect to dashboard after 300ms
                 const timeout = setTimeout(() => {
                     router.push('/dashboard')
@@ -28,11 +37,23 @@ export default function OnboardingPage() {
                 return () => clearTimeout(timeout)
             }
 
-            // Determine which step to start on based on onboarding level
-            if (onboardingLevel >= 2) {
-                setInitialStep(2) // Start on personal info step
+            // Determine which step to start on based on onboarding level and role
+            if (userRole === 'C') {
+                // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Complete (4)
+                if (onboardingLevel >= 3) {
+                    setInitialStep(3) // Start on coaching details step
+                } else if (onboardingLevel >= 2) {
+                    setInitialStep(2) // Start on personal info step
+                } else {
+                    setInitialStep(1) // Start on role selection step
+                }
             } else {
-                setInitialStep(1) // Start on role selection step
+                // Other roles flow: Role (1) → Personal Info (2) → Complete (3)
+                if (onboardingLevel >= 2) {
+                    setInitialStep(2) // Start on personal info step
+                } else {
+                    setInitialStep(1) // Start on role selection step
+                }
             }
         }
     }, [loading, profile, router])

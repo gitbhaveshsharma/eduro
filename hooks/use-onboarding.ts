@@ -29,16 +29,23 @@ export function useOnboardingRedirect() {
     const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
     const isOnOnboardingPage = pathname.startsWith('/onboarding')
 
+    // Different completion levels based on role
+    const getRequiredOnboardingLevel = (userRole: string) => {
+      if (userRole === 'C') return 4; // Coaching centers need 4 steps
+      return 3; // Others need 3 steps
+    }
 
-    // If user hasn't completed onboarding (level < 3) and is not on onboarding page, redirect
-    if (onboardingLevel < 3 && !isOnOnboardingPage) {
-      console.log('Redirecting to onboarding - level:', onboardingLevel)
+    const requiredLevel = getRequiredOnboardingLevel(profile.role || 'S')
+
+    // If user hasn't completed onboarding and is not on onboarding page, redirect
+    if (onboardingLevel < requiredLevel && !isOnOnboardingPage) {
+      console.log('Redirecting to onboarding - level:', onboardingLevel, 'required:', requiredLevel)
       router.push('/onboarding')
       return
     }
 
-    // If user has completed onboarding (level >= 3) but is on onboarding page, redirect to dashboard
-    if (onboardingLevel >= 3 && isOnOnboardingPage) {
+    // If user has completed onboarding but is on onboarding page, redirect to dashboard
+    if (onboardingLevel >= requiredLevel && isOnOnboardingPage) {
       // console.log('Redirecting to dashboard - level:', onboardingLevel)
       router.push('/')
       return
@@ -48,9 +55,14 @@ export function useOnboardingRedirect() {
   return {
     loading,
     profile,
-    shouldShowOnboarding: profile ? parseInt(profile.onboarding_level || '1', 10) < 3 : false,
-    onboardingCompleted: profile ? parseInt(profile.onboarding_level || '1', 10) >= 3 : false,
+    shouldShowOnboarding: profile ? parseInt(profile.onboarding_level || '1', 10) < getRequiredOnboardingLevel(profile.role || 'S') : false,
+    onboardingCompleted: profile ? parseInt(profile.onboarding_level || '1', 10) >= getRequiredOnboardingLevel(profile.role || 'S') : false,
     onboardingLevel: profile ? parseInt(profile.onboarding_level || '1', 10) : 1
+  }
+
+  function getRequiredOnboardingLevel(userRole: string) {
+    if (userRole === 'C') return 4; // Coaching centers need 4 steps
+    return 3; // Others need 3 steps
   }
 }
 
@@ -60,7 +72,8 @@ export function useOnboardingRedirect() {
 export function isOnboardingRequired(profile: any): boolean {
   if (!profile) return false
   const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
-  return onboardingLevel < 3
+  const requiredLevel = profile.role === 'C' ? 4 : 3
+  return onboardingLevel < requiredLevel
 }
 
 /**
@@ -69,9 +82,16 @@ export function isOnboardingRequired(profile: any): boolean {
 export function getOnboardingStep(profile: any): number {
   if (!profile) return 1
   const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
+  const role = profile.role || 'S'
   
-  if (onboardingLevel >= 2) {
-    return 2 // Personal info step
+  if (role === 'C') {
+    // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Complete (4)
+    if (onboardingLevel >= 3) return 3 // Coaching details step
+    if (onboardingLevel >= 2) return 2 // Personal info step
+    return 1 // Role selection step
+  } else {
+    // Other roles flow: Role (1) → Personal Info (2) → Complete (3)
+    if (onboardingLevel >= 2) return 2 // Personal info step
+    return 1 // Role selection step
   }
-  return 1 // Role selection step
 }

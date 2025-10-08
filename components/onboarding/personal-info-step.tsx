@@ -299,7 +299,7 @@ export function PersonalInfoStep({
                             Updating...
                         </div>
                     ) : (
-                        'Complete Setup'
+                        'Next'
                     )}
                 </Button>
             </div>
