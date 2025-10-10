@@ -1,21 +1,26 @@
 'use client'
 
 import { useCurrentProfile, useCurrentProfileLoading } from '@/lib/profile'
-import { Card, CardContent } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ComponentLoadingSpinner } from '@/components/ui/loading-spinner'
-import { User, BookOpen, Users, Trophy, Settings } from 'lucide-react'
+import { User, BookOpen, Users, Trophy, Settings, ImageIcon, Shuffle } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { isOnboardingRequired } from '@/hooks/use-onboarding'
+import { UserAvatar, AvatarManager, AvatarSelector, AvatarGenerator, AvatarUtils } from '@/components/avatar'
+import { useProfileStore } from '@/lib/store/profile.store'
+import { toast } from 'sonner'
 
 export default function DashboardPage() {
     const profile = useCurrentProfile()
     const loading = useCurrentProfileLoading()
     const { user, isInitialized } = useAuthStore()
+    const { updateCurrentProfile } = useProfileStore()
     const router = useRouter()
+    const [showAvatarDemo, setShowAvatarDemo] = useState(false)
 
     // Redirect to home if not authenticated
     useEffect(() => {
@@ -62,20 +67,88 @@ export default function DashboardPage() {
     return (
         <main className="min-h-screen bg-background">
             <div className="max-w-6xl mx-auto p-6 space-y-6">
-                {/* Welcome Header */}
+                {/* Welcome Header with Avatar */}
                 <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-bold text-foreground">
-                            Welcome back, {profile.full_name || 'User'}!
-                        </h1>
-                        <p className="text-muted-foreground mt-1">
-                            Ready to continue your learning journey?
-                        </p>
+                    <div className="flex items-center gap-4">
+                        <div className="relative">
+                            <UserAvatar 
+                                profile={profile} 
+                                size="2xl" 
+                                showOnlineStatus={true}
+                                className="ring-4 ring-primary/10"
+                            />
+                        </div>
+                        <div>
+                            <h1 className="text-3xl font-bold text-foreground">
+                                Welcome back, {profile.full_name || 'User'}!
+                            </h1>
+                            <p className="text-muted-foreground mt-1">
+                                Ready to continue your learning journey?
+                            </p>
+                        </div>
                     </div>
                     <Badge className={roleInfo.color}>
                         {roleInfo.label}
                     </Badge>
                 </div>
+
+                {/* Avatar Demo Section */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <ImageIcon className="h-5 w-5" />
+                            Avatar System Demo
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="flex flex-wrap items-center gap-4">
+                            <div className="text-sm text-muted-foreground">Different sizes:</div>
+                            <UserAvatar profile={profile} size="xs" />
+                            <UserAvatar profile={profile} size="sm" />
+                            <UserAvatar profile={profile} size="md" />
+                            <UserAvatar profile={profile} size="lg" />
+                            <UserAvatar profile={profile} size="xl" />
+                        </div>
+
+                        <div className="flex flex-wrap gap-4">
+                            <AvatarManager 
+                                profile={profile} 
+                                onAvatarUpdate={(avatar) => {
+                                    toast.success(`Avatar updated to ${AvatarUtils.getAvatarTypeLabel ? AvatarUtils.getAvatarTypeLabel(avatar.type) : avatar.type}!`)
+                                }}
+                            />
+                            
+                            <Button 
+                                variant="outline" 
+                                onClick={() => setShowAvatarDemo(!showAvatarDemo)}
+                                className="flex items-center gap-2"
+                            >
+                                <Shuffle className="h-4 w-4" />
+                                {showAvatarDemo ? 'Hide' : 'Show'} Avatar Options
+                            </Button>
+                        </div>
+
+                        {showAvatarDemo && (
+                            <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                                <h4 className="font-medium">Avatar Generator</h4>
+                                <AvatarGenerator 
+                                    onGenerate={async (avatar) => {
+                                        console.log('Dashboard AvatarGenerator - Saving avatar:', avatar);
+                                        const success = await updateCurrentProfile({
+                                            avatar_url: avatar
+                                        });
+                                        if (success) {
+                                            toast.success(`Avatar updated successfully!`);
+                                        } else {
+                                            toast.error('Failed to update avatar');
+                                        }
+                                    }}
+                                    onCancel={() => setShowAvatarDemo(false)}
+                                />
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* Quick Stats */}
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

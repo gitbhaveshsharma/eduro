@@ -50,7 +50,7 @@ export default function LoginPage() {
 
                     // Determine redirect destination based on onboarding status
                     const redirectResult = getAuthRedirectDestination(profile as any, redirectParam || undefined)
-                    console.log('Login page redirect:', redirectResult)
+                    // console.log('Login page redirect:', redirectResult)
                     router.push(redirectResult.destination)
                 } catch (error) {
                     console.error('Redirect error:', error)

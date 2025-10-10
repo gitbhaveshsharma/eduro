@@ -658,14 +658,27 @@ export class ProfileUrlUtils {
   /**
    * Generate avatar URL with fallback
    */
-  static getAvatarUrl(profile: Partial<Profile | PublicProfile>, size: number = 100): string {
-    if (profile.avatar_url) {
+  static getAvatarUrl(profile: Partial<Profile | PublicProfile>, size: number = 400): string {
+    // Handle new avatar system if available
+    if (profile.avatar_url && typeof profile.avatar_url === 'object' && 'type' in profile.avatar_url) {
+      try {
+        // Import AvatarUtils dynamically to avoid circular dependencies
+        const AvatarUtils = require('./avatar.utils').AvatarUtils;
+        const initials = ProfileDisplayUtils.getInitials(profile);
+        return AvatarUtils.getAvatarUrl(profile.avatar_url, initials);
+      } catch (error) {
+        console.warn('Error using new avatar system:', error);
+      }
+    }
+    
+    // Handle legacy string URLs
+    if (profile.avatar_url && typeof profile.avatar_url === 'string') {
       return profile.avatar_url;
     }
     
-    // Generate initials-based avatar URL
+    // Generate initials-based avatar URL as fallback
     const initials = ProfileDisplayUtils.getInitials(profile);
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=random`;
+    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=random&format=png`;
   }
 
   /**

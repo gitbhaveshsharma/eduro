@@ -150,9 +150,14 @@ export class ProfileService {
    * Update current user's profile
    */
   static async updateProfile(updates: ProfileUpdate & { is_active?: boolean }): Promise<ProfileOperationResult<Profile>> {
+    console.log('ProfileService.updateProfile called with:', updates);
+    
     // Validate updates before making request
     const validationResult = this.validateProfileUpdate(updates);
+    console.log('Validation result:', validationResult);
+    
     if (!validationResult.success) {
+      console.error('Validation failed:', validationResult);
       return validationResult as ProfileOperationResult<Profile>;
     }
 
@@ -160,15 +165,21 @@ export class ProfileService {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
+        console.error('Auth error:', authError);
         return { data: null, error: { message: 'User not authenticated' } };
       }
 
+      const updateData = {
+        ...updates,
+        updated_at: new Date().toISOString()
+      };
+      
+      console.log('Updating profile with data:', updateData);
+      console.log('User ID:', user.id);
+
       return await supabase
         .from('profiles')
-        .update({
-          ...updates,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', user.id)
         .select()
         .single();

@@ -59,16 +59,16 @@ export function PersonalInfoStep({
     // Validate existing date of birth when component loads or when role/dob changes
     useEffect(() => {
         if (dateOfBirth && userRole) {
-            console.log('🔍 Validating DOB:', dateOfBirth, 'for role:', userRole)
+            // console.log('🔍 Validating DOB:', dateOfBirth, 'for role:', userRole)
             const age = calculateAge(dateOfBirth)
-            console.log('📅 Calculated age:', age)
+            // console.log('📅 Calculated age:', age)
             const ageError = validateAge(dateOfBirth, userRole)
             if (ageError) {
-                console.log('❌ Age Restriction error:', ageError)
+                // console.log('❌ Age Restriction error:', ageError)
                 setErrors(prev => ({ ...prev, date_of_birth: ageError }))
                 showErrorToast(ageError)
             } else {
-                console.log('✅ Age Restriction passed')
+                // console.log('✅ Age Restriction passed')
                 setErrors(prev => ({ ...prev, date_of_birth: '' }))
             }
         }

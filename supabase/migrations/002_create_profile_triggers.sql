@@ -126,7 +126,7 @@ BEGIN
     END IF;
     
     -- Avatar (10 points)
-    IF profile_record.avatar_url IS NOT NULL AND LENGTH(TRIM(profile_record.avatar_url)) > 0 THEN
+    IF profile_record.avatar_url IS NOT NULL AND profile_record.avatar_url != 'null'::jsonb THEN
         completion_score := completion_score + 10;
     END IF;
     

@@ -9,6 +9,28 @@
 export type UserRole = 'SA' | 'A' | 'S' | 'T' | 'C'; // Super Admin, Admin, Student, Teacher, Coach
 export type OnboardingLevel = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10';
 
+// Avatar system types
+export type AvatarType = 
+  | 'gravatar_monster' 
+  | 'gravatar_robohash' 
+  | 'gravatar_retro'
+  | 'robohash_cat'
+  | 'robohash_sexy'
+  | 'robohash_robo';
+
+export interface AvatarConfig {
+  type: AvatarType;
+  uniqueString: string;
+}
+
+export interface AvatarOption {
+  id: string;
+  type: AvatarType;
+  uniqueString: string;
+  url: string;
+  label: string;
+}
+
 // Core profile interface matching the database table
 export interface Profile {
   // Primary identification
@@ -18,8 +40,7 @@ export interface Profile {
   full_name: string | null;
   username: string | null;
   bio: string | null;
-  avatar_url: string | null;
-  date_of_birth: string | null;
+  avatar_url: string | AvatarConfig | null; // Can be legacy URL or new avatar config
   
   // Role and status
   role: UserRole;
@@ -65,7 +86,6 @@ export interface Profile {
   is_verified: boolean;
   is_active: boolean;
   is_premium: boolean;
-  is_agree: boolean; // Terms and conditions acceptance
   
   // Timestamps
   created_at: string;
@@ -79,7 +99,7 @@ export interface PublicProfile {
   full_name: string | null;
   username: string | null;
   bio: string | null;
-  avatar_url: string | null;
+  avatar_url: string | AvatarConfig | null; // Can be legacy URL or new avatar config
   role: UserRole;
   is_online: boolean;
   reputation_score: number;
@@ -97,8 +117,7 @@ export interface ProfileUpdate {
   full_name?: string | null;
   username?: string | null;
   bio?: string | null;
-  avatar_url?: string | null;
-  date_of_birth?: string | null;
+  avatar_url?: string | AvatarConfig | null; // Support both legacy URLs and new avatar config
   role?: UserRole; // Allow role updates during onboarding
   phone?: string | null;
   timezone?: string;
@@ -118,8 +137,6 @@ export interface ProfileUpdate {
   grade_level?: string | null;
   subjects_of_interest?: string[] | null;
   learning_goals?: string | null;
-  is_agree?: boolean;
-  profile_completion_percentage?: number;
 }
 
 // Profile creation interface (for new profiles)
@@ -131,7 +148,6 @@ export interface ProfileCreate {
   username?: string;
   bio?: string;
   avatar_url?: string;
-  date_of_birth?: string;
   phone?: string;
   timezone?: string;
 }
@@ -296,5 +312,4 @@ export const DEFAULT_PROFILE_VALUES = {
   is_verified: false,
   is_active: true,
   is_premium: false,
-  is_agree: false,
 } as const;
