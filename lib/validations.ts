@@ -81,6 +81,14 @@ export const onboardingPersonalInfoSchema = z.object({
     .min(6, 'Pin code must be at least 6 characters')
     .max(10, 'Pin code must be less than 10 characters')
     .regex(/^[0-9]+$/, 'Pin code can only contain numbers')
+    .optional(),
+  date_of_birth: z
+    .string()
+    .min(1, 'Date of birth is required')
+    .refine((date) => {
+      const dob = new Date(date)
+      return !isNaN(dob.getTime()) && dob <= new Date()
+    }, 'Please enter a valid date of birth')
 })
 
 export const onboardingCoachingSelectionSchema = z.object({

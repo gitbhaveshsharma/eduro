@@ -19,6 +19,7 @@ export interface Profile {
   username: string | null;
   bio: string | null;
   avatar_url: string | null;
+  date_of_birth: string | null;
   
   // Role and status
   role: UserRole;
@@ -96,6 +97,7 @@ export interface ProfileUpdate {
   username?: string | null;
   bio?: string | null;
   avatar_url?: string | null;
+  date_of_birth?: string | null;
   role?: UserRole; // Allow role updates during onboarding
   phone?: string | null;
   timezone?: string;
@@ -126,6 +128,7 @@ export interface ProfileCreate {
   username?: string;
   bio?: string;
   avatar_url?: string;
+  date_of_birth?: string;
   phone?: string;
   timezone?: string;
 }

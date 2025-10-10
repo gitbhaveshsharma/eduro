@@ -26,6 +26,7 @@ CREATE TABLE profiles (
     email TEXT,
     phone TEXT,
     timezone TEXT DEFAULT 'UTC',
+    date_of_birth DATE -- New field for date of birth
     
     -- Platform preferences
     email_notifications BOOLEAN DEFAULT TRUE,

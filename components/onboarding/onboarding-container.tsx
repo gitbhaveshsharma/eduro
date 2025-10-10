@@ -10,6 +10,7 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast'
 import { RoleSelectionStep } from './role-selection-step'
 import { CoachingSelectionStep } from './coaching-selection-step'
 import { PersonalInfoStep } from './personal-info-step'
+import { TermsConditionsStep } from './terms-conditions-step'
 
 interface OnboardingContainerProps {
     initialStep?: number
@@ -30,6 +31,11 @@ const ONBOARDING_STEPS = [
         id: 3,
         title: 'Coaching Details',
         description: 'Setup your coaching center'
+    },
+    {
+        id: 4,
+        title: 'Terms & Conditions',
+        description: 'Accept terms and conditions'
     }
 ]
 
@@ -48,20 +54,38 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
     const [coachingCategory, setCoachingCategory] = useState<CoachingCategory | null>(null)
     const [fullName, setFullName] = useState('')
     const [pinCode, setPinCode] = useState('')
+    const [dateOfBirth, setDateOfBirth] = useState('')
 
     // Update current step when initialStep changes
     useEffect(() => {
         setCurrentStep(initialStep)
     }, [initialStep])
 
+    // Calculate age from date of birth
+    const calculateAge = (dob: string): number => {
+        const today = new Date()
+        const birthDate = new Date(dob)
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+        }
+        
+        return age
+    }
+
     // Load current profile data if available
     useEffect(() => {
         if (currentProfile) {
-            if (currentProfile.role && currentProfile.role !== 'S') {
+            if (currentProfile.role) {
                 setSelectedRole(currentProfile.role)
             }
             if (currentProfile.full_name) {
                 setFullName(currentProfile.full_name)
+            }
+            if (currentProfile.date_of_birth) {
+                setDateOfBirth(currentProfile.date_of_birth)
             }
 
             // Mark steps as completed based on existing data
@@ -75,11 +99,36 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
             if (currentProfile.role === 'C' && currentProfile.onboarding_level >= '4') {
                 completed.push(3) // Coaching step only for coaching centers
             }
+            if (currentProfile.onboarding_level >= '5') {
+                completed.push(4) // Terms and conditions
+            }
             setCompletedSteps(completed)
         }
     }, [currentProfile])
 
-    const progressPercentage = (currentStep / ONBOARDING_STEPS.length) * 100
+    // Calculate total steps and display step based on role
+    const getTotalSteps = () => {
+        if (selectedRole === 'C') {
+            return 4 // Role, Personal, Coaching, Terms
+        }
+        return 3 // Role, Personal, Terms (skip coaching step)
+    }
+
+    const getDisplayStep = () => {
+        if (selectedRole === 'C') {
+            return currentStep // All steps are sequential for coaching centers
+        }
+        // For non-coaching roles, step 3 is skipped, so step 4 becomes step 3
+        if (currentStep === 4) return 3
+        return currentStep
+    }
+
+    const getStepTitle = () => {
+        if (currentStep === 4) return 'Terms & Conditions'
+        return ONBOARDING_STEPS[currentStep - 1]?.title || ''
+    }
+
+    const progressPercentage = (getDisplayStep() / getTotalSteps()) * 100
 
     const handleRoleNext = async () => {
         if (!selectedRole) return
@@ -123,13 +172,25 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
     }
 
     const handlePersonalInfoNext = async () => {
-        if (!fullName.trim()) return
+        if (!fullName.trim() || !dateOfBirth) return
+
+        // Validate age before proceeding
+        const age = calculateAge(dateOfBirth)
+        if (selectedRole === 'S' && (age < 5 || age > 26)) {
+            showErrorToast('Students must be between 5 and 26 years old')
+            return
+        }
+        if ((selectedRole === 'T' || selectedRole === 'C') && age < 15) {
+            showErrorToast('Teachers and Coaches must be at least 15 years old')
+            return
+        }
 
         setLoading(true)
         try {
-            // Update user full name
+            // Update user full name and date of birth
             const updates = {
-                full_name: fullName.trim()
+                full_name: fullName.trim(),
+                date_of_birth: dateOfBirth
             }
 
             const success = await updateCurrentProfile(updates)
@@ -148,10 +209,8 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
                 if (selectedRole === 'C') {
                     setCurrentStep(3)
                 } else {
-                    // For other roles, onboarding is complete
-                    setTimeout(() => {
-                        router.push('/dashboard')
-                    }, 1500)
+                    // For other roles, go to terms and conditions step
+                    setCurrentStep(4)
                 }
             } else {
                 showErrorToast('Failed to update profile. Please try again.')
@@ -169,11 +228,33 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
         // and then call this function when done
         setLoading(true)
         try {
-            // Update onboarding level to 4 (complete for coaching centers)
+            // Update onboarding level to 4 (coaching completed, now go to terms)
             await updateOnboardingLevel('4' as OnboardingLevel)
 
             setCompletedSteps(prev => [...prev, 3])
-            showSuccessToast('Onboarding completed successfully!')
+            showSuccessToast('Coaching details saved successfully!')
+
+            // Reload profile to get latest data
+            await loadCurrentProfile()
+
+            // Go to terms and conditions step
+            setCurrentStep(4)
+        } catch (error) {
+            console.error('Error updating coaching details:', error)
+            showErrorToast('An error occurred. Please try again.')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleTermsNext = async () => {
+        setLoading(true)
+        try {
+            // Update onboarding level to 5 (complete)
+            await updateOnboardingLevel('5' as OnboardingLevel)
+
+            setCompletedSteps(prev => [...prev, 4])
+            showSuccessToast('Registration completed successfully!')
 
             // Reload profile to get latest data
             await loadCurrentProfile()
@@ -203,6 +284,8 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
             handlePersonalInfoNext()
         } else if (currentStep === 3) {
             handleCoachingNext()
+        } else if (currentStep === 4) {
+            handleTermsNext()
         }
     }
 
@@ -216,10 +299,10 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
                     <div className="space-y-2">
                         <div className="flex justify-between text-sm">
                             <span className="font-medium">
-                                Step {currentStep} of {ONBOARDING_STEPS.length}
+                                Step {getDisplayStep()} of {getTotalSteps()}
                             </span>
                             <span className="text-muted-foreground">
-                                {ONBOARDING_STEPS[currentStep - 1].title}
+                                {getStepTitle()}
                             </span>
                         </div>
                         <Progress value={progressPercentage} className="w-full" />
@@ -239,8 +322,11 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
                     <PersonalInfoStep
                         fullName={fullName}
                         pinCode={pinCode}
+                        dateOfBirth={dateOfBirth}
+                        userRole={selectedRole}
                         onFullNameChange={setFullName}
                         onPinCodeChange={setPinCode}
+                        onDateOfBirthChange={setDateOfBirth}
                         onNext={handlePersonalInfoNext}
                         onPrevious={handlePrevious}
                         loading={loading}
@@ -254,6 +340,14 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
                         onCoachingNameChange={setCoachingName}
                         onCoachingCategoryChange={setCoachingCategory}
                         onNext={handleCoachingNext}
+                        onPrevious={handlePrevious}
+                        loading={loading}
+                    />
+                )}
+
+                {currentStep === 4 && (
+                    <TermsConditionsStep
+                        onNext={handleTermsNext}
                         onPrevious={handlePrevious}
                         loading={loading}
                     />

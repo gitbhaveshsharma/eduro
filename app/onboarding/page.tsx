@@ -21,8 +21,7 @@ export default function OnboardingPage() {
 
             // Different completion levels based on role
             const getRequiredOnboardingLevel = (role: string) => {
-                if (role === 'C') return 4; // Coaching centers need 4 steps
-                return 3; // Others need 3 steps
+                return 5; // All users need 5 steps now (role, personal, coaching(if needed), terms)
             }
 
             const requiredLevel = getRequiredOnboardingLevel(userRole)
@@ -39,8 +38,10 @@ export default function OnboardingPage() {
 
             // Determine which step to start on based on onboarding level and role
             if (userRole === 'C') {
-                // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Complete (4)
-                if (onboardingLevel >= 3) {
+                // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Terms (4) → Complete (5)
+                if (onboardingLevel >= 4) {
+                    setInitialStep(4) // Start on terms step
+                } else if (onboardingLevel >= 3) {
                     setInitialStep(3) // Start on coaching details step
                 } else if (onboardingLevel >= 2) {
                     setInitialStep(2) // Start on personal info step
@@ -48,8 +49,10 @@ export default function OnboardingPage() {
                     setInitialStep(1) // Start on role selection step
                 }
             } else {
-                // Other roles flow: Role (1) → Personal Info (2) → Complete (3)
-                if (onboardingLevel >= 2) {
+                // Other roles flow: Role (1) → Personal Info (2) → Terms (4) → Complete (5)
+                if (onboardingLevel >= 4) {
+                    setInitialStep(4) // Start on terms step
+                } else if (onboardingLevel >= 2) {
                     setInitialStep(2) // Start on personal info step
                 } else {
                     setInitialStep(1) // Start on role selection step
