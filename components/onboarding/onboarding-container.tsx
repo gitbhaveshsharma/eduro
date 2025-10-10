@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Progress } from '@/components/ui/progress'
+import { LoadingSpinner } from '@/components/ui/loading-spinner'
 import { UserRole, OnboardingLevel } from '@/lib/schema/profile.types'
 import { CoachingCategory } from '@/lib/schema/coaching.types'
 import { useProfileStore } from '@/lib/store/profile.store'
@@ -47,6 +48,7 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
     const [currentStep, setCurrentStep] = useState(initialStep)
     const [loading, setLoading] = useState(false)
     const [completedSteps, setCompletedSteps] = useState<number[]>([])
+    const [isCompleted, setIsCompleted] = useState(false) // Track completion state
 
     // Form data
     const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
@@ -77,6 +79,9 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
 
     // Load current profile data if available
     useEffect(() => {
+        // Don't update state during completion to prevent flashing
+        if (isCompleted) return
+        
         if (currentProfile) {
             if (currentProfile.role) {
                 setSelectedRole(currentProfile.role)
@@ -104,7 +109,7 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
             }
             setCompletedSteps(completed)
         }
-    }, [currentProfile])
+    }, [currentProfile, isCompleted])
 
     // Calculate total steps and display step based on role
     const getTotalSteps = () => {
@@ -261,24 +266,22 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
 
     const handleTermsNext = async () => {
         setLoading(true)
+        setIsCompleted(true) // Set completion state immediately
         try {
             // Update onboarding level to 5 (complete)
             await updateOnboardingLevel('5' as OnboardingLevel)
 
             setCompletedSteps(prev => [...prev, 4])
+            
+            // Small delay to show success message then redirect
             showSuccessToast('Registration completed successfully!')
-
-            // Reload profile to get latest data
-            await loadCurrentProfile()
-
-            // Redirect to dashboard after completion
             setTimeout(() => {
                 router.push('/dashboard')
-            }, 1500)
+            }, 500) // Reduced to 500ms for better UX
         } catch (error) {
             console.error('Error completing onboarding:', error)
             showErrorToast('An error occurred. Please try again.')
-        } finally {
+            setIsCompleted(false) // Reset completion state on error
             setLoading(false)
         }
     }
@@ -318,6 +321,31 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
     }
 
     const isStepCompleted = (stepId: number) => completedSteps.includes(stepId)
+
+    // Show completion message when redirecting
+    if (isCompleted) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 py-8 px-4 flex items-center justify-center">
+                <div className="text-center space-y-6">
+                    <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
+                        <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-bold text-green-600">Registration Complete!</h2>
+                        <p className="text-muted-foreground">Welcome to Eduro. Redirecting to your dashboard...</p>
+                    </div>
+                    <LoadingSpinner 
+                        message="Redirecting to dashboard..."
+                        size="md"
+                        variant="success"
+                        inline
+                    />
+                </div>
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 py-8 px-4">

@@ -36,17 +36,18 @@ export function TermsConditionsStep({
             const success = await updateCurrentProfile({ is_agree: true })
             
             if (success) {
-                showSuccessToast('Terms and conditions accepted successfully!')
+                // Don't show success toast here as it will be handled by parent
                 onNext() // This will handle the onboarding level update and redirect
             } else {
                 showErrorToast('Failed to save terms acceptance. Please try again.')
+                setIsProcessing(false)
             }
         } catch (error) {
             console.error('Error accepting terms:', error)
             showErrorToast('An error occurred while accepting terms. Please try again.')
-        } finally {
             setIsProcessing(false)
         }
+        // Don't reset isProcessing here if success, let the parent handle it
     }
 
     return (
