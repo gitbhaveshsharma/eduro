@@ -21,6 +21,7 @@ import {
     Pin,
     Star
 } from "lucide-react";
+import { ReactionSystem, PostReactions, type PublicReaction } from "@/components/reactions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ export interface PostCardProps {
     onLocationClick?: (location: string, coordinates?: { latitude: number; longitude: number }) => void;
     onTagClick?: (tag: string) => void;
     onCategoryClick?: (category: string) => void;
+    onReactionChange?: (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => void;
     showEngagementScores?: boolean;
     compact?: boolean;
     className?: string;
@@ -61,6 +63,7 @@ export function PostCard({
     onLocationClick,
     onTagClick,
     onCategoryClick,
+    onReactionChange,
     showEngagementScores = false,
     compact = false,
     className = ""
@@ -99,6 +102,10 @@ export function PostCard({
         if (post.category) {
             onCategoryClick?.(post.category);
         }
+    };
+
+    const handleReactionChange = (reaction: PublicReaction, action: 'add' | 'remove') => {
+        onReactionChange?.(post.id, reaction, action);
     };
 
     // Mark as viewed when component mounts
@@ -326,20 +333,18 @@ export function PostCard({
                 {/* Actions */}
                 <div className="px-4 py-3 border-t border-gray-100">
                     <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1">
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleLike}
-                                className={`gap-2 ${post.user_has_liked
-                                        ? 'text-red-500 hover:text-red-600'
-                                        : 'text-gray-500 hover:text-red-500'
-                                    }`}
-                            >
-                                <Heart className={`h-4 w-4 ${post.user_has_liked ? 'fill-current' : ''}`} />
-                                <span>{PostUtils.Display.formatEngagementCount(post.like_count || 0)}</span>
-                            </Button>
+                        {/* Reaction System */}
+                        <PostReactions
+                            targetType="POST"
+                            targetId={post.id}
+                            onReactionChange={handleReactionChange}
+                            size={compact ? 'sm' : 'md'}
+                            layout="inline"
+                            maxDisplay={compact ? 3 : 5}
+                        />
 
+                        {/* Traditional Actions */}
+                        <div className="flex items-center space-x-1">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -359,19 +364,19 @@ export function PostCard({
                                 <Share2 className="h-4 w-4" />
                                 <span>{PostUtils.Display.formatEngagementCount(post.share_count || 0)}</span>
                             </Button>
-                        </div>
 
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleSave}
-                            className={`${post.user_has_saved
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSave}
+                                className={`${post.user_has_saved
                                     ? 'text-blue-500'
                                     : 'text-gray-500 hover:text-blue-500'
-                                }`}
-                        >
-                            <Bookmark className={`h-4 w-4 ${post.user_has_saved ? 'fill-current' : ''}`} />
-                        </Button>
+                                    }`}
+                            >
+                                <Bookmark className={`h-4 w-4 ${post.user_has_saved ? 'fill-current' : ''}`} />
+                            </Button>
+                        </div>
                     </div>
                 </div>
             </CardContent>
