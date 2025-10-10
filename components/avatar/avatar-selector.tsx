@@ -85,7 +85,7 @@ export function AvatarSelector({
     { type: 'gravatar_robohash', label: 'Robots', category: 'gravatar' },
     { type: 'gravatar_retro', label: 'Retro', category: 'gravatar' },
     { type: 'robohash_cat', label: 'Cats', category: 'robohash' },
-    { type: 'robohash_sexy', label: 'Sexy', category: 'robohash' },
+    { type: 'robohash_sexy_robots', label: 'BT Robots', category: 'robohash' },
     { type: 'robohash_robo', label: 'Robo', category: 'robohash' }
   ];
 

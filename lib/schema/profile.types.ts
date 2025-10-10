@@ -15,7 +15,7 @@ export type AvatarType =
   | 'gravatar_robohash' 
   | 'gravatar_retro'
   | 'robohash_cat'
-  | 'robohash_sexy'
+  | 'robohash_sexy_robots'
   | 'robohash_robo';
 
 export interface AvatarConfig {

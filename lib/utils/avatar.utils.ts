@@ -33,7 +33,7 @@ export class AvatarUtils {
       baseUrl: 'https://robohash.org/',
       params: { set: 'set4', bgset: '', size: '400x400' }
     },
-    robohash_sexy: {
+    robohash_sexy_robots: {
       label: 'RoboHash Sexy',
       baseUrl: 'https://robohash.org/',
       params: { set: 'set2', bgset: '', size: '400x400' }
@@ -159,7 +159,7 @@ export class AvatarUtils {
       'gravatar_robohash', 
       'gravatar_retro',
       'robohash_cat',
-      'robohash_sexy',
+      'robohash_sexy_robots',
       'robohash_robo'
     ];
 

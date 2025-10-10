@@ -242,7 +242,7 @@ export function AvatarGenerator({
               <div className="px-2 py-1">
                 <div className="text-xs font-medium text-muted-foreground mb-1">RoboHash</div>
                 <SelectItem value="robohash_cat">Cats</SelectItem>
-                <SelectItem value="robohash_sexy">Sexy</SelectItem>
+                <SelectItem value="robohash_sexy_robots">BT Robots</SelectItem>
                 <SelectItem value="robohash_robo">Robo</SelectItem>
               </div>
             </SelectContent>

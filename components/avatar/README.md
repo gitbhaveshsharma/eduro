@@ -44,7 +44,7 @@ type AvatarType =
   | 'gravatar_robohash'   // Gravatar robots  
   | 'gravatar_retro'      // Gravatar retro
   | 'robohash_cat'        // RoboHash cats
-  | 'robohash_sexy'       // RoboHash sexy
+  | 'robohash_sexy_robots'       // RoboHash sexy
   | 'robohash_robo'       // RoboHash robots
 ```
 
