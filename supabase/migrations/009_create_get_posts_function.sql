@@ -42,7 +42,7 @@ RETURNS TABLE (
   author_id UUID,
   author_username TEXT,
   author_full_name TEXT,
-  author_avatar_url TEXT,
+  author_avatar_url JSONB,
   author_reputation_score INTEGER,
   author_is_verified BOOLEAN,
   title TEXT,
@@ -104,14 +104,43 @@ BEGIN
     
     SELECT subjects_of_interest INTO v_user_interests
     FROM profiles
-    WHERE id = p_user_id;
+    WHERE profiles.id = p_user_id;
   END IF;
   
   RETURN QUERY
   WITH 
   filtered_posts AS (
     SELECT 
-      p.*,
+      p.id,
+      p.author_id,
+      p.title,
+      p.content,
+      p.content_preview,
+      p.post_type,
+      p.privacy,
+      p.status,
+      p.media_urls,
+      p.media_types,
+      p.external_link,
+      p.external_link_preview,
+      p.location,
+      p.coordinates,
+      p.category,
+      p.tags,
+      p.like_count,
+      p.comment_count,
+      p.share_count,
+      p.view_count,
+      p.engagement_score,
+      p.is_pinned,
+      p.is_featured,
+      p.is_sensitive,
+      p.content_warning,
+      p.created_at,
+      p.published_at,
+      p.last_activity_at,
+      p.search_vector,
+      p.expires_at,
       pr.username as author_username,
       pr.full_name as author_full_name,
       pr.avatar_url as author_avatar_url,
@@ -151,7 +180,40 @@ BEGIN
   
   user_interactions AS (
     SELECT 
-      fp.*,
+      fp.id,
+      fp.author_id,
+      fp.title,
+      fp.content,
+      fp.content_preview,
+      fp.post_type,
+      fp.privacy,
+      fp.status,
+      fp.media_urls,
+      fp.media_types,
+      fp.external_link,
+      fp.external_link_preview,
+      fp.location,
+      fp.coordinates,
+      fp.category,
+      fp.tags,
+      fp.like_count,
+      fp.comment_count,
+      fp.share_count,
+      fp.view_count,
+      fp.engagement_score,
+      fp.is_pinned,
+      fp.is_featured,
+      fp.is_sensitive,
+      fp.content_warning,
+      fp.created_at,
+      fp.published_at,
+      fp.last_activity_at,
+      fp.search_vector,
+      fp.author_username,
+      fp.author_full_name,
+      fp.author_avatar_url,
+      fp.author_reputation_score,
+      fp.author_is_verified,
       EXISTS(
         SELECT 1 FROM post_reactions pr2
         WHERE pr2.target_type = 'POST'
@@ -159,7 +221,7 @@ BEGIN
         AND pr2.user_id = p_user_id
       ) as user_has_liked,
       (
-        SELECT reaction_id FROM post_reactions pr2
+        SELECT pr2.reaction_id FROM post_reactions pr2
         WHERE pr2.target_type = 'POST'
         AND pr2.target_id = fp.id
         AND pr2.user_id = p_user_id
@@ -192,7 +254,44 @@ BEGIN
   
   scored_posts AS (
     SELECT 
-      ui.*,
+      ui.id,
+      ui.author_id,
+      ui.title,
+      ui.content,
+      ui.content_preview,
+      ui.post_type,
+      ui.privacy,
+      ui.status,
+      ui.media_urls,
+      ui.media_types,
+      ui.external_link,
+      ui.external_link_preview,
+      ui.location,
+      ui.coordinates,
+      ui.category,
+      ui.tags,
+      ui.like_count,
+      ui.comment_count,
+      ui.share_count,
+      ui.view_count,
+      ui.engagement_score,
+      ui.is_pinned,
+      ui.is_featured,
+      ui.is_sensitive,
+      ui.content_warning,
+      ui.created_at,
+      ui.published_at,
+      ui.last_activity_at,
+      ui.author_username,
+      ui.author_full_name,
+      ui.author_avatar_url,
+      ui.author_reputation_score,
+      ui.author_is_verified,
+      ui.user_has_liked,
+      ui.user_reaction_id,
+      ui.user_has_saved,
+      ui.user_has_shared,
+      ui.user_has_viewed,
       (100 * EXP(-0.693 * EXTRACT(EPOCH FROM (NOW() - ui.created_at)) / (24 * 3600))) as freshness_score,
       CASE 
         WHEN EXTRACT(EPOCH FROM (NOW() - ui.created_at)) > 0 THEN
@@ -226,14 +325,54 @@ BEGIN
         (ui.view_count * 0.05) +
         (CASE WHEN ui.is_featured THEN 20 ELSE 0 END) +
         (CASE WHEN ui.is_pinned THEN 15 ELSE 0 END)
-      )) as engagement_quality_score,
-      50 as diversity_score
+      )) as engagement_quality_score
     FROM user_interactions ui
   ),
   
   ranked_posts AS (
     SELECT 
-      sp.*,
+      sp.id,
+      sp.author_id,
+      sp.title,
+      sp.content,
+      sp.content_preview,
+      sp.post_type,
+      sp.privacy,
+      sp.status,
+      sp.media_urls,
+      sp.media_types,
+      sp.external_link,
+      sp.external_link_preview,
+      sp.location,
+      sp.coordinates,
+      sp.category,
+      sp.tags,
+      sp.like_count,
+      sp.comment_count,
+      sp.share_count,
+      sp.view_count,
+      sp.engagement_score,
+      sp.is_pinned,
+      sp.is_featured,
+      sp.is_sensitive,
+      sp.content_warning,
+      sp.created_at,
+      sp.published_at,
+      sp.last_activity_at,
+      sp.author_username,
+      sp.author_full_name,
+      sp.author_avatar_url,
+      sp.author_reputation_score,
+      sp.author_is_verified,
+      sp.user_has_liked,
+      sp.user_reaction_id,
+      sp.user_has_saved,
+      sp.user_has_shared,
+      sp.user_has_viewed,
+      sp.freshness_score,
+      sp.viral_velocity,
+      sp.author_affinity_score,
+      sp.content_relevance_score,
       CASE WHEN p_feed_type = 'smart' THEN
         (
           (sp.freshness_score * 0.25) +
@@ -323,6 +462,9 @@ BEGIN
   OFFSET p_offset;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+GRANT EXECUTE ON FUNCTION get_posts TO authenticated, anon;
+
 
 GRANT EXECUTE ON FUNCTION get_posts TO authenticated, anon;
 
