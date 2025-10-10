@@ -31,8 +31,8 @@ export function useOnboardingRedirect() {
 
     // Different completion levels based on role
     const getRequiredOnboardingLevel = (userRole: string) => {
-      if (userRole === 'C') return 4; // Coaching centers need 4 steps
-      return 3; // Others need 3 steps
+      if (userRole === 'C') return 5; // Coaching centers need 5 steps (Role, Personal, Coaching, Terms, Complete)
+      return 5; // Others need 5 steps (Role, Personal, Terms, Complete)
     }
 
     const requiredLevel = getRequiredOnboardingLevel(profile.role || 'S')
@@ -61,8 +61,8 @@ export function useOnboardingRedirect() {
   }
 
   function getRequiredOnboardingLevel(userRole: string) {
-    if (userRole === 'C') return 4; // Coaching centers need 4 steps
-    return 3; // Others need 3 steps
+    if (userRole === 'C') return 5; // Coaching centers need 5 steps (Role, Personal, Coaching, Terms, Complete)
+    return 5; // Others need 5 steps (Role, Personal, Terms, Complete)
   }
 }
 
@@ -72,7 +72,7 @@ export function useOnboardingRedirect() {
 export function isOnboardingRequired(profile: any): boolean {
   if (!profile) return false
   const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
-  const requiredLevel = profile.role === 'C' ? 4 : 3
+  const requiredLevel = 5 // All roles now require completing terms (level 5)
   return onboardingLevel < requiredLevel
 }
 
@@ -85,12 +85,14 @@ export function getOnboardingStep(profile: any): number {
   const role = profile.role || 'S'
   
   if (role === 'C') {
-    // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Complete (4)
+    // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Terms (4) → Complete (5)
+    if (onboardingLevel >= 4) return 4 // Terms and conditions step
     if (onboardingLevel >= 3) return 3 // Coaching details step
     if (onboardingLevel >= 2) return 2 // Personal info step
     return 1 // Role selection step
   } else {
-    // Other roles flow: Role (1) → Personal Info (2) → Complete (3)
+    // Other roles flow: Role (1) → Personal Info (2) → Terms (4) → Complete (5)
+    if (onboardingLevel >= 3) return 4 // Terms and conditions step (skipping step 3)
     if (onboardingLevel >= 2) return 2 // Personal info step
     return 1 // Role selection step
   }

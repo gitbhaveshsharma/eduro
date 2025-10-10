@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { FileText, Shield, Users, BookOpen, AlertCircle } from 'lucide-react'
+import { useProfileStore } from '@/lib/store/profile.store'
+import { showSuccessToast, showErrorToast } from '@/lib/toast'
 
 interface TermsConditionsStepProps {
     onNext: () => void
@@ -20,12 +22,30 @@ export function TermsConditionsStep({
 }: TermsConditionsStepProps) {
     const [acceptedTerms, setAcceptedTerms] = useState(false)
     const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
+    const { updateCurrentProfile } = useProfileStore()
 
     const canProceed = acceptedTerms && acceptedPrivacy
 
-    const handleNext = () => {
-        if (canProceed) {
-            onNext()
+    const handleNext = async () => {
+        if (!canProceed) return
+        
+        setIsProcessing(true)
+        try {
+            // Update profile with terms acceptance
+            const success = await updateCurrentProfile({ is_agree: true })
+            
+            if (success) {
+                showSuccessToast('Terms and conditions accepted successfully!')
+                onNext() // This will handle the onboarding level update and redirect
+            } else {
+                showErrorToast('Failed to save terms acceptance. Please try again.')
+            }
+        } catch (error) {
+            console.error('Error accepting terms:', error)
+            showErrorToast('An error occurred while accepting terms. Please try again.')
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -222,10 +242,10 @@ export function TermsConditionsStep({
 
                 <Button
                     onClick={handleNext}
-                    disabled={!canProceed || loading}
+                    disabled={!canProceed || loading || isProcessing}
                     className="min-w-[150px]"
                 >
-                    {loading ? (
+                    {(loading || isProcessing) ? (
                         <div className="flex items-center gap-2">
                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                             Completing...

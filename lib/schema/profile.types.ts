@@ -65,6 +65,7 @@ export interface Profile {
   is_verified: boolean;
   is_active: boolean;
   is_premium: boolean;
+  is_agree: boolean; // Terms and conditions acceptance
   
   // Timestamps
   created_at: string;
@@ -117,6 +118,8 @@ export interface ProfileUpdate {
   grade_level?: string | null;
   subjects_of_interest?: string[] | null;
   learning_goals?: string | null;
+  is_agree?: boolean;
+  profile_completion_percentage?: number;
 }
 
 // Profile creation interface (for new profiles)
@@ -293,4 +296,5 @@ export const DEFAULT_PROFILE_VALUES = {
   is_verified: false,
   is_active: true,
   is_premium: false,
+  is_agree: false,
 } as const;
