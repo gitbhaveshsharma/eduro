@@ -156,6 +156,7 @@ export function ReactionBar({
                     targetId={targetId}
                     triggerRef={plusButtonRef}
                     position="auto"
+                    modalOnOpen={true}
                     onReactionSelect={handlePickerSelect}
                     onClose={handlePickerClose}
                 />

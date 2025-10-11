@@ -24,6 +24,7 @@ import type {
 } from "@/lib/service/getpost.service";
 import type { PostType } from "@/lib/schema/post.types";
 import { PostService } from "@/lib/service/post.service";
+import type { PublicReaction } from "@/components/reactions";
 
 export interface FeedContainerProps {
     // Feed configuration
@@ -146,6 +147,22 @@ export function FeedContainer({
         markPostViewed(postId);
     }, [markPostViewed]);
 
+    const handleReactionChange = useCallback(async (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
+        try {
+            // Call the PostService to toggle the reaction
+            const result = await PostService.toggleReaction('POST', postId, reaction.id);
+            
+            if (!result.success) {
+                console.error('Failed to update reaction:', result.error);
+            }
+            
+            // The reaction change is handled by the database triggers
+            // so we don't need to manually update the local state
+        } catch (error) {
+            console.error('Failed to toggle reaction:', error);
+        }
+    }, []);
+
     // Handle refresh
     const handleRefresh = useCallback(() => {
         clearError();
@@ -241,6 +258,7 @@ export function FeedContainer({
                             onLocationClick={onLocationClick}
                             onTagClick={onTagClick}
                             onCategoryClick={onCategoryClick}
+                            onReactionChange={handleReactionChange}
                             showEngagementScores={showEngagementScores}
                             compact={compact}
                         />
