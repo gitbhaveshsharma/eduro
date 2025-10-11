@@ -155,11 +155,11 @@ export function ReactionBar({
                     targetType={targetType}
                     targetId={targetId}
                     triggerRef={plusButtonRef}
+                    position="auto"
                     onReactionSelect={handlePickerSelect}
                     onClose={handlePickerClose}
-                    position="top"
-                    modalOnOpen
                 />
+
             </div>
         </TooltipProvider>
     );
