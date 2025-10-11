@@ -3,11 +3,12 @@
  * 
  * Shows existing reactions on a post/comment with counts and user interactions
  * Displays top reactions with smooth animations and hover effects
+ * On hover (200ms), reveals a floating ReactionBar with bubble-pop animation
  */
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,6 @@ import {
     useReactionAnalytics,
     type ReactionSummary,
     type PublicReaction,
-    type ReactionAnalytics,
 } from "@/lib/reaction";
 
 import {
@@ -55,9 +55,11 @@ import {
     getCategoryColor,
 } from "@/lib/utils/reaction.utils";
 
+import { ReactionBar } from "./reaction-bar";
+
 export interface ReactionDisplayProps {
     /** Target type for reactions */
-    targetType: 'POST' | 'COMMENT';
+    targetType: "POST" | "COMMENT";
     /** Target ID for reactions */
     targetId: string;
     /** Callback when a reaction is clicked (to toggle) */
@@ -67,11 +69,9 @@ export interface ReactionDisplayProps {
     /** Maximum reactions to display before showing "+X more" */
     maxDisplay?: number;
     /** Size variant */
-    size?: 'sm' | 'md' | 'lg';
+    size?: "sm" | "md" | "lg";
     /** Custom class name */
     className?: string;
-    /** Whether to show user avatars in tooltip */
-    showUserAvatars?: boolean;
     /** Callback when "more reactions" is clicked */
     onShowAllReactions?: () => void;
 }
@@ -104,13 +104,22 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     onReactionClick,
     showAnalytics = false,
     maxDisplay = 6,
-    size = 'md',
+    size = "md",
     className,
-    showUserAvatars = false,
     onShowAllReactions,
 }: ReactionDisplayProps) {
     const [hoveredReaction, setHoveredReaction] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+
+    // Flyout state and refs
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const flyoutRef = useRef<HTMLDivElement | null>(null);
+    const hoverTimerRef = useRef<number | null>(null);
+
+    const [isGroupHover, setIsGroupHover] = useState(false);
+    const [isFlyoutHover, setIsFlyoutHover] = useState(false);
+    const [isFocusInside, setIsFocusInside] = useState(false);
+    const [showBar, setShowBar] = useState(false);
 
     // Store hooks
     const { loadReactionAnalytics, getReactionById } = useReactionStore();
@@ -133,14 +142,11 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     }, [analytics?.reactions_breakdown]);
 
     // Memoize displayed reactions
-    const displayedReactions = useMemo(() =>
-        sortedReactions.slice(0, maxDisplay),
-        [sortedReactions, maxDisplay]
-    );
+    const displayedReactions = useMemo(() => sortedReactions.slice(0, maxDisplay), [sortedReactions, maxDisplay]);
 
     // Calculate hidden count
-    const hiddenCount = useMemo(() =>
-        Math.max(0, sortedReactions.length - maxDisplay),
+    const hiddenCount = useMemo(
+        () => Math.max(0, sortedReactions.length - maxDisplay),
         [sortedReactions.length, maxDisplay]
     );
 
@@ -158,51 +164,121 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
         };
     }, [analytics?.reactions_breakdown]);
 
-    // Memoized callback for reaction click
-    const handleReactionClick = useCallback((reactionSummary: ReactionSummary) => {
-        const reaction = getReactionById(reactionSummary.reaction_id);
-        if (reaction && onReactionClick) {
-            onReactionClick(reaction);
-        }
-    }, [getReactionById, onReactionClick]);
+    // Reaction click
+    const handleReactionClick = useCallback(
+        (reactionSummary: ReactionSummary) => {
+            const reaction = getReactionById(reactionSummary.reaction_id);
+            if (reaction && onReactionClick) {
+                onReactionClick(reaction);
+            }
+        },
+        [getReactionById, onReactionClick]
+    );
 
-    // Memoized callback for hover events
-    const handleMouseEnter = useCallback((reactionId: number) => {
-        setHoveredReaction(reactionId);
+    // Chip hover
+    const handleMouseEnterChip = useCallback((reactionId: number) => setHoveredReaction(reactionId), []);
+    const handleMouseLeaveChip = useCallback(() => setHoveredReaction(null), []);
+
+    // Flyout timing and visibility
+    const openBarWithDelay = useCallback(() => {
+        if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = window.setTimeout(() => setShowBar(true), 200);
     }, []);
 
-    const handleMouseLeave = useCallback(() => {
-        setHoveredReaction(null);
+    const cancelBarDelay = useCallback(() => {
+        if (hoverTimerRef.current) {
+            window.clearTimeout(hoverTimerRef.current);
+            hoverTimerRef.current = null;
+        }
     }, []);
 
-    // Memoized callback for showing all reactions
-    const handleShowAllReactions = useCallback(() => {
-        if (onShowAllReactions) {
-            onShowAllReactions();
+    const maybeCloseBar = useCallback(() => {
+        if (!isGroupHover && !isFlyoutHover && !isFocusInside) {
+            setShowBar(false);
         }
-    }, [onShowAllReactions]);
+    }, [isGroupHover, isFlyoutHover, isFocusInside]);
 
-    // Get size classes using utility constant
+    const onGroupPointerEnter = useCallback(() => {
+        setIsGroupHover(true);
+        openBarWithDelay();
+    }, [openBarWithDelay]);
+
+    const onGroupPointerLeave = useCallback(() => {
+        setIsGroupHover(false);
+        cancelBarDelay();
+        window.setTimeout(maybeCloseBar, 80);
+    }, [cancelBarDelay, maybeCloseBar]);
+
+    const onFlyoutPointerEnter = useCallback(() => setIsFlyoutHover(true), []);
+    const onFlyoutPointerLeave = useCallback(() => {
+        setIsFlyoutHover(false);
+        window.setTimeout(maybeCloseBar, 80);
+    }, [maybeCloseBar]);
+
+    // Focus tracking on the group
+    useEffect(() => {
+        const node = containerRef.current;
+        if (!node) return;
+
+        const onFocusIn = () => setIsFocusInside(true);
+        const onFocusOut = () => {
+            setIsFocusInside(false);
+            window.setTimeout(maybeCloseBar, 80);
+        };
+
+        node.addEventListener("focusin", onFocusIn);
+        node.addEventListener("focusout", onFocusOut);
+        return () => {
+            node.removeEventListener("focusin", onFocusIn);
+            node.removeEventListener("focusout", onFocusOut);
+        };
+    }, [maybeCloseBar]);
+
+    // Close on outside click/tap
+    useEffect(() => {
+        const onDocPointerDown = (e: PointerEvent) => {
+            const group = containerRef.current;
+            const fly = flyoutRef.current;
+            const target = e.target as Node;
+            const insideGroup = !!(group && group.contains(target));
+            const insideFly = !!(fly && fly.contains(target));
+            if (!insideGroup && !insideFly) {
+                setIsGroupHover(false);
+                setIsFlyoutHover(false);
+                setIsFocusInside(false);
+                cancelBarDelay();
+                setShowBar(false);
+            }
+        };
+        document.addEventListener("pointerdown", onDocPointerDown);
+        return () => {
+            document.removeEventListener("pointerdown", onDocPointerDown);
+        };
+    }, [cancelBarDelay]);
+
+    // Cleanup timers on unmount
+    useEffect(() => {
+        return () => {
+            if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+        };
+    }, []);
+
+    // Get size classes
     const sizeClasses = SIZE_CONFIG[size];
 
     // Loading skeleton
     if (isLoading) {
         return (
-            <div
-                className={cn("flex items-center", sizeClasses.gap, className)}
-                role="status"
-                aria-label="Loading reactions"
-            >
-                {/* Loading skeleton */}
+            <div className={cn("flex items-center", sizeClasses.gap, className)} role="status" aria-label="Loading reactions">
                 {Array.from({ length: 3 }).map((_, i) => (
                     <div
                         key={i}
                         className={cn(
                             "rounded-full bg-gray-200 animate-pulse",
-                            sizeClasses.button.replace('h-', 'h-').split(' ')[0],
-                            size === 'sm' && "w-12",
-                            size === 'md' && "w-16",
-                            size === 'lg' && "w-20"
+                            sizeClasses.button.replace("h-", "h-").split(" ")[0],
+                            size === "sm" && "w-12",
+                            size === "md" && "w-16",
+                            size === "lg" && "w-20"
                         )}
                     />
                 ))}
@@ -218,33 +294,67 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     return (
         <TooltipProvider>
             <div
-                className={cn("flex items-center", sizeClasses.gap, className)}
+                ref={containerRef}
+                className={cn("relative inline-flex items-center", sizeClasses.gap, className)}
                 role="group"
-                aria-label={`${totalReactions} reaction${totalReactions === 1 ? '' : 's'} on this ${targetType.toLowerCase()}`}
+                aria-label={`${totalReactions} reaction${totalReactions === 1 ? "" : "s"} on this ${targetType.toLowerCase()}`}
+                onPointerEnter={onGroupPointerEnter}
+                onPointerLeave={onGroupPointerLeave}
             >
-                {/* Live region for accessibility */}
-                <div
-                    className="sr-only"
-                    role="status"
-                    aria-live="polite"
-                    aria-atomic="true"
-                >
-                    {totalReactions > 0 && (
-                        `${totalReactions} reaction${totalReactions === 1 ? '' : 's'} total`
+                {/* Floating ReactionBar (bubble pop) */}
+                <AnimatePresence>
+                    {showBar && (
+                        <motion.div
+                            ref={flyoutRef}
+                            key="reaction-bar-flyout"
+                            initial={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
+                            animate={{ opacity: 1, y: -8, scale: 1, filter: "blur(0px)" }}
+                            exit={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
+                            transition={{ duration: 0.16, ease: "easeOut" }}
+                            className={cn("absolute -top-2 left-0 z-20", "translate-y-[-100%]")}
+                            onPointerEnter={onFlyoutPointerEnter}
+                            onPointerLeave={onFlyoutPointerLeave}
+                            role="dialog"
+                            aria-label="Quick reactions"
+                        >
+                            <div
+                                className={cn(
+                                    "rounded-full border border-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-lg",
+                                    "px-2 py-1"
+                                )}
+                            >
+                                <ReactionBar
+                                    targetType={targetType}
+                                    targetId={targetId}
+                                    onReactionSelect={(reaction) => {
+                                        onReactionClick?.(reaction);
+                                        setShowBar(false);
+                                    }}
+                                    size={size}
+                                    className="px-0"
+                                    maxReactions={5}
+                                    showHoverEffects
+                                />
+                            </div>
+                        </motion.div>
                     )}
+                </AnimatePresence>
+
+                {/* Live region for accessibility */}
+                <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                    {totalReactions > 0 && `${totalReactions} reaction${totalReactions === 1 ? "" : "s"} total`}
                 </div>
 
                 <AnimatePresence mode="popLayout">
                     {displayedReactions.map((reactionSummary, index) => {
-                        // Create a minimal PublicReaction object for utility functions
-                        const reactionData: Pick<PublicReaction, 'emoji_unicode' | 'name' | 'id' | 'category'> = {
+                        const reactionData: Pick<PublicReaction, "emoji_unicode" | "name" | "id" | "category"> = {
                             id: reactionSummary.reaction_id,
                             emoji_unicode: reactionSummary.emoji_unicode,
                             name: reactionSummary.reaction_name,
                             category: reactionSummary.category,
                         };
 
-                        const categoryColor = getCategoryColor(reactionSummary.category);
+                        const categoryColor = getCategoryColor(reactionSummary.category); // currently unused, kept for future styling
                         const isHovered = hoveredReaction === reactionSummary.reaction_id;
 
                         return (
@@ -266,8 +376,8 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                             variant={reactionSummary.user_reacted ? "default" : "outline"}
                                             size="sm"
                                             onClick={() => handleReactionClick(reactionSummary)}
-                                            onMouseEnter={() => handleMouseEnter(reactionSummary.reaction_id)}
-                                            onMouseLeave={handleMouseLeave}
+                                            onMouseEnter={() => handleMouseEnterChip(reactionSummary.reaction_id)}
+                                            onMouseLeave={handleMouseLeaveChip}
                                             className={cn(
                                                 sizeClasses.button,
                                                 "relative rounded-full border-2 transition-all duration-200",
@@ -276,20 +386,14 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                                     : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50",
                                                 isHovered && "scale-105 shadow-md"
                                             )}
-                                            aria-label={getReactionAriaLabel(
-                                                reactionData as PublicReaction,
-                                                reactionSummary.count
-                                            )}
+                                            aria-label={getReactionAriaLabel(reactionData as PublicReaction, reactionSummary.count)}
                                             aria-pressed={reactionSummary.user_reacted}
                                         >
                                             <span className={cn(sizeClasses.emoji, "mr-1")}>
                                                 {formatReactionEmoji(reactionData as PublicReaction)}
                                             </span>
-                                            <span className={sizeClasses.count}>
-                                                {formatReactionCount(reactionSummary.count)}
-                                            </span>
+                                            <span className={sizeClasses.count}>{formatReactionCount(reactionSummary.count)}</span>
 
-                                            {/* Glow effect for user's reactions */}
                                             {reactionSummary.user_reacted && (
                                                 <motion.div
                                                     className="absolute inset-0 rounded-full bg-blue-200 opacity-30"
@@ -300,25 +404,16 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                         </Button>
                                     </TooltipTrigger>
 
-                                    <TooltipContent
-                                        side="top"
-                                        className="max-w-xs"
-                                        sideOffset={8}
-                                    >
+                                    <TooltipContent side="top" className="max-w-xs" sideOffset={8}>
                                         <div className="text-center">
-                                            <div className="font-medium">
-                                                {formatReactionName(reactionData as PublicReaction)}
-                                            </div>
+                                            <div className="font-medium">{formatReactionName(reactionData as PublicReaction)}</div>
                                             <div className="text-xs text-gray-500 mt-1">
                                                 {reactionSummary.count === 1
-                                                    ? '1 person reacted'
-                                                    : `${formatReactionCount(reactionSummary.count)} people reacted`
-                                                }
+                                                    ? "1 person reacted"
+                                                    : `${formatReactionCount(reactionSummary.count)} people reacted`}
                                             </div>
                                             {reactionSummary.user_reacted && (
-                                                <div className="text-xs text-blue-600 mt-1 font-medium">
-                                                    ✓ You reacted with this
-                                                </div>
+                                                <div className="text-xs text-blue-600 mt-1 font-medium">✓ You reacted with this</div>
                                             )}
                                         </div>
                                     </TooltipContent>
@@ -339,14 +434,14 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                             <TooltipTrigger asChild>
                                 <Badge
                                     variant="outline"
-                                    onClick={handleShowAllReactions}
+                                    onClick={onShowAllReactions}
                                     className={cn(
                                         sizeClasses.button,
                                         "rounded-full border-2 border-gray-200 bg-white text-gray-500",
                                         "hover:border-gray-300 hover:bg-gray-50 cursor-pointer transition-all"
                                     )}
                                     role="button"
-                                    aria-label={`Show ${hiddenCount} more reaction${hiddenCount === 1 ? '' : 's'}`}
+                                    aria-label={`Show ${hiddenCount} more reaction${hiddenCount === 1 ? "" : "s"}`}
                                 >
                                     +{hiddenCount}
                                 </Badge>
@@ -354,11 +449,9 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                             <TooltipContent side="top" sideOffset={8}>
                                 <div className="text-center">
                                     <div className="font-medium">
-                                        {hiddenCount} more reaction{hiddenCount === 1 ? '' : 's'}
+                                        {hiddenCount} more reaction{hiddenCount === 1 ? "" : "s"}
                                     </div>
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        Click to see all reactions
-                                    </div>
+                                    <div className="text-xs text-gray-500 mt-1">Click to see all reactions</div>
                                 </div>
                             </TooltipContent>
                         </Tooltip>
@@ -376,17 +469,18 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                         aria-label="Reaction analytics"
                     >
                         <div>
-                            {formatReactionCount(totalReactions)} total reaction{totalReactions === 1 ? '' : 's'}
+                            {formatReactionCount(totalReactions)} total reaction{totalReactions === 1 ? "" : "s"}
                         </div>
                         {analytics.unique_users > 0 && (
                             <div className="mt-0.5">
-                                from {analytics.unique_users} user{analytics.unique_users === 1 ? '' : 's'}
+                                from {analytics.unique_users} user{analytics.unique_users === 1 ? "" : "s"}
                             </div>
                         )}
                         {analyticsInsights.dominant && (
                             <div className="mt-0.5 font-medium">
-                                Most popular: {formatReactionEmoji({
-                                    emoji_unicode: analyticsInsights.dominant.emoji_unicode
+                                Most popular:{" "}
+                                {formatReactionEmoji({
+                                    emoji_unicode: analyticsInsights.dominant.emoji_unicode,
                                 } as PublicReaction)}
                             </div>
                         )}

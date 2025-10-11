@@ -9,7 +9,6 @@
 
 import React from "react";
 import {
-    Heart,
     MessageCircle,
     Share2,
     Bookmark,
@@ -21,7 +20,7 @@ import {
     Pin,
     Star
 } from "lucide-react";
-import { ReactionSystem, PostReactions, type PublicReaction } from "@/components/reactions";
+import { PostReactions, type PublicReaction } from "@/components/reactions";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";

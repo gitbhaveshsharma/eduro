@@ -1,10 +1,3 @@
-/**
- * Reaction Bar Component
- * 
- * Shows top 5 popular reactions directly on the post (like Facebook/LinkedIn)
- * + Plus button to open full reaction picker
- */
-
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
@@ -31,49 +24,27 @@ import {
 } from "@/lib/utils/reaction.utils";
 
 export interface ReactionBarProps {
-    /** Target type for reactions */
-    targetType: 'POST' | 'COMMENT';
-    /** Target ID for reactions */
+    targetType: "POST" | "COMMENT";
     targetId: string;
-    /** Callback when a reaction is selected */
     onReactionSelect: (reaction: PublicReaction) => void;
-    /** Size variant */
-    size?: 'sm' | 'md' | 'lg';
-    /** Custom class name */
+    size?: "sm" | "md" | "lg";
     className?: string;
-    /** Maximum reactions to show (default: 5) */
     maxReactions?: number;
-    /** Whether to show hover effects */
     showHoverEffects?: boolean;
 }
 
 // Size configurations
 const SIZE_CONFIG = {
-    sm: {
-        button: "h-8 w-8 text-sm",
-        emoji: "text-base",
-        gap: "gap-1",
-        plusButton: "h-7 w-7",
-    },
-    md: {
-        button: "h-10 w-10 text-base",
-        emoji: "text-lg",
-        gap: "gap-1.5",
-        plusButton: "h-9 w-9",
-    },
-    lg: {
-        button: "h-12 w-12 text-lg",
-        emoji: "text-xl",
-        gap: "gap-2",
-        plusButton: "h-11 w-11",
-    },
+    sm: { button: "h-8 w-8 text-sm", emoji: "text-base", gap: "gap-1", plusButton: "h-7 w-7" },
+    md: { button: "h-10 w-10 text-base", emoji: "text-lg", gap: "gap-1.5", plusButton: "h-9 w-9" },
+    lg: { button: "h-12 w-12 text-lg", emoji: "text-xl", gap: "gap-2", plusButton: "h-11 w-11" },
 } as const;
 
 export function ReactionBar({
     targetType,
     targetId,
     onReactionSelect,
-    size = 'md',
+    size = "md",
     className,
     maxReactions = 5,
     showHoverEffects = true,
@@ -82,16 +53,13 @@ export function ReactionBar({
     const [hoveredReaction, setHoveredReaction] = useState<number | null>(null);
     const plusButtonRef = useRef<HTMLButtonElement>(null);
 
-    // Store hooks
     const { loadAllReactions } = useReactionStore();
     const allReactions = useReactions();
 
-    // Load reactions on mount
     useEffect(() => {
         loadAllReactions();
     }, [loadAllReactions]);
 
-    // Get top reactions sorted by popularity
     const topReactions = React.useMemo(() => {
         const sorted = sortByPopularity(allReactions);
         return sorted.slice(0, maxReactions);
@@ -114,57 +82,13 @@ export function ReactionBar({
 
     const handlePickerClose = () => {
         setIsPickerOpen(false);
+        // Return focus to trigger for a11y
+        plusButtonRef.current?.focus();
     };
-
-    if (topReactions.length === 0) {
-        // Show loading state or just the plus button
-        return (
-            <div className={cn("flex items-center", sizeClasses.gap, className)}>
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger asChild>
-                            <Button
-                                ref={plusButtonRef}
-                                variant="outline"
-                                size="sm"
-                                onClick={handlePlusClick}
-                                className={cn(
-                                    sizeClasses.plusButton,
-                                    "rounded-full border-2 border-gray-300 text-gray-500",
-                                    "hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600",
-                                    "transition-all duration-200"
-                                )}
-                                aria-label="Add reaction"
-                            >
-                                <Plus className="h-4 w-4" />
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={8}>
-                            <p>Add a reaction</p>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-
-                <ReactionPicker
-                    isOpen={isPickerOpen}
-                    targetType={targetType}
-                    targetId={targetId}
-                    triggerRef={plusButtonRef}
-                    onReactionSelect={handlePickerSelect}
-                    onClose={handlePickerClose}
-                />
-            </div>
-        );
-    }
 
     return (
         <TooltipProvider>
-            <div
-                className={cn("flex items-center", sizeClasses.gap, className)}
-                role="group"
-                aria-label="Quick reactions"
-            >
-                {/* Top Reactions */}
+            <div className={cn("flex items-center", sizeClasses.gap, className)} role="group" aria-label="Quick reactions">
                 {topReactions.map((reaction, index) => (
                     <Tooltip key={reaction.id}>
                         <TooltipTrigger asChild>
@@ -182,9 +106,7 @@ export function ReactionBar({
                                     hoveredReaction === reaction.id && showHoverEffects && "scale-110 shadow-lg"
                                 )}
                                 aria-label={getReactionAriaLabel(reaction)}
-                                style={{
-                                    animationDelay: `${index * 50}ms`,
-                                }}
+                                style={{ animationDelay: `${index * 50}ms` }}
                             >
                                 <span className={cn(sizeClasses.emoji, "transition-transform duration-200")}>
                                     {formatReactionEmoji(reaction)}
@@ -193,20 +115,13 @@ export function ReactionBar({
                         </TooltipTrigger>
                         <TooltipContent side="top" sideOffset={8}>
                             <div className="text-center">
-                                <div className="font-medium">
-                                    {formatReactionName(reaction)}
-                                </div>
-                                {reaction.description && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                        {reaction.description}
-                                    </div>
-                                )}
+                                <div className="font-medium">{formatReactionName(reaction)}</div>
+                                {reaction.description && <div className="text-xs text-gray-500 mt-1">{reaction.description}</div>}
                             </div>
                         </TooltipContent>
                     </Tooltip>
                 ))}
 
-                {/* Plus Button for More Reactions */}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button
@@ -229,14 +144,12 @@ export function ReactionBar({
                     <TooltipContent side="top" sideOffset={8}>
                         <div className="text-center">
                             <div className="font-medium">More reactions</div>
-                            <div className="text-xs text-gray-500 mt-1">
-                                Choose from all available reactions
-                            </div>
+                            <div className="text-xs text-gray-500 mt-1">Choose from all available reactions</div>
                         </div>
                     </TooltipContent>
                 </Tooltip>
 
-                {/* Reaction Picker Modal */}
+                {/* Modal-centered picker when opened via plus */}
                 <ReactionPicker
                     isOpen={isPickerOpen}
                     targetType={targetType}
@@ -245,6 +158,7 @@ export function ReactionBar({
                     onReactionSelect={handlePickerSelect}
                     onClose={handlePickerClose}
                     position="top"
+                    modalOnOpen
                 />
             </div>
         </TooltipProvider>

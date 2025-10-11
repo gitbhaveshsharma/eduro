@@ -74,15 +74,6 @@ export function PostReactions({
                     size={size}
                     onShowAllReactions={handleShowAllReactions}
                 />
-
-                {/* Quick Reaction Bar */}
-                <ReactionBar
-                    targetType={targetType}
-                    targetId={targetId}
-                    onReactionSelect={handleReactionSelect}
-                    size={size}
-                    maxReactions={5}
-                />
             </div>
         );
     }
@@ -99,15 +90,6 @@ export function PostReactions({
                 maxDisplay={maxDisplay}
                 size={size}
                 onShowAllReactions={handleShowAllReactions}
-            />
-
-            {/* Quick Reaction Bar */}
-            <ReactionBar
-                targetType={targetType}
-                targetId={targetId}
-                onReactionSelect={handleReactionSelect}
-                size={size}
-                maxReactions={5}
             />
         </div>
     );

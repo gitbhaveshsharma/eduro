@@ -1,10 +1,3 @@
-/**
- * Reaction Picker Component
- * 
- * A floating picker that displays available reactions with smooth animations
- * Supports categories, search, and hover effects
- */
-
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
@@ -24,7 +17,6 @@ try {
     motion = framerMotion.motion;
     AnimatePresence = framerMotion.AnimatePresence;
 } catch {
-    // Fallback components when framer-motion is not available
     motion = {
         div: React.forwardRef<HTMLDivElement, any>((props, ref) => <div ref={ref} {...props} />),
         button: React.forwardRef<HTMLButtonElement, any>((props, ref) => <button ref={ref} {...props} />),
@@ -49,7 +41,6 @@ import {
     filterBySearch,
     filterByCategory,
     filterTrendingOnly,
-    groupByCategory,
     getReactionAriaLabel,
     getReactionPickerAriaDescription,
 } from "@/lib/utils/reaction.utils";
@@ -57,29 +48,21 @@ import {
 import { REACTION_CATEGORIES } from "@/lib/schema/reaction.types";
 
 export interface ReactionPickerProps {
-    /** Whether the picker is open */
     isOpen: boolean;
-    /** Target type for reactions */
-    targetType: 'POST' | 'COMMENT';
-    /** Target ID for reactions */
+    targetType: "POST" | "COMMENT";
     targetId: string;
-    /** Position of the picker trigger */
     triggerRef?: React.RefObject<HTMLElement>;
-    /** Callback when a reaction is selected */
     onReactionSelect: (reaction: PublicReaction) => void;
-    /** Callback when picker is closed */
     onClose: () => void;
-    /** Custom class name */
     className?: string;
-    /** Position preference */
-    position?: 'top' | 'bottom' | 'auto';
-    /** Maximum width */
+    position?: "top" | "bottom" | "auto";
     maxWidth?: number;
+    // New: open as centered modal, locks scroll
+    modalOnOpen?: boolean;
 }
 
-// Category configuration with dynamic color and display name
 interface CategoryConfig {
-    key: 'quick' | 'trending' | 'all' | ReactionCategory;
+    key: "quick" | "trending" | "all" | ReactionCategory;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     color: string;
@@ -93,30 +76,26 @@ export function ReactionPicker({
     onReactionSelect,
     onClose,
     className,
-    position = 'auto',
+    position = "auto",
     maxWidth = 320,
+    modalOnOpen = false,
 }: ReactionPickerProps) {
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeCategory, setActiveCategory] = useState<'quick' | 'trending' | 'all' | ReactionCategory>('quick');
+    const [activeCategory, setActiveCategory] = useState<"quick" | "trending" | "all" | ReactionCategory>("quick");
     const [hoveredReaction, setHoveredReaction] = useState<number | null>(null);
     const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
 
     const pickerRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
+    const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
-    // Store hooks
-    const {
-        loadAllReactions,
-        loadQuickReactions,
-        loadTrendingReactions,
-        addToRecentlyUsed,
-    } = useReactionStore();
+    const { loadAllReactions, loadQuickReactions, loadTrendingReactions, addToRecentlyUsed } = useReactionStore();
 
     const allReactions = useReactions();
     const trendingReactions = useTrendingReactions();
     const quickReactions = useQuickReactions();
 
-    // Load reactions on mount
+    // Load reactions when opening
     useEffect(() => {
         if (isOpen) {
             loadAllReactions();
@@ -125,9 +104,37 @@ export function ReactionPicker({
         }
     }, [isOpen, loadAllReactions, loadQuickReactions, loadTrendingReactions]);
 
-    // Calculate picker position
+    // Capture last focused for restore when using modal
     useEffect(() => {
-        if (isOpen && triggerRef?.current && pickerRef.current) {
+        if (isOpen && modalOnOpen) {
+            lastActiveElementRef.current = (document.activeElement as HTMLElement) ?? null;
+        }
+    }, [isOpen, modalOnOpen]);
+
+    // Centered modal: lock scroll and focus search
+    useEffect(() => {
+        if (!isOpen) return;
+
+        if (modalOnOpen) {
+            const original = document.body.style.overflow;
+            document.body.style.overflow = "hidden";
+            return () => {
+                document.body.style.overflow = original;
+            };
+        }
+    }, [isOpen, modalOnOpen]);
+
+    // Restore focus when closing modal
+    useEffect(() => {
+        if (!isOpen && modalOnOpen) {
+            lastActiveElementRef.current?.focus?.();
+        }
+    }, [isOpen, modalOnOpen]);
+
+    // Calculate anchored position for non-modal mode
+    useEffect(() => {
+        if (!isOpen || modalOnOpen) return;
+        if (triggerRef?.current && pickerRef.current) {
             const triggerRect = triggerRef.current.getBoundingClientRect();
             const pickerRect = pickerRef.current.getBoundingClientRect();
             const viewportHeight = window.innerHeight;
@@ -136,24 +143,18 @@ export function ReactionPicker({
             let top = triggerRect.bottom + 8;
             let left = triggerRect.left;
 
-            // Adjust for bottom position
-            if (position === 'top' || (position === 'auto' && top + pickerRect.height > viewportHeight - 20)) {
+            if (position === "top" || (position === "auto" && top + pickerRect.height > viewportHeight - 20)) {
                 top = triggerRect.top - pickerRect.height - 8;
             }
-
-            // Adjust for right overflow
             if (left + maxWidth > viewportWidth - 20) {
                 left = viewportWidth - maxWidth - 20;
             }
-
-            // Adjust for left overflow
             if (left < 20) {
                 left = 20;
             }
-
             setPickerPosition({ top, left });
         }
-    }, [isOpen, triggerRef, position, maxWidth]);
+    }, [isOpen, triggerRef, position, maxWidth, modalOnOpen]);
 
     // Focus search input when opened
     useEffect(() => {
@@ -162,11 +163,19 @@ export function ReactionPicker({
         }
     }, [isOpen]);
 
-    // Handle click outside
+    // Close on outside click
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
+            if (!isOpen) return;
+            // In modal mode, clicking the backdrop should close
+            if (modalOnOpen) {
+                if (event.target instanceof HTMLElement && event.target.dataset?.role === "picker-backdrop") {
+                    onClose();
+                }
+                return;
+            }
+            // Anchored mode
             if (
-                isOpen &&
                 pickerRef.current &&
                 !pickerRef.current.contains(event.target as Node) &&
                 triggerRef?.current &&
@@ -175,49 +184,62 @@ export function ReactionPicker({
                 onClose();
             }
         };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isOpen, onClose, triggerRef, modalOnOpen]);
 
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isOpen, onClose, triggerRef]);
-
-    // Handle escape key
+    // Escape key closes
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape' && isOpen) {
+            if (event.key === "Escape" && isOpen) {
                 onClose();
             }
+            // rudimentary focus trap: tab cycles inside when modal
+            if (modalOnOpen && isOpen && event.key === "Tab") {
+                const focusables = pickerRef.current?.querySelectorAll<HTMLElement>(
+                    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                );
+                if (!focusables || focusables.length === 0) return;
+                const first = focusables[0];
+                const last = focusables[focusables.length - 1];
+                const active = document.activeElement as HTMLElement | null;
+                if (event.shiftKey) {
+                    if (active === first) {
+                        last.focus();
+                        event.preventDefault();
+                    }
+                } else {
+                    if (active === last) {
+                        first.focus();
+                        event.preventDefault();
+                    }
+                }
+            }
         };
+        document.addEventListener("keydown", handleKeyDown);
+        return () => document.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, onClose, modalOnOpen]);
 
-        document.addEventListener('keydown', handleKeyDown);
-        return () => document.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, onClose]);
-
-    // Get reactions based on active category and search using utilities
+    // Filtering
     const getFilteredReactions = (): PublicReaction[] => {
         let reactions: PublicReaction[] = [];
-
-        // Use utility functions to filter reactions
         switch (activeCategory) {
-            case 'quick':
+            case "quick":
                 reactions = quickReactions;
                 break;
-            case 'trending':
+            case "trending":
                 reactions = filterTrendingOnly(allReactions);
                 break;
-            case 'all':
+            case "all":
                 reactions = allReactions;
                 break;
             default:
-                // Use filterByCategory utility for specific categories
                 reactions = filterByCategory(allReactions, activeCategory);
                 break;
         }
-
-        // Apply search filter using utility
         if (searchQuery.trim()) {
             reactions = filterBySearch(reactions, searchQuery);
         }
-
         return reactions;
     };
 
@@ -227,28 +249,11 @@ export function ReactionPicker({
         onClose();
     };
 
-    // Build categories dynamically using utilities
     const categories: CategoryConfig[] = [
-        {
-            key: 'quick',
-            label: 'Quick',
-            icon: Sparkles,
-            color: '#8B5CF6'
-        },
-        {
-            key: 'trending',
-            label: 'Trending',
-            icon: TrendingUp,
-            color: '#F59E0B'
-        },
-        {
-            key: 'all',
-            label: 'All',
-            icon: Heart,
-            color: '#EF4444'
-        },
-        // Dynamically generate category configs using utilities
-        ...Object.values(REACTION_CATEGORIES).map(cat => ({
+        { key: "quick", label: "Quick", icon: Sparkles, color: "#8B5CF6" },
+        { key: "trending", label: "Trending", icon: TrendingUp, color: "#F59E0B" },
+        { key: "all", label: "All", icon: Heart, color: "#EF4444" },
+        ...Object.values(REACTION_CATEGORIES).map((cat) => ({
             key: cat as ReactionCategory,
             label: getCategoryDisplayName(cat),
             icon: Heart,
@@ -264,172 +269,181 @@ export function ReactionPicker({
     return (
         <>
             {/* Backdrop */}
-            <motion.div
-                className="fixed inset-0 z-40"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.1 }}
-            />
+            <AnimatePresence>
+                {isOpen && (
+                    <motion.div
+                        data-role="picker-backdrop"
+                        className={cn(
+                            "fixed inset-0 z-40",
+                            modalOnOpen ? "bg-black/40" : "" // darken only in modal
+                        )}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.12 }}
+                        aria-hidden="true"
+                    />
+                )}
+            </AnimatePresence>
 
             {/* Picker */}
             <motion.div
                 ref={pickerRef}
                 className={cn(
-                    "fixed z-50 bg-white rounded-xl shadow-xl border border-gray-200",
-                    "overflow-hidden",
+                    modalOnOpen
+                        ? "fixed inset-0 z-50 flex items-center justify-center p-4"
+                        : "fixed z-50",
                     className
                 )}
-                style={{
-                    top: pickerPosition.top,
-                    left: pickerPosition.left,
-                    width: maxWidth,
-                    maxHeight: '400px',
-                }}
-                initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                style={
+                    modalOnOpen
+                        ? undefined
+                        : {
+                            top: pickerPosition.top,
+                            left: pickerPosition.left,
+                            width: maxWidth,
+                            maxHeight: "400px",
+                        }
+                }
+                initial={{ opacity: 0, scale: modalOnOpen ? 0.98 : 0.95, y: modalOnOpen ? 0 : -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                exit={{ opacity: 0, scale: modalOnOpen ? 0.98 : 0.95, y: modalOnOpen ? 0 : -10 }}
                 transition={{ duration: 0.15, ease: "easeOut" }}
                 role="dialog"
+                aria-modal={modalOnOpen || undefined}
                 aria-label="Reaction picker"
                 aria-description={getReactionPickerAriaDescription(targetType, totalReactionCount)}
             >
-                {/* Header */}
-                <div className="p-3 border-b border-gray-100">
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-sm font-medium text-gray-900">Add Reaction</h3>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={onClose}
-                            className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
-                            aria-label="Close reaction picker"
-                        >
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-
-                    {/* Search */}
-                    <div className="relative">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                        <Input
-                            ref={searchInputRef}
-                            placeholder="Search reactions..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-9 h-8 text-sm"
-                            aria-label="Search reactions"
-                        />
-                    </div>
-                </div>
-
-                {/* Categories */}
-                <div className="p-2 border-b border-gray-100">
-                    <div className="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist">
-                        {categories.map((category) => {
-                            const Icon = category.icon;
-                            const isActive = activeCategory === category.key;
-
-                            return (
-                                <Button
-                                    key={category.key}
-                                    variant={isActive ? "default" : "ghost"}
-                                    size="sm"
-                                    onClick={() => setActiveCategory(category.key)}
-                                    className={cn(
-                                        "flex-shrink-0 h-8 px-3 text-xs",
-                                        isActive && "text-white",
-                                        !isActive && "text-gray-600 hover:text-gray-900"
-                                    )}
-                                    style={isActive ? { backgroundColor: category.color } : undefined}
-                                    role="tab"
-                                    aria-selected={isActive}
-                                    aria-label={`Filter by ${category.label}`}
-                                >
-                                    <Icon className="h-3 w-3 mr-1" />
-                                    {category.label}
-                                </Button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* Reactions Grid */}
-                <ScrollArea className="h-64">
-                    <div className="p-3">
-                        {filteredReactions.length === 0 ? (
-                            <div className="text-center py-8 text-gray-500">
-                                <div className="text-2xl mb-2">🔍</div>
-                                <p className="text-sm">
-                                    {searchQuery ? 'No reactions found' : 'No reactions available'}
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-6 gap-2" role="grid">
-                                {filteredReactions.map((reaction) => (
-                                    <motion.button
-                                        key={reaction.id}
-                                        onClick={() => handleReactionClick(reaction)}
-                                        onHoverStart={() => setHoveredReaction(reaction.id)}
-                                        onHoverEnd={() => setHoveredReaction(null)}
-                                        className={cn(
-                                            "relative aspect-square rounded-lg border-2 border-transparent",
-                                            "flex items-center justify-center transition-all duration-200",
-                                            "hover:border-blue-200 hover:bg-blue-50",
-                                            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-                                        )}
-                                        whileHover={{ scale: 1.1 }}
-                                        whileTap={{ scale: 0.95 }}
-                                        title={formatReactionName(reaction)}
-                                        aria-label={getReactionAriaLabel(reaction)}
-                                        role="gridcell"
-                                    >
-                                        <span className="text-xl">
-                                            {formatReactionEmoji(reaction)}
-                                        </span>
-
-                                        {/* Trending badge */}
-                                        {reaction.is_trending && (
-                                            <motion.div
-                                                className="absolute -top-1 -right-1"
-                                                initial={{ scale: 0 }}
-                                                animate={{ scale: 1 }}
-                                                transition={{ delay: 0.1 }}
-                                            >
-                                                <Badge
-                                                    variant="secondary"
-                                                    className="h-4 px-1 text-xs bg-orange-100 text-orange-700 border-orange-200"
-                                                    aria-label="Trending reaction"
-                                                >
-                                                    🔥
-                                                </Badge>
-                                            </motion.div>
-                                        )}
-                                    </motion.button>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                </ScrollArea>
-
-                {/* Hovered reaction tooltip */}
-                <AnimatePresence>
-                    {hoveredReaction && (
-                        <motion.div
-                            className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2"
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            transition={{ duration: 0.1 }}
-                        >
-                            <div className="bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
-                                {formatReactionName(
-                                    filteredReactions.find(r => r.id === hoveredReaction)!
-                                )}
-                            </div>
-                        </motion.div>
+                <div
+                    className={cn(
+                        "bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden",
+                        modalOnOpen ? "w-full max-w-md max-h-[80vh]" : ""
                     )}
-                </AnimatePresence>
+                >
+                    {/* Header */}
+                    <div className="p-3 border-b border-gray-100">
+                        <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-sm font-medium text-gray-900">Add Reaction</h3>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={onClose}
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                                aria-label="Close reaction picker"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+
+                        {/* Search */}
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                            <Input
+                                ref={searchInputRef}
+                                placeholder="Search reactions..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-9 h-8 text-sm"
+                                aria-label="Search reactions"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Categories */}
+                    <div className="p-2 border-b border-gray-100">
+                        <div className="flex gap-1 overflow-x-auto scrollbar-hide" role="tablist">
+                            {categories.map((category) => {
+                                const Icon = category.icon;
+                                const isActive = activeCategory === category.key;
+
+                                return (
+                                    <Button
+                                        key={category.key}
+                                        variant={isActive ? "default" : "ghost"}
+                                        size="sm"
+                                        onClick={() => setActiveCategory(category.key)}
+                                        className={cn(
+                                            "flex-shrink-0 h-8 px-3 text-xs",
+                                            isActive && "text-white",
+                                            !isActive && "text-gray-600 hover:text-gray-900"
+                                        )}
+                                        style={isActive ? { backgroundColor: category.color } : undefined}
+                                        role="tab"
+                                        aria-selected={isActive}
+                                        aria-label={`Filter by ${category.label}`}
+                                    >
+                                        <Icon className="h-3 w-3 mr-1" />
+                                        {category.label}
+                                    </Button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Reactions Grid */}
+                    <ScrollArea className={cn(modalOnOpen ? "max-h-[60vh]" : "h-64")}>
+                        <div className="p-3">
+                            {filteredReactions.length === 0 ? (
+                                <div className="text-center py-8 text-gray-500">
+                                    <div className="text-2xl mb-2">🔍</div>
+                                    <p className="text-sm">{searchQuery ? "No reactions found" : "No reactions available"}</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-6 gap-2" role="grid">
+                                    {filteredReactions.map((reaction) => (
+                                        <motion.button
+                                            key={reaction.id}
+                                            onClick={() => handleReactionClick(reaction)}
+                                            onHoverStart={() => setHoveredReaction(reaction.id)}
+                                            onHoverEnd={() => setHoveredReaction(null)}
+                                            className={cn(
+                                                "relative aspect-square rounded-lg border-2 border-transparent",
+                                                "flex items-center justify-center transition-all duration-200",
+                                                "hover:border-blue-200 hover:bg-blue-50",
+                                                "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                                            )}
+                                            whileHover={{ scale: 1.1 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            title={formatReactionName(reaction)}
+                                            aria-label={getReactionAriaLabel(reaction)}
+                                            role="gridcell"
+                                        >
+                                            <span className="text-xl">{formatReactionEmoji(reaction)}</span>
+
+                                            {reaction.is_trending && (
+                                                <motion.div
+                                                    className="absolute -top-1 -right-1"
+                                                    initial={{ scale: 0 }}
+                                                    animate={{ scale: 1 }}
+                                                    transition={{ delay: 0.1 }}
+                                                >
+
+                                                </motion.div>
+                                            )}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+
+                    {/* Hovered reaction tooltip */}
+                    <AnimatePresence>
+                        {hoveredReaction && (
+                            <motion.div
+                                className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2"
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                transition={{ duration: 0.1 }}
+                            >
+                                <div className="bg-gray-900 text-white px-2 py-1 rounded text-xs whitespace-nowrap">
+                                    {formatReactionName(filteredReactions.find((r) => r.id === hoveredReaction)!)}
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             </motion.div>
         </>
     );
