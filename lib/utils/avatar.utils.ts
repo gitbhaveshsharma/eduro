@@ -31,17 +31,17 @@ export class AvatarUtils {
     robohash_cat: {
       label: 'RoboHash Cats',
       baseUrl: 'https://robohash.org/',
-      params: { set: 'set4', bgset: '', size: '400x400' }
+      params: { set: 'set4', bgset: undefined, size: '400x400' }
     },
     robohash_sexy_robots: {
       label: 'RoboHash Sexy',
       baseUrl: 'https://robohash.org/',
-      params: { set: 'set2', bgset: '', size: '400x400' }
+      params: { set: 'set3', bgset: undefined, size: '400x400' }
     },
     robohash_robo: {
       label: 'RoboHash Robots',
       baseUrl: 'https://robohash.org/',
-      params: { set: 'set1', bgset: '', size: '400x400' }
+      params: { set: 'set1', bgset: undefined, size: '400x400' }
     }
   };
 
@@ -64,16 +64,33 @@ export class AvatarUtils {
   /**
    * Generate avatar URL from configuration
    */
-  static generateAvatarUrl(type: AvatarType, uniqueString: string): string {
+  static generateAvatarUrl(type: AvatarType, uniqueString: string, bgset?: string): string {
     const config = this.AVATAR_CONFIGS[type];
     if (!config) {
       throw new Error(`Invalid avatar type: ${type}`);
     }
 
     const { baseUrl, params } = config;
-    const queryString = new URLSearchParams(params as Record<string, string>).toString();
-    
-    return `${baseUrl}${uniqueString}?${queryString}`;
+    // Build query string but omit empty/undefined params so bgset can be optional
+    const searchParams = new URLSearchParams();
+    Object.entries(params as Record<string, string | undefined>).forEach(([k, v]) => {
+      // allow overriding bgset via parameter
+      if (k === 'bgset') return;
+      if (v !== undefined && v !== null && v !== '') {
+        searchParams.set(k, v);
+      }
+    });
+
+    // If caller provided a bgset, set it explicitly
+    if (bgset !== undefined && bgset !== null && bgset !== '') {
+      searchParams.set('bgset', bgset);
+    } else if ((params as any).bgset !== undefined && (params as any).bgset !== null && (params as any).bgset !== '') {
+      // otherwise use default from config if present
+      searchParams.set('bgset', (params as any).bgset);
+    }
+
+    const qs = searchParams.toString();
+    return qs ? `${baseUrl}${uniqueString}?${qs}` : `${baseUrl}${uniqueString}`;
   }
 
   /**

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { PostReactions, type PublicReaction } from "@/components/reactions";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from '@/components/avatar/user-avatar';
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -119,15 +119,17 @@ export function PostCard({
                 <div className={`p-4 ${compact ? 'pb-2' : 'pb-3'}`}>
                     <div className="flex items-start justify-between">
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
-                            <Avatar
-                                className={`${compact ? 'h-8 w-8' : 'h-10 w-10'} cursor-pointer`}
+                            <UserAvatar
+                                profile={{
+                                    // keep the shape minimal - UserAvatar accepts partial profile
+                                    avatar_url: post.author_avatar_url as any,
+                                    full_name: post.author_full_name || undefined,
+                                    username: post.author_username || undefined,
+                                    is_online: false
+                                }}
+                                size={compact ? 'sm' : 'md'}
                                 onClick={handleAuthorClick}
-                            >
-                                <AvatarImage src={post.author_avatar_url || ''} />
-                                <AvatarFallback>
-                                    {post.author_full_name?.charAt(0) || post.author_username?.charAt(0) || 'U'}
-                                </AvatarFallback>
-                            </Avatar>
+                            />
 
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center space-x-2">

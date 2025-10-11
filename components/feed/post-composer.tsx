@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
     Image,
     Video,
@@ -17,7 +17,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/avatar/user-avatar";
+import { useCurrentProfile } from '@/lib/store/profile.store';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from "@/components/ui/badge";
 import {
     Select,
@@ -64,6 +66,13 @@ export function PostComposer({
     className = ""
 }: PostComposerProps) {
     const { createPost, isCreatingPost, createPostError } = usePostStore();
+    const currentProfile = useCurrentProfile();
+    const [avatarLoading, setAvatarLoading] = useState<boolean>(!!currentProfile);
+
+    useEffect(() => {
+        // when profile changes, show skeleton until avatar image loads/errors
+        setAvatarLoading(!!currentProfile);
+    }, [currentProfile]);
     const [content, setContent] = useState('');
     const [title, setTitle] = useState('');
     const [postType, setPostType] = useState<PostType>('TEXT');
@@ -177,10 +186,7 @@ export function PostComposer({
             <Card className={`mb-6 ${className}`}>
                 <CardContent className="p-4">
                     <div className="flex items-center space-x-3">
-                        <Avatar className="h-10 w-10">
-                            <AvatarImage src="/placeholder-user.jpg" />
-                            <AvatarFallback>U</AvatarFallback>
-                        </Avatar>
+                        <UserAvatar profile={currentProfile} size={compact ? 'sm' : 'md'} className="" />
                         <button
                             onClick={() => setIsExpanded(true)}
                             className="flex-1 text-left px-4 py-3 bg-gray-50 rounded-full text-gray-500 hover:bg-gray-100 transition-colors"
@@ -200,10 +206,7 @@ export function PostComposer({
                     {/* Header */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                            <Avatar className="h-10 w-10">
-                                <AvatarImage src="/placeholder-user.jpg" />
-                                <AvatarFallback>U</AvatarFallback>
-                            </Avatar>
+                            <UserAvatar profile={currentProfile} size={compact ? 'sm' : 'md'} />
                             <div className="flex items-center space-x-2">
                                 <Select value={postType} onValueChange={(value: PostType) => setPostType(value)}>
                                     <SelectTrigger className="w-40">
@@ -270,7 +273,7 @@ export function PostComposer({
                         {/* Character count */}
                         <div className="absolute bottom-2 right-2 text-xs text-gray-400">
                             <span className={isOverLimit ? 'text-red-500' : ''}>
-                                {characterCount.toLocaleString()}/10,000
+                                {characterCount.toLocaleString()}/1000
                             </span>
                             {wordCount > 0 && (
                                 <span className="ml-2">

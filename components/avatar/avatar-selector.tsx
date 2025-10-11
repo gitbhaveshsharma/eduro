@@ -38,6 +38,7 @@ export function AvatarSelector({
   const [isGenerating, setIsGenerating] = useState(true);
   const [selectedOption, setSelectedOption] = useState<AvatarOption | null>(null);
   const [activeTab, setActiveTab] = useState<AvatarType>('gravatar_monster');
+  const [bgOption, setBgOption] = useState<'none' | 'bg1' | 'bg2'>('none');
 
   // Generate avatar options
   const avatarOptions = useMemo(() => {
@@ -53,13 +54,18 @@ export function AvatarSelector({
       const matchingOption = avatarOptions[selectedAvatar.type].find(
         option => option.uniqueString === selectedAvatar.uniqueString
       );
-      
+
       if (matchingOption) {
         setSelectedOption(matchingOption);
         setActiveTab(selectedAvatar.type);
       }
     }
   }, [selectedAvatar, avatarOptions]);
+
+  useEffect(() => {
+    // reset bg when changing active tab to non-robohash
+    if (!activeTab.startsWith('robohash')) setBgOption('none');
+  }, [activeTab]);
 
   const handleOptionSelect = (option: AvatarOption) => {
     setSelectedOption(option);
@@ -120,8 +126,8 @@ export function AvatarSelector({
                 Cancel
               </Button>
             )}
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={() => {
                 console.log('Use This Avatar button clicked (selector)');
                 console.log('Button disabled state:', !selectedOption);
@@ -143,7 +149,7 @@ export function AvatarSelector({
               <TabsTrigger key={type} value={type} className="text-xs">
                 <div className="flex flex-col items-center gap-1">
                   <span>{label}</span>
-                  <Badge 
+                  <Badge
                     variant={category === 'gravatar' ? 'secondary' : 'outline'}
                     className="text-[10px] px-1 py-0"
                   >
@@ -155,6 +161,15 @@ export function AvatarSelector({
           </TabsList>
 
           <div className="px-6 pb-6">
+            {/* BG selector for robohash types */}
+            {activeTab.startsWith('robohash') && (
+              <div className="px-6 pb-4 flex items-center gap-2">
+                <span className="text-sm font-medium">Background:</span>
+                <Button size="sm" variant={bgOption === 'none' ? 'secondary' : 'outline'} onClick={() => setBgOption('none')}>None</Button>
+                <Button size="sm" variant={bgOption === 'bg1' ? 'secondary' : 'outline'} onClick={() => setBgOption('bg1')}>BG1</Button>
+                <Button size="sm" variant={bgOption === 'bg2' ? 'secondary' : 'outline'} onClick={() => setBgOption('bg2')}>BG2</Button>
+              </div>
+            )}
             {avatarTypes.map(({ type }) => (
               <TabsContent key={type} value={type} className="mt-4">
                 <ScrollArea className="h-96">
@@ -189,12 +204,12 @@ function AvatarOptionCard({ option, isSelected, onClick }: AvatarOptionCardProps
   const [imageError, setImageError] = useState(false);
 
   return (
-    <div 
+    <div
       className={cn(
         'relative aspect-square rounded-lg border-2 cursor-pointer transition-all duration-200',
         'hover:scale-105 hover:shadow-md',
-        isSelected 
-          ? 'border-primary ring-2 ring-primary/20 shadow-md' 
+        isSelected
+          ? 'border-primary ring-2 ring-primary/20 shadow-md'
           : 'border-border hover:border-primary/50'
       )}
       onClick={onClick}
@@ -204,7 +219,7 @@ function AvatarOptionCard({ option, isSelected, onClick }: AvatarOptionCardProps
           <LoadingSpinner size="sm" />
         </div>
       )}
-      
+
       {!imageError ? (
         <img
           src={option.url}
@@ -226,10 +241,10 @@ function AvatarOptionCard({ option, isSelected, onClick }: AvatarOptionCardProps
       {isSelected && (
         <div className="absolute -top-2 -right-2 bg-primary text-primary-foreground rounded-full size-6 flex items-center justify-center">
           <svg className="size-3" fill="currentColor" viewBox="0 0 20 20">
-            <path 
-              fillRule="evenodd" 
-              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" 
-              clipRule="evenodd" 
+            <path
+              fillRule="evenodd"
+              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+              clipRule="evenodd"
             />
           </svg>
         </div>
@@ -266,14 +281,14 @@ export function CompactAvatarSelector({
           {count} options
         </Badge>
       </div>
-      
+
       <div className="grid grid-cols-6 gap-2">
         {options.map((option) => (
           <AvatarOptionCard
             key={option.id}
             option={option}
             isSelected={
-              selectedAvatar?.type === option.type && 
+              selectedAvatar?.type === option.type &&
               selectedAvatar?.uniqueString === option.uniqueString
             }
             onClick={() => onSelect({

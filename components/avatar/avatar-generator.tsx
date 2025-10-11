@@ -35,6 +35,7 @@ export function AvatarGenerator({
   console.log('AvatarGenerator component rendered');
   const [selectedType, setSelectedType] = useState<AvatarType>('gravatar_monster');
   const [customString, setCustomString] = useState('');
+  const [bgOption, setBgOption] = useState<'none' | 'bg1' | 'bg2'>('none');
   const [generatedString, setGeneratedString] = useState('');
   const [previewUrl, setPreviewUrl] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -49,7 +50,7 @@ export function AvatarGenerator({
 
   const generateNewAvatar = () => {
     setIsGenerating(true);
-    
+
     // Simulate generation delay for better UX
     setTimeout(() => {
       const newString = AvatarUtils.generateUniqueString();
@@ -61,7 +62,10 @@ export function AvatarGenerator({
 
   const updatePreview = (type: AvatarType, uniqueString: string) => {
     try {
-      const url = AvatarUtils.generateAvatarUrl(type, uniqueString);
+      // If robohash family allow optional bgset parameter
+      let url: string;
+      const bg = bgOption === 'none' ? undefined : bgOption === 'bg1' ? 'bg1' : 'bg2';
+      url = AvatarUtils.generateAvatarUrl(type as any, uniqueString, bg);
       setPreviewUrl(url);
     } catch (error) {
       console.error('Error generating avatar URL:', error);
@@ -98,7 +102,7 @@ export function AvatarGenerator({
     const finalString = useCustomString ? customString.trim() : generatedString;
     console.log('finalString:', finalString);
     console.log('selectedType:', selectedType);
-    
+
     if (!finalString) {
       console.log('No final string, showing error');
       toast.error('Please enter a custom string or generate one');
@@ -107,7 +111,9 @@ export function AvatarGenerator({
 
     const avatarConfig = {
       type: selectedType,
-      uniqueString: finalString
+      uniqueString: finalString,
+      // include bg choice for robohash types; undefined for others
+      bgset: selectedType.startsWith('robohash') ? (bgOption === 'none' ? undefined : bgOption) : undefined
     };
     console.log('Calling onGenerate with:', avatarConfig);
     onGenerate(avatarConfig);
@@ -150,8 +156,8 @@ export function AvatarGenerator({
                 Cancel
               </Button>
             )}
-            <Button 
-              size="sm" 
+            <Button
+              size="sm"
               onClick={() => {
                 console.log('Use This Avatar button clicked');
                 console.log('Button disabled state:', !currentString);
@@ -184,7 +190,7 @@ export function AvatarGenerator({
                 />
               )}
             </div>
-            
+
             {/* Action buttons */}
             <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
               <Button
@@ -197,7 +203,7 @@ export function AvatarGenerator({
               >
                 <RefreshCw className={cn('size-3', isGenerating && 'animate-spin')} />
               </Button>
-              
+
               <Button
                 size="sm"
                 variant="secondary"
@@ -207,7 +213,7 @@ export function AvatarGenerator({
               >
                 <Copy className="size-3" />
               </Button>
-              
+
               <Button
                 size="sm"
                 variant="secondary"
@@ -249,6 +255,36 @@ export function AvatarGenerator({
           </Select>
         </div>
 
+        {/* Background selector for robohash types */}
+        {selectedType.startsWith('robohash') && (
+          <div className="space-y-2">
+            <Label>Background</Label>
+            <div className="flex gap-2 items-center">
+              <Button
+                size="sm"
+                variant={bgOption === 'none' ? 'secondary' : 'outline'}
+                onClick={() => setBgOption('none')}
+              >
+                None
+              </Button>
+              <Button
+                size="sm"
+                variant={bgOption === 'bg1' ? 'secondary' : 'outline'}
+                onClick={() => setBgOption('bg1')}
+              >
+                BG1
+              </Button>
+              <Button
+                size="sm"
+                variant={bgOption === 'bg2' ? 'secondary' : 'outline'}
+                onClick={() => setBgOption('bg2')}
+              >
+                BG2
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* String Input Mode Toggle */}
         <div className="flex items-center space-x-2">
           <input
@@ -268,7 +304,7 @@ export function AvatarGenerator({
           <Label htmlFor="avatar-string">
             {useCustomString ? 'Custom String' : 'Generated String'}
           </Label>
-          
+
           {useCustomString ? (
             <div className="flex gap-2">
               <Input
@@ -350,7 +386,7 @@ export function AvatarGenerator({
             <RefreshCw className={cn('size-4 mr-2', isGenerating && 'animate-spin')} />
             Generate New
           </Button>
-          
+
           <Button
             variant="outline"
             size="sm"
@@ -382,17 +418,17 @@ export function QuickAvatarGenerator({ onGenerate, className }: QuickAvatarGener
 
   const generateRandomAvatar = () => {
     setIsGenerating(true);
-    
+
     setTimeout(() => {
       const types = AvatarUtils.getAvailableAvatarTypes();
       const randomType = types[Math.floor(Math.random() * types.length)];
       const uniqueString = AvatarUtils.generateUniqueString();
-      
+
       onGenerate({
         type: randomType,
         uniqueString
       });
-      
+
       setIsGenerating(false);
     }, 500);
   };
