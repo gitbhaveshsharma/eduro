@@ -3,22 +3,22 @@
  * 
  * Reusable component for displaying individual posts in feeds
  * Supports all post types, media content, and user interactions
+ * Features modern design with controlled content height
  */
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
     MessageCircle,
     Share2,
     Bookmark,
     MoreHorizontal,
     MapPin,
-    Eye,
-    TrendingUp,
-    Sparkles,
     Pin,
-    Star
+    Star,
+    ChevronDown,
+    ChevronUp
 } from "lucide-react";
 import { PostReactions, type PublicReaction } from "@/components/reactions";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,6 +67,10 @@ export function PostCard({
     compact = false,
     className = ""
 }: PostCardProps) {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const contentLength = post.content?.length || 0;
+    const shouldTruncate = contentLength > 300;
+
     const handleLike = () => {
         onLike?.(post.id, !post.user_has_liked);
     };
@@ -113,68 +117,66 @@ export function PostCard({
     }, [post.id, onView]);
 
     return (
-        <Card className={`overflow-hidden ${compact ? 'shadow-sm' : 'shadow-md'} ${className}`}>
+        <Card className={`overflow-hidden transition-shadow duration-200 hover:shadow-md ${className}`}>
             <CardContent className="p-0">
                 {/* Header */}
-                <div className={`p-4 ${compact ? 'pb-2' : 'pb-3'}`}>
-                    <div className="flex items-start justify-between">
-                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                <div className="p-4 pb-3">
+                    <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1 min-w-0">
                             <UserAvatar
                                 profile={{
-                                    // keep the shape minimal - UserAvatar accepts partial profile
                                     avatar_url: post.author_avatar_url as any,
                                     full_name: post.author_full_name || undefined,
                                     username: post.author_username || undefined,
                                     is_online: false
                                 }}
-                                size={compact ? 'sm' : 'md'}
+                                size="md"
                                 onClick={handleAuthorClick}
+                                className="flex-shrink-0"
                             />
 
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center space-x-2">
+                            <div className="flex-1 min-w-0 space-y-1">
+                                {/* Author Info */}
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <button
                                         onClick={handleAuthorClick}
-                                        className="font-semibold text-sm hover:underline truncate"
+                                        className="font-semibold text-sm hover:underline truncate max-w-32"
                                     >
                                         {post.author_full_name || post.author_username}
                                     </button>
 
                                     {post.author_is_verified && (
-                                        <Badge variant="secondary" className="text-xs px-1 py-0">
+                                        <Badge variant="secondary" className="text-xs px-1.5 py-0 h-4">
                                             ✓
                                         </Badge>
                                     )}
 
                                     {post.author_username && post.author_full_name && (
-                                        <span className="text-gray-500 text-sm truncate">
+                                        <span className="text-gray-500 text-xs truncate">
                                             @{post.author_username}
                                         </span>
                                     )}
-
-                                    <span className="text-gray-400">·</span>
-
-                                    <span className="text-gray-500 text-sm whitespace-nowrap">
-                                        {PostUtils.Display.formatRelativeTime(post.created_at)}
-                                    </span>
                                 </div>
 
-                                <div className="flex items-center space-x-2 mt-1 flex-wrap">
-                                    <div className="flex items-center space-x-1">
-                                        <span className="text-xs">
-                                            {PostUtils.Display.getPostTypeIcon(post.post_type)}
-                                        </span>
-                                        <span className="text-xs text-gray-500">
-                                            {PostUtils.Display.getPostTypeDisplayName(post.post_type)}
-                                        </span>
+                                {/* Meta Info */}
+                                <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                                    <span className="whitespace-nowrap">
+                                        {PostUtils.Display.formatRelativeTime(post.created_at)}
+                                    </span>
+
+                                    <span>·</span>
+
+                                    <div className="flex items-center gap-1">
+                                        <span>{PostUtils.Display.getPostTypeIcon(post.post_type)}</span>
+                                        <span>{PostUtils.Display.getPostTypeDisplayName(post.post_type)}</span>
                                     </div>
 
                                     {post.category && (
                                         <>
-                                            <span className="text-gray-400">·</span>
+                                            <span>·</span>
                                             <button
                                                 onClick={handleCategoryClick}
-                                                className="text-xs text-blue-600 hover:underline"
+                                                className="text-blue-600 hover:underline"
                                             >
                                                 {post.category}
                                             </button>
@@ -183,29 +185,29 @@ export function PostCard({
 
                                     {post.location && (
                                         <>
-                                            <span className="text-gray-400">·</span>
+                                            <span>·</span>
                                             <button
                                                 onClick={handleLocationClick}
-                                                className="flex items-center space-x-1 text-xs text-gray-500 hover:text-gray-700"
+                                                className="flex items-center gap-1 hover:text-gray-700"
                                             >
                                                 <MapPin className="h-3 w-3" />
-                                                <span className="truncate max-w-24">{post.location}</span>
+                                                <span className="truncate max-w-20">{post.location}</span>
                                             </button>
                                         </>
                                     )}
                                 </div>
 
-                                {/* Special badges */}
+                                {/* Special Badges */}
                                 {(post.is_pinned || post.is_featured) && (
-                                    <div className="flex items-center space-x-1 mt-1">
+                                    <div className="flex items-center gap-1.5">
                                         {post.is_pinned && (
-                                            <Badge variant="outline" className="text-xs px-1 py-0">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
                                                 <Pin className="h-3 w-3 mr-1" />
                                                 Pinned
                                             </Badge>
                                         )}
                                         {post.is_featured && (
-                                            <Badge variant="outline" className="text-xs px-1 py-0">
+                                            <Badge variant="outline" className="text-xs px-1.5 py-0 h-5">
                                                 <Star className="h-3 w-3 mr-1" />
                                                 Featured
                                             </Badge>
@@ -215,9 +217,10 @@ export function PostCard({
                             </div>
                         </div>
 
+                        {/* More Menu */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 flex-shrink-0">
                                     <MoreHorizontal className="h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -238,41 +241,61 @@ export function PostCard({
                     </div>
                 </div>
 
-                {/* Title (for articles/questions) */}
+                {/* Title */}
                 {post.title && (
                     <div className="px-4 pb-2">
-                        <h2 className={`font-bold text-gray-900 ${compact ? 'text-base' : 'text-lg'}`}>
+                        <h2 className="font-bold text-gray-900 text-lg leading-tight">
                             {post.title}
                         </h2>
                     </div>
                 )}
 
-                {/* Content */}
-                <div className={`px-4 ${compact ? 'pb-2' : 'pb-3'}`}>
-                    <div className="text-gray-900 whitespace-pre-wrap break-words">
-                        {compact && post.content.length > 200
-                            ? `${post.content.slice(0, 200)}...`
-                            : post.content
-                        }
+                {/* Content with controlled height */}
+                <div className="px-4 pb-3">
+                    <div
+                        className={`text-gray-900 whitespace-pre-wrap break-words text-sm leading-relaxed ${!isExpanded && shouldTruncate ? 'line-clamp-6' : ''
+                            }`}
+                    >
+                        {post.content}
                     </div>
+
+                    {/* Read More/Less Button */}
+                    {shouldTruncate && (
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="text-blue-600 hover:text-blue-700 text-sm font-medium mt-2 flex items-center gap-1"
+                        >
+                            {isExpanded ? (
+                                <>
+                                    Show less
+                                    <ChevronUp className="h-4 w-4" />
+                                </>
+                            ) : (
+                                <>
+                                    Read more
+                                    <ChevronDown className="h-4 w-4" />
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 {/* Tags */}
-                {post.tags && post.tags.length > 0 && !compact && (
+                {post.tags && post.tags.length > 0 && (
                     <div className="px-4 pb-3">
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-1.5">
                             {post.tags.slice(0, 5).map((tag) => (
                                 <button
                                     key={tag}
                                     onClick={() => handleTagClick(tag)}
-                                    className="text-xs text-blue-600 hover:underline"
+                                    className="text-xs text-blue-600 hover:underline bg-blue-50 px-2 py-1 rounded-full"
                                 >
                                     #{tag}
                                 </button>
                             ))}
                             {post.tags.length > 5 && (
                                 <Badge variant="outline" className="text-xs">
-                                    +{post.tags.length - 5} more
+                                    +{post.tags.length - 5}
                                 </Badge>
                             )}
                         </div>
@@ -280,99 +303,61 @@ export function PostCard({
                 )}
 
                 {/* Media */}
-                {post.media_urls && post.media_urls.length > 0 && !compact && (
+                {post.media_urls && post.media_urls.length > 0 && (
                     <div className="px-4 pb-3">
                         <PostMedia mediaUrls={post.media_urls} mediaTypes={post.media_types} />
                     </div>
                 )}
 
                 {/* Link Preview */}
-                {post.external_link_preview && !compact && (
+                {post.external_link_preview && (
                     <div className="px-4 pb-3">
                         <PostLinkPreview preview={post.external_link_preview} />
                     </div>
                 )}
 
-                {/* Engagement Stats */}
-                <div className="px-4 py-2 border-t border-gray-100">
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                        <div className="flex items-center space-x-4">
-                            <div className="flex items-center space-x-1">
-                                <Eye className="h-4 w-4" />
-                                <span>{PostUtils.Display.formatEngagementCount(post.view_count || 0)}</span>
-                            </div>
-
-                            {PostUtils.Display.isTrending(post) && (
-                                <div className="flex items-center space-x-1 text-orange-500">
-                                    <TrendingUp className="h-4 w-4" />
-                                    <span className="text-xs font-medium">Trending</span>
-                                </div>
-                            )}
-
-                            {(post.engagement_score || 0) > 20 && (
-                                <div className="flex items-center space-x-1 text-purple-500">
-                                    <Sparkles className="h-4 w-4" />
-                                    <span className="text-xs font-medium">High Engagement</span>
-                                </div>
-                            )}
-
-                            {showEngagementScores && post.final_rank_score && (
-                                <div className="text-xs text-gray-400">
-                                    Score: {post.final_rank_score.toFixed(1)}
-                                </div>
-                            )}
-                        </div>
-
-                        {!compact && (
-                            <div className="text-xs">
-                                {PostUtils.Display.getReadingTime(post.content)}
-                            </div>
-                        )}
-                    </div>
-                </div>
-
                 {/* Actions */}
-                <div className="px-4 py-3 border-t border-gray-100">
+                <div className="px-4 py-3 border-t">
                     <div className="flex items-center justify-between">
                         {/* Reaction System */}
                         <PostReactions
                             targetType="POST"
                             targetId={post.id}
                             onReactionChange={handleReactionChange}
-                            size={compact ? 'sm' : 'md'}
+                            size="md"
                             layout="inline"
-                            maxDisplay={compact ? 3 : 5}
+                            maxDisplay={5}
                         />
 
                         {/* Traditional Actions */}
-                        <div className="flex items-center space-x-1">
+                        <div className="flex items-center gap-1">
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleComment}
-                                className="gap-2 text-gray-500 hover:text-blue-500"
+                                className="gap-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50"
                             >
                                 <MessageCircle className="h-4 w-4" />
-                                <span>{PostUtils.Display.formatEngagementCount(post.comment_count || 0)}</span>
+                                <span className="text-sm">{PostUtils.Display.formatEngagementCount(post.comment_count || 0)}</span>
                             </Button>
 
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleShare}
-                                className="gap-2 text-gray-500 hover:text-green-500"
+                                className="gap-1.5 text-gray-600 hover:text-green-600 hover:bg-green-50"
                             >
                                 <Share2 className="h-4 w-4" />
-                                <span>{PostUtils.Display.formatEngagementCount(post.share_count || 0)}</span>
+                                <span className="text-sm">{PostUtils.Display.formatEngagementCount(post.share_count || 0)}</span>
                             </Button>
 
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSave}
-                                className={`${post.user_has_saved
-                                    ? 'text-blue-500'
-                                    : 'text-gray-500 hover:text-blue-500'
+                                className={`hover:bg-blue-50 ${post.user_has_saved
+                                    ? 'text-blue-600'
+                                    : 'text-gray-600 hover:text-blue-600'
                                     }`}
                             >
                                 <Bookmark className={`h-4 w-4 ${post.user_has_saved ? 'fill-current' : ''}`} />
@@ -400,7 +385,7 @@ function PostMedia({
             mediaUrls.length === 3 ? 'grid-cols-2' : 'grid-cols-2';
 
     return (
-        <div className={`grid ${gridCols} gap-2 rounded-lg overflow-hidden`}>
+        <div className={`grid ${gridCols} gap-2 rounded-xl overflow-hidden`}>
             {mediaUrls.slice(0, 4).map((url, index) => {
                 const mediaType = mediaTypes?.[index];
                 const isVideo = mediaType === 'VIDEO' || url.includes('.mp4') || url.includes('.webm');
@@ -422,7 +407,7 @@ function PostMedia({
                             <img
                                 src={url}
                                 alt={`Post media ${index + 1}`}
-                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform duration-200"
                                 loading="lazy"
                             />
                         )}
@@ -431,7 +416,7 @@ function PostMedia({
             })}
 
             {mediaUrls.length > 4 && (
-                <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
+                <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center text-gray-600 text-sm font-medium">
                     +{mediaUrls.length - 4} more
                 </div>
             )}
@@ -444,33 +429,38 @@ function PostLinkPreview({ preview }: { preview: any }) {
     if (!preview) return null;
 
     return (
-        <div className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 cursor-pointer transition-colors">
-            <div className="flex items-start space-x-3">
+        <a
+            href={preview.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block border rounded-xl p-3 hover:bg-gray-50 transition-colors"
+        >
+            <div className="flex items-start gap-3">
                 {preview.image_url && (
                     <img
                         src={preview.image_url}
                         alt=""
-                        className="w-16 h-16 object-cover rounded flex-shrink-0"
+                        className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
                         loading="lazy"
                     />
                 )}
                 <div className="flex-1 min-w-0">
                     {preview.title && (
-                        <h4 className="font-medium text-sm text-gray-900 line-clamp-2">
+                        <h4 className="font-medium text-sm text-gray-900 line-clamp-2 mb-1">
                             {preview.title}
                         </h4>
                     )}
                     {preview.description && (
-                        <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                        <p className="text-xs text-gray-600 line-clamp-2 mb-1">
                             {preview.description}
                         </p>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500">
                         {preview.site_name || new URL(preview.url).hostname}
                     </p>
                 </div>
             </div>
-        </div>
+        </a>
     );
 }
 

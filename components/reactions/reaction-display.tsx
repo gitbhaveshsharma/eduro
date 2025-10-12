@@ -12,12 +12,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-    Tooltip,
-    TooltipContent,
-    TooltipProvider,
-    TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 // Conditional import for framer-motion with fallbacks
 let motion: any;
@@ -292,202 +286,170 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     }
 
     return (
-        <TooltipProvider>
-            <div
-                ref={containerRef}
-                className={cn("relative inline-flex items-center", sizeClasses.gap, className)}
-                role="group"
-                aria-label={`${totalReactions} reaction${totalReactions === 1 ? "" : "s"} on this ${targetType.toLowerCase()}`}
-                onPointerEnter={onGroupPointerEnter}
-                onPointerLeave={onGroupPointerLeave}
-            >
-                {/* Floating ReactionBar (bubble pop) */}
-                <AnimatePresence>
-                    {showBar && (
-                        <motion.div
-                            ref={flyoutRef}
-                            key="reaction-bar-flyout"
-                            initial={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
-                            animate={{ opacity: 1, y: -8, scale: 1, filter: "blur(0px)" }}
-                            exit={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
-                            transition={{ duration: 0.16, ease: "easeOut" }}
-                            className={cn("absolute -top-2 left-0 z-20", "translate-y-[-100%]")}
-                            onPointerEnter={onFlyoutPointerEnter}
-                            onPointerLeave={onFlyoutPointerLeave}
-                            role="dialog"
-                            aria-label="Quick reactions"
+        <div
+            ref={containerRef}
+            className={cn("relative inline-flex items-center", sizeClasses.gap, className)}
+            role="group"
+            aria-label={`${totalReactions} reaction${totalReactions === 1 ? "" : "s"} on this ${targetType.toLowerCase()}`}
+            onPointerEnter={onGroupPointerEnter}
+            onPointerLeave={onGroupPointerLeave}
+        >
+            {/* Floating ReactionBar (bubble pop) */}
+            <AnimatePresence>
+                {showBar && (
+                    <motion.div
+                        ref={flyoutRef}
+                        key="reaction-bar-flyout"
+                        initial={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
+                        animate={{ opacity: 1, y: -8, scale: 1, filter: "blur(0px)" }}
+                        exit={{ opacity: 0, y: 8, scale: 0.95, filter: "blur(4px)" }}
+                        transition={{ duration: 0.16, ease: "easeOut" }}
+                        className={cn("absolute -top-2 left-0 z-20", "translate-y-[-100%]")}
+                        onPointerEnter={onFlyoutPointerEnter}
+                        onPointerLeave={onFlyoutPointerLeave}
+                        role="dialog"
+                        aria-label="Quick reactions"
+                    >
+                        <div
+                            className={cn(
+                                "rounded-full border border-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-lg",
+                                "px-2 py-1"
+                            )}
                         >
-                            <div
-                                className={cn(
-                                    "rounded-full border border-gray-200 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 shadow-lg",
-                                    "px-2 py-1"
-                                )}
-                            >
-                                <ReactionBar
-                                    targetType={targetType}
-                                    targetId={targetId}
-                                    onReactionSelect={(reaction) => {
-                                        onReactionClick?.(reaction);
-                                        setShowBar(false);
-                                    }}
-                                    size={size}
-                                    className="px-0"
-                                    maxReactions={5}
-                                    showHoverEffects
-                                />
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-
-                {/* Live region for accessibility */}
-                <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-                    {totalReactions > 0 && `${totalReactions} reaction${totalReactions === 1 ? "" : "s"} total`}
-                </div>
-
-                <AnimatePresence mode="popLayout">
-                    {displayedReactions.map((reactionSummary, index) => {
-                        const reactionData: Pick<PublicReaction, "emoji_unicode" | "name" | "id" | "category"> = {
-                            id: reactionSummary.reaction_id,
-                            emoji_unicode: reactionSummary.emoji_unicode,
-                            name: reactionSummary.reaction_name,
-                            category: reactionSummary.category,
-                        };
-
-                        const categoryColor = getCategoryColor(reactionSummary.category); // currently unused, kept for future styling
-                        const isHovered = hoveredReaction === reactionSummary.reaction_id;
-
-                        return (
-                            <motion.div
-                                key={reactionSummary.reaction_id}
-                                layout
-                                initial={{ opacity: 0, scale: 0.8 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.8 }}
-                                transition={{
-                                    duration: 0.2,
-                                    delay: index * 0.05,
-                                    ease: "easeOut",
+                            <ReactionBar
+                                targetType={targetType}
+                                targetId={targetId}
+                                onReactionSelect={(reaction) => {
+                                    onReactionClick?.(reaction);
+                                    setShowBar(false);
                                 }}
-                            >
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            variant={reactionSummary.user_reacted ? "default" : "outline"}
-                                            size="sm"
-                                            onClick={() => handleReactionClick(reactionSummary)}
-                                            onMouseEnter={() => handleMouseEnterChip(reactionSummary.reaction_id)}
-                                            onMouseLeave={handleMouseLeaveChip}
-                                            className={cn(
-                                                sizeClasses.button,
-                                                "relative rounded-full border-2 transition-all duration-200",
-                                                reactionSummary.user_reacted
-                                                    ? "bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200"
-                                                    : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50",
-                                                isHovered && "scale-105 shadow-md"
-                                            )}
-                                            aria-label={getReactionAriaLabel(reactionData as PublicReaction, reactionSummary.count)}
-                                            aria-pressed={reactionSummary.user_reacted}
-                                        >
-                                            <span className={cn(sizeClasses.emoji, "mr-1")}>
-                                                {formatReactionEmoji(reactionData as PublicReaction)}
-                                            </span>
-                                            <span className={sizeClasses.count}>{formatReactionCount(reactionSummary.count)}</span>
-
-                                            {reactionSummary.user_reacted && (
-                                                <motion.div
-                                                    className="absolute inset-0 rounded-full bg-blue-200 opacity-30"
-                                                    animate={{ scale: [1, 1.1, 1] }}
-                                                    transition={{ duration: 2, repeat: Infinity }}
-                                                />
-                                            )}
-                                        </Button>
-                                    </TooltipTrigger>
-
-                                    <TooltipContent side="top" className="max-w-xs" sideOffset={8}>
-                                        <div className="text-center">
-                                            <div className="font-medium">{formatReactionName(reactionData as PublicReaction)}</div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {reactionSummary.count === 1
-                                                    ? "1 person reacted"
-                                                    : `${formatReactionCount(reactionSummary.count)} people reacted`}
-                                            </div>
-                                            {reactionSummary.user_reacted && (
-                                                <div className="text-xs text-blue-600 mt-1 font-medium">✓ You reacted with this</div>
-                                            )}
-                                        </div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </motion.div>
-                        );
-                    })}
-                </AnimatePresence>
-
-                {/* More reactions indicator */}
-                {hiddenCount > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.8 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ duration: 0.2, delay: displayedReactions.length * 0.05 }}
-                    >
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Badge
-                                    variant="outline"
-                                    onClick={onShowAllReactions}
-                                    className={cn(
-                                        sizeClasses.button,
-                                        "rounded-full border-2 border-gray-200 bg-white text-gray-500",
-                                        "hover:border-gray-300 hover:bg-gray-50 cursor-pointer transition-all"
-                                    )}
-                                    role="button"
-                                    aria-label={`Show ${hiddenCount} more reaction${hiddenCount === 1 ? "" : "s"}`}
-                                >
-                                    +{hiddenCount}
-                                </Badge>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" sideOffset={8}>
-                                <div className="text-center">
-                                    <div className="font-medium">
-                                        {hiddenCount} more reaction{hiddenCount === 1 ? "" : "s"}
-                                    </div>
-                                    <div className="text-xs text-gray-500 mt-1">Click to see all reactions</div>
-                                </div>
-                            </TooltipContent>
-                        </Tooltip>
-                    </motion.div>
-                )}
-
-                {/* Analytics info with insights */}
-                {showAnalytics && totalReactions > 0 && analyticsInsights && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                        className="ml-3 text-xs text-gray-500"
-                        role="status"
-                        aria-label="Reaction analytics"
-                    >
-                        <div>
-                            {formatReactionCount(totalReactions)} total reaction{totalReactions === 1 ? "" : "s"}
+                                size={size}
+                                className="px-0"
+                                maxReactions={5}
+                                showHoverEffects
+                            />
                         </div>
-                        {analytics.unique_users > 0 && (
-                            <div className="mt-0.5">
-                                from {analytics.unique_users} user{analytics.unique_users === 1 ? "" : "s"}
-                            </div>
-                        )}
-                        {analyticsInsights.dominant && (
-                            <div className="mt-0.5 font-medium">
-                                Most popular:{" "}
-                                {formatReactionEmoji({
-                                    emoji_unicode: analyticsInsights.dominant.emoji_unicode,
-                                } as PublicReaction)}
-                            </div>
-                        )}
                     </motion.div>
                 )}
+            </AnimatePresence>
+
+            {/* Live region for accessibility */}
+            <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+                {totalReactions > 0 && `${totalReactions} reaction${totalReactions === 1 ? "" : "s"} total`}
             </div>
-        </TooltipProvider>
+
+            <AnimatePresence mode="popLayout">
+                {displayedReactions.map((reactionSummary, index) => {
+                    const reactionData: Pick<PublicReaction, "emoji_unicode" | "name" | "id" | "category"> = {
+                        id: reactionSummary.reaction_id,
+                        emoji_unicode: reactionSummary.emoji_unicode,
+                        name: reactionSummary.reaction_name,
+                        category: reactionSummary.category,
+                    };
+
+                    const categoryColor = getCategoryColor(reactionSummary.category); // currently unused, kept for future styling
+                    const isHovered = hoveredReaction === reactionSummary.reaction_id;
+
+                    return (
+                        <motion.div
+                            key={reactionSummary.reaction_id}
+                            layout
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.8 }}
+                            transition={{
+                                duration: 0.2,
+                                delay: index * 0.05,
+                                ease: "easeOut",
+                            }}
+                        >
+                            <Button
+                                variant={reactionSummary.user_reacted ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleReactionClick(reactionSummary)}
+                                onMouseEnter={() => handleMouseEnterChip(reactionSummary.reaction_id)}
+                                onMouseLeave={handleMouseLeaveChip}
+                                className={cn(
+                                    sizeClasses.button,
+                                    "relative rounded-full border-2 transition-all duration-200",
+                                    reactionSummary.user_reacted
+                                        ? "bg-blue-100 border-blue-300 text-blue-700 hover:bg-blue-200"
+                                        : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50",
+                                    isHovered && "scale-105 shadow-md"
+                                )}
+                                aria-label={getReactionAriaLabel(reactionData as PublicReaction, reactionSummary.count)}
+                                aria-pressed={reactionSummary.user_reacted}
+                            >
+                                <span className={cn(sizeClasses.emoji, "mr-1")}>
+                                    {formatReactionEmoji(reactionData as PublicReaction)}
+                                </span>
+                                <span className={sizeClasses.count}>{formatReactionCount(reactionSummary.count)}</span>
+
+                                {reactionSummary.user_reacted && (
+                                    <motion.div
+                                        className="absolute inset-0 rounded-full bg-blue-200 opacity-30"
+                                        animate={{ scale: [1, 1.1, 1] }}
+                                        transition={{ duration: 2, repeat: Infinity }}
+                                    />
+                                )}
+                            </Button>
+                        </motion.div>
+                    );
+                })}
+            </AnimatePresence>
+
+            {/* More reactions indicator */}
+            {hiddenCount > 0 && (
+                <motion.div
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2, delay: displayedReactions.length * 0.05 }}
+                >
+                    <Badge
+                        variant="outline"
+                        onClick={onShowAllReactions}
+                        className={cn(
+                            sizeClasses.button,
+                            "rounded-full border-2 border-gray-200 bg-white text-gray-500",
+                            "hover:border-gray-300 hover:bg-gray-50 cursor-pointer transition-all"
+                        )}
+                        role="button"
+                        aria-label={`Show ${hiddenCount} more reaction${hiddenCount === 1 ? "" : "s"}`}
+                    >
+                        +{hiddenCount}
+                    </Badge>
+                </motion.div>
+            )}
+
+            {/* Analytics info with insights */}
+            {showAnalytics && totalReactions > 0 && analyticsInsights && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="ml-3 text-xs text-gray-500"
+                    role="status"
+                    aria-label="Reaction analytics"
+                >
+                    <div>
+                        {formatReactionCount(totalReactions)} total reaction{totalReactions === 1 ? "" : "s"}
+                    </div>
+                    {analytics.unique_users > 0 && (
+                        <div className="mt-0.5">
+                            from {analytics.unique_users} user{analytics.unique_users === 1 ? "" : "s"}
+                        </div>
+                    )}
+                    {analyticsInsights.dominant && (
+                        <div className="mt-0.5 font-medium">
+                            Most popular:{" "}
+                            {formatReactionEmoji({
+                                emoji_unicode: analyticsInsights.dominant.emoji_unicode,
+                            } as PublicReaction)}
+                        </div>
+                    )}
+                </motion.div>
+            )}
+        </div>
     );
 });
 

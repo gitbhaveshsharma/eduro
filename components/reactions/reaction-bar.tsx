@@ -18,7 +18,6 @@ import {
 } from "@/lib/reaction";
 import {
     formatReactionEmoji,
-    formatReactionName,
     sortByPopularity,
     getReactionAriaLabel,
 } from "@/lib/utils/reaction.utils";
@@ -90,38 +89,30 @@ export function ReactionBar({
         <TooltipProvider>
             <div className={cn("flex items-center", sizeClasses.gap, className)} role="group" aria-label="Quick reactions">
                 {topReactions.map((reaction, index) => (
-                    <Tooltip key={reaction.id}>
-                        <TooltipTrigger asChild>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleReactionClick(reaction)}
-                                onMouseEnter={showHoverEffects ? () => setHoveredReaction(reaction.id) : undefined}
-                                onMouseLeave={showHoverEffects ? () => setHoveredReaction(null) : undefined}
-                                className={cn(
-                                    sizeClasses.button,
-                                    "rounded-full p-0 transition-all duration-200",
-                                    "hover:bg-gray-100 hover:scale-110",
-                                    "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1",
-                                    hoveredReaction === reaction.id && showHoverEffects && "scale-110 shadow-lg"
-                                )}
-                                aria-label={getReactionAriaLabel(reaction)}
-                                style={{ animationDelay: `${index * 50}ms` }}
-                            >
-                                <span className={cn(sizeClasses.emoji, "transition-transform duration-200")}>
-                                    {formatReactionEmoji(reaction)}
-                                </span>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" sideOffset={8}>
-                            <div className="text-center">
-                                <div className="font-medium">{formatReactionName(reaction)}</div>
-                                {reaction.description && <div className="text-xs text-gray-500 mt-1">{reaction.description}</div>}
-                            </div>
-                        </TooltipContent>
-                    </Tooltip>
+                    <Button
+                        key={reaction.id}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleReactionClick(reaction)}
+                        onMouseEnter={showHoverEffects ? () => setHoveredReaction(reaction.id) : undefined}
+                        onMouseLeave={showHoverEffects ? () => setHoveredReaction(null) : undefined}
+                        className={cn(
+                            sizeClasses.button,
+                            "rounded-full p-0 transition-all duration-200",
+                            "hover:bg-gray-100 hover:scale-110",
+                            "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1",
+                            hoveredReaction === reaction.id && showHoverEffects && "scale-110 shadow-lg"
+                        )}
+                        aria-label={getReactionAriaLabel(reaction)}
+                        style={{ animationDelay: `${index * 50}ms` }}
+                    >
+                        <span className={cn(sizeClasses.emoji, "transition-transform duration-200")}>
+                            {formatReactionEmoji(reaction)}
+                        </span>
+                    </Button>
                 ))}
 
+                {/* Plus button with tooltip */}
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button
@@ -143,8 +134,7 @@ export function ReactionBar({
                     </TooltipTrigger>
                     <TooltipContent side="top" sideOffset={8}>
                         <div className="text-center">
-                            <div className="font-medium">More reactions</div>
-                            <div className="text-xs text-gray-500 mt-1">Choose from all available reactions</div>
+                            <div className="font-medium">Select more reactions</div>
                         </div>
                     </TooltipContent>
                 </Tooltip>
@@ -160,7 +150,6 @@ export function ReactionBar({
                     onReactionSelect={handlePickerSelect}
                     onClose={handlePickerClose}
                 />
-
             </div>
         </TooltipProvider>
     );

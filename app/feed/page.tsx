@@ -9,11 +9,17 @@ import {
     type FeedSortType
 } from "@/components/feed";
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { ProfileCard } from '@/components/profile/profile-card';
+import { CoachingCenterCard } from '@/components/feed/feed-lms';
+import { useCurrentProfile } from '@/lib/profile';
 
 export default function FeedPage() {
     const [sortType, setSortType] = useState<FeedSortType>('recent');
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
+
+    // Get current user profile
+    const currentProfile = useCurrentProfile();
 
     // Handle initial component mount
     useEffect(() => {
@@ -61,10 +67,29 @@ export default function FeedPage() {
             />
 
             {/* Main Content */}
-            <div className="max-w-7xl mx-auto px-4 py-6">
-                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="max-w-7xl mx-auto px-4 py-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Left Sidebar - Profile Card & Coaching Center (Hidden on mobile/tablet) */}
+                    <div className="hidden lg:block lg:col-span-3">
+                        <div className="sticky top-24 space-y-6">
+                            {/* User Profile Card */}
+                            {currentProfile && (
+                                <div>
+                                    <ProfileCard profile={currentProfile} />
+                                </div>
+                            )}
+
+                            {/* Coaching Center Card - Only show for students */}
+                            {currentProfile?.role === 'S' && (
+                                <div>
+                                    <CoachingCenterCard />
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Main Feed Column */}
-                    <div className="lg:col-span-3 space-y-6">
+                    <div className="lg:col-span-6 space-y-6">
                         {/* Post Composer */}
                         <PostComposer
                             onPostCreated={handlePostCreated}
@@ -79,8 +104,8 @@ export default function FeedPage() {
                         />
                     </div>
 
-                    {/* Sidebar */}
-                    <div className="lg:col-span-1">
+                    {/* Right Sidebar - Suggestions (Hidden on mobile/tablet) */}
+                    <div className="hidden lg:block lg:col-span-3">
                         <div className="sticky top-24">
                             <SuggestionSection />
                         </div>
