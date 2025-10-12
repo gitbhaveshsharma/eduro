@@ -410,24 +410,34 @@ export class CommentService {
                 .eq('id', commentId)
                 .single();
 
-            if (checkError || !comment) {
+            if (checkError) {
+                // Log full error for debugging (RLS, PostgREST, etc.)
+                console.error('deleteComment: error fetching comment ownership', { commentId, checkError });
+                return { success: false, error: 'Comment not found or permission denied' };
+            }
+
+            if (!comment) {
+                console.warn('deleteComment: comment not found', { commentId });
                 return { success: false, error: 'Comment not found' };
             }
 
             if (comment.author_id !== user.id) {
+                console.warn('deleteComment: user not owner', { commentId, owner: comment.author_id, user: user.id });
                 return { success: false, error: POST_ERROR_CODES.CANNOT_DELETE_POST };
             }
 
-            // Soft delete
+            // Soft delete - log any DB error details
             const { error } = await supabase
                 .from('comments')
                 .update({ 
                     status: 'DELETED',
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', commentId);
+                .eq('id', commentId)
+                .eq('author_id', user.id);
 
             if (error) {
+                console.error('deleteComment: supabase update error', { commentId, error });
                 return { success: false, error: error.message };
             }
 

@@ -408,6 +408,33 @@
         AFTER INSERT OR DELETE ON post_shares 
         FOR EACH ROW EXECUTE FUNCTION update_engagement_counts();
 
+    -- Function to maintain comment_count on status changes (soft-delete/restore)
+    CREATE OR REPLACE FUNCTION maintain_post_comment_count_on_status_change()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        -- If status changed from PUBLISHED to non-PUBLISHED, decrement post.comment_count
+        IF TG_OP = 'UPDATE' THEN
+            IF OLD.status = 'PUBLISHED' AND NEW.status <> 'PUBLISHED' THEN
+                UPDATE posts
+                SET comment_count = GREATEST(comment_count - 1, 0), last_activity_at = NOW()
+                WHERE id = NEW.post_id;
+            ELSIF OLD.status <> 'PUBLISHED' AND NEW.status = 'PUBLISHED' THEN
+                -- Restored or published: increment
+                UPDATE posts
+                SET comment_count = comment_count + 1, last_activity_at = NOW()
+                WHERE id = NEW.post_id;
+            END IF;
+        END IF;
+
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- Attach trigger to comments for updates to status
+    CREATE TRIGGER maintain_comment_count_on_status_update
+        AFTER UPDATE OF status ON comments
+        FOR EACH ROW EXECUTE FUNCTION maintain_post_comment_count_on_status_change();
+
     -- Function to generate thread path for nested comments
     CREATE OR REPLACE FUNCTION generate_comment_thread_path()
     RETURNS TRIGGER AS $$
@@ -649,7 +676,10 @@
             p.media_urls,
             p.media_types,
             p.like_count,
-            p.comment_count,
+            -- Compute comment_count only for published comments
+            (
+                SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.status = 'PUBLISHED'
+            )::INTEGER AS comment_count,
             p.share_count,
             p.view_count,
             p.engagement_score,

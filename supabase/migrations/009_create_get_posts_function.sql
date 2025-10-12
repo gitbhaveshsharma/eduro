@@ -128,7 +128,10 @@ BEGIN
       p.category,
       p.tags,
       p.like_count,
-      p.comment_count,
+      -- Ensure comment_count reflects only published comments
+      (
+        SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND c.status = 'PUBLISHED'
+      )::INTEGER AS comment_count,
       p.share_count,
       p.view_count,
       p.engagement_score,
@@ -432,7 +435,10 @@ BEGIN
     rp.category,
     rp.tags,
     rp.like_count,
-    rp.comment_count,
+    -- Override to ensure only published comments are counted
+    (
+      SELECT COUNT(*) FROM comments c WHERE c.post_id = rp.id AND c.status = 'PUBLISHED'
+    )::INTEGER AS comment_count,
     rp.share_count,
     rp.view_count,
     rp.engagement_score,

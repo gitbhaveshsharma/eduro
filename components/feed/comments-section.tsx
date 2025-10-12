@@ -15,6 +15,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog";
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -22,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostReactions } from "@/components/reactions";
 import { UserAvatar } from "@/components/avatar/user-avatar";
+import { ReportDialog } from "@/components/report/report-dialog";
 import { useCommentStore, useCommentsForPost, useCommentsLoading, useCommentsError, useCommentsPagination, useCommentComposition } from "@/lib/store/comment.store";
 import { PostUtils } from "@/lib/utils/post.utils";
 import type { PublicComment } from "@/lib/schema/post.types";
@@ -29,7 +38,7 @@ import type { PublicReaction } from "@/components/reactions";
 
 export interface CommentsSectionProps {
     postId: string;
-    autoLoad?: boolean; // Auto-load comments on mount
+    autoLoad?: boolean;
     className?: string;
 }
 
@@ -38,20 +47,17 @@ export function CommentsSection({
     autoLoad = true,
     className = ""
 }: CommentsSectionProps) {
-    // Get comments and state from store (but not functions to avoid re-render issues)
     const comments = useCommentsForPost(postId);
     const loading = useCommentsLoading(postId);
     const error = useCommentsError(postId);
     const pagination = useCommentsPagination(postId);
     const newCommentText = useCommentComposition(postId);
 
-    // Get submitting state using a selector to avoid unnecessary re-renders
     const isSubmitting = useCommentStore(state => state.submittingComments.has(postId));
 
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'popular'>('newest');
     const [showReplies, setShowReplies] = useState<Set<string>>(new Set());
 
-    // Load comments and subscribe to real-time updates
     useEffect(() => {
         const store = useCommentStore.getState();
 
@@ -59,16 +65,13 @@ export function CommentsSection({
             store.loadComments(postId);
         }
 
-        // Subscribe to real-time updates
         store.subscribeToComments(postId);
 
         return () => {
-            // Use getState to avoid stale closure
             useCommentStore.getState().unsubscribeFromComments(postId);
         };
-    }, [postId, autoLoad]); // Only depend on postId and autoLoad
+    }, [postId, autoLoad]);
 
-    // Handle comment submission with optimistic updates
     const handleSubmitComment = useCallback(async () => {
         if (!newCommentText.trim() || isSubmitting) return;
 
@@ -77,14 +80,12 @@ export function CommentsSection({
         if (success) {
             store.clearCommentComposition(postId);
         }
-    }, [postId, newCommentText, isSubmitting]); // Removed store functions from deps
+    }, [postId, newCommentText, isSubmitting]);
 
-    // Handle load more
     const handleLoadMore = useCallback(() => {
         useCommentStore.getState().loadMoreComments(postId);
-    }, [postId]); // Removed store function from deps
+    }, [postId]);
 
-    // Handle key press in comment textarea
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
             e.preventDefault();
@@ -92,7 +93,6 @@ export function CommentsSection({
         }
     }, [handleSubmitComment]);
 
-    // Toggle reply visibility
     const toggleReplies = useCallback((commentId: string) => {
         setShowReplies(prev => {
             const newSet = new Set(prev);
@@ -105,11 +105,9 @@ export function CommentsSection({
         });
     }, []);
 
-    // Group comments by thread
     const groupedComments = PostUtils.Comment.groupCommentsByParent(comments);
     const topLevelComments = groupedComments.get(null) || [];
 
-    // Sort top-level comments
     const sortedTopLevelComments = React.useMemo(() => {
         const sorted = [...topLevelComments];
 
@@ -125,7 +123,6 @@ export function CommentsSection({
         }
     }, [topLevelComments, sortBy]);
 
-    // Loading skeleton
     if (loading && comments.length === 0) {
         return (
             <Card className={className}>
@@ -155,7 +152,6 @@ export function CommentsSection({
     return (
         <Card className={className}>
             <CardContent className="p-6">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <MessageCircle className="h-5 w-5" />
@@ -164,7 +160,6 @@ export function CommentsSection({
                         </h3>
                     </div>
 
-                    {/* Sort options */}
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-gray-500">Sort by:</span>
                         <DropdownMenu>
@@ -188,7 +183,6 @@ export function CommentsSection({
                     </div>
                 </div>
 
-                {/* Comment form */}
                 <div className="mb-6">
                     <CommentForm
                         postId={postId}
@@ -201,14 +195,12 @@ export function CommentsSection({
                     />
                 </div>
 
-                {/* Error message */}
                 {error && (
                     <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-sm text-red-700">{error}</p>
                     </div>
                 )}
 
-                {/* Comments list */}
                 <div className="space-y-4">
                     {sortedTopLevelComments.map((comment) => (
                         <CommentItem
@@ -223,7 +215,6 @@ export function CommentsSection({
                     ))}
                 </div>
 
-                {/* Load more comments */}
                 {pagination && pagination.hasMore && (
                     <div className="mt-6 text-center">
                         <Button
@@ -236,7 +227,6 @@ export function CommentsSection({
                     </div>
                 )}
 
-                {/* Empty state */}
                 {comments.length === 0 && !loading && (
                     <div className="text-center py-8">
                         <MessageCircle className="h-12 w-12 text-gray-300 mx-auto mb-4" />
@@ -249,7 +239,6 @@ export function CommentsSection({
     );
 }
 
-// Individual comment component with threading support
 interface CommentItemProps {
     comment: PublicComment;
     postId: string;
@@ -269,10 +258,12 @@ function CommentItem({
 }: CommentItemProps) {
     const [showReplyForm, setShowReplyForm] = useState(false);
     const [replyText, setReplyText] = useState('');
+    const [showReportDialog, setShowReportDialog] = useState(false);
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
-    // Use selectors instead of destructuring to avoid re-render issues
     const isSubmittingReply = useCommentStore(state => state.submittingReplies.has(comment.id));
-    const maxDepth = 5; // Maximum nesting level for visual clarity
+    const maxDepth = 5;
 
     const handleReplySubmit = async () => {
         if (!replyText.trim() || isSubmittingReply) return;
@@ -284,15 +275,46 @@ function CommentItem({
             setReplyText('');
             setShowReplyForm(false);
             if (!showReplies) {
-                onToggleReplies(); // Auto-expand replies when user adds one
+                onToggleReplies();
             }
         }
     };
 
     const handleReactionChange = async (reaction: PublicReaction, action: 'add' | 'remove') => {
-        // Toggle reaction with optimistic update
+        console.log('Comment reaction change:', {
+            commentId: comment.id,
+            reactionId: reaction.id,
+            action,
+            reaction: reaction
+        });
+
+        try {
+            const store = useCommentStore.getState();
+            const success = await store.toggleCommentReaction(postId, comment.id, reaction.id);
+
+            console.log('Reaction toggle result:', success);
+
+            if (!success) {
+                console.error('Failed to toggle reaction');
+            }
+        } catch (error) {
+            console.error('Error in handleReactionChange:', error);
+        }
+    };
+
+    const handleConfirmDelete = async () => {
+        setIsDeleting(true);
+
         const store = useCommentStore.getState();
-        await store.toggleCommentReaction(postId, comment.id, reaction.id);
+        const success = await store.deleteComment(comment.id);
+
+        if (success) {
+            setShowDeleteDialog(false);
+        } else {
+            alert('Failed to delete comment. Please try again.');
+        }
+
+        setIsDeleting(false);
     };
 
     const indentLevel = Math.min(level, maxDepth);
@@ -314,7 +336,6 @@ function CommentItem({
                 />
 
                 <div className="flex-1 min-w-0">
-                    {/* Comment header */}
                     <div className="flex items-center gap-2 mb-1">
                         <span className="font-medium text-sm">
                             {comment.author_full_name || comment.author_username}
@@ -349,14 +370,11 @@ function CommentItem({
                         )}
                     </div>
 
-                    {/* Comment content */}
                     <div className="text-sm text-gray-900 mb-2 whitespace-pre-wrap break-words">
                         {comment.content}
                     </div>
 
-                    {/* Comment actions */}
                     <div className="flex items-center gap-4 text-xs">
-                        {/* Reactions */}
                         <PostReactions
                             targetType="COMMENT"
                             targetId={comment.id}
@@ -366,7 +384,6 @@ function CommentItem({
                             maxDisplay={3}
                         />
 
-                        {/* Reply button */}
                         <Button
                             variant="ghost"
                             size="sm"
@@ -377,7 +394,6 @@ function CommentItem({
                             Reply
                         </Button>
 
-                        {/* Show replies button */}
                         {replies.length > 0 && (
                             <Button
                                 variant="ghost"
@@ -389,7 +405,6 @@ function CommentItem({
                             </Button>
                         )}
 
-                        {/* More actions */}
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button
@@ -401,11 +416,14 @@ function CommentItem({
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setShowReportDialog(true)}>
                                     <Flag className="h-4 w-4 mr-2" />
                                     Report
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">
+                                <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() => setShowDeleteDialog(true)}
+                                >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
                                 </DropdownMenuItem>
@@ -413,7 +431,43 @@ function CommentItem({
                         </DropdownMenu>
                     </div>
 
-                    {/* Reply form */}
+                    {/* Delete Confirmation Dialog */}
+                    <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                        <DialogContent>
+                            <DialogHeader>
+                                <DialogTitle>Delete Comment</DialogTitle>
+                                <DialogDescription>
+                                    Are you sure you want to delete this comment? This action cannot be undone.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter>
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowDeleteDialog(false)}
+                                    disabled={isDeleting}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    variant="destructive"
+                                    onClick={handleConfirmDelete}
+                                    disabled={isDeleting}
+                                >
+                                    {isDeleting ? 'Deleting...' : 'Delete'}
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Report Dialog */}
+                    <ReportDialog
+                        open={showReportDialog}
+                        onClose={() => setShowReportDialog(false)}
+                        targetType="COMMENT"
+                        targetId={comment.id}
+                        targetTitle={comment.content.slice(0, 50) + '...'}
+                    />
+
                     {showReplyForm && (
                         <div className="mt-3">
                             <CommentForm
@@ -429,7 +483,6 @@ function CommentItem({
                         </div>
                     )}
 
-                    {/* Nested replies */}
                     {showReplies && replies.length > 0 && (
                         <div className="mt-4 space-y-4">
                             {replies.map((reply) => (
@@ -437,7 +490,7 @@ function CommentItem({
                                     key={reply.id}
                                     comment={reply}
                                     postId={postId}
-                                    replies={[]} // For now, limit to 2 levels deep
+                                    replies={[]}
                                     showReplies={false}
                                     onToggleReplies={() => { }}
                                     level={level + 1}
@@ -451,7 +504,6 @@ function CommentItem({
     );
 }
 
-// Comment form component
 interface CommentFormProps {
     postId: string;
     value: string;

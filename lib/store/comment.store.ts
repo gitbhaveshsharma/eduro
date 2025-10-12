@@ -293,7 +293,7 @@ export const useCommentStore = create<CommentStore>()(
 
                 deleteComment: async (commentId: string) => {
                     try {
-                        // Find the post this comment belongs to
+                        // Try to find the post this comment belongs to in the cache
                         let postId: string | null = null;
                         for (const [pid, comments] of get().commentsByPost) {
                             if (comments.some(c => c.id === commentId)) {
@@ -302,24 +302,38 @@ export const useCommentStore = create<CommentStore>()(
                             }
                         }
 
-                        if (!postId) {
-                            console.error('Comment not found in cache');
-                            return false;
+                        if (postId) {
+                            // Optimistic remove from that post's cache
+                            get().removeCommentFromCache(postId, commentId);
+                        } else {
+                            // Not found in per-post cache; log and continue — we'll attempt server delete anyway
+                            console.warn('deleteComment: comment not found in per-post cache, will attempt server delete anyway', commentId);
                         }
-
-                        // Optimistic delete
-                        get().removeCommentFromCache(postId, commentId);
 
                         const result = await CommentService.deleteComment(commentId);
 
                         if (result.success) {
+                            // Ensure comment is removed from all caches (in case of stale indexing)
+                            set((state) => {
+                                for (const [pid, comments] of state.commentsByPost) {
+                                    state.commentsByPost.set(
+                                        pid,
+                                        comments.filter(c => c.id !== commentId)
+                                    );
+                                }
+                            });
+
                             return true;
                         } else {
-                            // Would need to restore comment on error
+                            // If server-side delete failed, we should log the error so maintainers can inspect
+                            console.error('Server failed to delete comment:', result.error, commentId);
+
+                            // Optionally restore optimistic deletion if we removed it earlier
+                            // (Restoration requires original data; user experience will prompt refresh)
                             return false;
                         }
                     } catch (error) {
-                        console.error('Failed to delete comment:', error);
+                        console.error('Failed to delete comment (unexpected):', error, commentId);
                         return false;
                     }
                 },
