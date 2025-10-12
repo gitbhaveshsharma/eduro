@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     FeedHeader,
     PostComposer,
@@ -8,15 +8,22 @@ import {
     SuggestionSection,
     type FeedSortType
 } from "@/components/feed";
-import { usePostStore } from "@/lib/post";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Home } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export default function FeedPage() {
-    const router = useRouter();
     const [sortType, setSortType] = useState<FeedSortType>('recent');
     const [searchQuery, setSearchQuery] = useState('');
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Handle initial component mount
+    useEffect(() => {
+        // Simulate initial data loading
+        const timer = setTimeout(() => {
+            setIsLoading(false);
+        }, 1000);
+
+        return () => clearTimeout(timer);
+    }, []);
 
     const handleSortChange = (newSort: FeedSortType) => {
         setSortType(newSort);
@@ -31,6 +38,18 @@ export default function FeedPage() {
         console.log('Post created:', postId);
     };
 
+    // Show loading spinner while page initializes
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="flex flex-col items-center space-y-4">
+                    <LoadingSpinner size="lg" />
+                    <p className="text-sm text-gray-600">Loading community feed...</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Feed Header - Sticky at top */}
@@ -41,36 +60,6 @@ export default function FeedPage() {
                 showSearch={true}
                 showFilters={true}
             />
-
-            {/* Navigation Bar */}
-            <div className="bg-white border-b border-gray-200 px-4 py-2">
-                <div className="max-w-7xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.back()}
-                            className="gap-2"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.push('/dashboard')}
-                            className="gap-2"
-                        >
-                            <Home className="h-4 w-4" />
-                            Dashboard
-                        </Button>
-                    </div>
-
-                    <div className="text-sm text-gray-500">
-                        Eduro Community Feed
-                    </div>
-                </div>
-            </div>
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 py-6">
@@ -93,7 +82,7 @@ export default function FeedPage() {
 
                     {/* Sidebar */}
                     <div className="lg:col-span-1">
-                        <div className="sticky top-32">
+                        <div className="sticky top-24">
                             <SuggestionSection />
                         </div>
                     </div>
