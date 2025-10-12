@@ -740,6 +740,7 @@ export class PostService {
         original_post_id: postId,
         user_id: user.id,
         share_type: shareType,
+        quote_content: quoteContent || null,
         platform: platform || null,
         created_at: new Date().toISOString()
       };
