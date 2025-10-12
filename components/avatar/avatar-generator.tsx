@@ -351,7 +351,7 @@ export function AvatarGenerator({
           )}
         </div>
 
-        {/* Preview URL - Hidden from user but available for debugging */}
+        {/* Preview URL - Hidden from user but available for debugging
         {process.env.NODE_ENV === 'development' && (
           <div className="space-y-2">
             <Label htmlFor="preview-url">Preview URL (Debug)</Label>
@@ -372,7 +372,7 @@ export function AvatarGenerator({
               </Button>
             </div>
           </div>
-        )}
+        )} */}
 
         {/* Quick Generation Buttons */}
         <div className="grid grid-cols-2 gap-2">
