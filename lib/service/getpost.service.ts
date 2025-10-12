@@ -35,6 +35,8 @@ export interface EnhancedPost extends PublicPost {
   user_has_shared?: boolean;
   user_has_viewed?: boolean;
   user_reaction_id?: number | null;
+  is_reposted?: boolean;
+  reposts_count?: number;
   
   // Algorithm scoring (from SQL function)
   relevance_score?: number;
@@ -108,6 +110,86 @@ export const FEED_ERROR_CODES = {
 } as const;
 
 export class GetPostService {
+  
+  /**
+   * Get a single post by ID
+   */
+  static async getPostById(postId: string): Promise<PostOperationResult<EnhancedPost | null>> {
+    try {
+      // Use the existing getPosts function with specific filters
+      const result = await this.getPosts({
+        limit: 1,
+        author_id: undefined, // Don't filter by author
+        post_ids: [postId], // This parameter might need to be added to the function
+        feed_type: 'smart'
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      // If the above doesn't work with post_ids, fallback to direct query
+      if (!result.data?.posts.length) {
+        // Fallback: Direct database query for the specific post
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        const { data, error } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            profiles:author_id (
+              id,
+              username,
+              full_name,
+              avatar_url
+            )
+          `)
+          .eq('id', postId)
+          .eq('status', 'PUBLISHED')
+          .single();
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+
+        if (!data) {
+          return { success: true, data: null };
+        }
+
+        // Convert to EnhancedPost format
+        const enhancedPost: EnhancedPost = {
+          ...data,
+          author_username: data.profiles?.username || null,
+          author_full_name: data.profiles?.full_name || null,
+          author_avatar_url: data.profiles?.avatar_url || null,
+          user_has_liked: false, // Would need to check reactions
+          user_has_saved: false, // Would need to check saved_posts
+          author_is_verified: false,
+          user_has_shared: false,
+          user_has_viewed: false,
+          user_reaction_id: null,
+          relevance_score: 0,
+          viral_velocity: 0,
+          freshness_score: 0,
+          author_affinity_score: 0,
+          final_rank_score: 0
+        };
+
+        // Clean up the profiles property
+        delete (enhancedPost as any).profiles;
+
+        return { success: true, data: enhancedPost };
+      }
+
+      return { success: true, data: result.data.posts[0] || null };
+    } catch (error) {
+      console.error('Error getting post by ID:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to get post'
+      };
+    }
+  }
   
   /**
    * Get posts using the comprehensive get_posts RPC function
@@ -265,7 +347,7 @@ export class GetPostService {
         return { success: true, data: 0 };
       }
 
-      const { data, error } = await supabase.rpc('batch_record_post_views', {
+      const { data, error } = await supabase.rpc('batch_record_post_views_safe', {
         p_post_ids: postIds,
         p_user_id: user.id
       });

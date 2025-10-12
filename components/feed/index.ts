@@ -14,6 +14,7 @@ export { SuggestionSection } from './suggestion-section';
 export { default as PostCard } from './post-card';
 export { default as FeedContainer } from './feed-container';
 export { default as FeedLoading } from './feed-loading';
+export { CommentsSection } from './comments-section';
 
 // Named exports from feed-section
 export {
@@ -51,3 +52,4 @@ export type { FeedSortType } from './feed-header';
 export type { PostCardProps } from './post-card';
 export type { FeedContainerProps } from './feed-container';
 export type { FeedLoadingProps } from './feed-loading';
+export type { CommentsSectionProps } from './comments-section';

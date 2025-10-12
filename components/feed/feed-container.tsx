@@ -127,20 +127,59 @@ export function FeedContainer({
         }
     }, [togglePostSave]);
 
-    const handlePostShare = useCallback((postId: string) => {
-        // Share functionality - could open share modal or copy link
-        if (navigator.share) {
-            navigator.share({
-                title: 'Check out this post',
-                url: `${window.location.origin}/posts/${postId}`
-            });
-        } else {
-            navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+    const handlePostShare = useCallback(async (postId: string) => {
+        try {
+            // Record share in database first
+            const shareResult = await PostService.recordPostShare(postId, 'external');
+
+            if (!shareResult.success) {
+                console.error('Failed to record share:', shareResult.error);
+                // Continue with sharing even if recording fails
+            }
+
+            // Share functionality - native share or fallback to clipboard
+            if (navigator.share) {
+                await navigator.share({
+                    title: 'Check out this post',
+                    text: 'Interesting post on Eduro',
+                    url: `${window.location.origin}/posts/${postId}`
+                });
+            } else {
+                // Fallback to clipboard
+                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+
+                // You could show a toast notification here
+                // toast({ title: "Link copied to clipboard!" });
+                console.log('Post link copied to clipboard');
+            }
+        } catch (error) {
+            console.error('Failed to share post:', error);
+
+            // Fallback - still try to record the share attempt
+            try {
+                await PostService.recordPostShare(postId, 'external');
+            } catch (recordError) {
+                console.error('Failed to record share attempt:', recordError);
+            }
+
+            // Try to copy link as fallback
+            try {
+                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+                console.log('Post link copied to clipboard as fallback');
+            } catch (clipboardError) {
+                console.error('Failed to copy to clipboard:', clipboardError);
+            }
         }
     }, []);
 
     const handlePostComment = useCallback((postId: string) => {
-        onPostClick?.(postId);
+        // Navigate to the individual post page to show comments
+        if (onPostClick) {
+            onPostClick(postId);
+        } else {
+            // Fallback navigation if no custom handler is provided
+            window.location.href = `/posts/${postId}`;
+        }
     }, [onPostClick]);
 
     const handlePostView = useCallback((postId: string) => {
@@ -151,11 +190,11 @@ export function FeedContainer({
         try {
             // Call the PostService to toggle the reaction
             const result = await PostService.toggleReaction('POST', postId, reaction.id);
-            
+
             if (!result.success) {
                 console.error('Failed to update reaction:', result.error);
             }
-            
+
             // The reaction change is handled by the database triggers
             // so we don't need to manually update the local state
         } catch (error) {

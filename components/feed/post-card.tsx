@@ -344,16 +344,6 @@ export function PostCard({
                             <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={handleShare}
-                                className="gap-1.5 text-gray-600 hover:text-green-600 hover:bg-green-50"
-                            >
-                                <Share2 className="h-4 w-4" />
-                                <span className="text-sm">{PostUtils.Display.formatEngagementCount(post.share_count || 0)}</span>
-                            </Button>
-
-                            <Button
-                                variant="ghost"
-                                size="sm"
                                 onClick={handleSave}
                                 className={`hover:bg-blue-50 ${post.user_has_saved
                                     ? 'text-blue-600'

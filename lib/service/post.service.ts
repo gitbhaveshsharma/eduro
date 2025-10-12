@@ -209,30 +209,73 @@ export class PostService {
         return validationResult as PostOperationResult<Comment>;
       }
 
-      // Check if post exists and is commentable
-      const postCheck = await this.checkCommentPermissions(commentData.post_id, user.id);
-      if (!postCheck.success) {
-        return { success: false, error: POST_ERROR_CODES.CANNOT_COMMENT };
-      }
-
-      const commentToCreate = {
-        ...commentData,
-        author_id: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      const { data, error } = await supabase
-        .from('comments')
-        .insert(commentToCreate)
-        .select()
-        .single();
+      // Use the database function that includes proper validation
+      const { data: commentId, error } = await supabase.rpc('create_comment', {
+        p_post_id: commentData.post_id,
+        p_content: commentData.content,
+        p_parent_comment_id: commentData.parent_comment_id || null
+      });
 
       if (error) {
         return { success: false, error: error.message };
       }
 
-      return { success: true, data };
+      // Fetch the created comment with profile information
+      const { data: commentResult, error: fetchError } = await supabase.rpc('get_post_comments', {
+        post_id_param: commentData.post_id,
+        limit_param: 1,
+        offset_param: 0
+      });
+
+      if (fetchError || !commentResult || commentResult.length === 0) {
+        // Fallback: return basic comment structure
+        return { 
+          success: true, 
+          data: {
+            id: commentId,
+            post_id: commentData.post_id,
+            author_id: user.id,
+            parent_comment_id: commentData.parent_comment_id || null,
+            content: commentData.content,
+            thread_level: 0,
+            thread_path: null,
+            like_count: 0,
+            reply_count: 0,
+            status: 'PUBLISHED',
+            is_pinned: false,
+            is_highlighted: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        };
+      }
+
+      // Find the comment we just created
+      const newComment = commentResult.find((c: any) => c.id === commentId);
+      if (newComment) {
+        return { success: true, data: newComment };
+      }
+
+      // Fallback if we can't find the comment
+      return { 
+        success: true, 
+        data: {
+          id: commentId,
+          post_id: commentData.post_id,
+          author_id: user.id,
+          parent_comment_id: commentData.parent_comment_id || null,
+          content: commentData.content,
+          thread_level: 0,
+          thread_path: null,
+          like_count: 0,
+          reply_count: 0,
+          status: 'PUBLISHED',
+          is_pinned: false,
+          is_highlighted: false,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }
+      };
     } catch (error) {
       return { 
         success: false, 
@@ -256,33 +299,48 @@ export class PostService {
 
       const offset = (page - 1) * perPage;
 
-      // For now, use direct query instead of RPC function
-      // TODO: Implement get_post_comments database function for optimized comment threading
-      const { data, error } = await supabase
-        .from('comments')
-        .select(`
-          *,
-          profiles:author_id (
-            username,
-            full_name,
-            avatar_url
-          )
-        `)
-        .eq('post_id', postId)
-        .eq('status', 'PUBLISHED')
-        .order('created_at', { ascending: true })
-        .range(offset, offset + perPage - 1);
+      // Use the database function for optimized comment threading with profile joins
+      const { data, error } = await supabase.rpc('get_post_comments', {
+        post_id_param: postId,
+        limit_param: perPage,
+        offset_param: offset
+      });
 
       if (error) {
         return { success: false, error: error.message };
       }
 
+      // Transform the data to match CommentSearchResult format
+      const comments = (data || []).map((comment: any) => ({
+        id: comment.id,
+        post_id: comment.post_id,
+        author_id: comment.author_id,
+        parent_comment_id: comment.parent_comment_id,
+        content: comment.content,
+        thread_level: comment.thread_level,
+        thread_path: comment.thread_path,
+        like_count: comment.like_count,
+        reply_count: comment.reply_count,
+        status: 'PUBLISHED',
+        is_pinned: false,
+        is_highlighted: false,
+        created_at: comment.created_at,
+        updated_at: comment.updated_at,
+        // Profile information
+        author_username: comment.author_username,
+        author_full_name: comment.author_full_name,
+        author_avatar_url: comment.author_avatar_url,
+        author_is_verified: comment.author_is_verified,
+        author_reputation_score: comment.author_reputation_score,
+        user_has_liked: comment.user_has_liked
+      }));
+
       const result: CommentSearchResult = {
-        comments: data || [],
-        total_count: (data || []).length, // This would need to be improved for accurate total count
+        comments,
+        total_count: comments.length, // This would need to be improved for accurate total count
         page,
         per_page: perPage,
-        has_more: (data || []).length === perPage // Simple check
+        has_more: comments.length === perPage // Simple check
       };
 
       return { success: true, data: result };
@@ -766,19 +824,13 @@ export class PostService {
    */
   static async recordPostView(postId: string, viewDuration?: number): Promise<PostOperationResult<void>> {
     try {
-      // For now, implement direct insert
-      // TODO: Implement record_post_view database function for optimized view tracking
-      
       const { data: { user } } = await supabase.auth.getUser();
       
-      const { error } = await supabase
-        .from('post_views')
-        .insert({
-          post_id: postId,
-          user_id: user?.id || null,
-          view_duration: viewDuration,
-          created_at: new Date().toISOString()
-        });
+      // Use the database function that properly handles the unique constraint
+      const { error } = await supabase.rpc('record_post_view', {
+        post_id_param: postId,
+        view_duration_param: viewDuration
+      });
 
       if (error) {
         return { success: false, error: error.message };
@@ -792,6 +844,176 @@ export class PostService {
       };
     }
   }
+
+  // ========== POST SHARES OPERATIONS ==========
+
+  /**
+   * Record post share
+   */
+  static async recordPostShare(
+    postId: string, 
+    shareType: 'repost' | 'quote' | 'external' = 'external',
+    quoteContent?: string,
+    platform?: string
+  ): Promise<PostOperationResult<PostShare>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return { success: false, error: POST_ERROR_CODES.NOT_AUTHENTICATED };
+      }
+
+      // Check if post exists
+      const { data: postExists, error: postError } = await supabase
+        .from('posts')
+        .select('id')
+        .eq('id', postId)
+        .single();
+
+      if (postError || !postExists) {
+        return { success: false, error: POST_ERROR_CODES.POST_NOT_FOUND };
+      }
+
+      const shareData = {
+        original_post_id: postId,
+        user_id: user.id,
+        share_type: shareType,
+        platform: platform || null,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('post_shares')
+        .insert(shareData)
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      // Share count is automatically updated by database trigger
+
+      return { success: true, data };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Get post shares with user information
+   */
+  static async getPostShares(
+    postId: string,
+    page: number = 1,
+    perPage: number = POST_CONSTANTS.DEFAULT_PAGE_SIZE
+  ): Promise<PostOperationResult<{ shares: PostShare[]; total_count: number; has_more: boolean }>> {
+    try {
+      // Validate pagination
+      if (page < 1) page = 1;
+      if (perPage > POST_CONSTANTS.MAX_PAGE_SIZE) perPage = POST_CONSTANTS.MAX_PAGE_SIZE;
+
+      const offset = (page - 1) * perPage;
+
+      const { data, error, count } = await supabase
+        .from('post_shares')
+        .select(`
+          *,
+          profiles:user_id (
+            username,
+            full_name,
+            avatar_url
+          )
+        `, { count: 'exact' })
+        .eq('original_post_id', postId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + perPage - 1);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const result = {
+        shares: data || [],
+        total_count: count || 0,
+        has_more: (count || 0) > page * perPage
+      };
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  /**
+   * Get user's shares
+   */
+  static async getUserShares(
+    userId?: string,
+    page: number = 1,
+    perPage: number = POST_CONSTANTS.DEFAULT_PAGE_SIZE
+  ): Promise<PostOperationResult<{ shares: PostShare[]; total_count: number; has_more: boolean }>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        return { success: false, error: POST_ERROR_CODES.NOT_AUTHENTICATED };
+      }
+
+      const targetUserId = userId || user.id;
+
+      // Validate pagination
+      if (page < 1) page = 1;
+      if (perPage > POST_CONSTANTS.MAX_PAGE_SIZE) perPage = POST_CONSTANTS.MAX_PAGE_SIZE;
+
+      const offset = (page - 1) * perPage;
+
+      const { data, error, count } = await supabase
+        .from('post_shares')
+        .select(`
+          *,
+          posts:original_post_id (
+            title,
+            content,
+            post_type,
+            created_at,
+            profiles:author_id (
+              username,
+              full_name,
+              avatar_url
+            )
+          )
+        `, { count: 'exact' })
+        .eq('user_id', targetUserId)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + perPage - 1);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      const result = {
+        shares: data || [],
+        total_count: count || 0,
+        has_more: (count || 0) > page * perPage
+      };
+
+      return { success: true, data: result };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+
 
   // ========== VALIDATION HELPERS ==========
 

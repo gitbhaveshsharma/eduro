@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
     FeedHeader,
     PostComposer,
@@ -14,6 +15,7 @@ import { CoachingCenterCard } from '@/components/feed/feed-lms';
 import { useCurrentProfile } from '@/lib/profile';
 
 export default function FeedPage() {
+    const router = useRouter();
     const [sortType, setSortType] = useState<FeedSortType>('recent');
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);

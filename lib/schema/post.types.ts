@@ -148,6 +148,8 @@ export interface PublicComment {
   author_username: string | null;
   author_full_name: string | null;
   author_avatar_url: string | null;
+  author_is_verified?: boolean;
+  author_reputation_score?: number;
   parent_comment_id: string | null;
   content: string;
   thread_level: number;
