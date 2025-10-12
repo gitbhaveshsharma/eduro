@@ -78,6 +78,10 @@ interface FeedState {
   // Real-time updates
   lastUpdateTime: number;
   pendingUpdates: EnhancedPost[];
+  
+  // Real-time subscriptions
+  realtimeSubscriptions: Map<string, () => void>;
+  subscribedPostIds: Set<string>;
 }
 
 // Store actions interface
@@ -113,7 +117,17 @@ interface FeedActions {
   markPostViewed: (postId: string) => void;
   togglePostLike: (postId: string) => void;
   togglePostSave: (postId: string) => void;
+  incrementPostShareCount: (postId: string) => void;
   recordPostViews: (postIds: string[]) => Promise<void>;
+  
+  // Real-time subscriptions
+  subscribeToPostReactions: (postId: string) => void;
+  subscribeToPostEngagement: (postId: string) => void;
+  subscribeToFeedUpdates: () => void;
+  unsubscribeFromPost: (postId: string) => void;
+  unsubscribeAll: () => void;
+  handleReactionUpdate: (payload: any) => void;
+  handleEngagementUpdate: (payload: any) => void;
   
   // Post updates
   updatePost: (postId: string, updates: Partial<EnhancedPost>) => void;
@@ -182,6 +196,10 @@ export const useGetPostStore = create<GetPostStore>()(
       
       lastUpdateTime: Date.now(),
       pendingUpdates: [],
+      
+      // Real-time subscriptions
+      realtimeSubscriptions: new Map(),
+      subscribedPostIds: new Set(),
 
       // =================== CORE FEED OPERATIONS ===================
 
@@ -507,6 +525,16 @@ export const useGetPostStore = create<GetPostStore>()(
         });
       },
 
+      incrementPostShareCount: (postId: string) => {
+        set((draft) => {
+          const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
+          if (post) {
+            post.share_count = (post.share_count || 0) + 1;
+            post.user_has_shared = true;
+          }
+        });
+      },
+
       recordPostViews: async (postIds: string[]) => {
         try {
           await GetPostService.recordPostViews(postIds);
@@ -651,6 +679,179 @@ export const useGetPostStore = create<GetPostStore>()(
             draft.pendingUpdates = [];
           }
         });
+      },
+
+      // =================== REAL-TIME SUBSCRIPTIONS ===================
+
+      subscribeToPostReactions: (postId: string) => {
+        const state = get();
+        if (state.subscribedPostIds.has(`reactions:${postId}`)) {
+          return; // Already subscribed
+        }
+
+        // Use the new PostReactionService for reaction subscriptions
+        const { PostReactionService } = require('../service/post-reaction.service');
+        const unsubscribe = PostReactionService.subscribeToTarget('POST', postId, (update: any) => {
+          // Convert the update format to the old payload format for compatibility
+          const payload = {
+            eventType: update.eventType,
+            new: update.reaction,
+            old: update.oldReaction,
+          };
+          state.handleReactionUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set(`reactions:${postId}`, unsubscribe);
+          draft.subscribedPostIds.add(`reactions:${postId}`);
+        });
+      },
+
+      subscribeToPostEngagement: (postId: string) => {
+        const state = get();
+        if (state.subscribedPostIds.has(`engagement:${postId}`)) {
+          return; // Already subscribed
+        }
+
+        const { PostService } = require('../service/post.service');
+        const unsubscribe = PostService.subscribeToPostEngagement(postId, (payload: any) => {
+          state.handleEngagementUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set(`engagement:${postId}`, unsubscribe);
+          draft.subscribedPostIds.add(`engagement:${postId}`);
+        });
+      },
+
+      subscribeToFeedUpdates: () => {
+        const state = get();
+        const currentPostIds = state.posts.map(p => p.id);
+        
+        if (currentPostIds.length === 0) {
+          return; // No posts to subscribe to
+        }
+
+        const { PostService } = require('../service/post.service');
+        const unsubscribe = PostService.subscribeToMultiplePostsEngagement(currentPostIds, (payload: any) => {
+          state.handleEngagementUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set('feed_engagement', unsubscribe);
+          draft.subscribedPostIds.add('feed_engagement');
+        });
+
+        // Subscribe to individual post reactions
+        currentPostIds.forEach(postId => {
+          state.subscribeToPostReactions(postId);
+        });
+      },
+
+      unsubscribeFromPost: (postId: string) => {
+        const state = get();
+        
+        set((draft) => {
+          // Unsubscribe from reactions
+          const reactionsKey = `reactions:${postId}`;
+          const reactionsUnsubscribe = draft.realtimeSubscriptions.get(reactionsKey);
+          if (reactionsUnsubscribe) {
+            reactionsUnsubscribe();
+            draft.realtimeSubscriptions.delete(reactionsKey);
+            draft.subscribedPostIds.delete(reactionsKey);
+          }
+
+          // Unsubscribe from engagement
+          const engagementKey = `engagement:${postId}`;
+          const engagementUnsubscribe = draft.realtimeSubscriptions.get(engagementKey);
+          if (engagementUnsubscribe) {
+            engagementUnsubscribe();
+            draft.realtimeSubscriptions.delete(engagementKey);
+            draft.subscribedPostIds.delete(engagementKey);
+          }
+        });
+      },
+
+      unsubscribeAll: () => {
+        const state = get();
+        
+        set((draft) => {
+          // Call all unsubscribe functions
+          draft.realtimeSubscriptions.forEach(unsubscribe => {
+            unsubscribe();
+          });
+          
+          // Clear all subscriptions
+          draft.realtimeSubscriptions.clear();
+          draft.subscribedPostIds.clear();
+        });
+      },
+
+      handleReactionUpdate: (payload: any) => {
+        console.log('Handling reaction update:', payload);
+        
+        const state = get();
+        const { new: newReaction, old: oldReaction, eventType } = payload;
+        const targetId = newReaction?.target_id || oldReaction?.target_id;
+        
+        if (!targetId) return;
+
+        // Find the post that contains this reaction target
+        const post = state.posts.find((p: EnhancedPost) => 
+          p.id === targetId || 
+          // Could be a comment reaction - we'd need to fetch comment details
+          false
+        );
+
+        if (post) {
+          // Update lastUpdateTime to trigger re-renders
+          set((draft) => {
+            draft.lastUpdateTime = Date.now();
+          });
+          
+          // Trigger re-fetch of reaction analytics after a small delay
+          // to ensure the database transaction is complete
+          // This runs outside of the Immer draft context
+          setTimeout(async () => {
+            try {
+              const { useReactionStore } = require('../store/reaction.store');
+              const reactionStore = useReactionStore.getState();
+              // Clear cache and force reload
+              reactionStore.clearAnalyticsCache(targetId);
+              await reactionStore.loadReactionAnalytics('POST', targetId, true);
+            } catch (error) {
+              console.error('Error updating reaction analytics:', error);
+            }
+          }, 200);
+        }
+      },
+
+      handleEngagementUpdate: (payload: any) => {
+        console.log('Handling engagement update:', payload);
+        
+        set((draft) => {
+          const { new: newData } = payload;
+          
+          if (newData && newData.id) {
+            const postIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === newData.id);
+            
+            if (postIndex !== -1) {
+              // Update the post with new engagement metrics
+              const existingPost = draft.posts[postIndex];
+              draft.posts[postIndex] = {
+                ...existingPost,
+                like_count: newData.like_count ?? existingPost.like_count,
+                comment_count: newData.comment_count ?? existingPost.comment_count,
+                share_count: newData.share_count ?? existingPost.share_count,
+                view_count: newData.view_count ?? existingPost.view_count,
+                engagement_score: newData.engagement_score ?? existingPost.engagement_score,
+                last_activity_at: newData.last_activity_at ?? existingPost.last_activity_at,
+              };
+              
+              draft.lastUpdateTime = Date.now();
+            }
+          }
+        });
       }
     }))
   )
@@ -721,9 +922,38 @@ export const usePostInteractions = () => {
     markViewed: store.markPostViewed,
     toggleLike: store.togglePostLike,
     toggleSave: store.togglePostSave,
+    incrementShareCount: store.incrementPostShareCount,
     viewedPosts: store.viewedPosts,
     likedPosts: store.likedPosts,
     savedPosts: store.savedPosts
+  };
+};
+
+/**
+ * Hook for real-time functionality
+ * Automatically subscribes to updates for loaded posts
+ */
+export const useRealtimePosts = (autoSubscribe = true) => {
+  const store = useGetPostStore();
+  
+  React.useEffect(() => {
+    if (autoSubscribe && store.posts.length > 0) {
+      // Subscribe to feed-wide updates
+      store.subscribeToFeedUpdates();
+      
+      return () => {
+        // Cleanup subscriptions when component unmounts
+        store.unsubscribeAll();
+      };
+    }
+  }, [store.posts.length, autoSubscribe]);
+  
+  return {
+    subscribeToPost: store.subscribeToPostReactions,
+    subscribeToEngagement: store.subscribeToPostEngagement,
+    unsubscribeFromPost: store.unsubscribeFromPost,
+    unsubscribeAll: store.unsubscribeAll,
+    lastUpdateTime: store.lastUpdateTime
   };
 };
 

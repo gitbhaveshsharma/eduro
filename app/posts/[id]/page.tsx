@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { usePostStore } from "@/lib/store/post.store";
-import { useGetPostStore } from "@/lib/store/getpost.store";
+import { useGetPostStore, useRealtimePosts } from "@/lib/store/getpost.store";
 import { PostService } from "@/lib/service/post.service";
 import { GetPostService } from "@/lib/service/getpost.service";
 import type { EnhancedPost } from "@/lib/service/getpost.service";
@@ -27,7 +27,6 @@ export default function PostPage() {
     const router = useRouter();
     const postId = params.id as string;
 
-    const [post, setPost] = useState<EnhancedPost | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -39,29 +38,54 @@ export default function PostPage() {
     } = usePostStore();
 
     const {
+        posts,
         togglePostLike,
-        togglePostSave
+        togglePostSave,
+        incrementPostShareCount,
+        addPost,
+        lastUpdateTime
     } = useGetPostStore();
 
-    // Load post data
+    // Enable real-time subscriptions for this specific post
+    const { subscribeToPost, subscribeToEngagement, unsubscribeFromPost } = useRealtimePosts(false);
+
+    // Get post from store (with real-time updates)
+    const post = posts.find(p => p.id === postId);
+
+    // Load post data and setup real-time subscriptions
     useEffect(() => {
         const loadPost = async () => {
             try {
                 setLoading(true);
                 setError(null);
 
+                // Check if post is already in store
+                const existingPost = posts.find(p => p.id === postId);
+                if (existingPost) {
+                    setLoading(false);
+                    // Setup real-time subscriptions
+                    subscribeToPost(postId);
+                    subscribeToEngagement(postId);
+                    recordPostView(postId);
+                    return;
+                }
+
                 // Check cache first
                 const cachedPost = postCache.get(postId);
                 if (cachedPost) {
-                    // Convert cached post to EnhancedPost format
+                    // Convert cached post to EnhancedPost format and add to store
                     const enhancedPost: EnhancedPost = {
                         ...cachedPost,
                         author_is_verified: false, // This would need to be fetched from profile
                     };
-                    setPost(enhancedPost);
-                    setLoading(false);
 
-                    // Record view
+                    // Add to store for real-time updates
+                    addPost(enhancedPost);
+
+                    setLoading(false);
+                    // Setup real-time subscriptions
+                    subscribeToPost(postId);
+                    subscribeToEngagement(postId);
                     recordPostView(postId);
                     return;
                 }
@@ -81,10 +105,16 @@ export default function PostPage() {
                     return;
                 }
 
-                // Cache the post and set state
-                setPost(result.data);
+                // Add to store for real-time updates
+                addPost(result.data);
+
+                // Cache the post
                 cachePost(result.data);
                 setLoading(false);
+
+                // Setup real-time subscriptions
+                subscribeToPost(postId);
+                subscribeToEngagement(postId);
 
                 // Record view
                 recordPostView(postId);
@@ -99,9 +129,12 @@ export default function PostPage() {
         if (postId) {
             loadPost();
         }
-    }, [postId, postCache, recordPostView, cachePost]);
 
-    // Handle post interactions
+        // Cleanup subscriptions on unmount
+        return () => {
+            unsubscribeFromPost(postId);
+        };
+    }, [postId, postCache, recordPostView, cachePost, posts, subscribeToPost, subscribeToEngagement, unsubscribeFromPost, addPost]);    // Handle post interactions
     const handlePostLike = async (postId: string, liked: boolean) => {
         togglePostLike(postId);
 
@@ -128,6 +161,9 @@ export default function PostPage() {
 
     const handlePostShare = async (postId: string) => {
         try {
+            // Optimistically update share count
+            incrementPostShareCount(postId);
+
             // Record share in database
             await PostService.recordPostShare(postId, 'external');
 
@@ -179,6 +215,7 @@ export default function PostPage() {
 
     const handleReactionChange = async (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
         try {
+            // The real-time system will handle optimistic updates
             const result = await PostService.toggleReaction('POST', postId, reaction.id);
 
             if (!result.success) {
@@ -353,6 +390,7 @@ export default function PostPage() {
                 {/* Post */}
                 <div className="mb-6">
                     <PostCard
+                        key={`post-${post.id}-${lastUpdateTime}`}
                         post={post}
                         onLike={handlePostLike}
                         onSave={handlePostSave}

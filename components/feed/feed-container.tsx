@@ -16,7 +16,7 @@ import FeedLoading, {
     SearchEmpty,
     FollowingEmpty
 } from "./feed-loading";
-import { useGetPostStore } from "@/lib/store/getpost.store";
+import { useGetPostStore, useRealtimePosts } from "@/lib/store/getpost.store";
 import type {
     GetPostsParams,
     FeedAlgorithmType,
@@ -72,8 +72,12 @@ export function FeedContainer({
         markPostViewed,
         togglePostLike,
         togglePostSave,
+        incrementPostShareCount,
         clearError
     } = useGetPostStore();
+
+    // Enable real-time updates for the feed
+    const { lastUpdateTime } = useRealtimePosts(true);
 
     const observerRef = useRef<IntersectionObserver>();
     const lastPostRef = useCallback((node: HTMLDivElement) => {

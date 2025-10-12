@@ -32,6 +32,7 @@ import { PostReactions } from "@/components/reactions";
 import { UserAvatar } from "@/components/avatar/user-avatar";
 import { ReportDialog } from "@/components/report/report-dialog";
 import { useCommentStore, useCommentsForPost, useCommentsLoading, useCommentsError, useCommentsPagination, useCommentComposition } from "@/lib/store/comment.store";
+import { useAuthStore } from "@/lib/auth-store";
 import { PostUtils } from "@/lib/utils/post.utils";
 import type { PublicComment } from "@/lib/schema/post.types";
 import type { PublicReaction } from "@/components/reactions";
@@ -52,6 +53,7 @@ export function CommentsSection({
     const error = useCommentsError(postId);
     const pagination = useCommentsPagination(postId);
     const newCommentText = useCommentComposition(postId);
+    const currentUser = useAuthStore(state => state.user);
 
     const isSubmitting = useCommentStore(state => state.submittingComments.has(postId));
 
@@ -207,6 +209,7 @@ export function CommentsSection({
                             key={comment.id}
                             comment={comment}
                             postId={postId}
+                            currentUserId={currentUser?.id}
                             replies={groupedComments.get(comment.id) || []}
                             showReplies={showReplies.has(comment.id)}
                             onToggleReplies={() => toggleReplies(comment.id)}
@@ -242,6 +245,7 @@ export function CommentsSection({
 interface CommentItemProps {
     comment: PublicComment;
     postId: string;
+    currentUserId?: string;
     replies: PublicComment[];
     showReplies: boolean;
     onToggleReplies: () => void;
@@ -251,6 +255,7 @@ interface CommentItemProps {
 function CommentItem({
     comment,
     postId,
+    currentUserId,
     replies,
     showReplies,
     onToggleReplies,
@@ -420,13 +425,15 @@ function CommentItem({
                                     <Flag className="h-4 w-4 mr-2" />
                                     Report
                                 </DropdownMenuItem>
-                                <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() => setShowDeleteDialog(true)}
-                                >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Delete
-                                </DropdownMenuItem>
+                                {currentUserId === comment.author_id && (
+                                    <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => setShowDeleteDialog(true)}
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -490,6 +497,7 @@ function CommentItem({
                                     key={reply.id}
                                     comment={reply}
                                     postId={postId}
+                                    currentUserId={currentUserId}
                                     replies={[]}
                                     showReplies={false}
                                     onToggleReplies={() => { }}

@@ -572,11 +572,14 @@ export const useCommentStore = create<CommentStore>()(
                         return;
                     }
 
-                    const channel = CommentService.subscribeToCommentReactions(
+                    // Use the new PostReactionService for comment reaction subscriptions
+                    const { PostReactionService } = require('../service/post-reaction.service');
+                    const unsubscribe = PostReactionService.subscribeToTarget(
+                        'COMMENT',
                         commentId,
-                        async () => {
+                        async (update: any) => {
+                            console.log('[CommentStore] Comment reaction update:', update);
                             // Reload reactions for this comment
-                            // This is a simple approach; could be optimized
                             // Find the post this comment belongs to
                             for (const [postId, comments] of get().commentsByPost) {
                                 const comment = comments.find(c => c.id === commentId);
@@ -592,15 +595,22 @@ export const useCommentStore = create<CommentStore>()(
                         }
                     );
 
+                    // Store the unsubscribe function instead of channel
                     set((state) => {
-                        state.reactionSubscriptions.set(commentId, channel);
+                        state.reactionSubscriptions.set(commentId, unsubscribe as any);
                     });
                 },
 
                 unsubscribeFromCommentReactions: (commentId: string) => {
-                    const channel = get().reactionSubscriptions.get(commentId);
-                    if (channel) {
-                        CommentService.unsubscribe(channel);
+                    const unsubscribe = get().reactionSubscriptions.get(commentId);
+                    if (unsubscribe) {
+                        // Call the unsubscribe function (not CommentService.unsubscribe)
+                        if (typeof unsubscribe === 'function') {
+                            unsubscribe();
+                        } else {
+                            // Fallback for old channel-based subscriptions
+                            CommentService.unsubscribe(unsubscribe);
+                        }
                         set((state) => {
                             state.reactionSubscriptions.delete(commentId);
                         });

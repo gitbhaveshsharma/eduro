@@ -9,7 +9,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ReactionDisplay } from "./reaction-display";
 import { type PublicReaction } from "@/lib/reaction";

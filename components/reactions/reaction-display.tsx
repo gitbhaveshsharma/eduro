@@ -117,10 +117,14 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     const [showBar, setShowBar] = useState(false);
 
     // Store hooks
-    const { loadReactionAnalytics, getReactionById, loadAllReactions } = useReactionStore();
+    const { loadReactionAnalytics, getReactionById, loadAllReactions, clearAnalyticsCache } = useReactionStore();
     const analytics = useReactionAnalytics(targetType, targetId);
 
-    // Load analytics on mount
+    // Real-time subscription using the new PostReactionStore
+    const { usePostReactionStore } = require('@/lib/store/post-reaction.store');
+    const { subscribeToTarget, unsubscribeFromTarget } = usePostReactionStore();
+
+    // Load analytics on mount and subscribe to real-time updates
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
@@ -128,9 +132,15 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
             setIsLoading(false);
         };
         loadData();
-    }, [targetType, targetId, loadReactionAnalytics]);
 
-    // Default reaction id to show when there are no reactions
+        // Subscribe to real-time reaction changes using PostReactionStore
+        subscribeToTarget(targetType, targetId);
+
+        // Cleanup subscription on unmount
+        return () => {
+            unsubscribeFromTarget(targetType, targetId);
+        };
+    }, [targetType, targetId, loadReactionAnalytics, subscribeToTarget, unsubscribeFromTarget]);    // Default reaction id to show when there are no reactions
     const DEFAULT_REACTION_ID = 1;
     const defaultReaction = getReactionById(DEFAULT_REACTION_ID) as PublicReaction | null;
 

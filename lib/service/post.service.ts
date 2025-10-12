@@ -1096,4 +1096,148 @@ export class PostService {
       .map(([type, count]) => ({ type: type as any, count }))
       .sort((a, b) => b.count - a.count);
   }
+
+  // ========== REAL-TIME SUBSCRIPTIONS ==========
+
+  /**
+   * NOTE: Real-time reaction subscriptions moved to PostReactionService
+   * Use PostReactionService.subscribeToTarget() for reaction-specific subscriptions
+   * This keeps reaction logic separated and prevents WebSocket connection issues
+   */
+
+  /**
+   * Subscribe to post engagement metrics (likes, comments, shares) in real-time
+   */
+  static subscribeToPostEngagement(
+    postId: string,
+    onEngagementChange: (payload: any) => void
+  ): () => void {
+    const subscription = supabase
+      .channel(`post_engagement:${postId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts',
+          filter: `id=eq.${postId}`
+        },
+        (payload) => {
+          console.log('Post engagement change:', payload);
+          onEngagementChange(payload);
+        }
+      )
+      .subscribe();
+
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }
+
+  /**
+   * Subscribe to multiple posts engagement metrics
+   */
+  static subscribeToMultiplePostsEngagement(
+    postIds: string[],
+    onEngagementChange: (payload: any) => void
+  ): () => void {
+    if (postIds.length === 0) {
+      return () => {}; // No-op unsubscribe function
+    }
+
+    const subscription = supabase
+      .channel(`posts_engagement:${postIds.join(',')}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'posts',
+          filter: `id=in.(${postIds.join(',')})`
+        },
+        (payload) => {
+          console.log('Multiple posts engagement change:', payload);
+          onEngagementChange(payload);
+        }
+      )
+      .subscribe();
+
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }
+
+  /**
+   * Subscribe to new comments on a post
+   */
+  static subscribeToPostComments(
+    postId: string,
+    onCommentChange: (payload: any) => void
+  ): () => void {
+    const subscription = supabase
+      .channel(`post_comments:${postId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'comments',
+          filter: `post_id=eq.${postId}`
+        },
+        (payload) => {
+          console.log('Post comment change:', payload);
+          onCommentChange(payload);
+        }
+      )
+      .subscribe();
+
+    // Return unsubscribe function
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }
+
+  /**
+   * Get detailed reaction information for real-time updates
+   */
+  static async getReactionDetails(
+    targetType: ReactionTargetType,
+    targetId: string,
+    reactionId: number
+  ): Promise<PostOperationResult<any>> {
+    try {
+      const { data, error } = await supabase
+        .from('post_reactions')
+        .select(`
+          *,
+          reactions!inner(
+            name,
+            emoji_unicode,
+            category,
+            description
+          ),
+          profiles:user_id(
+            username,
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('target_type', targetType)
+        .eq('target_id', targetId)
+        .eq('reaction_id', reactionId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
 }

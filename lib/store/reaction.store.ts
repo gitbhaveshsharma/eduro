@@ -117,6 +117,7 @@ interface ReactionActions {
   
   // Cache management
   clearCache: () => void;
+  clearAnalyticsCache: (targetId?: string) => void;
   clearErrors: () => void;
   
   // Utility actions
@@ -523,6 +524,21 @@ export const useReactionStore = create<ReactionStore>()(
             state.analyticsCache.clear();
             state.usageStats = [];
             state.usageStatsLastFetched = null;
+          });
+        },
+
+        clearAnalyticsCache: (targetId?: string) => {
+          set((state) => {
+            if (targetId) {
+              // Clear cache for specific target
+              const keysToDelete = Array.from(state.analyticsCache.keys()).filter(key => 
+                key.includes(targetId)
+              );
+              keysToDelete.forEach(key => state.analyticsCache.delete(key));
+            } else {
+              // Clear all analytics cache
+              state.analyticsCache.clear();
+            }
           });
         },
 

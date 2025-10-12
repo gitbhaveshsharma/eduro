@@ -8,7 +8,9 @@
 // Re-export everything from the reaction modules
 export * from './schema/reaction.types';
 export * from './service/reaction.service';
+export * from './service/post-reaction.service';
 export * from './store/reaction.store';
+export * from './store/post-reaction.store';
 export * from './utils/reaction.utils';
 
 // Export commonly used items with named exports for convenience
@@ -37,6 +39,13 @@ export {
 } from './service/reaction.service';
 
 export {
+  // Post Reaction Service
+  PostReactionService,
+  type UserReaction,
+  type ReactionUpdate,
+} from './service/post-reaction.service';
+
+export {
   // Store and hooks
   useReactionStore,
   useReactions,
@@ -53,6 +62,14 @@ export {
   useIsReactionFavorite,
   useIsReactionQuick,
 } from './store/reaction.store';
+
+export {
+  // Post Reaction Store and hooks
+  usePostReactionStore,
+  useUserReaction,
+  useTargetReactions,
+  useReactionSubscription,
+} from './store/post-reaction.store';
 
 export {
   // Utilities
