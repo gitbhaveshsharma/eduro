@@ -4,6 +4,7 @@
  * Zustand store for managing post state across the application
  * Handles caching, optimistic updates, real-time synchronization, and subscriptions
  * NOTE: Get/Feed functions removed - use separate feed service for algorithmic feeds
+ * NOTE: Comment GET operations removed - handle fetching in components/queries
  */
 
 import { create } from 'zustand';
@@ -43,12 +44,9 @@ interface PostState {
   postCacheLoading: Set<string>;
   postCacheErrors: Map<string, string>;
 
-  // Comments
+  // Comments - only for optimistic updates and real-time sync
   commentsCache: Map<string, PublicComment[]>; // postId -> comments
-  commentsLoading: Set<string>;
-  commentsErrors: Map<string, string>;
-  commentsHasMore: Map<string, boolean>;
-  commentsPage: Map<string, number>;
+  submittingComment: Set<string>; // postIds currently submitting
 
   // Reactions
   userReactions: Map<string, PostReaction>; // targetId -> reaction
@@ -82,7 +80,6 @@ interface PostState {
   // Comment composition
   commentComposition: Map<string, string>; // postId -> comment text
   replyComposition: Map<string, string>; // commentId -> reply text
-  submittingComment: Set<string>; // postIds currently submitting
 
   // Geographic state
   userLocation: PostCoordinates | null;
@@ -102,16 +99,22 @@ interface PostActions {
   removeFromPostCache: (postId: string) => void;
   clearPostCache: () => void;
 
-  // Comment actions
-  loadComments: (postId: string, refresh?: boolean) => Promise<void>;
-  loadMoreComments: (postId: string) => Promise<void>;
+  // Comment actions (CREATE, UPDATE, DELETE only)
   createComment: (postId: string, content: string, parentCommentId?: string) => Promise<boolean>;
   updateComment: (commentId: string, updates: CommentUpdate) => Promise<boolean>;
   deleteComment: (commentId: string) => Promise<boolean>;
+  
+  // Comment composition helpers
   setCommentComposition: (postId: string, content: string) => void;
   setReplyComposition: (commentId: string, content: string) => void;
   clearCommentComposition: (postId: string) => void;
   clearReplyComposition: (commentId: string) => void;
+
+  // Comment cache management (for optimistic updates and real-time)
+  addCommentToCache: (postId: string, comment: PublicComment) => void;
+  updateCommentInCache: (commentId: string, updates: Partial<PublicComment>) => void;
+  removeCommentFromCache: (commentId: string) => void;
+  clearCommentsCache: (postId?: string) => void;
 
   // Reaction actions
   toggleReaction: (targetType: ReactionTargetType, targetId: string, reactionId: number) => Promise<boolean>;
@@ -171,10 +174,7 @@ const initialState: PostState = {
   postCacheErrors: new Map(),
 
   commentsCache: new Map(),
-  commentsLoading: new Set(),
-  commentsErrors: new Map(),
-  commentsHasMore: new Map(),
-  commentsPage: new Map(),
+  submittingComment: new Set(),
 
   userReactions: new Map(),
   reactionsLoading: new Set(),
@@ -201,7 +201,6 @@ const initialState: PostState = {
 
   commentComposition: new Map(),
   replyComposition: new Map(),
-  submittingComment: new Set(),
 
   userLocation: null,
   nearbyPosts: [],
@@ -326,55 +325,7 @@ export const usePostStore = create<PostStore>()(
           });
         },
 
-        // Comment actions
-        loadComments: async (postId: string, refresh: boolean = false) => {
-          if (refresh) {
-            set((state) => {
-              state.commentsPage.set(postId, 1);
-              state.commentsHasMore.set(postId, true);
-              state.commentsCache.delete(postId);
-            });
-          }
-
-          set((state) => {
-            state.commentsLoading.add(postId);
-            state.commentsErrors.delete(postId);
-          });
-
-          const page = get().commentsPage.get(postId) || 1;
-          const result = await PostService.getPostComments(postId, page, POST_CONSTANTS.DEFAULT_PAGE_SIZE);
-
-          set((state) => {
-            state.commentsLoading.delete(postId);
-            if (result.success && result.data) {
-              const existingComments = state.commentsCache.get(postId) || [];
-              if (refresh || page === 1) {
-                state.commentsCache.set(postId, result.data.comments);
-              } else {
-                state.commentsCache.set(postId, [...existingComments, ...result.data.comments]);
-              }
-              state.commentsHasMore.set(postId, result.data.has_more);
-              state.commentsErrors.delete(postId);
-            } else {
-              state.commentsErrors.set(postId, result.error || 'Failed to load comments');
-            }
-          });
-        },
-
-        loadMoreComments: async (postId: string) => {
-          const hasMore = get().commentsHasMore.get(postId);
-          const loading = get().commentsLoading.has(postId);
-          
-          if (!hasMore || loading) return;
-
-          const currentPage = get().commentsPage.get(postId) || 1;
-          set((state) => {
-            state.commentsPage.set(postId, currentPage + 1);
-          });
-
-          await get().loadComments(postId, false);
-        },
-
+        // Comment actions (CREATE, UPDATE, DELETE only)
         createComment: async (postId: string, content: string, parentCommentId?: string) => {
           set((state) => {
             state.submittingComment.add(postId);
@@ -391,11 +342,28 @@ export const usePostStore = create<PostStore>()(
 
           set((state) => {
             state.submittingComment.delete(postId);
-            if (result.success) {
+            if (result.success && result.data) {
               // Clear comment composition
               state.commentComposition.delete(postId);
-              // Refresh comments to get the new one
-              // Note: In real implementation, you might want to optimistically add the comment
+              
+              // Optionally add to cache for optimistic UI
+              const comments = state.commentsCache.get(postId) || [];
+              const publicComment: PublicComment = {
+                ...result.data,
+                author_username: null,
+                author_full_name: null,
+                author_avatar_url: null,
+                author_is_verified: false,
+                author_reputation_score: 0,
+                user_has_liked: false,
+              };
+              state.commentsCache.set(postId, [...comments, publicComment]);
+              
+              // Update post comment count
+              const post = state.postCache.get(postId);
+              if (post) {
+                post.comment_count = (post.comment_count || 0) + 1;
+              }
             }
           });
 
@@ -428,9 +396,16 @@ export const usePostStore = create<PostStore>()(
             // Remove comment from cache
             set((state) => {
               for (const [postId, comments] of state.commentsCache) {
+                const originalLength = comments.length;
                 const filteredComments = comments.filter(c => c.id !== commentId);
-                if (filteredComments.length !== comments.length) {
+                if (filteredComments.length !== originalLength) {
                   state.commentsCache.set(postId, filteredComments);
+                  
+                  // Update post comment count
+                  const post = state.postCache.get(postId);
+                  if (post) {
+                    post.comment_count = Math.max(0, (post.comment_count || 0) - 1);
+                  }
                   break;
                 }
               }
@@ -462,6 +437,48 @@ export const usePostStore = create<PostStore>()(
         clearReplyComposition: (commentId: string) => {
           set((state) => {
             state.replyComposition.delete(commentId);
+          });
+        },
+
+        // Comment cache management (for optimistic updates and real-time)
+        addCommentToCache: (postId: string, comment: PublicComment) => {
+          set((state) => {
+            const comments = state.commentsCache.get(postId) || [];
+            state.commentsCache.set(postId, [...comments, comment]);
+          });
+        },
+
+        updateCommentInCache: (commentId: string, updates: Partial<PublicComment>) => {
+          set((state) => {
+            for (const comments of state.commentsCache.values()) {
+              const comment = comments.find(c => c.id === commentId);
+              if (comment) {
+                Object.assign(comment, updates);
+                break;
+              }
+            }
+          });
+        },
+
+        removeCommentFromCache: (commentId: string) => {
+          set((state) => {
+            for (const [postId, comments] of state.commentsCache) {
+              const filteredComments = comments.filter(c => c.id !== commentId);
+              if (filteredComments.length !== comments.length) {
+                state.commentsCache.set(postId, filteredComments);
+                break;
+              }
+            }
+          });
+        },
+
+        clearCommentsCache: (postId?: string) => {
+          set((state) => {
+            if (postId) {
+              state.commentsCache.delete(postId);
+            } else {
+              state.commentsCache.clear();
+            }
           });
         },
 
@@ -648,9 +665,25 @@ export const usePostStore = create<PostStore>()(
                 filter: `post_id=eq.${postId}`
               },
               (payload) => {
-                // Handle comment changes
+                // Handle comment changes via real-time
                 if (payload.eventType === 'INSERT' && payload.new) {
-                  // Optionally add new comment to cache
+                  const newComment = payload.new as any;
+                  const publicComment: PublicComment = {
+                    ...newComment,
+                    author_username: null,
+                    author_full_name: null,
+                    author_avatar_url: null,
+                    author_is_verified: false,
+                    author_reputation_score: 0,
+                    user_has_liked: false,
+                  };
+                  get().addCommentToCache(postId, publicComment);
+                } else if (payload.eventType === 'UPDATE' && payload.new) {
+                  const updatedComment = payload.new as any;
+                  get().updateCommentInCache(updatedComment.id, updatedComment);
+                } else if (payload.eventType === 'DELETE' && payload.old) {
+                  const deletedComment = payload.old as any;
+                  get().removeCommentFromCache(deletedComment.id);
                 }
               }
             )
@@ -848,7 +881,6 @@ export const usePostStore = create<PostStore>()(
             state.createPostError = null;
             state.savedPostsError = null;
             state.postCacheErrors.clear();
-            state.commentsErrors.clear();
           });
         },
 

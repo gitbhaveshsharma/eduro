@@ -188,17 +188,30 @@ export function FeedContainer({
 
     const handleReactionChange = useCallback(async (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
         try {
+            // Import the reaction store dynamically
+            const { useReactionStore } = await import('@/lib/reaction');
+            const store = useReactionStore.getState();
+
+            // Optimistically update UI immediately
+            store.loadReactionAnalytics('POST', postId, true);
+
             // Call the PostService to toggle the reaction
             const result = await PostService.toggleReaction('POST', postId, reaction.id);
 
             if (!result.success) {
                 console.error('Failed to update reaction:', result.error);
+                // Revert optimistic update by reloading from server
+                await store.loadReactionAnalytics('POST', postId, true);
+                return;
             }
 
-            // The reaction change is handled by the database triggers
-            // so we don't need to manually update the local state
+            // Reload reaction analytics to ensure consistency with server
+            await store.loadReactionAnalytics('POST', postId, true);
         } catch (error) {
             console.error('Failed to toggle reaction:', error);
+            // Reload from server on error
+            const { useReactionStore } = await import('@/lib/reaction');
+            await useReactionStore.getState().loadReactionAnalytics('POST', postId, true);
         }
     }, []);
 

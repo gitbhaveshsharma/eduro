@@ -48,11 +48,13 @@ export function PostReactions({
 
     const handleReactionSelect = (reaction: PublicReaction) => {
         // When user selects a reaction from the bar or picker
+        // This will either add the reaction or switch to it if they had a different one
         onReactionChange?.(reaction, 'add');
     };
 
     const handleReactionClick = (reaction: PublicReaction) => {
-        // When user clicks on an existing reaction (to remove)
+        // When user clicks on an existing reaction chip
+        // This will toggle it (remove if it's theirs, or switch to it)
         onReactionChange?.(reaction, 'remove');
     };
 

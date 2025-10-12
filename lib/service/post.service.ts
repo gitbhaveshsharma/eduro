@@ -19,10 +19,8 @@ import type {
   PostOperationResult,
   PostPermissions,
   Comment,
-  PublicComment,
   CommentCreate,
   CommentUpdate,
-  CommentSearchResult,
   PostReaction,
   SavedPost,
   PostView,
@@ -220,43 +218,7 @@ export class PostService {
         return { success: false, error: error.message };
       }
 
-      // Fetch the created comment with profile information
-      const { data: commentResult, error: fetchError } = await supabase.rpc('get_post_comments', {
-        post_id_param: commentData.post_id,
-        limit_param: 1,
-        offset_param: 0
-      });
-
-      if (fetchError || !commentResult || commentResult.length === 0) {
-        // Fallback: return basic comment structure
-        return { 
-          success: true, 
-          data: {
-            id: commentId,
-            post_id: commentData.post_id,
-            author_id: user.id,
-            parent_comment_id: commentData.parent_comment_id || null,
-            content: commentData.content,
-            thread_level: 0,
-            thread_path: null,
-            like_count: 0,
-            reply_count: 0,
-            status: 'PUBLISHED',
-            is_pinned: false,
-            is_highlighted: false,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          }
-        };
-      }
-
-      // Find the comment we just created
-      const newComment = commentResult.find((c: any) => c.id === commentId);
-      if (newComment) {
-        return { success: true, data: newComment };
-      }
-
-      // Fallback if we can't find the comment
+      // Return basic comment structure
       return { 
         success: true, 
         data: {
@@ -276,74 +238,6 @@ export class PostService {
           updated_at: new Date().toISOString()
         }
       };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  /**
-   * Get comments for a post using the database function
-   */
-  static async getPostComments(
-    postId: string,
-    page: number = 1,
-    perPage: number = POST_CONSTANTS.DEFAULT_PAGE_SIZE
-  ): Promise<PostOperationResult<CommentSearchResult>> {
-    try {
-      // Validate pagination
-      if (page < 1) page = 1;
-      if (perPage > POST_CONSTANTS.MAX_PAGE_SIZE) perPage = POST_CONSTANTS.MAX_PAGE_SIZE;
-
-      const offset = (page - 1) * perPage;
-
-      // Use the database function for optimized comment threading with profile joins
-      const { data, error } = await supabase.rpc('get_post_comments', {
-        post_id_param: postId,
-        limit_param: perPage,
-        offset_param: offset
-      });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      // Transform the data to match CommentSearchResult format
-      const comments = (data || []).map((comment: any) => ({
-        id: comment.id,
-        post_id: comment.post_id,
-        author_id: comment.author_id,
-        parent_comment_id: comment.parent_comment_id,
-        content: comment.content,
-        thread_level: comment.thread_level,
-        thread_path: comment.thread_path,
-        like_count: comment.like_count,
-        reply_count: comment.reply_count,
-        status: 'PUBLISHED',
-        is_pinned: false,
-        is_highlighted: false,
-        created_at: comment.created_at,
-        updated_at: comment.updated_at,
-        // Profile information
-        author_username: comment.author_username,
-        author_full_name: comment.author_full_name,
-        author_avatar_url: comment.author_avatar_url,
-        author_is_verified: comment.author_is_verified,
-        author_reputation_score: comment.author_reputation_score,
-        user_has_liked: comment.user_has_liked
-      }));
-
-      const result: CommentSearchResult = {
-        comments,
-        total_count: comments.length, // This would need to be improved for accurate total count
-        page,
-        per_page: perPage,
-        has_more: comments.length === perPage // Simple check
-      };
-
-      return { success: true, data: result };
     } catch (error) {
       return { 
         success: false, 
@@ -460,52 +354,20 @@ export class PostService {
         return { success: false, error: 'Invalid reaction ID' };
       }
 
-      // Check if reaction exists
-      const { data: existingReaction } = await supabase
-        .from('post_reactions')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('target_type', targetType)
-        .eq('target_id', targetId)
-        .eq('reaction_id', reactionId)
-        .single();
-
-      let data: boolean;
-      let error: any = null;
-
-      if (existingReaction) {
-        // Remove reaction
-        const { error: deleteError } = await supabase
-          .from('post_reactions')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('target_type', targetType)
-          .eq('target_id', targetId)
-          .eq('reaction_id', reactionId);
-        
-        error = deleteError;
-        data = false; // Reaction removed
-      } else {
-        // Add reaction
-        const { error: insertError } = await supabase
-          .from('post_reactions')
-          .insert({
-            user_id: user.id,
-            target_type: targetType,
-            target_id: targetId,
-            reaction_id: reactionId,
-            created_at: new Date().toISOString()
-          });
-        
-        error = insertError;
-        data = true; // Reaction added
-      }
+      // Use the database's toggle_reaction RPC function which handles all logic atomically
+      // This prevents race conditions and handles the unique constraint properly
+      const { data, error } = await supabase.rpc('toggle_reaction', {
+        target_type_param: targetType,
+        target_id_param: targetId,
+        reaction_id_param: reactionId
+      });
 
       if (error) {
         return { success: false, error: error.message };
       }
 
-      return { success: true, data }; // Returns boolean indicating if reaction was added (true) or removed (false)
+      // The function returns TRUE if reaction was added, FALSE if removed
+      return { success: true, data: data || false };
     } catch (error) {
       return { 
         success: false, 
@@ -1013,8 +875,6 @@ export class PostService {
     }
   }
 
-
-
   // ========== VALIDATION HELPERS ==========
 
   private static validatePostCreate(postData: PostCreate): PostOperationResult<void> {
@@ -1160,27 +1020,6 @@ export class PostService {
       return { success: data.author_id === userId, data: data.author_id === userId };
     } catch (error) {
       return { success: false, error: 'Failed to check comment ownership' };
-    }
-  }
-
-  private static async checkCommentPermissions(postId: string, userId: string): Promise<PostOperationResult<boolean>> {
-    try {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('status, privacy, author_id')
-        .eq('id', postId)
-        .single();
-
-      if (error) {
-        return { success: false, error: POST_ERROR_CODES.POST_NOT_FOUND };
-      }
-
-      // Can comment if post is published and public, or if user is the author
-      const canComment = (data.status === 'PUBLISHED' && data.privacy === 'PUBLIC') || data.author_id === userId;
-
-      return { success: canComment, data: canComment };
-    } catch (error) {
-      return { success: false, error: 'Failed to check comment permissions' };
     }
   }
 

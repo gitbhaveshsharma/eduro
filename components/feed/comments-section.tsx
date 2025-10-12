@@ -3,6 +3,7 @@
  * 
  * Comprehensive comment system with threaded replies, reactions, and real-time updates
  * Supports nested comments with proper threading and display
+ * NOTE: Comment fetching handled externally via props - this component only handles mutations and display
  */
 
 "use client";
@@ -12,7 +13,6 @@ import { MessageCircle, Send, MoreHorizontal, Reply, Heart, Flag, Edit, Trash2 }
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -22,64 +22,67 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { PostReactions } from "@/components/reactions";
 import { UserAvatar } from "@/components/avatar/user-avatar";
-import { usePostStore } from "@/lib/store/post.store";
+import { useCommentStore, useCommentsForPost, useCommentsLoading, useCommentsError, useCommentsPagination, useCommentComposition } from "@/lib/store/comment.store";
 import { PostUtils } from "@/lib/utils/post.utils";
 import type { PublicComment } from "@/lib/schema/post.types";
 import type { PublicReaction } from "@/components/reactions";
 
 export interface CommentsSectionProps {
     postId: string;
+    autoLoad?: boolean; // Auto-load comments on mount
     className?: string;
 }
 
-export function CommentsSection({ postId, className = "" }: CommentsSectionProps) {
-    const {
-        commentsCache,
-        commentsLoading,
-        commentsErrors,
-        commentsHasMore,
-        commentComposition,
-        submittingComment,
-        loadComments,
-        loadMoreComments,
-        createComment,
-        setCommentComposition,
-        clearCommentComposition,
-        subscribeToComments,
-        unsubscribeFromComments
-    } = usePostStore();
+export function CommentsSection({
+    postId,
+    autoLoad = true,
+    className = ""
+}: CommentsSectionProps) {
+    // Get comments and state from store (but not functions to avoid re-render issues)
+    const comments = useCommentsForPost(postId);
+    const loading = useCommentsLoading(postId);
+    const error = useCommentsError(postId);
+    const pagination = useCommentsPagination(postId);
+    const newCommentText = useCommentComposition(postId);
+
+    // Get submitting state using a selector to avoid unnecessary re-renders
+    const isSubmitting = useCommentStore(state => state.submittingComments.has(postId));
 
     const [sortBy, setSortBy] = useState<'newest' | 'oldest' | 'popular'>('newest');
     const [showReplies, setShowReplies] = useState<Set<string>>(new Set());
 
-    const comments = commentsCache.get(postId) || [];
-    const loading = commentsLoading.has(postId);
-    const error = commentsErrors.get(postId);
-    const hasMore = commentsHasMore.get(postId) || false;
-    const newCommentText = commentComposition.get(postId) || '';
-    const isSubmitting = submittingComment.has(postId);
-
-    // Load comments when component mounts
+    // Load comments and subscribe to real-time updates
     useEffect(() => {
-        loadComments(postId);
-        subscribeToComments(postId);
+        const store = useCommentStore.getState();
+
+        if (autoLoad) {
+            store.loadComments(postId);
+        }
+
+        // Subscribe to real-time updates
+        store.subscribeToComments(postId);
 
         return () => {
-            unsubscribeFromComments(postId);
+            // Use getState to avoid stale closure
+            useCommentStore.getState().unsubscribeFromComments(postId);
         };
-    }, [postId, loadComments, subscribeToComments, unsubscribeFromComments]);
+    }, [postId, autoLoad]); // Only depend on postId and autoLoad
 
-    // Handle comment submission
+    // Handle comment submission with optimistic updates
     const handleSubmitComment = useCallback(async () => {
         if (!newCommentText.trim() || isSubmitting) return;
 
-        const success = await createComment(postId, newCommentText.trim());
+        const store = useCommentStore.getState();
+        const success = await store.createComment(postId, newCommentText.trim());
         if (success) {
-            clearCommentComposition(postId);
-            // Refresh comments to show new comment
-            loadComments(postId, true);
+            store.clearCommentComposition(postId);
         }
-    }, [postId, newCommentText, isSubmitting, createComment, clearCommentComposition, loadComments]);
+    }, [postId, newCommentText, isSubmitting]); // Removed store functions from deps
+
+    // Handle load more
+    const handleLoadMore = useCallback(() => {
+        useCommentStore.getState().loadMoreComments(postId);
+    }, [postId]); // Removed store function from deps
 
     // Handle key press in comment textarea
     const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -122,6 +125,7 @@ export function CommentsSection({ postId, className = "" }: CommentsSectionProps
         }
     }, [topLevelComments, sortBy]);
 
+    // Loading skeleton
     if (loading && comments.length === 0) {
         return (
             <Card className={className}>
@@ -189,7 +193,7 @@ export function CommentsSection({ postId, className = "" }: CommentsSectionProps
                     <CommentForm
                         postId={postId}
                         value={newCommentText}
-                        onChange={(value) => setCommentComposition(postId, value)}
+                        onChange={(value) => useCommentStore.getState().setCommentComposition(postId, value)}
                         onSubmit={handleSubmitComment}
                         onKeyPress={handleKeyPress}
                         isSubmitting={isSubmitting}
@@ -220,11 +224,11 @@ export function CommentsSection({ postId, className = "" }: CommentsSectionProps
                 </div>
 
                 {/* Load more comments */}
-                {hasMore && (
+                {pagination && pagination.hasMore && (
                     <div className="mt-6 text-center">
                         <Button
                             variant="outline"
-                            onClick={() => loadMoreComments(postId)}
+                            onClick={handleLoadMore}
                             disabled={loading}
                         >
                             {loading ? 'Loading...' : 'Load more comments'}
@@ -265,16 +269,16 @@ function CommentItem({
 }: CommentItemProps) {
     const [showReplyForm, setShowReplyForm] = useState(false);
     const [replyText, setReplyText] = useState('');
-    const [isSubmittingReply, setIsSubmittingReply] = useState(false);
 
-    const { createComment } = usePostStore();
+    // Use selectors instead of destructuring to avoid re-render issues
+    const isSubmittingReply = useCommentStore(state => state.submittingReplies.has(comment.id));
     const maxDepth = 5; // Maximum nesting level for visual clarity
 
     const handleReplySubmit = async () => {
         if (!replyText.trim() || isSubmittingReply) return;
 
-        setIsSubmittingReply(true);
-        const success = await createComment(postId, replyText.trim(), comment.id);
+        const store = useCommentStore.getState();
+        const success = await store.createComment(postId, replyText.trim(), comment.id);
 
         if (success) {
             setReplyText('');
@@ -283,12 +287,12 @@ function CommentItem({
                 onToggleReplies(); // Auto-expand replies when user adds one
             }
         }
-        setIsSubmittingReply(false);
     };
 
-    const handleReactionChange = async (commentId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
-        // This would integrate with the reaction system
-        console.log('Comment reaction:', { commentId, reaction, action });
+    const handleReactionChange = async (reaction: PublicReaction, action: 'add' | 'remove') => {
+        // Toggle reaction with optimistic update
+        const store = useCommentStore.getState();
+        await store.toggleCommentReaction(postId, comment.id, reaction.id);
     };
 
     const indentLevel = Math.min(level, maxDepth);
@@ -356,7 +360,7 @@ function CommentItem({
                         <PostReactions
                             targetType="COMMENT"
                             targetId={comment.id}
-                            onReactionChange={(reaction, action) => handleReactionChange(comment.id, reaction, action)}
+                            onReactionChange={handleReactionChange}
                             size="sm"
                             layout="inline"
                             maxDisplay={3}
