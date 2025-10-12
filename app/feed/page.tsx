@@ -43,8 +43,7 @@ export default function FeedPage() {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="flex flex-col items-center space-y-4">
-                    <LoadingSpinner size="lg" />
-                    <p className="text-sm text-gray-600">Loading community feed...</p>
+                    <LoadingSpinner message="Loading community feed..." size="lg" />
                 </div>
             </div>
         );

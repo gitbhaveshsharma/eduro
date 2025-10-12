@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Filter, TrendingUp, Clock, Users, Sparkles } from "lucide-react";
+import { Search, Filter, Bell, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -22,34 +20,17 @@ interface FeedHeaderProps {
     onSearch?: (query: string) => void;
     showSearch?: boolean;
     showFilters?: boolean;
+    notificationCount?: number;
+    onNotificationClick?: () => void;
+    onNetworkClick?: () => void;
     className?: string;
 }
 
 const sortOptions = [
-    {
-        value: 'recent' as const,
-        label: 'Recent',
-        icon: Clock,
-        description: 'Latest posts first'
-    },
-    {
-        value: 'trending' as const,
-        label: 'Trending',
-        icon: TrendingUp,
-        description: 'High engagement posts'
-    },
-    {
-        value: 'popular' as const,
-        label: 'Popular',
-        icon: Sparkles,
-        description: 'Most liked posts'
-    },
-    {
-        value: 'following' as const,
-        label: 'Following',
-        icon: Users,
-        description: 'Posts from people you follow'
-    }
+    { value: 'recent' as const, label: 'Recent' },
+    { value: 'trending' as const, label: 'Trending' },
+    { value: 'popular' as const, label: 'Popular' },
+    { value: 'following' as const, label: 'Following' }
 ];
 
 export function FeedHeader({
@@ -58,13 +39,17 @@ export function FeedHeader({
     onSearch,
     showSearch = true,
     showFilters = true,
+    notificationCount = 0,
+    onNotificationClick,
+    onNetworkClick,
     className = ''
 }: FeedHeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
 
-    const handleSearchSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        onSearch?.(searchQuery);
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchQuery(value);
+        onSearch?.(value);
     };
 
     const handleSortSelect = (sort: FeedSortType) => {
@@ -74,102 +59,99 @@ export function FeedHeader({
     const currentSortOption = sortOptions.find(option => option.value === currentSort);
 
     return (
-        <div className={`bg-white border-b border-gray-200 sticky top-0 z-10 ${className}`}>
-            <div className="px-4 py-3">
-                {/* Main Header */}
-                <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-3">
-                        <h1 className="text-xl font-semibold text-gray-900">Feed</h1>
-                        <Badge variant="secondary" className="text-xs">
-                            Latest Updates
-                        </Badge>
+        <header className={`bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm ${className}`}>
+            <div className="max-w-7xl mx-auto px-4">
+                <div className="flex items-center justify-between h-16 gap-3">
+                    {/* Logo/Title - Hidden on mobile */}
+                    <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                        <h1 className="text-lg font-semibold text-gray-900">Feed</h1>
                     </div>
 
-                    {/* Sort Dropdown */}
-                    {showFilters && (
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="gap-2">
-                                    {currentSortOption && (
-                                        <currentSortOption.icon className="h-4 w-4" />
-                                    )}
-                                    {currentSortOption?.label || 'Sort'}
-                                    <Filter className="h-3 w-3" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuLabel>Sort posts by</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                {sortOptions.map((option) => (
-                                    <DropdownMenuItem
-                                        key={option.value}
-                                        onClick={() => handleSortSelect(option.value)}
-                                        className="flex items-start gap-3 p-3 cursor-pointer"
-                                    >
-                                        <option.icon className="h-4 w-4 mt-0.5 text-gray-500" />
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">{option.label}</span>
-                                                {currentSort === option.value && (
-                                                    <Badge variant="default" className="text-xs px-1 py-0">
-                                                        Active
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                            <p className="text-xs text-gray-500 mt-0.5">
-                                                {option.description}
-                                            </p>
-                                        </div>
-                                    </DropdownMenuItem>
-                                ))}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </div>
-
-                {/* Search Bar */}
-                {showSearch && (
-                    <form onSubmit={handleSearchSubmit} className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <Input
-                            type="text"
-                            placeholder="Search posts, topics, or users..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="pl-10 bg-gray-50 border-gray-200 focus:bg-white"
-                        />
-                    </form>
-                )}
-
-                {/* Active Sort Display */}
-                <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                        {currentSortOption && (
-                            <>
-                                <currentSortOption.icon className="h-4 w-4" />
-                                <span>Showing {currentSortOption.label.toLowerCase()} posts</span>
-                            </>
-                        )}
-                    </div>
-
-                    {searchQuery && (
-                        <div className="flex items-center gap-2">
-                            <span>Search: "{searchQuery}"</span>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                    setSearchQuery('');
-                                    onSearch?.('');
-                                }}
-                                className="h-6 px-2 text-xs"
-                            >
-                                Clear
-                            </Button>
+                    {/* Search Bar - Responsive */}
+                    {showSearch && (
+                        <div className="flex-1 max-w-xl">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                <Input
+                                    type="text"
+                                    placeholder="Search posts..."
+                                    value={searchQuery}
+                                    onChange={handleSearchChange}
+                                    className="w-full pl-10 pr-4 h-10 bg-gray-50 border-gray-200 rounded-full focus:bg-white focus:ring-2 focus:ring-brand-primary/20 transition-all"
+                                />
+                            </div>
                         </div>
                     )}
+
+                    {/* Actions - Always visible */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Network Button - Hidden on mobile (shows in bottom nav) */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onNetworkClick}
+                            className="hidden md:flex h-10 px-3 gap-2 hover:bg-gray-100 rounded-full"
+                        >
+                            <Users className="h-4 w-4" />
+                            <span className="hidden lg:inline text-sm font-medium">
+                                Network
+                            </span>
+                        </Button>
+
+                        {/* Filter Dropdown */}
+                        {showFilters && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-10 px-3 gap-2 hover:bg-gray-100 rounded-full"
+                                    >
+                                        <Filter className="h-4 w-4" />
+                                        <span className="hidden sm:inline text-sm font-medium">
+                                            {currentSortOption?.label}
+                                        </span>
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48">
+                                    {sortOptions.map((option) => (
+                                        <DropdownMenuItem
+                                            key={option.value}
+                                            onClick={() => handleSortSelect(option.value)}
+                                            className="cursor-pointer"
+                                        >
+                                            <div className="flex items-center justify-between w-full">
+                                                <span>{option.label}</span>
+                                                {currentSort === option.value && (
+                                                    <div className="h-2 w-2 rounded-full bg-brand-primary" />
+                                                )}
+                                            </div>
+                                        </DropdownMenuItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+
+                        {/* Notification Bell */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onNotificationClick}
+                            className="relative h-10 w-10 p-0 hover:bg-gray-100 rounded-full"
+                        >
+                            <Bell className="h-5 w-5" />
+                            {notificationCount > 0 && (
+                                <Badge
+                                    variant="destructive"
+                                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full"
+                                >
+                                    {notificationCount > 9 ? '9+' : notificationCount}
+                                </Badge>
+                            )}
+                        </Button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </header>
     );
 }
