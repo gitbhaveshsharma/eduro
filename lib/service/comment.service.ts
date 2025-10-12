@@ -209,7 +209,7 @@ export class CommentService {
                             .eq('user_id', userId)
                             .eq('target_type', 'COMMENT')
                             .eq('target_id', comment.id)
-                            .single();
+                            .maybeSingle();
                         
                         userHasLiked = !!likeData;
                     }
@@ -284,7 +284,7 @@ export class CommentService {
                     .eq('user_id', userId)
                     .eq('target_type', 'COMMENT')
                     .eq('target_id', commentId)
-                    .single();
+                    .maybeSingle();
                 
                 userHasLiked = !!likeData;
             }

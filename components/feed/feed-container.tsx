@@ -20,9 +20,7 @@ import { useGetPostStore } from "@/lib/store/getpost.store";
 import type {
     GetPostsParams,
     FeedAlgorithmType,
-    EnhancedPost
 } from "@/lib/service/getpost.service";
-import type { PostType } from "@/lib/schema/post.types";
 import { PostService } from "@/lib/service/post.service";
 import type { PublicReaction } from "@/components/reactions";
 

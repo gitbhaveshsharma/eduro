@@ -116,7 +116,7 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     const [showBar, setShowBar] = useState(false);
 
     // Store hooks
-    const { loadReactionAnalytics, getReactionById } = useReactionStore();
+    const { loadReactionAnalytics, getReactionById, loadAllReactions } = useReactionStore();
     const analytics = useReactionAnalytics(targetType, targetId);
 
     // Load analytics on mount
@@ -128,6 +128,19 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
         };
         loadData();
     }, [targetType, targetId, loadReactionAnalytics]);
+
+    // Default reaction id to show when there are no reactions
+    const DEFAULT_REACTION_ID = 1;
+    const defaultReaction = getReactionById(DEFAULT_REACTION_ID) as PublicReaction | null;
+
+    // Ensure reactions catalog is loaded so defaultReaction can be resolved
+    useEffect(() => {
+        if (!defaultReaction) {
+            // fire-and-forget: load the reaction catalog so getReactionById can find id 1
+            loadAllReactions().catch(() => undefined);
+        }
+        // Intentionally depend on defaultReaction reference and loader
+    }, [defaultReaction, loadAllReactions]);
 
     // Memoize sorted reactions using utility function
     const sortedReactions = useMemo(() => {
@@ -280,9 +293,81 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
         );
     }
 
-    // Empty state
-    if (!analytics || sortedReactions.length === 0) {
-        return null;
+    // If there's no analytics or no reactions yet, still render a minimal control
+    // so users can add a reaction (important for comments with zero reactions).
+    const shouldRenderEmptyControl = !analytics || sortedReactions.length === 0;
+
+
+    if (shouldRenderEmptyControl) {
+        return (
+            <div className={cn("relative inline-flex items-center", sizeClasses.gap, className)}>
+                {/* Provide a simple ReactionBar trigger so users can add the first reaction */}
+                <div
+                    ref={containerRef}
+                    className="relative"
+                    onPointerEnter={() => openBarWithDelay()}
+                    onPointerLeave={() => { cancelBarDelay(); maybeCloseBar(); }}
+                >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            if (defaultReaction) {
+                                // If parent provided a click handler, use it to toggle/add the reaction
+                                onReactionClick?.(defaultReaction as PublicReaction);
+                            } else {
+                                // Fallback to opening the reaction bar when default isn't available
+                                setShowBar((v) => !v);
+                            }
+                        }}
+                        className={cn(sizeClasses.button, "rounded-full")}
+                        aria-label={`React to this ${targetType.toLowerCase()}`}
+                    >
+                        {defaultReaction ? (
+                            <>
+                                <span className={cn(sizeClasses.emoji, "mr-1")}>{formatReactionEmoji(defaultReaction)}</span>
+                                <span className={sizeClasses.count}>{defaultReaction.name}</span>
+                            </>
+                        ) : (
+                            "React"
+                        )}
+                    </Button>
+
+                    <AnimatePresence>
+                        {showBar && (
+                            <motion.div
+                                ref={flyoutRef}
+                                key="reaction-bar-empty-flyout"
+                                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                                animate={{ opacity: 1, y: -8, scale: 1 }}
+                                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                                transition={{ duration: 0.12 }}
+                                className={cn("absolute -top-2 left-0 z-20 translate-y-[-100%]")}
+                                onPointerEnter={onFlyoutPointerEnter}
+                                onPointerLeave={onFlyoutPointerLeave}
+                                role="dialog"
+                                aria-label="Quick reactions"
+                            >
+                                <div className="rounded-full border border-gray-200 bg-white/90 px-2 py-1 shadow-lg">
+                                    <ReactionBar
+                                        targetType={targetType}
+                                        targetId={targetId}
+                                        onReactionSelect={(reaction) => {
+                                            onReactionClick?.(reaction);
+                                            setShowBar(false);
+                                        }}
+                                        size={size}
+                                        className="px-0"
+                                        maxReactions={5}
+                                        showHoverEffects
+                                    />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
+        );
     }
 
     return (

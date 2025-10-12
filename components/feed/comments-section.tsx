@@ -9,7 +9,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { MessageCircle, Send, MoreHorizontal, Reply, Heart, Flag, Edit, Trash2 } from "lucide-react";
+import { MessageCircle, Send, MoreHorizontal, Reply, Flag, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";

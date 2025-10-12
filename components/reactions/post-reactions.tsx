@@ -12,7 +12,6 @@
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ReactionDisplay } from "./reaction-display";
-import { ReactionBar } from "./reaction-bar";
 import { type PublicReaction } from "@/lib/reaction";
 
 export interface PostReactionsProps {
