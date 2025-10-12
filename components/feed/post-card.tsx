@@ -115,7 +115,7 @@ export function PostCard({
     React.useEffect(() => {
         onView?.(post.id);
     }, [post.id, onView]);
-
+    console.log('PostCard render', post);
     return (
         <Card className={`overflow-hidden transition-shadow duration-200 hover:shadow-md ${className}`}>
             <CardContent className="p-0">
@@ -339,6 +339,17 @@ export function PostCard({
                             >
                                 <MessageCircle className="h-4 w-4" />
                                 <span className="text-sm">{PostUtils.Display.formatEngagementCount(post.comment_count || 0)}</span>
+                            </Button>
+
+
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleShare}
+                                className="gap-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                            >
+                                <Share2 className="h-4 w-4" />
+                                <span className="text-sm">{PostUtils.Display.formatEngagementCount(post.share_count || 0)}</span>
                             </Button>
 
                             <Button

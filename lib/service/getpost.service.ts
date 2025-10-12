@@ -270,12 +270,12 @@ export class GetPostService {
         algorithm_used: feed_type,
         execution_time_ms: Date.now() - startTime
       };
+      console.log('getPosts result:', result);
 
       return {
         success: true,
         data: result
       };
-
     } catch (error) {
       console.error('Error in getPosts:', error);
       return {
@@ -284,6 +284,7 @@ export class GetPostService {
       };
     }
   }
+  
 
   /**
    * Get feed analytics for the current user

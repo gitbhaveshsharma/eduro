@@ -9,6 +9,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { ThumbsUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -320,8 +321,8 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                 setShowBar((v) => !v);
                             }
                         }}
-                        className={cn(sizeClasses.button, "rounded-full")}
-                        aria-label={`React to this ${targetType.toLowerCase()}`}
+                        className={cn(sizeClasses.button, "rounded-full ")}
+
                     >
                         {defaultReaction ? (
                             <>
@@ -329,7 +330,7 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                 <span className={sizeClasses.count}>{defaultReaction.name}</span>
                             </>
                         ) : (
-                            "React"
+                            <ThumbsUp />
                         )}
                     </Button>
 
