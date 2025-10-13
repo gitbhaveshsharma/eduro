@@ -126,7 +126,7 @@ import { TrendingFeedContainer } from '@/components/feed';
 
 <TrendingFeedContainer
   showEngagementScores={true}
-  onPostClick={(id) => router.push(`/posts/${id}`)}
+  onPostClick={(id) => router.push(`/feed/posts/${id}`)}
   onAuthorClick={(id) => router.push(`/profile/${id}`)}
   filters={{
     time_window_hours: 24,

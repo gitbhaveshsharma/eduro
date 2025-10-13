@@ -9,7 +9,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Share2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { PostCard } from "@/components/feed/post-card";
 import { CommentsSection } from "@/components/feed";
 import { Button } from "@/components/ui/button";
@@ -134,7 +134,9 @@ export default function PostPage() {
         return () => {
             unsubscribeFromPost(postId);
         };
-    }, [postId, postCache, recordPostView, cachePost, posts, subscribeToPost, subscribeToEngagement, unsubscribeFromPost, addPost]);    // Handle post interactions
+    }, [postId, postCache, recordPostView, cachePost, posts, subscribeToPost, subscribeToEngagement, unsubscribeFromPost, addPost]);
+
+    // Handle post interactions
     const handlePostLike = async (postId: string, liked: boolean) => {
         togglePostLike(postId);
 
@@ -172,11 +174,11 @@ export default function PostPage() {
                 await navigator.share({
                     title: post?.title || 'Check out this post',
                     text: post?.content_preview || 'Interesting post on Eduro',
-                    url: `${window.location.origin}/posts/${postId}`
+                    url: `${window.location.origin}/feed/posts/${postId}`
                 });
             } else {
                 // Fallback to clipboard
-                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+                await navigator.clipboard.writeText(`${window.location.origin}/feed/posts/${postId}`);
 
                 // You could show a toast notification here
                 console.log('Link copied to clipboard');
@@ -186,7 +188,7 @@ export default function PostPage() {
 
             // Fallback to just copying the link
             try {
-                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+                await navigator.clipboard.writeText(`${window.location.origin}/feed/posts/${postId}`);
                 console.log('Link copied to clipboard');
             } catch (clipboardError) {
                 console.error('Failed to copy to clipboard:', clipboardError);
@@ -226,25 +228,11 @@ export default function PostPage() {
         }
     };
 
-    const handleBackClick = () => {
-        if (window.history.length > 1) {
-            router.back();
-        } else {
-            router.push('/feed');
-        }
-    };
-
     // Loading state
     if (loading) {
         return (
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-2xl mx-auto px-4 py-6">
-                    {/* Header skeleton */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="w-8 h-8 bg-gray-200 rounded-full animate-pulse" />
-                        <div className="w-20 h-6 bg-gray-200 rounded animate-pulse" />
-                    </div>
-
                     {/* Post skeleton */}
                     <Card>
                         <CardContent className="p-6">
@@ -298,19 +286,6 @@ export default function PostPage() {
         return (
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-2xl mx-auto px-4 py-6">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleBackClick}
-                            className="gap-2"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back
-                        </Button>
-                    </div>
-
                     {/* Error message */}
                     <Alert className="mb-6">
                         <AlertCircle className="h-4 w-4" />
@@ -334,19 +309,6 @@ export default function PostPage() {
         return (
             <div className="min-h-screen bg-gray-50">
                 <div className="max-w-2xl mx-auto px-4 py-6">
-                    {/* Header */}
-                    <div className="flex items-center gap-3 mb-6">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleBackClick}
-                            className="gap-2"
-                        >
-                            <ArrowLeft className="h-4 w-4" />
-                            Back
-                        </Button>
-                    </div>
-
                     <div className="text-center py-12">
                         <h1 className="text-2xl font-bold text-gray-900 mb-4">Post Not Found</h1>
                         <p className="text-gray-600 mb-6">
@@ -364,29 +326,6 @@ export default function PostPage() {
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-2xl mx-auto px-4 py-6">
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleBackClick}
-                        className="gap-2"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                        Back
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handlePostShare(post.id)}
-                        className="gap-2"
-                    >
-                        <Share2 className="h-4 w-4" />
-                        Share
-                    </Button>
-                </div>
-
                 {/* Post */}
                 <div className="mb-6">
                     <PostCard

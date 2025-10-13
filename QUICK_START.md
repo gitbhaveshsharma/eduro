@@ -20,7 +20,7 @@
 ## How to Use
 
 ### 1. Comments Section (Already Working!)
-The comments section in `app/posts/[id]/page.tsx` is already enabled:
+The comments section in `app/feed/posts/[id]/page.tsx` is already enabled:
 
 ```tsx
 <CommentsSection 
@@ -82,7 +82,7 @@ components/feed/
   └── comments-section.tsx  ✨ UPDATED - Uses new comment store
 
 No changes needed to:
-  ├── app/posts/[id]/page.tsx     - Already using CommentsSection
+  ├── app/feed/posts/[id]/page.tsx     - Already using CommentsSection
   └── Other components            - Work as-is
 ```
 

@@ -405,7 +405,7 @@ interface ReactionUpdate {
 
 ### Test 1: Single User Real-Time Updates
 
-1. Open post page: `http://localhost:3000/posts/[id]`
+1. Open post page: `http://localhost:3000/feed/posts/[id]`
 2. Open browser console
 3. Add a reaction (e.g., 👍)
 4. Check console for logs:

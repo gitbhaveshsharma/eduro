@@ -5,7 +5,7 @@
  */
 
 // Main components
-export { FeedHeader } from './feed-header';
+export { FeedHeader } from '../layout/headers/feed-header';
 export { PostComposer } from './post-composer';
 export { FeedSection } from './feed-section';
 export { SuggestionSection } from './suggestion-section';
@@ -48,7 +48,7 @@ export {
 } from './feed-loading';
 
 // Export types
-export type { FeedSortType } from './feed-header';
+export type { FeedSortType } from '../layout/headers/feed-header';
 export type { PostCardProps } from './post-card';
 export type { FeedContainerProps } from './feed-container';
 export type { FeedLoadingProps } from './feed-loading';

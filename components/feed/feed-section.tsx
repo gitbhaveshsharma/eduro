@@ -17,7 +17,7 @@ import FeedContainer, {
     PopularFeedContainer,
     SearchFeedContainer
 } from "./feed-container";
-import type { FeedSortType } from "./feed-header";
+import type { FeedSortType } from "../layout/headers/feed-header";
 import type { GetPostsParams } from "@/lib/service/getpost.service";
 
 export interface FeedSectionProps {
@@ -45,7 +45,7 @@ export function FeedSection({
 
     // Handle navigation events
     const handlePostClick = (postId: string) => {
-        router.push(`/posts/${postId}`);
+        router.push(`/feed/posts/${postId}`);
     };
 
     const handleAuthorClick = (authorId: string) => {
@@ -161,7 +161,7 @@ export function SmartFeedSection({
         showEngagementScores: props.showEngagementScores,
         compact: props.compact,
         className: props.className,
-        onPostClick: (postId: string) => router.push(`/posts/${postId}`),
+        onPostClick: (postId: string) => router.push(`/feed/posts/${postId}`),
         onAuthorClick: (authorId: string) => router.push(`/profile/${authorId}`),
         onLocationClick: (location: string, coordinates?: { latitude: number; longitude: number }) => {
             if (coordinates) {
@@ -220,7 +220,7 @@ export function TrendingFeedSection({
         showEngagementScores: props.showEngagementScores ?? true, // Show scores for trending
         compact: props.compact,
         className: props.className,
-        onPostClick: (postId: string) => router.push(`/posts/${postId}`),
+        onPostClick: (postId: string) => router.push(`/feed/posts/${postId}`),
         onAuthorClick: (authorId: string) => router.push(`/profile/${authorId}`),
         onLocationClick: (location: string, coordinates?: { latitude: number; longitude: number }) => {
             if (coordinates) {
@@ -265,7 +265,7 @@ export function LocationFeedSection({
         showEngagementScores: props.showEngagementScores,
         compact: props.compact,
         className: props.className,
-        onPostClick: (postId: string) => router.push(`/posts/${postId}`),
+        onPostClick: (postId: string) => router.push(`/feed/posts/${postId}`),
         onAuthorClick: (authorId: string) => router.push(`/profile/${authorId}`),
         onLocationClick: (location: string, coordinates?: { latitude: number; longitude: number }) => {
             if (coordinates) {

@@ -161,7 +161,8 @@ export class LayoutUtils {
             device,
             view,
             showHeader: true,
-            showBottomNav: device === 'mobile' || view === 'webview',
+            // Show bottom navigation on mobile and tablet devices, or when running in a webview
+            showBottomNav: device === 'mobile' || device === 'tablet' || view === 'webview',
             headerType: platform === 'community' ? 'community' : 'lms'
         };
 
@@ -193,9 +194,10 @@ export class LayoutUtils {
      * Check if bottom navigation should be shown
      */
     static shouldShowBottomNav(config: LayoutConfig): boolean {
+        // Show bottom nav when configured and device is mobile/tablet, or when running inside a webview
         return (
             config.showBottomNav &&
-            (config.device === 'mobile' || config.view === 'webview')
+            (config.device === 'mobile' || config.device === 'tablet' || config.view === 'webview')
         );
     }
 

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
-    FeedHeader,
     PostComposer,
     FeedSection,
     SuggestionSection,
@@ -15,7 +13,6 @@ import { CoachingCenterCard } from '@/components/feed/feed-lms';
 import { useCurrentProfile } from '@/lib/profile';
 
 export default function FeedPage() {
-    const router = useRouter();
     const [sortType, setSortType] = useState<FeedSortType>('recent');
     const [searchQuery, setSearchQuery] = useState('');
     const [isLoading, setIsLoading] = useState(true);
@@ -59,16 +56,8 @@ export default function FeedPage() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Feed Header - Sticky at top */}
-            <FeedHeader
-                currentSort={sortType}
-                onSortChange={handleSortChange}
-                onSearch={handleSearch}
-                showSearch={true}
-                showFilters={true}
-            />
 
-            {/* Main Content */}
+            {/* Main Content - header is provided by ConditionalLayout */}
             <div className="max-w-7xl mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Left Sidebar - Profile Card & Coaching Center (Hidden on mobile/tablet) */}

@@ -13,19 +13,29 @@ export function ConditionalLayout({
     className = "",
     forceConfig
 }: ConditionalLayoutProps) {
-    const [config, setConfig] = useState<LayoutConfig>(() =>
-        LayoutUtils.generateConfig(platform, forceConfig)
-    );
+    // Use a deterministic server-safe initial config to avoid hydration mismatches.
+    // On the server `window` is undefined so LayoutUtils.getDeviceType would return 'desktop'.
+    // We'll initialize with a desktop config and update on mount to the actual device.
+    const [config, setConfig] = useState<LayoutConfig>(() => ({
+        platform,
+        device: 'desktop',
+        view: 'browser',
+        showHeader: true,
+        showBottomNav: false,
+        headerType: platform === 'community' ? 'community' : 'lms',
+        ...forceConfig
+    } as LayoutConfig));
     const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
 
     // Update config when platform changes or window resizes
     useEffect(() => {
+        // On mount, compute the real config (this runs only on client)
         const updateConfig = () => {
             const newConfig = LayoutUtils.generateConfig(platform, forceConfig);
             setConfig(newConfig);
         };
 
-        // Initial setup
+        // Initial setup on client
         updateConfig();
 
         // Listen for window resize to update device type

@@ -2,7 +2,7 @@
 
 ## Problem Statement
 
-Reactions were not updating in real-time on the individual post page (`/posts/[id]`). When a user added or changed a reaction, the change was saved to the database but the UI didn't reflect the update until the browser was refreshed. This was working correctly on the feed page but not on individual post pages.
+Reactions were not updating in real-time on the individual post page (`/feed/posts/[id]`). When a user added or changed a reaction, the change was saved to the database but the UI didn't reflect the update until the browser was refreshed. This was working correctly on the feed page but not on individual post pages.
 
 ## Root Cause Analysis
 
@@ -158,7 +158,7 @@ handleReactionUpdate: (payload: any) => {
 ### Individual Post Page Flow
 
 ```
-User on /posts/[id] page
+User on /feed/posts/[id] page
     ↓
 Page loads → useEffect triggers
     ↓
@@ -214,7 +214,7 @@ UI updates immediately! ✅
 4. **Proper Cleanup**: Subscriptions are properly cleaned up when components unmount, preventing memory leaks.
 
 5. **Works Everywhere**: The fix applies to:
-   - Individual post pages (`/posts/[id]`)
+   - Individual post pages (`/feed/posts/[id]`)
    - Feed page (`/feed`)
    - Any future page that renders `PostReactions`/`ReactionDisplay`
 
@@ -227,7 +227,7 @@ UI updates immediately! ✅
 
 ### Test 1: Individual Post Page Real-Time Updates
 
-1. Open `http://localhost:3000/posts/2b94cc44-3a7a-4162-904d-4fcc39c39e57` in **two different browser windows** (or one regular + one incognito)
+1. Open `http://localhost:3000/feed/posts/2b94cc44-3a7a-4162-904d-4fcc39c39e57` in **two different browser windows** (or one regular + one incognito)
 2. In Window 1: Add a reaction (e.g., 👍 Like)
 3. In Window 2: **Immediately observe** the reaction count increase without refresh
 4. In Window 1: Change to a different reaction (e.g., ❤️ Love)
@@ -333,7 +333,7 @@ This fix integrates with:
 - **GetPostStore** (`lib/store/getpost.store.ts`) - Post-level subscriptions
 - **PostReactions** (`components/reactions/post-reactions.tsx`) - Parent component
 - **PostCard** (`components/feed/post-card.tsx`) - Uses PostReactions
-- **Individual Post Page** (`app/posts/[id]/page.tsx`) - Manages page-level subscriptions
+- **Individual Post Page** (`app/feed/posts/[id]/page.tsx`) - Manages page-level subscriptions
 
 ## Future Enhancements
 

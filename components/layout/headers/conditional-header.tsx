@@ -1,6 +1,6 @@
 "use client";
 
-import { FeedHeader } from "@/components/feed/feed-header";
+import { FeedHeader } from "@/components/layout/headers/feed-header";
 import { LMSHeader } from "./lms-header";
 import type { HeaderProps } from "../types";
 

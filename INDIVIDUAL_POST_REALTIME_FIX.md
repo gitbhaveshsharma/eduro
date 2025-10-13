@@ -1,7 +1,7 @@
 # Individual Post Page Real-time Reactions Fix
 
 ## Issue
-The individual post page at `/posts/[id]` was not showing real-time reaction updates. Users had to refresh the browser to see reaction changes, even though the real-time system was implemented for the feed.
+The individual post page at `/feed/posts/[id]` was not showing real-time reaction updates. Users had to refresh the browser to see reaction changes, even though the real-time system was implemented for the feed.
 
 ## Root Cause Analysis
 1. **Separate State Management**: The individual post page was using local `useState` instead of the real-time enabled `useGetPostStore`
@@ -12,7 +12,7 @@ The individual post page at `/posts/[id]` was not showing real-time reaction upd
 ## Fixes Applied
 
 ### 1. Updated Individual Post Page State Management
-**File**: `app/posts/[id]/page.tsx`
+**File**: `app/feed/posts/[id]/page.tsx`
 
 #### Changes:
 - **Removed**: Local `useState` for post data
@@ -125,7 +125,7 @@ clearAnalyticsCache: (targetId?: string) => {
 ```
 
 ### 4. Improved Post Data Loading
-**File**: `app/posts/[id]/page.tsx`
+**File**: `app/feed/posts/[id]/page.tsx`
 
 #### Changes:
 - **Enhanced**: Post loading logic to add posts to real-time store

@@ -144,11 +144,11 @@ export function FeedContainer({
                 await navigator.share({
                     title: 'Check out this post',
                     text: 'Interesting post on Eduro',
-                    url: `${window.location.origin}/posts/${postId}`
+                    url: `${window.location.origin}/feed/posts/${postId}`
                 });
             } else {
                 // Fallback to clipboard
-                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+                await navigator.clipboard.writeText(`${window.location.origin}/feed/posts/${postId}`);
 
                 // You could show a toast notification here
                 // toast({ title: "Link copied to clipboard!" });
@@ -166,7 +166,7 @@ export function FeedContainer({
 
             // Try to copy link as fallback
             try {
-                await navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`);
+                await navigator.clipboard.writeText(`${window.location.origin}/feed/posts/${postId}`);
                 console.log('Post link copied to clipboard as fallback');
             } catch (clipboardError) {
                 console.error('Failed to copy to clipboard:', clipboardError);
@@ -180,7 +180,7 @@ export function FeedContainer({
             onPostClick(postId);
         } else {
             // Fallback navigation if no custom handler is provided
-            window.location.href = `/posts/${postId}`;
+            window.location.href = `/feed/posts/${postId}`;
         }
     }, [onPostClick]);
 
