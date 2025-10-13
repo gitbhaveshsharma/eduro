@@ -65,7 +65,8 @@ export function AvatarGenerator({
       // If robohash family allow optional bgset parameter
       let url: string;
       const bg = bgOption === 'none' ? undefined : bgOption === 'bg1' ? 'bg1' : 'bg2';
-      url = AvatarUtils.generateAvatarUrl(type as any, uniqueString, bg);
+      // Use public/proxied url helper
+      url = AvatarUtils.getPublicAvatarUrl(type as any, uniqueString, bg);
       setPreviewUrl(url);
     } catch (error) {
       console.error('Error generating avatar URL:', error);
