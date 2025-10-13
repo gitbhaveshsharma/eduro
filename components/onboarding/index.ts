@@ -7,7 +7,9 @@
 // Main onboarding components
 export { OnboardingContainer } from './onboarding-container'
 export { RoleSelectionStep } from './role-selection-step'
+export { CoachingSelectionStep } from './coaching-selection-step'
 export { PersonalInfoStep } from './personal-info-step'
+export { TermsConditionsStep } from './terms-conditions-step'
 
 // Onboarding hooks and utilities
 export { 
@@ -20,6 +22,8 @@ export {
 export {
   onboardingRoleSelectionSchema,
   onboardingPersonalInfoSchema,
+  onboardingCoachingSelectionSchema,
   type OnboardingRoleSelectionData,
-  type OnboardingPersonalInfoData
+  type OnboardingPersonalInfoData,
+  type OnboardingCoachingSelectionData
 } from '../../lib/validations'

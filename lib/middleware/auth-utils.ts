@@ -21,7 +21,9 @@ export class AuthHandler {
   static async validateUser(request: NextRequest): Promise<UserContext | null> {
     try {
       // Get access token from cookies or Authorization header
-      const authCookie = request.cookies.get('supabase-auth-token') // Fixed cookie name
+      const authCookie = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token') ||
+                        request.cookies.get('supabase-auth-token') ||
+                        request.cookies.get('sb-auth-token')
       const authHeader = request.headers.get('authorization')
       
       let accessToken: string | null = null
@@ -30,6 +32,20 @@ export class AuthHandler {
         accessToken = authCookie.value
       } else if (authHeader && authHeader.startsWith('Bearer ')) {
         accessToken = authHeader.substring(7)
+      }
+      
+      // Try to get token from localStorage-style cookie (Supabase's default format)
+      if (!accessToken) {
+        const supabaseSession = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token')
+        if (supabaseSession) {
+          try {
+            const sessionData = JSON.parse(supabaseSession.value)
+            accessToken = sessionData.access_token
+          } catch (e) {
+            // Not JSON, try as direct token
+            accessToken = supabaseSession.value
+          }
+        }
       }
       
       // Debug logging
@@ -49,7 +65,7 @@ export class AuthHandler {
         {
           auth: {
             persistSession: false,
-            autoRefreshToken: false,
+            autoRefreshToken: true, // Enable auto refresh
             detectSessionInUrl: false
           },
           global: {
@@ -65,6 +81,29 @@ export class AuthHandler {
 
       if (authError) {
         console.log('[AUTH] Supabase auth error:', authError.message)
+        
+        // If token is expired or invalid, try to refresh it
+        if (authError.message.includes('expired') || authError.message.includes('invalid')) {
+          console.log('[AUTH] Token expired, attempting refresh...')
+          
+          // Try to get refresh token
+          const refreshCookie = request.cookies.get('supabase-refresh-token')
+          if (refreshCookie) {
+            try {
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
+                refresh_token: refreshCookie.value
+              })
+              
+              if (!refreshError && refreshData.session) {
+                console.log('[AUTH] Token refreshed successfully')
+                return await this.validateUser(request) // Retry with refreshed token
+              }
+            } catch (refreshErr) {
+              console.log('[AUTH] Token refresh failed:', refreshErr)
+            }
+          }
+        }
+        
         return null
       }
       
@@ -167,14 +206,23 @@ export class AuthHandler {
   private static extractSessionId(request: NextRequest): string | undefined {
     // Try to get session ID from various sources
     const authHeader = request.headers.get('authorization')
-    const sessionCookie = request.cookies.get('supabase-auth-token') // Fixed cookie name
+    const sessionCookie = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token') ||
+                         request.cookies.get('supabase-auth-token') ||
+                         request.cookies.get('sb-auth-token')
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7)
     }
     
     if (sessionCookie) {
-      return sessionCookie.value
+      try {
+        // Try parsing as JSON first (Supabase's format)
+        const sessionData = JSON.parse(sessionCookie.value)
+        return sessionData.access_token || sessionCookie.value
+      } catch (e) {
+        // Not JSON, return as is
+        return sessionCookie.value
+      }
     }
 
     return undefined
@@ -312,7 +360,7 @@ export class AuthHandler {
         {
           auth: {
             persistSession: false,
-            autoRefreshToken: false,
+            autoRefreshToken: true, // Enable auto refresh
             detectSessionInUrl: false
           }
         }

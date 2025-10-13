@@ -59,6 +59,7 @@ export type PhoneOtpVerificationData = z.infer<typeof phoneOtpVerificationSchema
 export type ProviderLoginData = z.infer<typeof providerLoginSchema>
 export type OnboardingRoleSelectionData = z.infer<typeof onboardingRoleSelectionSchema>
 export type OnboardingPersonalInfoData = z.infer<typeof onboardingPersonalInfoSchema>
+export type OnboardingCoachingSelectionData = z.infer<typeof onboardingCoachingSelectionSchema>
 export type ProfileUpdateData = z.infer<typeof profileUpdateSchema>
 export type AddressData = z.infer<typeof addressSchema>
 
@@ -81,6 +82,52 @@ export const onboardingPersonalInfoSchema = z.object({
     .max(10, 'Pin code must be less than 10 characters')
     .regex(/^[0-9]+$/, 'Pin code can only contain numbers')
     .optional(),
+  date_of_birth: z
+    .string()
+    .min(1, 'Date of birth is required')
+    .refine((date) => {
+      const dob = new Date(date)
+      return !isNaN(dob.getTime()) && dob <= new Date()
+    }, 'Please enter a valid date of birth')
+})
+
+export const onboardingCoachingSelectionSchema = z.object({
+  coaching_name: z
+    .string()
+    .min(2, 'Coaching center name must be at least 2 characters')
+    .max(100, 'Coaching center name must be less than 100 characters')
+    .trim(),
+  coaching_category: z.enum([
+    'SCHOOL_COACHING',
+    'COLLEGE_TUITION',
+    'HOME_TUITION',
+    'ONLINE_TUITION',
+    'COMPETITIVE_EXAM',
+    'ENTRANCE_EXAM',
+    'TEST_PREPARATION',
+    'LANGUAGE_TRAINING',
+    'SKILL_DEVELOPMENT',
+    'IT_AND_PROGRAMMING',
+    'DESIGN_AND_CREATIVE',
+    'BUSINESS_AND_MARKETING',
+    'ACCOUNTING_AND_FINANCE',
+    'HOBBY_CLASSES',
+    'MUSIC_AND_DANCE',
+    'ART_AND_CRAFT',
+    'SPORTS_AND_FITNESS',
+    'PROFESSIONAL_CERTIFICATION',
+    'GOVERNMENT_EXAM_PREPARATION',
+    'UPSC_AND_DEFENCE',
+    'BANKING_AND_INSURANCE',
+    'MEDICAL_AND_ENGINEERING_ENTRANCE',
+    'TUTORING',
+    'MENTORSHIP',
+    'WORKSHOP_OR_BOOTCAMP',
+    'CAREER_COUNSELLING',
+    'OTHER'
+  ], {
+    required_error: 'Please select a coaching category',
+  }),
 })
 
 // Profile update validation schemas

@@ -9,6 +9,28 @@
 export type UserRole = 'SA' | 'A' | 'S' | 'T' | 'C'; // Super Admin, Admin, Student, Teacher, Coach
 export type OnboardingLevel = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10';
 
+// Avatar system types
+export type AvatarType = 
+  | 'gravatar_monster' 
+  | 'gravatar_robohash' 
+  | 'gravatar_retro'
+  | 'robohash_cat'
+  | 'robohash_sexy_robots'
+  | 'robohash_robo';
+
+export interface AvatarConfig {
+  type: AvatarType;
+  uniqueString: string;
+}
+
+export interface AvatarOption {
+  id: string;
+  type: AvatarType;
+  uniqueString: string;
+  url: string;
+  label: string;
+}
+
 // Core profile interface matching the database table
 export interface Profile {
   // Primary identification
@@ -18,7 +40,7 @@ export interface Profile {
   full_name: string | null;
   username: string | null;
   bio: string | null;
-  avatar_url: string | null;
+  avatar_url: string | AvatarConfig | null; // Can be legacy URL or new avatar config
   
   // Role and status
   role: UserRole;
@@ -77,7 +99,7 @@ export interface PublicProfile {
   full_name: string | null;
   username: string | null;
   bio: string | null;
-  avatar_url: string | null;
+  avatar_url: string | AvatarConfig | null; // Can be legacy URL or new avatar config
   role: UserRole;
   is_online: boolean;
   reputation_score: number;
@@ -95,7 +117,7 @@ export interface ProfileUpdate {
   full_name?: string | null;
   username?: string | null;
   bio?: string | null;
-  avatar_url?: string | null;
+  avatar_url?: string | AvatarConfig | null; // Support both legacy URLs and new avatar config
   role?: UserRole; // Allow role updates during onboarding
   phone?: string | null;
   timezone?: string;

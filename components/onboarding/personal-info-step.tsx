@@ -5,17 +5,21 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { User, MapPin, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { User, MapPin, CheckCircle, AlertCircle, Loader2, Calendar } from 'lucide-react'
 import { onboardingPersonalInfoSchema } from '@/lib/validations'
 import { showErrorToast, showSuccessToast } from '@/lib/toast'
 import { usePinCode } from '@/hooks/use-pincode'
 import { useAddressStore } from '@/lib/address'
+import { UserRole } from '@/lib/schema/profile.types'
 
 interface PersonalInfoStepProps {
     fullName: string
     pinCode: string
+    dateOfBirth: string
+    userRole: UserRole | null
     onFullNameChange: (value: string) => void
     onPinCodeChange: (value: string) => void
+    onDateOfBirthChange: (value: string) => void
     onNext: () => void
     onPrevious: () => void
     loading: boolean
@@ -24,8 +28,11 @@ interface PersonalInfoStepProps {
 export function PersonalInfoStep({
     fullName,
     pinCode,
+    dateOfBirth,
+    userRole,
     onFullNameChange,
     onPinCodeChange,
+    onDateOfBirthChange,
     onNext,
     onPrevious,
     loading
@@ -49,6 +56,61 @@ export function PersonalInfoStep({
     // Address store for creating address
     const { createAddress } = useAddressStore()
 
+    // Validate existing date of birth when component loads or when role/dob changes
+    useEffect(() => {
+        if (dateOfBirth && userRole) {
+            // console.log('🔍 Validating DOB:', dateOfBirth, 'for role:', userRole)
+            const age = calculateAge(dateOfBirth)
+            // console.log('📅 Calculated age:', age)
+            const ageError = validateAge(dateOfBirth, userRole)
+            if (ageError) {
+                // console.log('❌ Age Restriction error:', ageError)
+                setErrors(prev => ({ ...prev, date_of_birth: ageError }))
+                showErrorToast(ageError)
+            } else {
+                // console.log('✅ Age Restriction passed')
+                setErrors(prev => ({ ...prev, date_of_birth: '' }))
+            }
+        }
+    }, [dateOfBirth, userRole])
+
+    // Calculate age from date of birth
+    const calculateAge = (dob: string): number => {
+        const today = new Date()
+        const birthDate = new Date(dob)
+        let age = today.getFullYear() - birthDate.getFullYear()
+        const monthDiff = today.getMonth() - birthDate.getMonth()
+        
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+            age--
+        }
+        
+        return age
+    }
+
+    // Validate age based on user role
+    const validateAge = (dob: string, role: UserRole | null): string | null => {
+        if (!dob || !role) return null
+        
+        const age = calculateAge(dob)
+        
+        switch (role) {
+            case 'S': // Student
+                if (age < 5 || age > 26) {
+                    return 'Students must be between 5 and 26 years old'
+                }
+                break
+            case 'T': // Teacher
+            case 'C': // Coach/Coaching Center
+                if (age < 15) {
+                    return 'Teachers and Coaches must be at least 15 years old'
+                }
+                break
+        }
+        
+        return null
+    }
+
     // Update PIN code status based on hook state
     useEffect(() => {
         if (pinCodeLoading) {
@@ -68,7 +130,7 @@ export function PersonalInfoStep({
         }
     }, [pinCodeLoading, pinCodeValid, pinCodeData, pinCodeError])
 
-    // Handle PIN code validation with debounce
+    // Handle PIN code Restriction with debounce
     useEffect(() => {
         if (!pinCode.trim()) {
             resetPinCode()
@@ -92,13 +154,26 @@ export function PersonalInfoStep({
         try {
             if (field === 'full_name') {
                 onboardingPersonalInfoSchema.pick({ full_name: true }).parse({ full_name: value })
+            } else if (field === 'date_of_birth') {
+                // Validate date format first
+                if (value) {
+                    const date = new Date(value)
+                    if (isNaN(date.getTime())) {
+                        throw new Error('Invalid date format')
+                    }
+                    
+                    // Validate age based on role
+                    const ageError = validateAge(value, userRole)
+                    if (ageError) {
+                        throw new Error(ageError)
+                    }
+                }
             }
             // Note: pin_code is optional so we don't validate it strictly
             setErrors(prev => ({ ...prev, [field]: '' }))
         } catch (error: any) {
-            if (error.errors) {
-                setErrors(prev => ({ ...prev, [field]: error.errors[0].message }))
-            }
+            const errorMessage = error.message || (error.errors && error.errors[0]?.message) || 'Invalid value'
+            setErrors(prev => ({ ...prev, [field]: errorMessage }))
         }
     }
 
@@ -107,6 +182,8 @@ export function PersonalInfoStep({
             onFullNameChange(value)
         } else if (field === 'pin_code') {
             onPinCodeChange(value)
+        } else if (field === 'date_of_birth') {
+            onDateOfBirthChange(value)
         }
 
         if (touched[field]) {
@@ -121,10 +198,32 @@ export function PersonalInfoStep({
 
     const handleNext = async () => {
         try {
-            // Validate all fields
+            // Validate all required fields first
+            if (!fullName.trim()) {
+                setErrors({ full_name: 'Full name is required' })
+                showErrorToast('Please enter your full name')
+                return
+            }
+
+            if (!dateOfBirth) {
+                setErrors({ date_of_birth: 'Date of birth is required' })
+                showErrorToast('Please enter your date of birth')
+                return
+            }
+
+            // Validate age based on role - this is critical Restriction
+            const ageError = validateAge(dateOfBirth, userRole)
+            if (ageError) {
+                setErrors({ date_of_birth: ageError })
+                showErrorToast(ageError)
+                return
+            }
+
+            // Validate all fields using schema
             const data = {
                 full_name: fullName,
-                pin_code: pinCode || undefined
+                pin_code: pinCode || undefined,
+                date_of_birth: dateOfBirth
             }
 
             onboardingPersonalInfoSchema.parse(data)
@@ -205,11 +304,58 @@ export function PersonalInfoStep({
                         )}
                     </div>
 
+                    {/* Date of Birth Field */}
+                    <div className="space-y-2">
+                        <Label htmlFor="dateOfBirth" className="text-sm font-medium flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            Date of Birth <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="dateOfBirth"
+                            type="date"
+                            value={dateOfBirth}
+                            onChange={(e) => handleFieldChange('date_of_birth', e.target.value)}
+                            onBlur={(e) => handleFieldBlur('date_of_birth', e.target.value)}
+                            className={errors.date_of_birth ? 'border-destructive focus:ring-destructive' : ''}
+                            disabled={loading}
+                            max={new Date().toISOString().split('T')[0]} // Prevent future dates
+                        />
+                        {errors.date_of_birth && (
+                            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <AlertCircle className="w-4 h-4 text-red-500" />
+                                    <span className="text-red-700 font-medium text-sm">Age Restriction</span>
+                                </div>
+                                <p className="text-red-600 text-sm">{errors.date_of_birth}</p>
+                            </div>
+                        )}
+                        {/* {dateOfBirth && userRole && !errors.date_of_birth && (
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                    <span className="text-green-700 font-medium text-sm">Age Verified</span>
+                                </div>
+                                <p className="text-green-600 text-sm">
+                                    Age: {calculateAge(dateOfBirth)} years old
+                                    {userRole === 'S' && ' (Valid for Students: 5-26 years)'}
+                                    {(userRole === 'T' || userRole === 'C') && ' (Valid for Teachers/Coaches: 15+ years)'}
+                                </p>
+                            </div>
+                        )} */}
+                        {dateOfBirth && userRole && errors.date_of_birth && (
+                            <div className="text-xs text-muted-foreground">
+                                Current Age: {calculateAge(dateOfBirth)} years old
+                                {userRole === 'S' && ' • Required: 5-26 years'}
+                                {(userRole === 'T' || userRole === 'C') && ' • Required: 15+ years'}
+                            </div>
+                        )}
+                    </div>
+
                     {/* Pin Code Field */}
                     <div className="space-y-2">
                         <Label htmlFor="pinCode" className="text-sm font-medium flex items-center gap-2">
                             <MapPin className="w-4 h-4" />
-                            Pin Code <span className="text-muted-foreground text-xs">(Optional)</span>
+                            Pin Code
                         </Label>
                         <div className="relative">
                             <Input
@@ -265,16 +411,15 @@ export function PersonalInfoStep({
                         </p>
                     </div>
 
-                    {/* Info Card */}
+                    {/* Info Card
                     <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
                         <h4 className="font-medium text-sm mb-2">Why do we need this?</h4>
                         <ul className="text-xs text-muted-foreground space-y-1">
                             <li>• Personalize your dashboard and recommendations</li>
                             <li>• Help you connect with relevant opportunities</li>
                             <li>• Automatically set up your address profile</li>
-                            <li>• Ensure you get the best learning experience</li>
                         </ul>
-                    </div>
+                    </div> */}
                 </CardContent>
             </Card>
 
@@ -290,7 +435,7 @@ export function PersonalInfoStep({
 
                 <Button
                     onClick={handleNext}
-                    disabled={!fullName.trim() || loading}
+                    disabled={!fullName.trim() || !dateOfBirth || !!errors.date_of_birth || !!errors.full_name || loading}
                     className="min-w-[120px]"
                 >
                     {loading ? (
@@ -299,7 +444,7 @@ export function PersonalInfoStep({
                             Updating...
                         </div>
                     ) : (
-                        'Complete Setup'
+                        'Next'
                     )}
                 </Button>
             </div>

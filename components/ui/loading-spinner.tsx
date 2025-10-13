@@ -6,6 +6,8 @@ import { brandColors } from '@/components/theme-provider'
 interface LoadingSpinnerProps {
     /** The text to display below the spinner */
     message?: string
+    /** Short title or label for the spinner (displayed above message) */
+    title?: string
     /** The component or feature being loaded */
     component?: string
     /** Size of the spinner */
@@ -53,6 +55,7 @@ const getSpinnerColor = (variant: LoadingSpinnerProps['variant']) => {
 
 export function LoadingSpinner({
     message = 'Loading...',
+    title,
     component,
     size = 'md',
     variant = 'primary',
@@ -68,6 +71,9 @@ export function LoadingSpinner({
             inline ? '' : 'justify-center',
             className
         )}>
+            {title && (
+                <div className={cn('text-sm font-semibold text-gray-700')}>{title}</div>
+            )}
             <div
                 className={cn(
                     'animate-spin rounded-full border-2 border-t-transparent',

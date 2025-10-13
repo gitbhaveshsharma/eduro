@@ -1,0 +1,961 @@
+/**
+ * Get Posts Store
+ * 
+ * State management store for posts data using the get_posts service
+ * Handles loading states, caching, data management, and real-time updates
+ * Built with Zustand for optimal performance and TypeScript support
+ */
+
+import React from 'react';
+import { create } from 'zustand';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { immer } from 'zustand/middleware/immer';
+import { GetPostService } from '../service/getpost.service';
+import type {
+  GetPostsParams,
+  GetPostsResult,
+  EnhancedPost,
+  FeedAlgorithmType,
+  FeedAnalytics
+} from '../service/getpost.service';
+import type { PostOperationResult } from '../schema/post.types';
+
+// Cache configuration
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 1000; // Maximum number of cached posts
+
+// Loading states
+export type LoadingState = 'idle' | 'loading' | 'success' | 'error';
+
+// Error types
+export interface FeedError {
+  message: string;
+  code?: string;
+  timestamp: number;
+}
+
+// Cache entry interface
+interface CacheEntry {
+  data: GetPostsResult;
+  timestamp: number;
+  params: GetPostsParams;
+  key: string;
+}
+
+// Feed state interface
+interface FeedState {
+  // Current feed data
+  posts: EnhancedPost[];
+  hasMore: boolean;
+  nextCursor?: string;
+  currentAlgorithm: FeedAlgorithmType;
+  totalCount?: number;
+  
+  // Loading states
+  loadingState: LoadingState;
+  refreshing: boolean;
+  loadingMore: boolean;
+  
+  // Error handling
+  error: FeedError | null;
+  
+  // Cache - stored as array for Immer compatibility
+  cacheEntries: CacheEntry[];
+  
+  // Analytics
+  analytics: FeedAnalytics | null;
+  analyticsLoading: boolean;
+  
+  // Filters and preferences
+  currentFilters: GetPostsParams;
+  searchQuery: string;
+  
+  // User interactions tracking
+  viewedPosts: string[];
+  likedPosts: string[];
+  savedPosts: string[];
+  
+  // Real-time updates
+  lastUpdateTime: number;
+  pendingUpdates: EnhancedPost[];
+  
+  // Real-time subscriptions
+  realtimeSubscriptions: Map<string, () => void>;
+  subscribedPostIds: Set<string>;
+}
+
+// Store actions interface
+interface FeedActions {
+  // Core feed operations
+  loadFeed: (params?: GetPostsParams) => Promise<void>;
+  refreshFeed: () => Promise<void>;
+  loadMorePosts: () => Promise<void>;
+  clearFeed: () => void;
+  
+  // Specific feed types
+  loadSmartFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  loadFollowingFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  loadTrendingFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  loadRecentFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  loadPopularFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  loadPersonalizedFeed: (params?: Omit<GetPostsParams, 'feed_type'>) => Promise<void>;
+  
+  // Search and filtering
+  searchPosts: (query: string, filters?: Omit<GetPostsParams, 'search_query'>) => Promise<void>;
+  applyFilters: (filters: Partial<GetPostsParams>) => Promise<void>;
+  clearFilters: () => Promise<void>;
+  
+  // Location-based feeds
+  loadLocationFeed: (latitude: number, longitude: number, radius?: number) => Promise<void>;
+  
+  // Category and author feeds
+  loadCategoryFeed: (category: string) => Promise<void>;
+  loadAuthorFeed: (authorId: string) => Promise<void>;
+  loadTaggedFeed: (tags: string[]) => Promise<void>;
+  
+  // User interactions
+  markPostViewed: (postId: string) => void;
+  togglePostLike: (postId: string) => void;
+  togglePostSave: (postId: string) => void;
+  incrementPostShareCount: (postId: string) => void;
+  recordPostViews: (postIds: string[]) => Promise<void>;
+  
+  // Real-time subscriptions
+  subscribeToPostReactions: (postId: string) => void;
+  subscribeToPostEngagement: (postId: string) => void;
+  subscribeToFeedUpdates: () => void;
+  unsubscribeFromPost: (postId: string) => void;
+  unsubscribeAll: () => void;
+  handleReactionUpdate: (payload: any) => void;
+  handleEngagementUpdate: (payload: any) => void;
+  
+  // Post updates
+  updatePost: (postId: string, updates: Partial<EnhancedPost>) => void;
+  removePost: (postId: string) => void;
+  addPost: (post: EnhancedPost) => void;
+  
+  // Analytics
+  loadAnalytics: (timeRangeHours?: number) => Promise<void>;
+  
+  // Cache management
+  clearCache: () => void;
+  getCachedResult: (key: string) => GetPostsResult | null;
+  
+  // Error handling
+  clearError: () => void;
+  setError: (error: FeedError) => void;
+  
+  // Real-time updates
+  processRealtimeUpdate: (post: EnhancedPost, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => void;
+  applyPendingUpdates: () => void;
+}
+
+// Combined store interface
+export interface GetPostStore extends FeedState, FeedActions {}
+
+// Cache key generator
+function generateCacheKey(params: GetPostsParams): string {
+  const sortedParams = Object.keys(params)
+    .sort()
+    .reduce((result, key) => {
+      result[key] = params[key as keyof GetPostsParams];
+      return result;
+    }, {} as any);
+  
+  return JSON.stringify(sortedParams);
+}
+
+// Create the store
+export const useGetPostStore = create<GetPostStore>()(
+  subscribeWithSelector(
+    immer((set, get) => ({
+      // Initial state
+      posts: [],
+      hasMore: true,
+      nextCursor: undefined,
+      currentAlgorithm: 'smart',
+      totalCount: undefined,
+      
+      loadingState: 'idle',
+      refreshing: false,
+      loadingMore: false,
+      
+      error: null,
+      
+      cacheEntries: [],
+      
+      analytics: null,
+      analyticsLoading: false,
+      
+      currentFilters: {},
+      searchQuery: '',
+      
+      viewedPosts: [],
+      likedPosts: [],
+      savedPosts: [],
+      
+      lastUpdateTime: Date.now(),
+      pendingUpdates: [],
+      
+      // Real-time subscriptions
+      realtimeSubscriptions: new Map(),
+      subscribedPostIds: new Set(),
+
+      // =================== CORE FEED OPERATIONS ===================
+
+      loadFeed: async (params: GetPostsParams = {}) => {
+        const state = get();
+        const cacheKey = generateCacheKey(params);
+        
+        // Check cache first
+        const cachedResult = state.getCachedResult(cacheKey);
+        if (cachedResult) {
+          set((draft) => {
+            draft.posts = cachedResult.posts;
+            draft.hasMore = cachedResult.has_more;
+            draft.nextCursor = cachedResult.next_cursor;
+            draft.currentAlgorithm = cachedResult.algorithm_used;
+            draft.currentFilters = params;
+            draft.loadingState = 'success';
+            draft.error = null;
+          });
+          return;
+        }
+
+        set((draft) => {
+          draft.loadingState = 'loading';
+          draft.error = null;
+          draft.currentFilters = params;
+        });
+
+        try {
+          const result = await GetPostService.getPosts(params);
+          
+          if (result.success && result.data) {
+            const data = result.data as GetPostsResult;
+            const { posts, has_more, next_cursor, algorithm_used } = data;
+            
+            set((draft) => {
+              // Update cache
+              const newCacheEntry: CacheEntry = {
+                data,
+                timestamp: Date.now(),
+                params,
+                key: cacheKey
+              };
+              
+              draft.cacheEntries.push(newCacheEntry);
+              
+              // Clean cache if too large
+              if (draft.cacheEntries.length > MAX_CACHE_SIZE) {
+                draft.cacheEntries.shift();
+              }
+
+              draft.posts = posts;
+              draft.hasMore = has_more;
+              draft.nextCursor = next_cursor;
+              draft.currentAlgorithm = algorithm_used;
+              draft.loadingState = 'success';
+              draft.lastUpdateTime = Date.now();
+            });
+
+            // Record views for loaded posts
+            const postIds = posts.map((p: EnhancedPost) => p.id);
+            if (postIds.length > 0) {
+              GetPostService.recordPostViews(postIds);
+            }
+
+          } else {
+            set((draft) => {
+              draft.loadingState = 'error';
+              draft.error = {
+                message: result.error || 'Failed to load posts',
+                timestamp: Date.now()
+              };
+            });
+          }
+        } catch (error) {
+          set((draft) => {
+            draft.loadingState = 'error';
+            draft.error = {
+              message: error instanceof Error ? error.message : 'Unknown error occurred',
+              timestamp: Date.now()
+            };
+          });
+        }
+      },
+
+      refreshFeed: async () => {
+        const state = get();
+        
+        set((draft) => {
+          draft.refreshing = true;
+          draft.error = null;
+        });
+
+        try {
+          // Clear cache
+          set((draft) => {
+            draft.cacheEntries = [];
+          });
+          
+          await state.loadFeed(state.currentFilters);
+        } finally {
+          set((draft) => {
+            draft.refreshing = false;
+          });
+        }
+      },
+
+      loadMorePosts: async () => {
+        const state = get();
+        
+        if (!state.hasMore || state.loadingMore || state.loadingState === 'loading') {
+          return;
+        }
+
+        set((draft) => {
+          draft.loadingMore = true;
+          draft.error = null;
+        });
+
+        try {
+          const params: GetPostsParams = {
+            ...state.currentFilters,
+            cursor: state.nextCursor,
+            offset: state.posts.length
+          };
+
+          const result = await GetPostService.getPosts(params);
+          
+          if (result.success && result.data) {
+            const { posts: newPosts, has_more, next_cursor } = result.data;
+
+            set((draft) => {
+              draft.posts.push(...newPosts);
+              draft.hasMore = has_more;
+              draft.nextCursor = next_cursor;
+              draft.loadingMore = false;
+            });
+
+            // Record views for new posts
+            const postIds = newPosts.map((p: EnhancedPost) => p.id);
+            if (postIds.length > 0) {
+              GetPostService.recordPostViews(postIds);
+            }
+
+          } else {
+            set((draft) => {
+              draft.loadingMore = false;
+              draft.error = {
+                message: result.error || 'Failed to load more posts',
+                timestamp: Date.now()
+              };
+            });
+          }
+        } catch (error) {
+          set((draft) => {
+            draft.loadingMore = false;
+            draft.error = {
+              message: error instanceof Error ? error.message : 'Unknown error occurred',
+              timestamp: Date.now()
+            };
+          });
+        }
+      },
+
+      clearFeed: () => {
+        set((draft) => {
+          draft.posts = [];
+          draft.hasMore = true;
+          draft.nextCursor = undefined;
+          draft.loadingState = 'idle';
+          draft.error = null;
+          draft.currentFilters = {};
+          draft.searchQuery = '';
+        });
+      },
+
+      // =================== SPECIFIC FEED TYPES ===================
+
+      loadSmartFeed: async (params = {}) => {
+        return get().loadFeed({ ...params, feed_type: 'smart' });
+      },
+
+      loadFollowingFeed: async (params = {}) => {
+        return get().loadFeed({ ...params, feed_type: 'following' });
+      },
+
+      loadTrendingFeed: async (params = {}) => {
+        return get().loadFeed({ 
+          ...params, 
+          feed_type: 'trending',
+          time_window_hours: params.time_window_hours || 24
+        });
+      },
+
+      loadRecentFeed: async (params = {}) => {
+        return get().loadFeed({ ...params, feed_type: 'recent' });
+      },
+
+      loadPopularFeed: async (params = {}) => {
+        return get().loadFeed({ 
+          ...params, 
+          feed_type: 'popular',
+          time_window_hours: params.time_window_hours || 168
+        });
+      },
+
+      loadPersonalizedFeed: async (params = {}) => {
+        return get().loadFeed({ ...params, feed_type: 'personalized' });
+      },
+
+      // =================== SEARCH AND FILTERING ===================
+
+      searchPosts: async (query: string, filters = {}) => {
+        set((draft) => {
+          draft.searchQuery = query;
+        });
+        
+        return get().loadFeed({
+          ...filters,
+          search_query: query,
+          feed_type: 'smart'
+        });
+      },
+
+      applyFilters: async (filters: Partial<GetPostsParams>) => {
+        const currentFilters = get().currentFilters;
+        return get().loadFeed({
+          ...currentFilters,
+          ...filters
+        });
+      },
+
+      clearFilters: async () => {
+        set((draft) => {
+          draft.searchQuery = '';
+        });
+        return get().loadFeed({});
+      },
+
+      // =================== LOCATION AND CATEGORY FEEDS ===================
+
+      loadLocationFeed: async (latitude: number, longitude: number, radius = 10) => {
+        return get().loadFeed({
+          user_coordinates: { latitude, longitude },
+          location_radius_km: radius,
+          feed_type: 'smart'
+        });
+      },
+
+      loadCategoryFeed: async (category: string) => {
+        return get().loadFeed({
+          category,
+          feed_type: 'smart'
+        });
+      },
+
+      loadAuthorFeed: async (authorId: string) => {
+        return get().loadFeed({
+          author_id: authorId,
+          feed_type: 'recent'
+        });
+      },
+
+      loadTaggedFeed: async (tags: string[]) => {
+        return get().loadFeed({
+          tags,
+          feed_type: 'smart'
+        });
+      },
+
+      // =================== USER INTERACTIONS ===================
+
+      markPostViewed: (postId: string) => {
+        set((draft) => {
+          if (!draft.viewedPosts.includes(postId)) {
+            draft.viewedPosts.push(postId);
+          }
+          
+          // Update post in the list
+          const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
+          if (post) {
+            post.user_has_viewed = true;
+            post.view_count = (post.view_count || 0) + 1;
+          }
+        });
+      },
+
+      togglePostLike: (postId: string) => {
+        set((draft) => {
+          const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
+          if (post) {
+            const wasLiked = post.user_has_liked;
+            post.user_has_liked = !wasLiked;
+            post.like_count = wasLiked 
+              ? Math.max(0, (post.like_count || 0) - 1)
+              : (post.like_count || 0) + 1;
+            
+            if (post.user_has_liked) {
+              if (!draft.likedPosts.includes(postId)) {
+                draft.likedPosts.push(postId);
+              }
+            } else {
+              draft.likedPosts = draft.likedPosts.filter(id => id !== postId);
+            }
+          }
+        });
+      },
+
+      togglePostSave: (postId: string) => {
+        set((draft) => {
+          const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
+          if (post) {
+            post.user_has_saved = !post.user_has_saved;
+            
+            if (post.user_has_saved) {
+              if (!draft.savedPosts.includes(postId)) {
+                draft.savedPosts.push(postId);
+              }
+            } else {
+              draft.savedPosts = draft.savedPosts.filter(id => id !== postId);
+            }
+          }
+        });
+      },
+
+      incrementPostShareCount: (postId: string) => {
+        set((draft) => {
+          const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
+          if (post) {
+            post.share_count = (post.share_count || 0) + 1;
+            post.user_has_shared = true;
+          }
+        });
+      },
+
+      recordPostViews: async (postIds: string[]) => {
+        try {
+          await GetPostService.recordPostViews(postIds);
+          
+          set((draft) => {
+            postIds.forEach(postId => {
+              if (!draft.viewedPosts.includes(postId)) {
+                draft.viewedPosts.push(postId);
+              }
+            });
+          });
+        } catch (error) {
+          console.warn('Failed to record post views:', error);
+        }
+      },
+
+      // =================== POST UPDATES ===================
+
+      updatePost: (postId: string, updates: Partial<EnhancedPost>) => {
+        set((draft) => {
+          const postIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === postId);
+          if (postIndex !== -1) {
+            Object.assign(draft.posts[postIndex], updates);
+          }
+        });
+      },
+
+      removePost: (postId: string) => {
+        set((draft) => {
+          draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== postId);
+        });
+      },
+
+      addPost: (post: EnhancedPost) => {
+        set((draft) => {
+          draft.posts.unshift(post);
+        });
+      },
+
+      // =================== ANALYTICS ===================
+
+      loadAnalytics: async (timeRangeHours = 24) => {
+        set((draft) => {
+          draft.analyticsLoading = true;
+        });
+
+        try {
+          const result = await GetPostService.getFeedAnalytics(timeRangeHours);
+          
+          if (result.success && result.data) {
+            set((draft) => {
+              draft.analytics = result.data!;
+              draft.analyticsLoading = false;
+            });
+          } else {
+            set((draft) => {
+              draft.analyticsLoading = false;
+              draft.error = {
+                message: result.error || 'Failed to load analytics',
+                timestamp: Date.now()
+              };
+            });
+          }
+        } catch (error) {
+          set((draft) => {
+            draft.analyticsLoading = false;
+            draft.error = {
+              message: error instanceof Error ? error.message : 'Unknown error occurred',
+              timestamp: Date.now()
+            };
+          });
+        }
+      },
+
+      // =================== CACHE MANAGEMENT ===================
+
+      clearCache: () => {
+        set((draft) => {
+          draft.cacheEntries = [];
+        });
+      },
+
+      getCachedResult: (key: string): GetPostsResult | null => {
+        const state = get();
+        const entry = state.cacheEntries.find(e => e.key === key);
+        
+        if (!entry) return null;
+        
+        // Check if cache is still valid
+        const age = Date.now() - entry.timestamp;
+        if (age > CACHE_DURATION) {
+          set((draft) => {
+            draft.cacheEntries = draft.cacheEntries.filter(e => e.key !== key);
+          });
+          return null;
+        }
+        
+        return entry.data;
+      },
+
+      // =================== ERROR HANDLING ===================
+
+      clearError: () => {
+        set((draft) => {
+          draft.error = null;
+        });
+      },
+
+      setError: (error: FeedError) => {
+        set((draft) => {
+          draft.error = error;
+        });
+      },
+
+      // =================== REAL-TIME UPDATES ===================
+
+      processRealtimeUpdate: (post: EnhancedPost, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => {
+        set((draft) => {
+          switch (eventType) {
+            case 'INSERT':
+              draft.pendingUpdates.push(post);
+              break;
+            
+            case 'UPDATE':
+              const updateIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === post.id);
+              if (updateIndex !== -1) {
+                draft.posts[updateIndex] = post;
+              }
+              break;
+            
+            case 'DELETE':
+              draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== post.id);
+              break;
+          }
+        });
+      },
+
+      applyPendingUpdates: () => {
+        set((draft) => {
+          if (draft.pendingUpdates.length > 0) {
+            draft.posts.unshift(...draft.pendingUpdates);
+            draft.pendingUpdates = [];
+          }
+        });
+      },
+
+      // =================== REAL-TIME SUBSCRIPTIONS ===================
+
+      subscribeToPostReactions: (postId: string) => {
+        const state = get();
+        if (state.subscribedPostIds.has(`reactions:${postId}`)) {
+          return; // Already subscribed
+        }
+
+        // Use the new PostReactionService for reaction subscriptions
+        const { PostReactionService } = require('../service/post-reaction.service');
+        const unsubscribe = PostReactionService.subscribeToTarget('POST', postId, (update: any) => {
+          // Convert the update format to the old payload format for compatibility
+          const payload = {
+            eventType: update.eventType,
+            new: update.reaction,
+            old: update.oldReaction,
+          };
+          state.handleReactionUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set(`reactions:${postId}`, unsubscribe);
+          draft.subscribedPostIds.add(`reactions:${postId}`);
+        });
+      },
+
+      subscribeToPostEngagement: (postId: string) => {
+        const state = get();
+        if (state.subscribedPostIds.has(`engagement:${postId}`)) {
+          return; // Already subscribed
+        }
+
+        const { PostService } = require('../service/post.service');
+        const unsubscribe = PostService.subscribeToPostEngagement(postId, (payload: any) => {
+          state.handleEngagementUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set(`engagement:${postId}`, unsubscribe);
+          draft.subscribedPostIds.add(`engagement:${postId}`);
+        });
+      },
+
+      subscribeToFeedUpdates: () => {
+        const state = get();
+        const currentPostIds = state.posts.map(p => p.id);
+        
+        if (currentPostIds.length === 0) {
+          return; // No posts to subscribe to
+        }
+
+        const { PostService } = require('../service/post.service');
+        const unsubscribe = PostService.subscribeToMultiplePostsEngagement(currentPostIds, (payload: any) => {
+          state.handleEngagementUpdate(payload);
+        });
+
+        set((draft) => {
+          draft.realtimeSubscriptions.set('feed_engagement', unsubscribe);
+          draft.subscribedPostIds.add('feed_engagement');
+        });
+
+        // Subscribe to individual post reactions
+        currentPostIds.forEach(postId => {
+          state.subscribeToPostReactions(postId);
+        });
+      },
+
+      unsubscribeFromPost: (postId: string) => {
+        const state = get();
+        
+        set((draft) => {
+          // Unsubscribe from reactions
+          const reactionsKey = `reactions:${postId}`;
+          const reactionsUnsubscribe = draft.realtimeSubscriptions.get(reactionsKey);
+          if (reactionsUnsubscribe) {
+            reactionsUnsubscribe();
+            draft.realtimeSubscriptions.delete(reactionsKey);
+            draft.subscribedPostIds.delete(reactionsKey);
+          }
+
+          // Unsubscribe from engagement
+          const engagementKey = `engagement:${postId}`;
+          const engagementUnsubscribe = draft.realtimeSubscriptions.get(engagementKey);
+          if (engagementUnsubscribe) {
+            engagementUnsubscribe();
+            draft.realtimeSubscriptions.delete(engagementKey);
+            draft.subscribedPostIds.delete(engagementKey);
+          }
+        });
+      },
+
+      unsubscribeAll: () => {
+        const state = get();
+        
+        set((draft) => {
+          // Call all unsubscribe functions
+          draft.realtimeSubscriptions.forEach(unsubscribe => {
+            unsubscribe();
+          });
+          
+          // Clear all subscriptions
+          draft.realtimeSubscriptions.clear();
+          draft.subscribedPostIds.clear();
+        });
+      },
+
+      handleReactionUpdate: (payload: any) => {
+        console.log('Handling reaction update:', payload);
+        
+        const state = get();
+        const { new: newReaction, old: oldReaction, eventType } = payload;
+        const targetId = newReaction?.target_id || oldReaction?.target_id;
+        
+        if (!targetId) return;
+
+        // Find the post that contains this reaction target
+        const post = state.posts.find((p: EnhancedPost) => 
+          p.id === targetId || 
+          // Could be a comment reaction - we'd need to fetch comment details
+          false
+        );
+
+        if (post) {
+          // Update lastUpdateTime to trigger re-renders
+          set((draft) => {
+            draft.lastUpdateTime = Date.now();
+          });
+          
+          // Trigger re-fetch of reaction analytics after a small delay
+          // to ensure the database transaction is complete
+          // This runs outside of the Immer draft context
+          setTimeout(async () => {
+            try {
+              const { useReactionStore } = require('../store/reaction.store');
+              const reactionStore = useReactionStore.getState();
+              // Clear cache and force reload
+              reactionStore.clearAnalyticsCache(targetId);
+              await reactionStore.loadReactionAnalytics('POST', targetId, true);
+            } catch (error) {
+              console.error('Error updating reaction analytics:', error);
+            }
+          }, 200);
+        }
+      },
+
+      handleEngagementUpdate: (payload: any) => {
+        console.log('Handling engagement update:', payload);
+        
+        set((draft) => {
+          const { new: newData } = payload;
+          
+          if (newData && newData.id) {
+            const postIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === newData.id);
+            
+            if (postIndex !== -1) {
+              // Update the post with new engagement metrics
+              const existingPost = draft.posts[postIndex];
+              draft.posts[postIndex] = {
+                ...existingPost,
+                like_count: newData.like_count ?? existingPost.like_count,
+                comment_count: newData.comment_count ?? existingPost.comment_count,
+                share_count: newData.share_count ?? existingPost.share_count,
+                view_count: newData.view_count ?? existingPost.view_count,
+                engagement_score: newData.engagement_score ?? existingPost.engagement_score,
+                last_activity_at: newData.last_activity_at ?? existingPost.last_activity_at,
+              };
+              
+              draft.lastUpdateTime = Date.now();
+            }
+          }
+        });
+      }
+    }))
+  )
+);
+
+// =================== HELPER HOOKS ===================
+
+/**
+ * Hook for getting posts with specific filters
+ */
+export const useGetPosts = (params?: GetPostsParams) => {
+  const store = useGetPostStore();
+  
+  React.useEffect(() => {
+    store.loadFeed(params);
+  }, [JSON.stringify(params)]);
+  
+  return {
+    posts: store.posts,
+    loading: store.loadingState === 'loading',
+    error: store.error,
+    hasMore: store.hasMore,
+    loadMore: store.loadMorePosts,
+    refresh: store.refreshFeed
+  };
+};
+
+/**
+ * Hook for search functionality
+ */
+export const usePostSearch = () => {
+  const store = useGetPostStore();
+  
+  return {
+    searchQuery: store.searchQuery,
+    searchPosts: store.searchPosts,
+    clearSearch: () => store.searchPosts(''),
+    loading: store.loadingState === 'loading',
+    posts: store.posts,
+    error: store.error
+  };
+};
+
+/**
+ * Hook for feed analytics
+ */
+export const useFeedAnalytics = (timeRangeHours = 24) => {
+  const store = useGetPostStore();
+  
+  React.useEffect(() => {
+    store.loadAnalytics(timeRangeHours);
+  }, [timeRangeHours]);
+  
+  return {
+    analytics: store.analytics,
+    loading: store.analyticsLoading,
+    error: store.error
+  };
+};
+
+/**
+ * Hook for user interactions
+ */
+export const usePostInteractions = () => {
+  const store = useGetPostStore();
+  
+  return {
+    markViewed: store.markPostViewed,
+    toggleLike: store.togglePostLike,
+    toggleSave: store.togglePostSave,
+    incrementShareCount: store.incrementPostShareCount,
+    viewedPosts: store.viewedPosts,
+    likedPosts: store.likedPosts,
+    savedPosts: store.savedPosts
+  };
+};
+
+/**
+ * Hook for real-time functionality
+ * Automatically subscribes to updates for loaded posts
+ */
+export const useRealtimePosts = (autoSubscribe = true) => {
+  const store = useGetPostStore();
+  
+  React.useEffect(() => {
+    if (autoSubscribe && store.posts.length > 0) {
+      // Subscribe to feed-wide updates
+      store.subscribeToFeedUpdates();
+      
+      return () => {
+        // Cleanup subscriptions when component unmounts
+        store.unsubscribeAll();
+      };
+    }
+  }, [store.posts.length, autoSubscribe]);
+  
+  return {
+    subscribeToPost: store.subscribeToPostReactions,
+    subscribeToEngagement: store.subscribeToPostEngagement,
+    unsubscribeFromPost: store.unsubscribeFromPost,
+    unsubscribeAll: store.unsubscribeAll,
+    lastUpdateTime: store.lastUpdateTime
+  };
+};
+
+// Default export
+export default useGetPostStore;

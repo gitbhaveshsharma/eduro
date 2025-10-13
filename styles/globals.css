@@ -49,6 +49,12 @@
   /* Dark Gray #111827 - Body text, good readability */
   --color-text-primary: oklch(0.145 0.003 247.858);
   
+  /* Safe area insets for mobile devices */
+  --safe-area-inset-top: env(safe-area-inset-top);
+  --safe-area-inset-right: env(safe-area-inset-right);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom);
+  --safe-area-inset-left: env(safe-area-inset-left);
+  
   /* Medium Gray #6B7280 - Less important text, meta info */
   --color-text-secondary: oklch(0.556 0.003 247.858);
   --color-muted-foreground: var(--color-text-secondary);
@@ -57,10 +63,15 @@
   --color-border: oklch(0.922 0.003 247.858);
   --color-input: var(--color-border);
   
+  /* 🎨 Dropdown-Specific Colors - Using Brand Secondary (Sky Blue) */
+  --color-dropdown-hover: oklch(0.95 0.02 264.376); /* Light sky blue hover */
+  --color-dropdown-hover-foreground: var(--color-brand-primary); /* Deep blue text on hover */
+  
   /* Additional UI Colors */
   --color-muted: oklch(0.971 0.003 247.858);
-  --color-accent: oklch(0.971 0.003 247.858);
-  --color-accent-foreground: oklch(0.145 0.003 247.858);
+  /* Changed: Use dropdown hover color for better visibility */
+  --color-accent: var(--color-dropdown-hover);
+  --color-accent-foreground: var(--color-dropdown-hover-foreground);
   --color-ring: var(--color-brand-primary);
   
   /* Chart Colors - Using brand palette */
@@ -130,8 +141,14 @@
   --color-border: oklch(0.269 0.003 247.858);
   --color-input: var(--color-border);
   --color-muted: oklch(0.269 0.003 247.858);
-  --color-accent: oklch(0.269 0.003 247.858);
-  --color-accent-foreground: oklch(0.985 0.003 247.858);
+  
+  /* 🎨 Dropdown-Specific Colors - Dark Mode */
+  --color-dropdown-hover: oklch(0.35 0.05 264.376); /* Darker blue hover */
+  --color-dropdown-hover-foreground: oklch(0.985 0.003 247.858); /* White text */
+  
+  /* Changed: Use dropdown hover color */
+  --color-accent: var(--color-dropdown-hover);
+  --color-accent-foreground: var(--color-dropdown-hover-foreground);
   --color-ring: var(--color-brand-primary);
   
   /* Dark sidebar */
@@ -183,6 +200,10 @@
   --color-border: var(--color-border);
   --color-input: var(--color-input);
   --color-ring: var(--color-ring);
+  
+  /* Dropdown Colors */
+  --color-dropdown-hover: var(--color-dropdown-hover);
+  --color-dropdown-hover-foreground: var(--color-dropdown-hover-foreground);
   
   /* Chart Colors */
   --color-chart-1: var(--color-chart-1);
@@ -250,6 +271,10 @@
   .text-primary { color: var(--color-text-primary); }
   .text-secondary { color: var(--color-text-secondary); }
   
+  /* Dropdown Utilities */
+  .bg-dropdown-hover { background-color: var(--color-dropdown-hover); }
+  .text-dropdown-hover { color: var(--color-dropdown-hover-foreground); }
+  
   /* Ring Colors */
   .ring-brand-primary { --tw-ring-color: var(--color-brand-primary); }
   .ring-success { --tw-ring-color: var(--color-success); }
@@ -292,5 +317,24 @@
   .status-error {
     background-color: var(--color-error);
     color: var(--color-error-foreground);
+  }
+}
+
+/* Mobile-specific utilities for safe areas */
+@layer utilities {
+  .safe-bottom {
+    padding-bottom: max(0.5rem, var(--safe-area-inset-bottom));
+  }
+  
+  .safe-top {
+    padding-top: max(0.5rem, var(--safe-area-inset-top));
+  }
+  
+  .safe-left {
+    padding-left: max(1rem, var(--safe-area-inset-left));
+  }
+  
+  .safe-right {
+    padding-right: max(1rem, var(--safe-area-inset-right));
   }
 }

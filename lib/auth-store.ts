@@ -1,10 +1,22 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase, type Database } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
 import Cookies from 'js-cookie'
 
-type Profile = Database['public']['Tables']['profiles']['Row']
+// Define Profile type directly
+interface Profile {
+  id: string
+  full_name: string | null
+  username: string | null
+  email: string | null
+  phone: string | null
+  avatar_url: string | null
+  role: string
+  is_online: boolean
+  last_seen_at: string | null
+  [key: string]: any
+}
 
 interface AuthState {
   user: User | null
@@ -40,6 +52,39 @@ const cookieStorage = {
   },
   removeItem: (name: string): void => {
     Cookies.remove(name)
+  },
+}
+
+// Enhanced cookie storage for Supabase session
+const enhancedCookieStorage = {
+  getItem: (name: string): string | null => {
+    return cookieStorage.getItem(name)
+  },
+  setItem: (name: string, value: string): void => {
+    cookieStorage.setItem(name, value)
+    
+    // Also set with Supabase standard naming for middleware compatibility
+    if (name.includes('auth-storage')) {
+      try {
+        const sessionData = JSON.parse(value)
+        if (sessionData?.user && sessionData?.session) {
+          cookieStorage.setItem('supabase-auth-token', sessionData.session.access_token)
+          cookieStorage.setItem('supabase-refresh-token', sessionData.session.refresh_token || '')
+        }
+      } catch (e) {
+        // Not JSON, set as is
+        cookieStorage.setItem('supabase-auth-token', value)
+      }
+    }
+  },
+  removeItem: (name: string): void => {
+    cookieStorage.removeItem(name)
+    
+    // Also remove Supabase standard cookies
+    if (name.includes('auth-storage')) {
+      cookieStorage.removeItem('supabase-auth-token')
+      cookieStorage.removeItem('supabase-refresh-token')
+    }
   },
 }
 
@@ -83,12 +128,7 @@ export const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true })
           
-          // Update online status before signing out
-          const { profile } = get()
-          if (profile) {
-            await supabase.rpc('update_online_status', { is_online_status: false })
-          }
-
+          // Sign out user
           await supabase.auth.signOut()
           
           // Clear all auth data
@@ -114,7 +154,19 @@ export const useAuthStore = create<AuthStore>()(
           const { user } = get()
           if (!user) return
 
-          await supabase.rpc('update_online_status', { is_online_status: isOnline })
+          // Update profile directly
+          const { error } = await supabase
+            .from('profiles')
+            .update({ 
+              is_online: isOnline,
+              last_seen_at: new Date().toISOString()
+            })
+            .eq('id', user.id)
+          
+          if (error) {
+            console.error('Error updating online status:', error)
+            return
+          }
           
           // Update local profile state
           const { profile } = get()
@@ -146,11 +198,7 @@ export const useAuthStore = create<AuthStore>()(
     }),
     {
       name: 'auth-storage',
-      storage: createJSONStorage(() => ({
-        getItem: (name) => cookieStorage.getItem(name),
-        setItem: (name, value) => cookieStorage.setItem(name, value),
-        removeItem: (name) => cookieStorage.removeItem(name),
-      })),
+      storage: createJSONStorage(() => enhancedCookieStorage),
       partialize: (state) => ({
         // Only persist essential user data, not loading states
         user: state.user,

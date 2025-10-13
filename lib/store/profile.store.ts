@@ -174,22 +174,30 @@ export const useProfileStore = create<ProfileStore>()(
         },
 
         updateCurrentProfile: async (updates: ProfileUpdate) => {
+          console.log('Store updateCurrentProfile called with:', updates);
           const currentProfile = get().currentProfile;
-          if (!currentProfile) return false;
+          if (!currentProfile) {
+            console.error('No current profile found');
+            return false;
+          }
 
           // Optimistic update
           get().updateCurrentProfileOptimistic(updates);
 
+          console.log('Calling ProfileService.updateProfile with:', updates);
           const result = await ProfileService.updateProfile(updates);
+          console.log('ProfileService.updateProfile result:', result);
 
           if (result.success && result.data) {
             set((state) => {
               state.currentProfile = result.data!;
               state.editFormData = null;
             });
+            console.log('Profile updated successfully in store');
             return true;
           } else {
             // Revert optimistic update on failure
+            console.error('Profile update failed:', result.error);
             get().revertCurrentProfileOptimistic();
             set((state) => {
               state.currentProfileError = result.error || 'Failed to update profile';

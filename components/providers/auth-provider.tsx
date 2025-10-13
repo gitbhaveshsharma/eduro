@@ -1,164 +1,177 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/lib/auth-store'
 import { useProfileStore } from '@/lib/store/profile.store'
-import { AuthLoadingSpinner } from '@/components/ui/loading-spinner'
+import { authSessionManager } from '@/lib/auth-session'
 
 interface AuthProviderProps {
     children: React.ReactNode
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-    const { setAuth, setProfile, setLoading, setInitialized, clearAuth, isLoading, isInitialized } = useAuthStore()
+    const { setAuth, setProfile, setLoading, setInitialized, clearAuth } = useAuthStore()
     const { loadCurrentProfile, clearCurrentProfile } = useProfileStore()
 
+    // Track current token to prevent duplicate processing
+    const currentTokenRef = useRef<string | null>(null)
+    const isProcessingRef = useRef(false)
+
     useEffect(() => {
+        let mounted = true
+
         // Get initial session
         const getInitialSession = async () => {
             try {
-                const { data: { session }, error } = await supabase.auth.getSession()
+                const session = await authSessionManager.getSession()
 
-                if (error) {
-                    console.error('Error getting session:', error)
-                    clearAuth()
-                    clearCurrentProfile()
-                    return
-                }
+                if (!mounted) return
 
                 if (session?.user) {
+                    currentTokenRef.current = session.access_token
                     setAuth(session.user, session)
 
-                    // Fetch user profile for auth store
-                    const { data: profile, error: profileError } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', session.user.id)
-                        .single()
+                    // CRITICAL: Defer profile loading to prevent blocking
+                    setTimeout(async () => {
+                        if (!mounted) return
 
-                    if (!profileError && profile) {
-                        setProfile(profile)
-
-                        // Also load into profile store for consistency
-                        await loadCurrentProfile()
-
-                        // Update online status
-                        await supabase.rpc('update_online_status', { is_online_status: true })
-                    }
-                } else {
-                    clearAuth()
-                    clearCurrentProfile()
-                }
-            } catch (error) {
-                console.error('Error in getInitialSession:', error)
-                clearAuth()
-                clearCurrentProfile()
-            } finally {
-                setLoading(false)
-                setInitialized(true)
-            }
-        }
-
-        getInitialSession()
-
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                // console.log('Auth state changed:', event, session?.user?.id)
-
-                // Don't interfere if we're on the OAuth callback page - let it handle its own auth
-                const isCallbackPage = window.location.pathname === '/auth/callback'
-
-                if (isCallbackPage) {
-                    // console.log('On callback page, skipping auth provider handling')
-                    return
-                }
-
-                switch (event) {
-                    case 'SIGNED_IN':
-                        if (session?.user) {
-                            setAuth(session.user, session)
-
-                            // Fetch user profile for auth store
+                        try {
                             const { data: profile, error } = await supabase
                                 .from('profiles')
                                 .select('*')
                                 .eq('id', session.user.id)
                                 .single()
 
-                            if (!error && profile) {
+                            if (!error && profile && mounted) {
                                 setProfile(profile)
-
-                                // Also load into profile store for consistency
                                 await loadCurrentProfile()
-
-                                // Update online status
-                                await supabase.rpc('update_online_status', { is_online_status: true })
                             }
+                        } catch (error) {
+                            console.error('[AUTH-PROVIDER] Error loading initial profile:', error)
+                        }
+                    }, 0)
+                } else {
+                    clearAuth()
+                    clearCurrentProfile()
+                }
+            } catch (error) {
+                console.error('[AUTH-PROVIDER] Error in getInitialSession:', error)
+                if (mounted) {
+                    clearAuth()
+                    clearCurrentProfile()
+                }
+            } finally {
+                if (mounted) {
+                    setLoading(false)
+                    setInitialized(true)
+                }
+            }
+        }
+
+        getInitialSession()
+
+        // CRITICAL: Non-blocking auth state listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+            (event, session) => {
+                if (!mounted) return
+
+                // Don't interfere on OAuth callback page
+                const isCallbackPage = window.location.pathname === '/auth/callback'
+                if (isCallbackPage) return
+
+                console.log('[AUTH-PROVIDER] Auth event:', event)
+
+                const newToken = session?.access_token || null
+
+                switch (event) {
+                    case 'SIGNED_IN':
+                        // OPTIMIZATION: Skip if same token (visibility spam)
+                        if (newToken === currentTokenRef.current) {
+                            console.log('[AUTH-PROVIDER] Token unchanged, skipping')
+                            return
+                        }
+
+                        // CRITICAL: Prevent concurrent processing
+                        if (isProcessingRef.current) {
+                            console.log('[AUTH-PROVIDER] Already processing, skipping')
+                            return
+                        }
+
+                        if (session?.user) {
+                            isProcessingRef.current = true
+                            currentTokenRef.current = newToken
+
+                            // Update auth immediately (non-blocking)
+                            setAuth(session.user, session)
+
+                            // CRITICAL: Defer profile loading to next event loop tick
+                            // This releases Supabase lock IMMEDIATELY
+                            setTimeout(async () => {
+                                if (!mounted) {
+                                    isProcessingRef.current = false
+                                    return
+                                }
+
+                                try {
+                                    console.log('[AUTH-PROVIDER] Loading profile after SIGNED_IN')
+                                    await loadCurrentProfile()
+                                } catch (error) {
+                                    console.error('[AUTH-PROVIDER] Error loading profile on SIGNED_IN:', error)
+                                } finally {
+                                    isProcessingRef.current = false
+                                }
+                            }, 0)
                         }
                         break
 
-                    case 'SIGNED_OUT':
-                        clearAuth()
-                        clearCurrentProfile()
-                        break
-
                     case 'TOKEN_REFRESHED':
+                        // Update token only, don't reload profile
                         if (session?.user) {
+                            currentTokenRef.current = newToken
                             setAuth(session.user, session)
+                            console.log('[AUTH-PROVIDER] Token refreshed')
                         }
                         break
 
                     case 'USER_UPDATED':
                         if (session?.user) {
+                            currentTokenRef.current = newToken
                             setAuth(session.user, session)
-                            // Reload profile to get latest data
-                            await loadCurrentProfile()
+
+                            // Defer profile reload
+                            setTimeout(async () => {
+                                if (!mounted) return
+
+                                try {
+                                    console.log('[AUTH-PROVIDER] Loading profile after USER_UPDATED')
+                                    await loadCurrentProfile()
+                                } catch (error) {
+                                    console.error('[AUTH-PROVIDER] Error loading profile on USER_UPDATED:', error)
+                                }
+                            }, 0)
                         }
                         break
 
-                    default:
+                    case 'SIGNED_OUT':
+                        currentTokenRef.current = null
+                        isProcessingRef.current = false
+                        clearAuth()
+                        clearCurrentProfile()
+                        console.log('[AUTH-PROVIDER] User signed out')
                         break
+
+                    default:
+                        console.log('[AUTH-PROVIDER] Unhandled event:', event)
                 }
             }
         )
 
-        // Handle browser close/refresh to update online status
-        const handleBeforeUnload = async () => {
-            try {
-                await supabase.rpc('update_online_status', { is_online_status: false })
-            } catch (error) {
-                console.error('Error updating online status on unload:', error)
-            }
-        }
-
-        // Handle visibility change to update online status
-        const handleVisibilityChange = async () => {
-            try {
-                const isOnline = !document.hidden
-                await supabase.rpc('update_online_status', { is_online_status: isOnline })
-            } catch (error) {
-                console.error('Error updating online status on visibility change:', error)
-            }
-        }
-
-        // Add event listeners
-        window.addEventListener('beforeunload', handleBeforeUnload)
-        document.addEventListener('visibilitychange', handleVisibilityChange)
-
-        // Cleanup function
         return () => {
+            mounted = false
             subscription.unsubscribe()
-            window.removeEventListener('beforeunload', handleBeforeUnload)
-            document.removeEventListener('visibilitychange', handleVisibilityChange)
         }
-    }, [setAuth, setProfile, setLoading, setInitialized, clearAuth, loadCurrentProfile, clearCurrentProfile])
-
-    // // Show loading spinner while initializing authentication
-    // if (isLoading || !isInitialized) {
-    //     return <AuthLoadingSpinner />
-    // }
+    }, [])
 
     return <>{children}</>
 }

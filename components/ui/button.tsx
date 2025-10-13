@@ -33,19 +33,22 @@ const buttonVariants = cva(
   },
 )
 
-interface ButtonProps extends React.ComponentProps<'button'>, VariantProps<typeof buttonVariants> {
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean
 }
 
-function Button({
-  className,
-  variant,
-  size,
-  asChild = false,
-  ...props
-}: ButtonProps) {
+const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
+  {
+    className,
+    variant,
+    size,
+    asChild = false,
+    ...props
+  },
+  ref,
+) {
   const { theme } = useTheme()
-  const Comp = asChild ? Slot : 'button'
+  const Comp: any = asChild ? Slot : 'button'
 
   // Dynamic theme-based styles
   const getVariantStyles = (variant: string) => {
@@ -157,6 +160,7 @@ function Button({
 
   return (
     <Comp
+      ref={ref}
       data-slot="button"
       className={cn(buttonVariants({ variant, size }), className)}
       style={{
@@ -168,38 +172,38 @@ function Button({
         textUnderlineOffset: variantStyles.textUnderlineOffset,
         transition: 'all 0.2s ease-in-out',
       }}
-      onMouseEnter={(e) => {
+      onMouseEnter={(e: React.MouseEvent<HTMLButtonElement>) => {
         const hoverStyle = variantStyles[':hover']
         if (hoverStyle && typeof hoverStyle === 'object') {
           Object.assign(e.currentTarget.style, hoverStyle)
         }
-        props.onMouseEnter?.(e)
+        ; (props as React.ButtonHTMLAttributes<HTMLButtonElement>).onMouseEnter?.(e)
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={(e: React.MouseEvent<HTMLButtonElement>) => {
         Object.assign(e.currentTarget.style, {
           backgroundColor: variantStyles.backgroundColor,
           color: variantStyles.color,
           textDecoration: variantStyles.textDecoration || 'none',
         })
-        props.onMouseLeave?.(e)
+          ; (props as React.ButtonHTMLAttributes<HTMLButtonElement>).onMouseLeave?.(e)
       }}
-      onFocus={(e) => {
+      onFocus={(e: React.FocusEvent<HTMLButtonElement>) => {
         const focusStyle = variantStyles[':focus-visible']
         if (focusStyle && focusStyle.ringColor) {
           // Apply an outer ring via boxShadow while preserving existing boxShadow
           const existing = e.currentTarget.style.boxShadow || ''
           e.currentTarget.style.boxShadow = `${existing ? existing + ', ' : ''}0 0 0 3px ${focusStyle.ringColor}, 0 0 0 2px transparent`
         }
-        props.onFocus?.(e)
+        ; (props as React.ButtonHTMLAttributes<HTMLButtonElement>).onFocus?.(e)
       }}
-      onBlur={(e) => {
+      onBlur={(e: React.FocusEvent<HTMLButtonElement>) => {
         const baseBox = variantStyles.boxShadow || 'none'
         e.currentTarget.style.boxShadow = baseBox
-        props.onBlur?.(e)
+          ; (props as React.ButtonHTMLAttributes<HTMLButtonElement>).onBlur?.(e)
       }}
       {...props}
     />
   )
-}
+})
 
 export { Button, buttonVariants }
