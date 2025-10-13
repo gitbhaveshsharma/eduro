@@ -99,12 +99,26 @@ export class AvatarUtils {
    * returns an app-relative proxy route that will fetch the remote image.
    */
   static getPublicAvatarUrlFromRemote(remoteUrl: string): string {
-    // Only use proxy when explicitly enabled
-    const useProxy = typeof window !== 'undefined' && (process?.env?.NEXT_PUBLIC_AVATAR_PROXY === 'true');
-    if (!useProxy) return remoteUrl;
+    // Decide when to use the in-app proxy for remote avatar images.
+    // We proxy client requests when either:
+    //  - NEXT_PUBLIC_AVATAR_PROXY is explicitly set to 'true', or
+    //  - no explicit setting is provided and we're running in production.
+    // This ensures deployed sites that enable COEP/COOP (which block cross-origin
+    // image embedding unless the resource has a CORP header) will load avatars
+    // via the local `/api/avatar-proxy` which adds the required headers.
+    // Keep the behavior client-only to avoid changing server-side image generation.
+  const isClient = typeof window !== 'undefined';
 
-    // Proxy endpoint within the app
-    return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
+  // Read runtime env variables (NEXT_PUBLIC_* are inlined for the client by Next.js)
+  const envFlag = process.env.NEXT_PUBLIC_AVATAR_PROXY;
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const useProxy = isClient && (envFlag === 'true' || (envFlag === undefined && isProduction));
+
+  if (!useProxy) return remoteUrl;
+
+  // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
+  return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
   }
 
   /**
