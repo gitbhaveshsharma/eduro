@@ -94,6 +94,29 @@ export class AvatarUtils {
   }
 
   /**
+   * Return a client-usage URL (proxied when configured).
+   * If NEXT_PUBLIC_AVATAR_PROXY === 'true' and running in the browser,
+   * returns an app-relative proxy route that will fetch the remote image.
+   */
+  static getPublicAvatarUrlFromRemote(remoteUrl: string): string {
+    // Only use proxy when explicitly enabled
+    const useProxy = typeof window !== 'undefined' && (process?.env?.NEXT_PUBLIC_AVATAR_PROXY === 'true');
+    if (!useProxy) return remoteUrl;
+
+    // Proxy endpoint within the app
+    return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
+  }
+
+  /**
+   * Convenience wrapper: build remote URL for type/uniqueString, then
+   * return proxied URL when appropriate for client use.
+   */
+  static getPublicAvatarUrl(type: AvatarType, uniqueString: string, bgset?: string): string {
+    const remote = this.generateAvatarUrl(type, uniqueString, bgset);
+    return this.getPublicAvatarUrlFromRemote(remote);
+  }
+
+  /**
    * Get avatar configuration from profile avatar_url
    */
   static getAvatarConfig(avatarUrl: string | AvatarConfig | null): AvatarConfig | null {
@@ -114,17 +137,21 @@ export class AvatarUtils {
 
   /**
    * Get avatar URL from profile
+   * (updated: when returning a string URL to clients, prefer proxy if configured)
    */
   static getAvatarUrl(avatarUrl: string | AvatarConfig | null, fallbackInitials?: string): string {
     const config = this.getAvatarConfig(avatarUrl);
     
     if (config) {
-      return this.generateAvatarUrl(config.type, config.uniqueString);
+      // generate remote url
+      const remote = this.generateAvatarUrl(config.type, config.uniqueString, (config as any).bgset);
+      // return proxied/public url if needed
+      return this.getPublicAvatarUrlFromRemote(remote);
     }
     
     // Legacy URL support - check if it's a string that looks like a URL
     if (typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))) {
-      return avatarUrl;
+      return this.getPublicAvatarUrlFromRemote(avatarUrl);
     }
     
     // Fallback to initials avatar

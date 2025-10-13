@@ -199,7 +199,8 @@ export function AvatarSelector({
               key={option.id}
               option={option}
               isSelected={selectedOption?.id === option.id}
-              onClick={() => handleOptionSelect(option)}
+              onClick={() => handleOptionSelect(option)
+              }
               bgset={activeTab.startsWith('robohash') ? (bgOption === 'none' ? undefined : bgOption) : undefined}
             />
           ))}
@@ -211,7 +212,7 @@ export function AvatarSelector({
         <div className="flex items-center gap-3 p-3 bg-primary/5 border border-primary/20 rounded-lg">
           <div className="size-12 rounded-full overflow-hidden border-2 border-primary shrink-0">
             <img
-              src={AvatarUtils.generateAvatarUrl(
+              src={AvatarUtils.getPublicAvatarUrl(
                 selectedOption.type,
                 selectedOption.uniqueString,
                 selectedOption.type.startsWith('robohash') ? (bgOption === 'none' ? undefined : bgOption) : undefined
@@ -298,7 +299,7 @@ function AvatarOptionCard({ option, isSelected, onClick, bgset }: AvatarOptionCa
   useEffect(() => {
     setImageLoaded(false);
     setImageError(false);
-    const url = AvatarUtils.generateAvatarUrl(option.type, option.uniqueString, option.type.startsWith('robohash') ? bgset : undefined);
+    const url = AvatarUtils.getPublicAvatarUrl(option.type, option.uniqueString, option.type.startsWith('robohash') ? bgset : undefined);
     setDisplayUrl(url);
   }, [option, bgset]);
 
