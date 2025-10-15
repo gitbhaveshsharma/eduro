@@ -18,7 +18,6 @@ import type {
   FeedAlgorithmType,
   FeedAnalytics
 } from '../service/getpost.service';
-import type { PostOperationResult } from '../schema/post.types';
 
 // Cache configuration
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -129,8 +128,9 @@ interface FeedActions {
   handleReactionUpdate: (payload: any) => void;
   handleEngagementUpdate: (payload: any) => void;
   
-  // Post updates
+  // Post operations
   updatePost: (postId: string, updates: Partial<EnhancedPost>) => void;
+  deletePost: (postId: string) => Promise<boolean>;
   removePost: (postId: string) => void;
   addPost: (post: EnhancedPost) => void;
   
@@ -551,7 +551,32 @@ export const useGetPostStore = create<GetPostStore>()(
         }
       },
 
-      // =================== POST UPDATES ===================
+      // =================== POST OPERATIONS ===================
+
+      deletePost: async (postId: string): Promise<boolean> => {
+        try {
+          // Optimistically remove from UI
+          set((draft) => {
+            draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== postId);
+          });
+
+          // Call the service
+          const { PostService } = await import('../service/post.service');
+          const result = await PostService.deletePost(postId);
+          
+          if (!result.success) {
+            // Revert the optimistic update by refreshing the feed
+            await get().refreshFeed();
+            return false;
+          }
+
+          return true;
+        } catch (error) {
+          // Revert the optimistic update
+          await get().refreshFeed();
+          return false;
+        }
+      },
 
       updatePost: (postId: string, updates: Partial<EnhancedPost>) => {
         set((draft) => {
@@ -689,21 +714,50 @@ export const useGetPostStore = create<GetPostStore>()(
           return; // Already subscribed
         }
 
-        // Use the new PostReactionService for reaction subscriptions
-        const { PostReactionService } = require('../service/post-reaction.service');
-        const unsubscribe = PostReactionService.subscribeToTarget('POST', postId, (update: any) => {
-          // Convert the update format to the old payload format for compatibility
-          const payload = {
-            eventType: update.eventType,
-            new: update.reaction,
-            old: update.oldReaction,
-          };
-          state.handleReactionUpdate(payload);
-        });
+        // ✅ SINGLE SOURCE OF TRUTH: Use PostReactionStore for all reaction subscriptions
+        // This delegates to the optimized PostReactionStore which handles:
+        // - Batched loading to prevent thundering herd
+        // - Optimistic updates to prevent UI flashing  
+        // - Proper cache management
+        const { usePostReactionStore } = require('./post-reaction.store');
+        const postReactionStore = usePostReactionStore.getState();
+        
+        // Subscribe via PostReactionStore (single source of truth)
+        postReactionStore.subscribeToTarget('POST', postId);
+
+        // Create a lightweight unsubscribe function that delegates to PostReactionStore
+        const unsubscribe = () => {
+          postReactionStore.unsubscribeFromTarget('POST', postId);
+        };
 
         set((draft) => {
           draft.realtimeSubscriptions.set(`reactions:${postId}`, unsubscribe);
           draft.subscribedPostIds.add(`reactions:${postId}`);
+        });
+
+        // Listen to PostReactionStore updates and sync lastUpdateTime
+        // This ensures GetPostStore UI updates when reactions change
+        const syncState = () => {
+          set((draft) => {
+            draft.lastUpdateTime = Date.now();
+          });
+        };
+
+        // Subscribe to PostReactionStore state changes for this target
+        const storeUnsubscribe = usePostReactionStore.subscribe(
+          (state: any) => state.reactionCache.get(`POST:${postId}`),
+          () => syncState()
+        );
+
+        // Enhance unsubscribe to also cleanup store subscription
+        const enhancedUnsubscribe = () => {
+          unsubscribe();
+          storeUnsubscribe();
+        };
+
+        // Update the stored unsubscribe function
+        set((draft) => {
+          draft.realtimeSubscriptions.set(`reactions:${postId}`, enhancedUnsubscribe);
         });
       },
 
@@ -788,42 +842,11 @@ export const useGetPostStore = create<GetPostStore>()(
       },
 
       handleReactionUpdate: (payload: any) => {
-        console.log('Handling reaction update:', payload);
-        
-        const state = get();
-        const { new: newReaction, old: oldReaction, eventType } = payload;
-        const targetId = newReaction?.target_id || oldReaction?.target_id;
-        
-        if (!targetId) return;
-
-        // Find the post that contains this reaction target
-        const post = state.posts.find((p: EnhancedPost) => 
-          p.id === targetId || 
-          // Could be a comment reaction - we'd need to fetch comment details
-          false
-        );
-
-        if (post) {
-          // Update lastUpdateTime to trigger re-renders
-          set((draft) => {
-            draft.lastUpdateTime = Date.now();
-          });
-          
-          // Trigger re-fetch of reaction analytics after a small delay
-          // to ensure the database transaction is complete
-          // This runs outside of the Immer draft context
-          setTimeout(async () => {
-            try {
-              const { useReactionStore } = require('../store/reaction.store');
-              const reactionStore = useReactionStore.getState();
-              // Clear cache and force reload
-              reactionStore.clearAnalyticsCache(targetId);
-              await reactionStore.loadReactionAnalytics('POST', targetId, true);
-            } catch (error) {
-              console.error('Error updating reaction analytics:', error);
-            }
-          }, 200);
-        }
+        // ⚠️ DEPRECATED: Reaction updates now handled by PostReactionStore
+        // This method is kept for backward compatibility but does nothing
+        // All reaction logic has been moved to the dedicated PostReactionStore
+        // which provides better performance, caching, and batched loading
+        console.warn('[GetPostStore] handleReactionUpdate is deprecated. Use PostReactionStore instead.');
       },
 
       handleEngagementUpdate: (payload: any) => {

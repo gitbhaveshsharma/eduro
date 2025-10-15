@@ -21,7 +21,8 @@ export interface NavigationItem {
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     href?: string;
-    onClick?: () => void;
+    // Return `false` to prevent default navigation behavior. Can be async.
+    onClick?: () => void | boolean | Promise<void | boolean>;
     badge?: number;
     active?: boolean;
     platforms: PlatformType[];
@@ -31,14 +32,16 @@ export interface NavigationItem {
 export interface HeaderProps {
     config: LayoutConfig;
     className?: string;
-    onNavigationClick?: (item: NavigationItem) => void;
+    // Return `false` to prevent default navigation behavior. Can be async.
+    onNavigationClick?: (item: NavigationItem) => void | boolean | Promise<void | boolean>;
 }
 
 export interface BottomNavProps {
     config: LayoutConfig;
     activeRoute?: string;
     navigationItems: NavigationItem[];
-    onItemClick?: (item: NavigationItem) => void;
+    // Return `false` to prevent default navigation behavior. Can be async.
+    onItemClick?: (item: NavigationItem) => void | boolean | Promise<void | boolean>;
     className?: string;
 }
 

@@ -7,7 +7,6 @@ import {
     SuggestionSection,
     type FeedSortType
 } from "@/components/feed";
-import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { ProfileCard } from '@/components/profile/profile-card';
 import { CoachingCenterCard } from '@/components/feed/feed-lms';
 import { useCurrentProfile } from '@/lib/profile';
@@ -15,20 +14,9 @@ import { useCurrentProfile } from '@/lib/profile';
 export default function FeedPage() {
     const [sortType, setSortType] = useState<FeedSortType>('recent');
     const [searchQuery, setSearchQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(true);
 
     // Get current user profile
     const currentProfile = useCurrentProfile();
-
-    // Handle initial component mount
-    useEffect(() => {
-        // Simulate initial data loading
-        const timer = setTimeout(() => {
-            setIsLoading(false);
-        }, 1000);
-
-        return () => clearTimeout(timer);
-    }, []);
 
     const handleSortChange = (newSort: FeedSortType) => {
         setSortType(newSort);
@@ -42,17 +30,6 @@ export default function FeedPage() {
         // Optionally refresh feed or show success message
         console.log('Post created:', postId);
     };
-
-    // Show loading spinner while page initializes
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="flex flex-col items-center space-y-4">
-                    <LoadingSpinner message="Loading community feed..." size="lg" />
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-gray-50">

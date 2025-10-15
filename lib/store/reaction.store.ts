@@ -118,6 +118,7 @@ interface ReactionActions {
   // Cache management
   clearCache: () => void;
   clearAnalyticsCache: (targetId?: string) => void;
+  reloadAnalyticsOptimistically: (targetType: 'POST' | 'COMMENT', targetId: string) => Promise<void>;
   clearErrors: () => void;
   
   // Utility actions
@@ -540,6 +541,26 @@ export const useReactionStore = create<ReactionStore>()(
               state.analyticsCache.clear();
             }
           });
+        },
+
+        // Optimistic analytics reload that preserves existing data during loading
+        reloadAnalyticsOptimistically: async (targetType: 'POST' | 'COMMENT', targetId: string) => {
+          const cacheKey = `${targetType}:${targetId}`;
+          
+          try {
+            // Load new data without clearing cache first
+            const result = await ReactionService.getReactionAnalytics(targetType, targetId);
+            
+            // Only update if the load was successful
+            if (result.success && result.data) {
+              set((state) => {
+                state.analyticsCache.set(cacheKey, result.data!);
+                state.analyticsLoading.delete(cacheKey);
+              });
+            }
+          } catch (error) {
+            console.error('Error in optimistic analytics reload:', error);
+          }
         },
 
         clearErrors: () => {

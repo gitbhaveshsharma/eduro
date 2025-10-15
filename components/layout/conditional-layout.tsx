@@ -6,6 +6,7 @@ import { ConditionalHeader } from "./headers/conditional-header";
 import { BottomNavigation } from "./navigation/bottom-navigation";
 import { LayoutUtils } from "./config";
 import type { ConditionalLayoutProps, LayoutConfig, NavigationItem } from "./types";
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 export function ConditionalLayout({
     children,
@@ -13,6 +14,7 @@ export function ConditionalLayout({
     className = "",
     forceConfig
 }: ConditionalLayoutProps) {
+    const [isInitializing, setIsInitializing] = useState(true);
     // Use a deterministic server-safe initial config to avoid hydration mismatches.
     // On the server `window` is undefined so LayoutUtils.getDeviceType would return 'desktop'.
     // We'll initialize with a desktop config and update on mount to the actual device.
@@ -47,6 +49,12 @@ export function ConditionalLayout({
         return () => window.removeEventListener('resize', handleResize);
     }, [platform, forceConfig]);
 
+    // Simulate initial loading to match previous page behavior
+    useEffect(() => {
+        const timer = setTimeout(() => setIsInitializing(false), 800);
+        return () => clearTimeout(timer);
+    }, []);
+
     // Update navigation items when config changes
     useEffect(() => {
         const items = LayoutUtils.getNavigationItems(config.platform);
@@ -67,8 +75,8 @@ export function ConditionalLayout({
             "flex flex-col",
             className
         )}>
-            {/* Conditional Header */}
-            {shouldShowHeader && (
+            {/* Conditional Header (hidden during initial layout loading) */}
+            {!isInitializing && shouldShowHeader && (
                 <ConditionalHeader
                     config={config}
                     onNavigationClick={(item) => {
@@ -84,7 +92,15 @@ export function ConditionalLayout({
                 shouldShowBottomNav && "pb-20", // Add padding for bottom nav
                 shouldShowHeader && "pt-0" // Header is sticky, no extra padding needed
             )}>
-                {children}
+                {isInitializing ? (
+                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                        <div className="flex flex-col items-center space-y-4">
+                            <LoadingSpinner message="Loading community feed..." size="lg" />
+                        </div>
+                    </div>
+                ) : (
+                    children
+                )}
             </main>
 
             {/* Conditional Bottom Navigation */}
