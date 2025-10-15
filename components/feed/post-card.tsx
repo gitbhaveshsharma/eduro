@@ -31,8 +31,20 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ReportDialog } from '@/components/report/report-dialog';
+import {
+    Dialog,
+    DialogTrigger,
+    DialogContent,
+    DialogHeader,
+    DialogFooter,
+    DialogTitle,
+    DialogDescription
+} from '@/components/ui/dialog';
 import { PostUtils } from "@/lib/utils/post.utils";
 import type { EnhancedPost } from "@/lib/service/getpost.service";
+import { useAuthStore } from '@/lib/auth-store';
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export interface PostCardProps {
     post: EnhancedPost;
@@ -49,6 +61,7 @@ export interface PostCardProps {
     showEngagementScores?: boolean;
     compact?: boolean;
     className?: string;
+    onDelete?: (postId: string) => Promise<boolean>;
 }
 
 export function PostCard({
@@ -65,11 +78,35 @@ export function PostCard({
     onReactionChange,
     showEngagementScores = false,
     compact = false,
-    className = ""
+    className = "",
+    onDelete
 }: PostCardProps) {
+    const [isReportOpen, setIsReportOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const contentLength = post.content?.length || 0;
     const shouldTruncate = contentLength > 300;
+    const currentUser = useAuthStore(state => state.user);
+
+    const handleDelete = async () => {
+        // Close dialog immediately for UX
+        setIsDeleteDialogOpen(false);
+
+        try {
+            if (onDelete) {
+                const success = await onDelete(post.id);
+                if (success) {
+                    showSuccessToast('Post deleted');
+                } else {
+                    showErrorToast('Failed to delete post');
+                }
+            } else {
+                showErrorToast('Delete function not available');
+            }
+        } catch (error) {
+            showErrorToast(error instanceof Error ? error.message : 'Failed to delete post');
+        }
+    };
 
     const handleLike = () => {
         onLike?.(post.id, !post.user_has_liked);
@@ -233,13 +270,48 @@ export function PostCard({
                                     <Share2 className="h-4 w-4 mr-2" />
                                     Share post
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="text-red-600">
-                                    Report post
-                                </DropdownMenuItem>
+                                {currentUser?.id === post.author_id ? (
+                                    <DropdownMenuItem className="text-red-600" onClick={() => setIsDeleteDialogOpen(true)}>
+                                        Delete post
+                                    </DropdownMenuItem>
+                                ) : (
+                                    <DropdownMenuItem
+                                        className="text-red-600"
+                                        onClick={() => setIsReportOpen(true)}
+                                    >
+                                        Report post
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
                 </div>
+
+                {/* Report Dialog */}
+                <ReportDialog
+                    open={isReportOpen}
+                    onClose={() => setIsReportOpen(false)}
+                    targetType={"POST"}
+                    targetId={post.id}
+                    targetTitle={post.title || post.content?.slice(0, 120) || undefined}
+                />
+
+                {/* Delete confirmation dialog (shadcn) */}
+                <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Delete post</DialogTitle>
+                            <DialogDescription>
+                                Are you sure you want to delete this post? This action can be undone by moderators but will remove the post from your feed.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <DialogFooter className="mt-4 flex gap-2 justify-end">
+                            <Button variant="ghost" onClick={() => setIsDeleteDialogOpen(false)}>Cancel</Button>
+                            <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Title */}
                 {post.title && (

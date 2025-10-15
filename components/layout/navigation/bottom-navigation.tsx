@@ -15,22 +15,32 @@ export function BottomNavigation({
     const router = useRouter();
     const pathname = usePathname();
 
-    const handleItemClick = (item: NavigationItem) => {
-        // Call custom handler if provided
+    const handleItemClick = async (item: NavigationItem) => {
+        // If a global handler is provided, call it and respect its return value
         if (onItemClick) {
-            onItemClick(item);
-            return;
+            try {
+                const result = await onItemClick(item as NavigationItem) as unknown as boolean | void;
+                if (result === false) return; // handler prevented navigation
+            } catch (e) {
+                // If handler throws, don't navigate by default
+                return;
+            }
+        }
+
+        // If the item has its own onClick, call it and respect return value
+        if (item.onClick) {
+            try {
+                const res = await item.onClick() as unknown as boolean | void;
+                if (res === false) return; // item handler prevented navigation
+            } catch (e) {
+                // If handler throws, don't navigate
+                return;
+            }
         }
 
         // Navigate if href is provided
         if (item.href) {
             router.push(item.href);
-            return;
-        }
-
-        // Call item's onClick if provided
-        if (item.onClick) {
-            item.onClick();
         }
     };
 
@@ -41,7 +51,7 @@ export function BottomNavigation({
 
         // Default: check if current pathname matches item href
         if (item.href) {
-            return pathname === item.href || pathname.startsWith(item.href + '/');
+            return pathname !== null && (pathname === item.href || pathname.startsWith(item.href + '/'));
         }
 
         return false;
@@ -87,7 +97,7 @@ export function BottomNavigation({
                                 <div className="relative">
                                     <Icon className={cn(
                                         "h-6 w-6 transition-transform duration-200",
-                                        isActive ? "scale-110" : "scale-100"
+                                        isActive ? "scale-110 text-[var(--color-brand-primary)]" : "scale-100"
                                     )} />
 
                                     {/* Badge for notifications */}
@@ -104,7 +114,7 @@ export function BottomNavigation({
                                 <span className={cn(
                                     "text-xs font-medium mt-1 leading-none",
                                     "max-w-full truncate",
-                                    isActive ? "text-primary" : "text-inherit"
+                                    isActive ? "text-[var(--color-brand-primary)]" : "text-inherit"
                                 )}>
                                     {item.label}
                                 </span>

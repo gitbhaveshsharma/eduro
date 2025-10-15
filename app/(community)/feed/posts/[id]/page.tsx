@@ -228,6 +228,22 @@ export default function PostPage() {
         }
     };
 
+    const handleDeletePost = async (postId: string): Promise<boolean> => {
+        try {
+            const getPostStore = useGetPostStore.getState();
+            const success = await getPostStore.deletePost(postId);
+            if (success) {
+                // Navigate back to feed after successful deletion
+                router.push('/feed');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Failed to delete post:', error);
+            return false;
+        }
+    };
+
     // Loading state
     if (loading) {
         return (
@@ -335,6 +351,7 @@ export default function PostPage() {
                         onSave={handlePostSave}
                         onShare={handlePostShare}
                         onComment={() => { }} // Comments are handled below
+                        onDelete={handleDeletePost}
                         onAuthorClick={handleAuthorClick}
                         onLocationClick={handleLocationClick}
                         onTagClick={handleTagClick}

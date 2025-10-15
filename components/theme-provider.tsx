@@ -34,5 +34,23 @@ export const brandColors = {
 export type BrandColor = keyof typeof brandColors
 
 export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  React.useEffect(() => {
+    // Set CSS variables for brand colors so components can consume them
+    try {
+      const root = document.documentElement;
+      root.style.setProperty('--color-brand', brandColors.brand);
+      root.style.setProperty('--color-brand-primary', brandColors.primary);
+      root.style.setProperty('--color-brand-light', brandColors.primaryLight);
+      root.style.setProperty('--color-brand-dark', brandColors.primaryDark);
+      root.style.setProperty('--color-highlight', brandColors.highlight);
+      root.style.setProperty('--color-border', brandColors.border);
+      root.style.setProperty('--color-background', brandColors.background);
+      root.style.setProperty('--color-text-primary', brandColors.textPrimary);
+      root.style.setProperty('--color-text-secondary', brandColors.textSecondary);
+    } catch (e) {
+      // ignore (server-side or non-DOM)
+    }
+  }, []);
+
   return <NextThemesProvider {...props}>{children}</NextThemesProvider>
 }

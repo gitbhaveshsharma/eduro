@@ -22,6 +22,7 @@ import type {
     FeedAlgorithmType,
 } from "@/lib/service/getpost.service";
 import { PostService } from "@/lib/service/post.service";
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import type { PublicReaction } from "@/components/reactions";
 
 export interface FeedContainerProps {
@@ -73,6 +74,7 @@ export function FeedContainer({
         togglePostLike,
         togglePostSave,
         incrementPostShareCount,
+        deletePost,
         clearError
     } = useGetPostStore();
 
@@ -187,6 +189,22 @@ export function FeedContainer({
     const handlePostView = useCallback((postId: string) => {
         markPostViewed(postId);
     }, [markPostViewed]);
+
+    const handleDeletePost = useCallback(async (postId: string) => {
+        try {
+            const success = await deletePost(postId);
+            if (success) {
+                showSuccessToast('Post deleted');
+                return true;
+            } else {
+                showErrorToast('Failed to delete post');
+                return false;
+            }
+        } catch (error) {
+            showErrorToast(error instanceof Error ? error.message : 'Failed to delete post');
+            return false;
+        }
+    }, [deletePost]);
 
     const handleReactionChange = useCallback(async (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
         try {
@@ -308,6 +326,7 @@ export function FeedContainer({
                             onShare={handlePostShare}
                             onComment={handlePostComment}
                             onView={handlePostView}
+                            onDelete={handleDeletePost}
                             onAuthorClick={onAuthorClick}
                             onLocationClick={onLocationClick}
                             onTagClick={onTagClick}

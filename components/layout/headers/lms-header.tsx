@@ -1,16 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { 
-  Search, 
-  Bell, 
-  User, 
+import {
+  Search,
+  Bell,
+  User,
   Menu,
   BookOpen,
   Calendar,
   Settings,
   HelpCircle
 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LayoutUtils } from "@/components/layout/config";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,10 +47,12 @@ export function LMSHeader({
   onMenuClick,
   onNotificationClick,
   onProfileClick,
+  onNavigationClick,
   onSearch,
   className = ""
 }: LMSHeaderProps) {
   const [searchQuery, setSearchQuery] = useState("");
+  const router = useRouter();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -73,7 +77,28 @@ export function LMSHeader({
             <Button
               variant="ghost"
               size="sm"
-              onClick={onMenuClick}
+              onClick={async () => {
+                if (onMenuClick) {
+                  try {
+                    const r = await onMenuClick();
+                    if ((r as unknown as boolean) === false) return;
+                  } catch (e) {
+                    return;
+                  }
+                }
+
+                const navItem = LayoutUtils.getNavigationItems('lms').find(i => i.id === 'dashboard');
+                if (onNavigationClick && navItem) {
+                  try {
+                    const res = await onNavigationClick(navItem);
+                    if ((res as unknown as boolean) === false) return;
+                  } catch (e) {
+                    return;
+                  }
+                }
+
+                if (navItem?.href) router.push(navItem.href);
+              }}
               className="md:hidden h-10 w-10 p-0"
             >
               <Menu className="h-5 w-5" />
@@ -82,7 +107,22 @@ export function LMSHeader({
             {/* Platform Title/Logo */}
             <div className="flex items-center gap-2">
               <BookOpen className="h-6 w-6 text-primary" />
-              <h1 className="text-lg font-semibold text-gray-900 hidden sm:block">
+              <h1
+                className="text-lg font-semibold text-gray-900 hidden sm:block cursor-pointer"
+                onClick={async () => {
+                  const navItem = LayoutUtils.getNavigationItems('lms').find(i => i.id === 'dashboard');
+                  if (onNavigationClick && navItem) {
+                    try {
+                      const res = await onNavigationClick(navItem);
+                      if ((res as unknown as boolean) === false) return;
+                    } catch (e) {
+                      return;
+                    }
+                  }
+
+                  if (navItem?.href) router.push(navItem.href);
+                }}
+              >
                 {title}
               </h1>
             </div>
@@ -123,7 +163,7 @@ export function LMSHeader({
                 <Calendar className="h-4 w-4 mr-2" />
                 <span className="hidden lg:inline">Calendar</span>
               </Button>
-              
+
               <Button variant="ghost" size="sm" className="h-10 px-3">
                 <HelpCircle className="h-4 w-4 mr-2" />
                 <span className="hidden lg:inline">Help</span>

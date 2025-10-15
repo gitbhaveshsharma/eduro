@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Search, Filter, Bell, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { LayoutUtils } from "@/components/layout/config";
+import type { HeaderProps } from "@/components/layout/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 
 export type FeedSortType = 'recent' | 'trending' | 'popular' | 'following';
 
-interface FeedHeaderProps {
+interface FeedHeaderProps extends Omit<HeaderProps, 'config'> {
     currentSort?: FeedSortType;
     onSortChange?: (sort: FeedSortType) => void;
     onSearch?: (query: string) => void;
@@ -23,6 +26,7 @@ interface FeedHeaderProps {
     notificationCount?: number;
     onNotificationClick?: () => void;
     onNetworkClick?: () => void;
+    // onNavigationClick provided by HeaderProps (NavigationItem) via Omit
     className?: string;
 }
 
@@ -42,9 +46,11 @@ export function FeedHeader({
     notificationCount = 0,
     onNotificationClick,
     onNetworkClick,
+    onNavigationClick,
     className = ''
 }: FeedHeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
+    const router = useRouter();
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -89,7 +95,31 @@ export function FeedHeader({
                         <Button
                             variant="ghost"
                             size="sm"
-                            onClick={onNetworkClick}
+                            onClick={async () => {
+                                // Try calling provided network handler first
+                                if (onNetworkClick) {
+                                    try {
+                                        const r = await onNetworkClick();
+                                        // onNetworkClick may choose to handle navigation; if it returns false, stop
+                                        if ((r as unknown as boolean) === false) return;
+                                    } catch (e) {
+                                        return;
+                                    }
+                                }
+
+                                // Prefer a centralized navigation handler if provided
+                                const navItem = LayoutUtils.getNavigationItems('community').find(i => i.id === 'network');
+                                if (onNavigationClick && navItem) {
+                                    try {
+                                        const res = await onNavigationClick(navItem);
+                                        if ((res as unknown as boolean) === false) return;
+                                    } catch (e) {
+                                        return;
+                                    }
+                                }
+
+                                if (navItem?.href) router.push(navItem.href);
+                            }}
                             className="hidden md:flex h-10 px-3 gap-2 hover:bg-gray-100 rounded-full"
                         >
                             <Users className="h-4 w-4" />

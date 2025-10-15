@@ -129,8 +129,9 @@ interface FeedActions {
   handleReactionUpdate: (payload: any) => void;
   handleEngagementUpdate: (payload: any) => void;
   
-  // Post updates
+  // Post operations
   updatePost: (postId: string, updates: Partial<EnhancedPost>) => void;
+  deletePost: (postId: string) => Promise<boolean>;
   removePost: (postId: string) => void;
   addPost: (post: EnhancedPost) => void;
   
@@ -551,7 +552,32 @@ export const useGetPostStore = create<GetPostStore>()(
         }
       },
 
-      // =================== POST UPDATES ===================
+      // =================== POST OPERATIONS ===================
+
+      deletePost: async (postId: string): Promise<boolean> => {
+        try {
+          // Optimistically remove from UI
+          set((draft) => {
+            draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== postId);
+          });
+
+          // Call the service
+          const { PostService } = await import('../service/post.service');
+          const result = await PostService.deletePost(postId);
+          
+          if (!result.success) {
+            // Revert the optimistic update by refreshing the feed
+            await get().refreshFeed();
+            return false;
+          }
+
+          return true;
+        } catch (error) {
+          // Revert the optimistic update
+          await get().refreshFeed();
+          return false;
+        }
+      },
 
       updatePost: (postId: string, updates: Partial<EnhancedPost>) => {
         set((draft) => {
