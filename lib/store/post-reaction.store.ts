@@ -36,6 +36,10 @@ interface PostReactionState {
   // Loading states
   loadingTargets: Set<string>;
   
+  // Batch loading for initial subscriptions
+  pendingBatchLoad: Set<string>; // Cache keys pending batch load
+  batchLoadTimer: NodeJS.Timeout | null;
+  
   // Error tracking
   errors: Map<string, string>;
   
@@ -62,6 +66,9 @@ interface PostReactionActions {
   
   // Real-time update handlers
   handleReactionUpdate: (update: ReactionUpdate) => void;
+  
+  // Batch loading
+  processBatchLoad: () => void;
   
   // Utility
   getSubscriptionCount: () => number;
@@ -91,6 +98,8 @@ export const usePostReactionStore = create<PostReactionStore>()(
       reactionCache: new Map(),
       activeSubscriptions: new Map(),
       loadingTargets: new Set(),
+      pendingBatchLoad: new Set(),
+      batchLoadTimer: null,
       errors: new Map(),
       connectionStatus: 'disconnected',
       lastConnectionCheck: 0,
@@ -279,8 +288,17 @@ export const usePostReactionStore = create<PostReactionStore>()(
           draft.lastConnectionCheck = Date.now();
         });
 
-        // Initial load of data
-        get().loadUserReaction(targetType, targetId, true);
+        // Add to batch loading queue instead of immediate load
+        set((draft) => {
+          draft.pendingBatchLoad.add(cacheKey);
+          
+          // Set up batch processing timer if not already set
+          if (!draft.batchLoadTimer) {
+            draft.batchLoadTimer = setTimeout(() => {
+              get().processBatchLoad();
+            }, 150); // 150ms batch window
+          }
+        });
       },
 
       unsubscribeFromTarget: (targetType: 'POST' | 'COMMENT', targetId: string) => {
@@ -368,23 +386,65 @@ export const usePostReactionStore = create<PostReactionStore>()(
         
         const cacheKey = getCacheKey(update.targetType, update.targetId);
         
-        // Invalidate cache and reload
-        get().invalidateCache(update.targetType, update.targetId);
+        // Get current cached data to preserve during update
+        const currentCached = get().reactionCache.get(cacheKey);
         
-        // Reload both user reaction and all reactions
-        get().loadUserReaction(update.targetType, update.targetId, true);
+        // Don't invalidate cache immediately - instead reload data directly
+        // This prevents the UI from showing 0 reactions during the reload
+        const loadPromise = get().loadUserReaction(update.targetType, update.targetId, true);
         
         // Also trigger a reload of the reaction analytics in the reaction store
+        // but preserve current analytics during the update
         setTimeout(async () => {
           try {
             const { useReactionStore } = await import('./reaction.store');
             const reactionStore = useReactionStore.getState();
-            reactionStore.clearAnalyticsCache(update.targetId);
-            reactionStore.loadReactionAnalytics(update.targetType, update.targetId, true);
+            
+            // Use optimistic reload to preserve existing data during loading
+            await reactionStore.reloadAnalyticsOptimistically(update.targetType, update.targetId);
           } catch (error) {
             console.error('[PostReactionStore] Error reloading analytics:', error);
           }
-        }, 100);
+        }, 50); // Reduced delay for faster updates
+      },
+
+      // ========== BATCH LOADING ==========
+
+      processBatchLoad: () => {
+        const state = get();
+        const pending = Array.from(state.pendingBatchLoad);
+        
+        if (pending.length === 0) return;
+        
+        console.log(`[PostReactionStore] Processing batch load for ${pending.length} targets`);
+        
+        // Clear pending set and timer
+        set((draft) => {
+          draft.pendingBatchLoad.clear();
+          if (draft.batchLoadTimer) {
+            clearTimeout(draft.batchLoadTimer);
+            draft.batchLoadTimer = null;
+          }
+        });
+        
+        // Process each pending load with slight stagger
+        pending.forEach((cacheKey, index) => {
+          const [targetType, targetId] = cacheKey.split(':') as ['POST' | 'COMMENT', string];
+          
+          setTimeout(() => {
+            const currentState = get();
+            
+            // Only load if still subscribed and no fresh cache
+            if (!currentState.activeSubscriptions.has(cacheKey)) return;
+            
+            const cached = currentState.reactionCache.get(cacheKey);
+            const isFresh = cached && (Date.now() - (cached.lastFetched || 0) < CACHE_TTL);
+            
+            if (!isFresh) {
+              get().loadUserReaction(targetType, targetId, true);
+            }
+          }, index * 25); // 25ms stagger between each load
+        });
       },
 
       // ========== UTILITY ==========

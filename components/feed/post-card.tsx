@@ -96,9 +96,7 @@ export function PostCard({
             if (onDelete) {
                 const success = await onDelete(post.id);
                 if (success) {
-                    showSuccessToast('Post deleted');
                 } else {
-                    showErrorToast('Failed to delete post');
                 }
             } else {
                 showErrorToast('Delete function not available');
