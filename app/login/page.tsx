@@ -114,13 +114,13 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
             <CustomToaster />
 
             <div className="w-full max-w-md mx-auto">
                 {/* Logo & Brand */}
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-[#111827] mb-2">Welcome to Eduro</h1>
+                    <h1 className="text-2xl font-bold text-[#111827] mb-2">Welcome to Tutrsy</h1>
                     <p className="text-[#6B7280]">Choose your preferred login method to sign in or create an account</p>
                 </div>
 

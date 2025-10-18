@@ -9,7 +9,7 @@ import { OnboardingGuard } from '@/components/providers/onboarding-guard'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
-  title: 'Eduro - Learning Platform',
+  title: 'Tutrsy - Learning Platform',
   description: 'Secure learning platform for students, teachers, and coaches',
   generator: 'Next.js',
 }

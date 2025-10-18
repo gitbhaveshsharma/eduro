@@ -32,10 +32,10 @@ export default function FeedPage() {
     };
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
 
             {/* Main Content - header is provided by ConditionalLayout */}
-            <div className="max-w-7xl mx-auto px-4 py-8">
+            <div className="max-w-7xl  mx-auto px-4 py-8">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                     {/* Left Sidebar - Profile Card & Coaching Center (Hidden on mobile/tablet) */}
                     <div className="hidden lg:block lg:col-span-3">

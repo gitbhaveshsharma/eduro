@@ -50,7 +50,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center">
             <h1 className="text-5xl md:text-6xl font-bold text-[#111827] mb-6">
-              Welcome to <span className="text-[#1D4ED8]">Eduro</span>
+              Welcome to <span className="text-[#1D4ED8]">Tutrsy</span>
             </h1>
             <p className="text-xl text-[#6B7280] mb-8 max-w-3xl mx-auto">
               Transform your learning journey with our comprehensive education platform.
@@ -83,7 +83,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-[#111827] mb-4">
-              Why Choose Eduro?
+              Why Choose Tutrsy?
             </h2>
             <p className="text-lg text-[#6B7280] max-w-2xl mx-auto">
               Our platform offers everything you need for a complete learning experience
@@ -144,7 +144,7 @@ export default function HomePage() {
             Ready to Start Learning?
           </h2>
           <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of students and educators already using Eduro to reach their goals
+            Join thousands of students and educators already using Tutrsy to reach their goals
           </p>
           <Button
             size="lg"
@@ -161,7 +161,7 @@ export default function HomePage() {
       <footer className="bg-[#111827] text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h3 className="text-2xl font-bold mb-4">Eduro</h3>
+            <h3 className="text-2xl font-bold mb-4">Tutrsy</h3>
             <p className="text-gray-400 mb-6">
               Empowering education through technology
             </p>
@@ -178,7 +178,7 @@ export default function HomePage() {
             </div>
             <div className="mt-8 pt-8 border-t border-gray-700">
               <p className="text-gray-400">
-                © 2025 Eduro. All rights reserved.
+                © 2025 Tutrsy. All rights reserved.
               </p>
             </div>
           </div>

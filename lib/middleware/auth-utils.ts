@@ -4,7 +4,6 @@
  */
 
 import { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import { UserContext, UserRole, Permission } from './types'
 import { CryptoUtils } from './security-utils'
 
@@ -58,92 +57,34 @@ export class AuthHandler {
         return null
       }
 
-      // Create Supabase client for server-side operations with the access token
-      const supabase = createClient(
-        this.supabaseUrl,
-        this.supabaseAnonKey,
-        {
-          auth: {
-            persistSession: false,
-            autoRefreshToken: true, // Enable auto refresh
-            detectSessionInUrl: false
-          },
-          global: {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-            },
-          },
+      // Minimal, Edge-compatible auth: decode the JWT payload without importing
+      // supabase-js (which uses Node APIs and breaks Edge runtime). We avoid
+      // network calls here to keep middleware fast and Edge-safe. This yields
+      // a best-effort user context for middleware decisions.
+      try {
+        const payload = this.decodeJwtPayload(accessToken)
+        const userId = payload?.sub || payload?.user_id || payload?.id
+        const email = payload?.email || null
+        const phone = payload?.phone || null
+        const lastActivity = payload?.iat ? new Date(payload.iat * 1000) : undefined
+
+        if (!userId) {
+          return null
         }
-      )
 
-      // Get current user from Supabase using the access token
-      const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken)
-
-      if (authError) {
-        console.log('[AUTH] Supabase auth error:', authError.message)
-        
-        // If token is expired or invalid, try to refresh it
-        if (authError.message.includes('expired') || authError.message.includes('invalid')) {
-          console.log('[AUTH] Token expired, attempting refresh...')
-          
-          // Try to get refresh token
-          const refreshCookie = request.cookies.get('supabase-refresh-token')
-          if (refreshCookie) {
-            try {
-              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession({
-                refresh_token: refreshCookie.value
-              })
-              
-              if (!refreshError && refreshData.session) {
-                console.log('[AUTH] Token refreshed successfully')
-                return await this.validateUser(request) // Retry with refreshed token
-              }
-            } catch (refreshErr) {
-              console.log('[AUTH] Token refresh failed:', refreshErr)
-            }
-          }
-        }
-        
-        return null
-      }
-      
-      if (!user) {
-        console.log('[AUTH] No user returned from Supabase')
-        return null
-      }
-      
-      console.log('[AUTH] User authenticated:', user.email)
-
-      // Get user profile with role information
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single()
-
-      if (profileError || !profile) {
-        // User exists but no profile - might be in onboarding
         return {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          role: UserRole.STUDENT, // Default role
+          id: userId,
+          email,
+          phone,
+          role: UserRole.STUDENT,
           permissions: this.getRolePermissions(UserRole.STUDENT),
           isOnline: false,
+          lastActivity,
           sessionId: this.extractSessionId(request)
         }
-      }
-
-      // Return full user context
-      return {
-        id: user.id,
-        email: user.email || profile.email,
-        phone: user.phone || profile.phone,
-        role: profile.role as UserRole,
-        permissions: this.getRolePermissions(profile.role as UserRole),
-        isOnline: profile.is_online || false,
-        lastActivity: profile.last_activity ? new Date(profile.last_activity) : undefined,
-        sessionId: this.extractSessionId(request)
+      } catch (err) {
+        console.log('[AUTH] JWT decode failed', err)
+        return null
       }
     } catch (error) {
       console.error('Auth validation error:', error)
@@ -354,38 +295,57 @@ export class AuthHandler {
    */
   static async isUserVerified(userId: string): Promise<boolean> {
     try {
-      const supabase = createClient(
-        this.supabaseUrl,
-        this.supabaseAnonKey,
-        {
-          auth: {
-            persistSession: false,
-            autoRefreshToken: true, // Enable auto refresh
-            detectSessionInUrl: false
-          }
+      // Avoid using supabase-js in middleware (Edge runtime incompatible).
+      // If an ADMIN service key is available, we could call the Supabase Admin
+      // REST endpoint here. For safety during build and to keep middleware
+      // compatible with Edge, return false when admin key is not configured.
+      const adminKey = process.env.SUPABASE_SERVICE_ROLE || process.env.SUPABASE_ADMIN_KEY
+      if (!adminKey) {
+        // Can't verify without admin privileges; assume not verified to be safe.
+        return false
+      }
+
+      // If adminKey is provided, perform a REST call to Supabase Admin API.
+      // Note: This uses fetch which is available in Edge.
+      const url = `${this.supabaseUrl.replace(/\/$/, '')}/auth/v1/admin/users/${encodeURIComponent(userId)}`
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${adminKey}`,
+          apikey: adminKey,
+          'Content-Type': 'application/json'
         }
-      )
+      })
 
-      const { data: user, error } = await supabase.auth.admin.getUserById(userId)
-      
-      if (error || !user) {
-        return false
-      }
+      if (!res.ok) return false
+      const user = await res.json()
 
-      // Check if email is confirmed
-      if (user.user.email && !user.user.email_confirmed_at) {
-        return false
-      }
-
-      // Check if phone is confirmed
-      if (user.user.phone && !user.user.phone_confirmed_at) {
-        return false
-      }
-
+      if (!user) return false
+      if (user.email && !user.email_confirmed_at) return false
+      if (user.phone && !user.phone_confirmed_at) return false
       return true
     } catch (error) {
       console.error('Error checking user verification:', error)
       return false
+    }
+  }
+
+  /**
+   * Decode JWT payload without verifying signature. Edge-safe, no Node APIs.
+   */
+  private static decodeJwtPayload(token: string | null): any | null {
+    if (!token) return null
+    try {
+      const parts = token.split('.')
+      if (parts.length < 2) return null
+      const payload = parts[1]
+      // Base64url decode
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4)
+      const decoded = atob(padded)
+      return JSON.parse(decoded)
+    } catch (e) {
+      return null
     }
   }
 

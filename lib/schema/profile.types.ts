@@ -86,11 +86,14 @@ export interface Profile {
   is_verified: boolean;
   is_active: boolean;
   is_premium: boolean;
+  is_agree:boolean;
   
   // Timestamps
   created_at: string;
   updated_at: string;
   last_seen_at: string;
+  date_of_birth: string | null;
+  
 }
 
 // Public profile interface (for displaying to other users)

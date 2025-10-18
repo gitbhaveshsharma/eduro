@@ -173,7 +173,7 @@ export default function PostPage() {
             if (navigator.share) {
                 await navigator.share({
                     title: post?.title || 'Check out this post',
-                    text: post?.content_preview || 'Interesting post on Eduro',
+                    text: post?.content_preview || 'Interesting post on Tutrsy',
                     url: `${window.location.origin}/feed/posts/${postId}`
                 });
             } else {
@@ -247,7 +247,7 @@ export default function PostPage() {
     // Loading state
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
                 <div className="max-w-2xl mx-auto px-4 py-6">
                     {/* Post skeleton */}
                     <Card>

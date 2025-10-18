@@ -3,15 +3,17 @@ import { ConditionalLayout } from "@/components/layout";
 import { Metadata } from "next";
 
 export const metadata: Metadata = {
-    title: "Community Discussions - Eduro",
-    description: "Join discussions on various topics in the Eduro community.",
+    title: "Community Discussions - Tutrsy",
+    description: "Join discussions on various topics in the Tutrsy community.",
     generator: "Next.js",
 };
 
 export default function FeedLayout({ children }: { children: React.ReactNode }) {
     return (
-        <ConditionalLayout platform="community">
-            {children}
-        </ConditionalLayout>
+        <div >
+            <ConditionalLayout platform="community">
+                {children}
+            </ConditionalLayout>
+        </div>
     );
 }

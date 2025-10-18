@@ -1,6 +1,6 @@
 # Onboarding System Documentation
 
-This comprehensive onboarding system guides new users through setting up their Eduro profiles with a step-by-step process.
+This comprehensive onboarding system guides new users through setting up their Tutrsy profiles with a step-by-step process.
 
 ## Overview
 

@@ -1,6 +1,6 @@
 # Post System Documentation
 
-This documentation covers the comprehensive post system implemented for the Eduro platform. The system provides a complete solution for managing posts, comments, reactions, and real-time interactions with support for geographic features, media attachments, and advanced engagement tracking.
+This documentation covers the comprehensive post system implemented for the Tutrsy platform. The system provides a complete solution for managing posts, comments, reactions, and real-time interactions with support for geographic features, media attachments, and advanced engagement tracking.
 
 ## Architecture Overview
 

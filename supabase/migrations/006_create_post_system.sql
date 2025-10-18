@@ -847,7 +847,7 @@
     INSERT INTO posts (author_id, content, post_type, category, tags) VALUES
     (
         (SELECT id FROM auth.users LIMIT 1),
-        'Welcome to Eduro! This is our first post. What would you like to learn today? 📚✨',
+        'Welcome to Tutrsy! This is our first post. What would you like to learn today? 📚✨',
         'TEXT',
         'announcement',
         ARRAY['welcome', 'learning', 'education']

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ConditionalHeader } from "./headers/conditional-header";
 import { BottomNavigation } from "./navigation/bottom-navigation";
+// import NetworkBottomNavigation from "./navigation/network-bottom-navigation"; // commented out per request
 import { LayoutUtils } from "./config";
 import type { ConditionalLayoutProps, LayoutConfig, NavigationItem } from "./types";
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -69,6 +70,9 @@ export function ConditionalLayout({
     const shouldShowHeader = LayoutUtils.shouldShowHeader(config);
     const shouldShowBottomNav = LayoutUtils.shouldShowBottomNav(config);
 
+    // Temporarily disable network bottom nav and always use the default BottomNavigation
+    // const useNetworkBottomNav = config.page === 'network' || config.bottomNavType === 'network';
+
     return (
         <div className={cn(
             "min-h-screen bg-background",
@@ -105,6 +109,7 @@ export function ConditionalLayout({
 
             {/* Conditional Bottom Navigation */}
             {shouldShowBottomNav && (
+                // Always render the default BottomNavigation for now
                 <BottomNavigation
                     config={config}
                     navigationItems={navigationItems}
@@ -113,6 +118,21 @@ export function ConditionalLayout({
                         console.log('Bottom nav item clicked:', item);
                     }}
                 />
+
+                /*
+                If you want to re-enable the network bottom nav later, uncomment the import above
+                and replace the block with the conditional rendering below:
+
+                useNetworkBottomNav ? (
+                    <NetworkBottomNavigation
+                        activeItem={undefined}
+                        onItemClick={(item) => console.log('Network bottom nav clicked', item)}
+                        connectionRequests={0}
+                    />
+                ) : (
+                    <BottomNavigation ... />
+                )
+                */
             )}
         </div>
     );

@@ -29,12 +29,12 @@ export function TermsConditionsStep({
 
     const handleNext = async () => {
         if (!canProceed) return
-        
+
         setIsProcessing(true)
         try {
             // Update profile with terms acceptance
             const success = await updateCurrentProfile({ is_agree: true })
-            
+
             if (success) {
                 // Don't show success toast here as it will be handled by parent
                 onNext() // This will handle the onboarding level update and redirect
@@ -79,9 +79,9 @@ export function TermsConditionsStep({
                             <div className="space-y-4 text-sm text-muted-foreground">
                                 <div>
                                     <h4 className="font-medium text-foreground">1. Acceptance of Terms</h4>
-                                    <p>By creating an account on Eduro, you agree to be bound by these Terms of Service and all applicable laws and regulations.</p>
+                                    <p>By creating an account on Tutrsy, you agree to be bound by these Terms of Service and all applicable laws and regulations.</p>
                                 </div>
-                                
+
                                 <div>
                                     <h4 className="font-medium text-foreground">2. User Accounts</h4>
                                     <p>You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account.</p>
@@ -99,7 +99,7 @@ export function TermsConditionsStep({
 
                                 <div>
                                     <h4 className="font-medium text-foreground">5. Intellectual Property</h4>
-                                    <p>All content, trademarks, and intellectual property on Eduro are owned by us or our licensors. Users may not reproduce or distribute content without permission.</p>
+                                    <p>All content, trademarks, and intellectual property on Tutrsy are owned by us or our licensors. Users may not reproduce or distribute content without permission.</p>
                                 </div>
 
                                 <div>
@@ -109,7 +109,7 @@ export function TermsConditionsStep({
 
                                 <div>
                                     <h4 className="font-medium text-foreground">7. Limitation of Liability</h4>
-                                    <p>Eduro shall not be liable for any indirect, incidental, or consequential damages arising from the use of our services.</p>
+                                    <p>Tutrsy shall not be liable for any indirect, incidental, or consequential damages arising from the use of our services.</p>
                                 </div>
 
                                 <div>
@@ -118,7 +118,7 @@ export function TermsConditionsStep({
                                 </div>
                             </div>
                         </ScrollArea>
-                        
+
                         <div className="flex items-center space-x-2">
                             <Checkbox
                                 id="terms"
@@ -206,7 +206,7 @@ export function TermsConditionsStep({
                             <div>
                                 <h4 className="font-medium text-amber-800 mb-1">Important Notice</h4>
                                 <p className="text-amber-700 text-sm">
-                                    By accepting these terms, you acknowledge that you have read, understood, and agree to be bound by both our Terms of Service and Privacy Policy. 
+                                    By accepting these terms, you acknowledge that you have read, understood, and agree to be bound by both our Terms of Service and Privacy Policy.
                                     These agreements are essential for maintaining a safe and effective learning environment for all users.
                                 </p>
                             </div>

@@ -431,7 +431,7 @@ RETURNS TABLE (
   user_id UUID,
   username TEXT,
   full_name TEXT,
-  avatar_url TEXT,
+  avatar_url JSONB,
   bio TEXT,
   is_verified BOOLEAN,
   follower_count INTEGER,
@@ -478,7 +478,7 @@ RETURNS TABLE (
   user_id UUID,
   username TEXT,
   full_name TEXT,
-  avatar_url TEXT,
+  avatar_url JSONB,
   bio TEXT,
   is_verified BOOLEAN,
   follower_count INTEGER,
@@ -508,6 +508,135 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
 
+-- Get follow suggestions for a user
+
+-- Get follow suggestions for a user
+CREATE OR REPLACE FUNCTION get_follow_suggestions(
+  p_user_id UUID,
+  p_limit INTEGER DEFAULT 10
+)
+RETURNS TABLE (
+  user_profile JSONB,
+  reason TEXT,
+  connection_count INTEGER,
+  similarity_score NUMERIC
+) AS $$
+BEGIN
+  -- Return users not already followed, not blocked, with suggestions
+  RETURN QUERY
+  WITH user_connections AS (
+    -- Get users that current user follows
+    SELECT uf.following_id as connected_user_id
+    FROM user_followers uf
+    WHERE uf.follower_id = p_user_id
+    AND uf.follow_status = 'active'
+  ),
+  blocked_users AS (
+    -- Get users that are blocked (both directions)
+    SELECT bu.blocked_id as user_id FROM blocked_users bu WHERE bu.blocker_id = p_user_id
+    UNION
+    SELECT bu.blocker_id as user_id FROM blocked_users bu WHERE bu.blocked_id = p_user_id
+  ),
+  mutual_connections AS (
+    -- Find users with mutual connections
+    SELECT 
+      p.id as suggested_user_id,
+      jsonb_build_object(
+        'id', p.id,
+        'username', p.username,
+        'full_name', p.full_name,
+        'avatar_url', p.avatar_url,
+        'role', p.role,
+        'is_verified', p.is_verified,
+        'is_online', p.is_online,
+        'follower_count', p.follower_count,
+        'following_count', p.following_count,
+        'created_at', p.created_at
+      ) as user_profile,
+      'mutual_connections' as suggestion_reason,
+      COUNT(DISTINCT uf2.follower_id)::INTEGER as mutual_count,
+      0::NUMERIC as score
+    FROM profiles p
+    JOIN user_followers uf1 ON uf1.following_id = p.id  -- Users who follow this profile
+    JOIN user_connections uc ON uc.connected_user_id = uf1.follower_id  -- Who current user also follows
+    LEFT JOIN user_followers uf2 ON uf2.following_id = p.id AND uf2.follower_id IN (SELECT connected_user_id FROM user_connections)
+    WHERE p.id != p_user_id  -- Not self
+    AND p.id NOT IN (SELECT connected_user_id FROM user_connections)  -- Not already following
+    AND p.id NOT IN (SELECT user_id FROM blocked_users)  -- Not blocked
+    AND p.is_active = TRUE
+    GROUP BY p.id, p.username, p.full_name, p.avatar_url, p.role, p.is_verified, p.is_online, p.follower_count, p.following_count, p.created_at
+    HAVING COUNT(DISTINCT uf2.follower_id) > 0
+  ),
+  same_role_users AS (
+    -- Find users with same role
+    SELECT 
+      p.id as suggested_user_id,
+      jsonb_build_object(
+        'id', p.id,
+        'username', p.username,
+        'full_name', p.full_name,
+        'avatar_url', p.avatar_url,
+        'role', p.role,
+        'is_verified', p.is_verified,
+        'is_online', p.is_online,
+        'follower_count', p.follower_count,
+        'following_count', p.following_count,
+        'created_at', p.created_at
+      ) as user_profile,
+      'same_role' as suggestion_reason,
+      0::INTEGER as mutual_count,
+      0::NUMERIC as score
+    FROM profiles p
+    WHERE p.role = (SELECT role FROM profiles WHERE id = p_user_id)
+    AND p.id != p_user_id
+    AND p.id NOT IN (SELECT connected_user_id FROM user_connections)
+    AND p.id NOT IN (SELECT user_id FROM blocked_users)
+    AND p.is_active = TRUE
+    AND p.follower_count BETWEEN 5 AND 1000  -- Users with reasonable follower count
+  ),
+  popular_users AS (
+    -- Find popular verified users
+    SELECT 
+      p.id as suggested_user_id,
+      jsonb_build_object(
+        'id', p.id,
+        'username', p.username,
+        'full_name', p.full_name,
+        'avatar_url', p.avatar_url,
+        'role', p.role,
+        'is_verified', p.is_verified,
+        'is_online', p.is_online,
+        'follower_count', p.follower_count,
+        'following_count', p.following_count,
+        'created_at', p.created_at
+      ) as user_profile,
+      'popular' as suggestion_reason,
+      0::INTEGER as mutual_count,
+      0::NUMERIC as score
+    FROM profiles p
+    WHERE p.is_verified = TRUE
+    AND p.follower_count > 100
+    AND p.id != p_user_id
+    AND p.id NOT IN (SELECT connected_user_id FROM user_connections)
+    AND p.id NOT IN (SELECT user_id FROM blocked_users)
+    AND p.is_active = TRUE
+  )
+  
+  -- Combine all suggestions with priority
+  SELECT user_profile, suggestion_reason, mutual_count, score
+  FROM (
+    SELECT *, 1 as priority FROM mutual_connections
+    UNION ALL
+    SELECT *, 2 as priority FROM same_role_users
+    UNION ALL  
+    SELECT *, 3 as priority FROM popular_users
+  ) combined_suggestions
+  ORDER BY priority, mutual_count DESC, score DESC, random()
+  LIMIT p_limit;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+
+
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION is_following TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION is_mutual_follow TO authenticated, anon;
@@ -516,6 +645,7 @@ GRANT EXECUTE ON FUNCTION follow_user TO authenticated;
 GRANT EXECUTE ON FUNCTION unfollow_user TO authenticated;
 GRANT EXECUTE ON FUNCTION get_followers TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION get_following TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION get_follow_suggestions TO authenticated;
 
 -- Add comments
 COMMENT ON TABLE user_followers IS 'Social graph for follower/following relationships with mutual follow detection';
@@ -524,3 +654,85 @@ COMMENT ON TABLE blocked_users IS 'User blocking relationships';
 COMMENT ON FUNCTION follow_user IS 'Follow a user with automatic mutual follow detection';
 COMMENT ON FUNCTION get_followers IS 'Get list of users following the specified user';
 COMMENT ON FUNCTION get_following IS 'Get list of users that the specified user is following';
+COMMENT ON FUNCTION get_follow_suggestions IS 'Get personalized follow suggestions based on mutual connections, role, and popularity';
+
+
+
+-- ==================================================================
+-- AUTO-FOLLOW TRIGGER FUNCTION
+-- When user B accepts user A's follow request, B automatically follows A back
+-- ==================================================================
+
+CREATE OR REPLACE FUNCTION auto_follow_on_request_accept()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_reverse_follow_exists BOOLEAN;
+BEGIN
+  -- Only proceed if status changed to 'accepted'
+  IF (TG_OP = 'UPDATE' AND NEW.status = 'accepted' AND OLD.status != 'accepted') THEN
+    
+    -- Check if the target user already follows the requester
+    SELECT EXISTS(
+      SELECT 1 FROM user_followers
+      WHERE follower_id = NEW.target_id
+      AND following_id = NEW.requester_id
+      AND follow_status = 'active'
+    ) INTO v_reverse_follow_exists;
+    
+    -- If not already following, create the follow relationship
+    IF NOT v_reverse_follow_exists THEN
+      -- Target user (B) follows requester (A)
+      INSERT INTO user_followers (
+        follower_id,
+        following_id,
+        follow_status,
+        notification_enabled
+      ) VALUES (
+        NEW.target_id,      -- User B (who accepted)
+        NEW.requester_id,   -- User A (who requested)
+        'active',
+        TRUE
+      );
+      
+      RAISE NOTICE 'Auto-follow created: User % now follows User %', NEW.target_id, NEW.requester_id;
+    END IF;
+    
+    -- Create the original follow relationship (A follows B)
+    -- Check if requester already follows target
+    IF NOT EXISTS(
+      SELECT 1 FROM user_followers
+      WHERE follower_id = NEW.requester_id
+      AND following_id = NEW.target_id
+      AND follow_status = 'active'
+    ) THEN
+      INSERT INTO user_followers (
+        follower_id,
+        following_id,
+        follow_status,
+        notification_enabled
+      ) VALUES (
+        NEW.requester_id,   -- User A (who requested)
+        NEW.target_id,      -- User B (who accepted)
+        'active',
+        TRUE
+      );
+      
+      RAISE NOTICE 'Original follow created: User % now follows User %', NEW.requester_id, NEW.target_id;
+    END IF;
+    
+    -- Update the responded_at timestamp
+    NEW.responded_at = NOW();
+    
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the trigger
+CREATE TRIGGER trigger_auto_follow_on_accept
+  BEFORE UPDATE ON follow_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_follow_on_request_accept();
+
+COMMENT ON FUNCTION auto_follow_on_request_accept IS 'Automatically creates mutual follow relationship when a follow request is accepted';

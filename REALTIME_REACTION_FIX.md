@@ -27,7 +27,7 @@ The issue had multiple components:
 
 ### 1. Added Real-Time Subscription to ReactionDisplay Component
 
-**File**: `e:\Eduro\components\reactions\reaction-display.tsx`
+**File**: `e:\Tutrsy\components\reactions\reaction-display.tsx`
 
 ```typescript
 // Load analytics on mount and subscribe to real-time updates
@@ -79,7 +79,7 @@ useEffect(() => {
 
 ### 2. Fixed Immer Draft Context Issue in getpost.store
 
-**File**: `e:\Eduro\lib\store\getpost.store.ts`
+**File**: `e:\Tutrsy\lib\store\getpost.store.ts`
 
 ```typescript
 handleReactionUpdate: (payload: any) => {
@@ -314,12 +314,12 @@ When a reaction changes:
 
 ## Files Modified
 
-1. **e:\Eduro\components\reactions\reaction-display.tsx**
+1. **e:\Tutrsy\components\reactions\reaction-display.tsx**
    - Added real-time subscription to `post_reactions` table
    - Supports both POST and COMMENT target types
    - Proper cleanup on unmount
 
-2. **e:\Eduro\lib\store\getpost.store.ts**
+2. **e:\Tutrsy\lib\store\getpost.store.ts**
    - Fixed `handleReactionUpdate` to avoid Immer draft context issues
    - Moved async operations outside of `set()` calls
    - Improved error handling

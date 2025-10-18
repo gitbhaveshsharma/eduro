@@ -100,7 +100,7 @@ export function RoleSelectionStep({
             <div className="text-center space-y-2">
                 <h1 className="text-3xl font-bold text-foreground">Choose Your Role</h1>
                 <p className="text-muted-foreground text-lg">
-                    Select the role that best describes how you want to use Eduro
+                    Select the role that best describes how you want to use Tutrsy
                 </p>
             </div>
 

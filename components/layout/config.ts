@@ -11,7 +11,11 @@ import {
     Calendar,
     FileText,
     Award,
-    BarChart3
+    BarChart3,
+    Filter,
+    UserPlus,
+    Heart,
+    TrendingUp
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig } from "./types";
 
@@ -109,6 +113,47 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
         href: '/analytics',
         platforms: ['lms'],
         devices: ['tablet', 'desktop'] // Role-based, but we'll handle this in the component
+    }
+];
+
+/**
+ * Network-specific navigation items for bottom navigation
+ */
+export const NETWORK_NAV_ITEMS: NavigationItem[] = [
+    {
+        id: 'discover',
+        label: 'Discover',
+        icon: Users,
+        platforms: ['community'],
+        devices: ['mobile', 'tablet']
+    },
+    {
+        id: 'search',
+        label: 'Search',
+        icon: Search,
+        platforms: ['community'],
+        devices: ['mobile', 'tablet']
+    },
+    {
+        id: 'filters',
+        label: 'Filters',
+        icon: Filter,
+        platforms: ['community'],
+        devices: ['mobile', 'tablet']
+    },
+    {
+        id: 'requests',
+        label: 'Requests',
+        icon: Heart,
+        platforms: ['community'],
+        devices: ['mobile', 'tablet']
+    },
+    {
+        id: 'trending',
+        label: 'Trending',
+        icon: TrendingUp,
+        platforms: ['community'],
+        devices: ['mobile', 'tablet']
     }
 ];
 

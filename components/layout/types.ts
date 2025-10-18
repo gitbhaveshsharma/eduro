@@ -6,14 +6,17 @@
 export type PlatformType = 'community' | 'lms';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 export type ViewType = 'webview' | 'browser';
+export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile';
 
 export interface LayoutConfig {
     platform: PlatformType;
     device: DeviceType;
     view: ViewType;
+    page?: PageType;
     showHeader: boolean;
     showBottomNav: boolean;
-    headerType: 'community' | 'lms' | 'minimal';
+    headerType: 'community' | 'lms' | 'minimal' | 'network';
+    bottomNavType?: 'default' | 'network';
 }
 
 export interface NavigationItem {

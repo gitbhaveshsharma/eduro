@@ -2,6 +2,7 @@
 
 import { FeedHeader } from "@/components/layout/headers/feed-header";
 import { LMSHeader } from "./lms-header";
+import { NetworkHeader } from "./network-header";
 import type { HeaderProps } from "../types";
 
 export function ConditionalHeader({
@@ -12,6 +13,16 @@ export function ConditionalHeader({
 
     // Use community header (FeedHeader) for community platform
     if (config.platform === 'community') {
+        // If headerType is network, render the NetworkHeader variant
+        if (config.headerType === 'network') {
+            return (
+                <NetworkHeader
+                    config={config}
+                // Use defaults for network header; parent components can override via forceConfig
+                />
+            );
+        }
+
         return (
             <FeedHeader
                 className={className}
@@ -33,7 +44,7 @@ export function ConditionalHeader({
         return (
             <LMSHeader
                 className={className}
-                title="Eduro LMS"
+                title="Tutrsy LMS"
                 showSearch={config.device !== 'mobile'}
                 notificationCount={0} // TODO: Get from notification store
                 userName="User" // TODO: Get from auth store
@@ -59,7 +70,7 @@ export function ConditionalHeader({
         <header className={`bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm ${className}`}>
             <div className="max-w-7xl mx-auto px-4">
                 <div className="flex items-center justify-between h-16">
-                    <h1 className="text-lg font-semibold text-gray-900">Eduro</h1>
+                    <h1 className="text-lg font-semibold text-gray-900">Tutrsy</h1>
                 </div>
             </div>
         </header>
