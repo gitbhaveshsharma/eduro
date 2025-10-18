@@ -173,7 +173,7 @@ export default function PostPage() {
             if (navigator.share) {
                 await navigator.share({
                     title: post?.title || 'Check out this post',
-                    text: post?.content_preview || 'Interesting post on Eduro',
+                    text: post?.content_preview || 'Interesting post on Tutrsy',
                     url: `${window.location.origin}/feed/posts/${postId}`
                 });
             } else {

@@ -30,7 +30,7 @@ interface ConnectionsPageProps {
     defaultTab?: 'connections' | 'requests' | 'suggestions';
 }
 
-export function ConnectionsPage({
+export default function ConnectionsPage({
     currentUser,
     defaultTab = 'connections',
 }: ConnectionsPageProps) {

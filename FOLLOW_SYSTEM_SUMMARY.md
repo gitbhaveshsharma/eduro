@@ -198,4 +198,4 @@ The follow system is **fully implemented** and **production-ready** with:
 - **Zero dependencies** on external libraries
 - **Backward compatibility** with existing code
 
-You can now use this system immediately for user following functionality in your Eduro platform!
+You can now use this system immediately for user following functionality in your Tutrsy platform!

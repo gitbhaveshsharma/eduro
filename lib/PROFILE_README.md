@@ -1,6 +1,6 @@
 # Profile System Documentation
 
-This documentation covers the comprehensive profile system implemented for the Eduro platform. The system provides a complete solution for managing user profiles, including CRUD operations, state management, caching, and utilities.
+This documentation covers the comprehensive profile system implemented for the Tutrsy platform. The system provides a complete solution for managing user profiles, including CRUD operations, state management, caching, and utilities.
 
 ## Architecture Overview
 

@@ -69,11 +69,11 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
         const birthDate = new Date(dob)
         let age = today.getFullYear() - birthDate.getFullYear()
         const monthDiff = today.getMonth() - birthDate.getMonth()
-        
+
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
             age--
         }
-        
+
         return age
     }
 
@@ -81,7 +81,7 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
     useEffect(() => {
         // Don't update state during completion to prevent flashing
         if (isCompleted) return
-        
+
         if (currentProfile) {
             if (currentProfile.role) {
                 setSelectedRole(currentProfile.role)
@@ -178,7 +178,7 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
 
     const handlePersonalInfoNext = async () => {
         console.log('handlePersonalInfoNext called with:', { fullName: fullName.trim(), dateOfBirth, selectedRole })
-        
+
         if (!fullName.trim() || !dateOfBirth) {
             showErrorToast('Please fill in all required fields')
             return
@@ -272,7 +272,7 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
             await updateOnboardingLevel('5' as OnboardingLevel)
 
             setCompletedSteps(prev => [...prev, 4])
-            
+
             // Small delay to show success message then redirect
             showSuccessToast('Registration completed successfully!')
             setTimeout(() => {
@@ -334,9 +334,9 @@ export function OnboardingContainer({ initialStep = 1 }: OnboardingContainerProp
                     </div>
                     <div className="space-y-2">
                         <h2 className="text-2xl font-bold text-green-600">Registration Complete!</h2>
-                        <p className="text-muted-foreground">Welcome to Eduro. Redirecting to your dashboard...</p>
+                        <p className="text-muted-foreground">Welcome to Tutrsy. Redirecting to your dashboard...</p>
                     </div>
-                    <LoadingSpinner 
+                    <LoadingSpinner
                         message="Redirecting to dashboard..."
                         size="md"
                         variant="success"

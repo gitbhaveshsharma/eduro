@@ -1,6 +1,6 @@
 # Follow System Documentation
 
-This documentation covers the comprehensive follow system implemented for the Eduro platform. The system provides a complete solution for managing user relationships, including follow/unfollow operations, follow requests, blocking, and social networking features.
+This documentation covers the comprehensive follow system implemented for the Tutrsy platform. The system provides a complete solution for managing user relationships, including follow/unfollow operations, follow requests, blocking, and social networking features.
 
 ## Architecture Overview
 

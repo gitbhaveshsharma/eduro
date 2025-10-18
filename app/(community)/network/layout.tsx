@@ -32,27 +32,22 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
     const filterContextValue: NetworkFilterContextType = {
         searchQuery,
         onSearchChange: (value) => {
-            console.log('🟡 Layout - Search changed to:', value);
             setSearchQuery(value);
         },
         selectedRole,
         onRoleChange: (value) => {
-            console.log('🟡 Layout - Role changed to:', value);
             setSelectedRole(value);
         },
         selectedSort,
         onSortChange: (value) => {
-            console.log('🟡 Layout - Sort changed to:', value);
             setSelectedSort(value);
         },
         showVerifiedOnly,
         onVerifiedToggle: () => {
-            console.log('🟡 Layout - Verified toggled');
             setShowVerifiedOnly(!showVerifiedOnly);
         },
         showOnlineOnly,
         onOnlineToggle: () => {
-            console.log('🟡 Layout - Online toggled');
             setShowOnlineOnly(!showOnlineOnly);
         },
         totalCount,
@@ -63,14 +58,6 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
         setTotalCount,
         setIsLoading,
     };
-
-    console.log('🟡 Layout - Current filter state:', {
-        searchQuery,
-        selectedRole,
-        selectedSort,
-        showVerifiedOnly,
-        showOnlineOnly,
-    });
 
     return (
         <NetworkFilterContext.Provider value={filterContextValue}  >

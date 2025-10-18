@@ -1,6 +1,6 @@
 # Feed System Documentation
 
-This documentation covers the comprehensive feed system implementation for the Eduro platform. The system provides a complete solution for social media-style posting, content discovery, user interactions, and community engagement.
+This documentation covers the comprehensive feed system implementation for the Tutrsy platform. The system provides a complete solution for social media-style posting, content discovery, user interactions, and community engagement.
 
 ## Architecture Overview
 

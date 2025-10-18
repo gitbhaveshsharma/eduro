@@ -120,7 +120,7 @@ export default function LoginPage() {
             <div className="w-full max-w-md mx-auto">
                 {/* Logo & Brand */}
                 <div className="text-center mb-8">
-                    <h1 className="text-2xl font-bold text-[#111827] mb-2">Welcome to Eduro</h1>
+                    <h1 className="text-2xl font-bold text-[#111827] mb-2">Welcome to Tutrsy</h1>
                     <p className="text-[#6B7280]">Choose your preferred login method to sign in or create an account</p>
                 </div>
 

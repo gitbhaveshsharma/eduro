@@ -1,6 +1,6 @@
 # Address System Documentation
 
-This documentation covers the comprehensive address system implemented for the Eduro platform. The system provides a complete solution for managing user addresses, including CRUD operations, geocoding, state management, caching, and utilities.
+This documentation covers the comprehensive address system implemented for the Tutrsy platform. The system provides a complete solution for managing user addresses, including CRUD operations, geocoding, state management, caching, and utilities.
 
 ## Architecture Overview
 

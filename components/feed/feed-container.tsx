@@ -145,7 +145,7 @@ export function FeedContainer({
             if (navigator.share) {
                 await navigator.share({
                     title: 'Check out this post',
-                    text: 'Interesting post on Eduro',
+                    text: 'Interesting post on Tutrsy',
                     url: `${window.location.origin}/feed/posts/${postId}`
                 });
             } else {
