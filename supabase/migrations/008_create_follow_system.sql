@@ -655,3 +655,84 @@ COMMENT ON FUNCTION follow_user IS 'Follow a user with automatic mutual follow d
 COMMENT ON FUNCTION get_followers IS 'Get list of users following the specified user';
 COMMENT ON FUNCTION get_following IS 'Get list of users that the specified user is following';
 COMMENT ON FUNCTION get_follow_suggestions IS 'Get personalized follow suggestions based on mutual connections, role, and popularity';
+
+
+
+-- ==================================================================
+-- AUTO-FOLLOW TRIGGER FUNCTION
+-- When user B accepts user A's follow request, B automatically follows A back
+-- ==================================================================
+
+CREATE OR REPLACE FUNCTION auto_follow_on_request_accept()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_reverse_follow_exists BOOLEAN;
+BEGIN
+  -- Only proceed if status changed to 'accepted'
+  IF (TG_OP = 'UPDATE' AND NEW.status = 'accepted' AND OLD.status != 'accepted') THEN
+    
+    -- Check if the target user already follows the requester
+    SELECT EXISTS(
+      SELECT 1 FROM user_followers
+      WHERE follower_id = NEW.target_id
+      AND following_id = NEW.requester_id
+      AND follow_status = 'active'
+    ) INTO v_reverse_follow_exists;
+    
+    -- If not already following, create the follow relationship
+    IF NOT v_reverse_follow_exists THEN
+      -- Target user (B) follows requester (A)
+      INSERT INTO user_followers (
+        follower_id,
+        following_id,
+        follow_status,
+        notification_enabled
+      ) VALUES (
+        NEW.target_id,      -- User B (who accepted)
+        NEW.requester_id,   -- User A (who requested)
+        'active',
+        TRUE
+      );
+      
+      RAISE NOTICE 'Auto-follow created: User % now follows User %', NEW.target_id, NEW.requester_id;
+    END IF;
+    
+    -- Create the original follow relationship (A follows B)
+    -- Check if requester already follows target
+    IF NOT EXISTS(
+      SELECT 1 FROM user_followers
+      WHERE follower_id = NEW.requester_id
+      AND following_id = NEW.target_id
+      AND follow_status = 'active'
+    ) THEN
+      INSERT INTO user_followers (
+        follower_id,
+        following_id,
+        follow_status,
+        notification_enabled
+      ) VALUES (
+        NEW.requester_id,   -- User A (who requested)
+        NEW.target_id,      -- User B (who accepted)
+        'active',
+        TRUE
+      );
+      
+      RAISE NOTICE 'Original follow created: User % now follows User %', NEW.requester_id, NEW.target_id;
+    END IF;
+    
+    -- Update the responded_at timestamp
+    NEW.responded_at = NOW();
+    
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create the trigger
+CREATE TRIGGER trigger_auto_follow_on_accept
+  BEFORE UPDATE ON follow_requests
+  FOR EACH ROW
+  EXECUTE FUNCTION auto_follow_on_request_accept();
+
+COMMENT ON FUNCTION auto_follow_on_request_accept IS 'Automatically creates mutual follow relationship when a follow request is accepted';

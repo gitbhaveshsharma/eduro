@@ -2,6 +2,7 @@
 
 import { FeedHeader } from "@/components/layout/headers/feed-header";
 import { LMSHeader } from "./lms-header";
+import { NetworkHeader } from "./network-header";
 import type { HeaderProps } from "../types";
 
 export function ConditionalHeader({
@@ -12,6 +13,16 @@ export function ConditionalHeader({
 
     // Use community header (FeedHeader) for community platform
     if (config.platform === 'community') {
+        // If headerType is network, render the NetworkHeader variant
+        if (config.headerType === 'network') {
+            return (
+                <NetworkHeader
+                    config={config}
+                // Use defaults for network header; parent components can override via forceConfig
+                />
+            );
+        }
+
         return (
             <FeedHeader
                 className={className}

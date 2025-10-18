@@ -10,8 +10,10 @@ export const metadata: Metadata = {
 
 export default function FeedLayout({ children }: { children: React.ReactNode }) {
     return (
-        <ConditionalLayout platform="community">
-            {children}
-        </ConditionalLayout>
+        <div >
+            <ConditionalLayout platform="community">
+                {children}
+            </ConditionalLayout>
+        </div>
     );
 }

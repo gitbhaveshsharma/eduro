@@ -114,7 +114,7 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F3F4F6] flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
             <CustomToaster />
 
             <div className="w-full max-w-md mx-auto">
