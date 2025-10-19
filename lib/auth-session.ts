@@ -3,10 +3,13 @@
  * Relies on Supabase's built-in session handling and refreshes tokens on demand.
  */
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/auth-store'
 import { toast } from '@/hooks/use-toast'
 import type { Session } from '@supabase/supabase-js'
+
+// Get the browser client (with cookie storage)
+const supabase = createClient()
 
 export class AuthSessionManager {
   private static instance: AuthSessionManager

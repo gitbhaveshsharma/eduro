@@ -24,6 +24,7 @@ import {
   MetricsCollector, 
   PerformanceMonitor 
 } from './lib/middleware/monitoring'
+import { createSupabaseMiddleware } from './lib/middleware/supabase-middleware'
 
 /**
  * Main middleware function
@@ -39,37 +40,66 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const requestId = SecurityUtils.generateRequestId()
   
   try {
+    // FIRST: Handle Supabase session refresh (CRITICAL - must be first!)
+    console.log('[MIDDLEWARE] Step 1: Refreshing Supabase session...')
+    const supabaseMiddleware = createSupabaseMiddleware()
+    let response = await supabaseMiddleware(request)
+    console.log('[MIDDLEWARE] Step 1 complete: Session refreshed')
+    
+    // CRITICAL: Create enriched request with auth headers from Supabase middleware
+    // This allows AuthHandler to read the user info set by Supabase middleware
+    const authHeaders = ['x-user-authenticated', 'x-user-id', 'x-user-email']
+    const enrichedHeaders = new Headers(request.headers)
+    
+    authHeaders.forEach(headerName => {
+      const headerValue = response.headers.get(headerName)
+      if (headerValue) {
+        enrichedHeaders.set(headerName, headerValue)
+        console.log(`[MIDDLEWARE] Copied header: ${headerName} = ${headerValue}`)
+      }
+    })
+    
+    // Create new request with enriched headers
+    const enrichedRequest = new NextRequest(request.url, {
+      method: request.method,
+      headers: enrichedHeaders,
+      body: request.body,
+      // @ts-ignore - geo is not in the type definition but is valid
+      geo: request.geo,
+      // @ts-ignore - ip is not in the type definition but is valid
+      ip: request.ip,
+    })
+    
     // Build request context
-    const requestContext = await buildRequestContext(request, requestId)
+    const requestContext = await buildRequestContext(enrichedRequest, requestId)
     
     // Log incoming request if enabled
     if (middlewareConfig.logging.logRequests) {
-      Logger.logRequest(request)
+      Logger.logRequest(enrichedRequest)
     }
 
     // Check if middleware is enabled
     if (!middlewareConfig.enabled) {
-      return NextResponse.next()
+      return response
     }
 
-    // Extract and validate user if authenticated
-    const user = await AuthHandler.validateUser(request)
+    // Extract and validate user if authenticated (using enriched request with auth headers)
+    const user = await AuthHandler.validateUser(enrichedRequest)
     
     // Build full middleware context
     const context: MiddlewareContext = {
-      request,
+      request: enrichedRequest,
       user: user || undefined,
       requestContext,
       config: middlewareConfig
     }
 
-    // Apply security headers
-    const response = NextResponse.next()
+    // Apply security headers to Supabase response
     applySecurityHeaders(response, middlewareConfig.security.headers)
 
     // Apply CORS if needed
-    if (request.method === 'OPTIONS') {
-      return handleCORSPreflight(request, response)
+    if (enrichedRequest.method === 'OPTIONS') {
+      return handleCORSPreflight(enrichedRequest, response)
     }
 
     // Apply route protection
@@ -80,17 +110,16 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       
       // Log failed request
       const duration = Date.now() - startTime
-      Logger.logResponse(request, finalResponse, duration, context)
-      MetricsCollector.recordRequest(request, finalResponse, duration)
+      Logger.logResponse(enrichedRequest, finalResponse, duration, context)
+      MetricsCollector.recordRequest(enrichedRequest, finalResponse, duration)
       
       return finalResponse
     }
 
-    // Use modified request if provided
-    const finalRequest = protectionResult.modifiedRequest || request
+    // Note: Modified request from protectionResult is not used as we've already enriched the original request
 
     // Apply additional security measures
-    applyCORSHeaders(response, middlewareConfig.security.cors, request)
+    applyCORSHeaders(response, middlewareConfig.security.cors, enrichedRequest)
     
     // Add security and tracking headers
     response.headers.set('X-Request-ID', requestId)
@@ -105,8 +134,8 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // Log successful request
     const duration = Date.now() - startTime
-    Logger.logResponse(request, response, duration, context)
-    MetricsCollector.recordRequest(request, response, duration)
+    Logger.logResponse(enrichedRequest, response, duration, context)
+    MetricsCollector.recordRequest(enrichedRequest, response, duration)
 
     return response
 

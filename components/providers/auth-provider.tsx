@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/auth-store'
 import { useProfileStore } from '@/lib/store/profile.store'
 import { authSessionManager } from '@/lib/auth-session'
+
+// Get the browser client (with cookie storage)
+const supabase = createClient()
 
 interface AuthProviderProps {
     children: React.ReactNode

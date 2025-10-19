@@ -5,8 +5,11 @@
  * Provides a clean interface for post CRUD operations, comments, reactions, and real-time subscriptions
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import { withAuth, withProfileAuth } from '../api-interceptor';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   Post,
   PublicPost,

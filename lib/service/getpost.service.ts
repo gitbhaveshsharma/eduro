@@ -6,8 +6,11 @@
  * Based on the enterprise-grade get_posts function from migration 009
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import { withAuth } from '../api-interceptor';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   PublicPost,
   PostType,

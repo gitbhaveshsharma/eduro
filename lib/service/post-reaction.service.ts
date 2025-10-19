@@ -37,8 +37,11 @@
  * ```
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabase = createClient();
 
 /**
  * Payload structure from the database trigger

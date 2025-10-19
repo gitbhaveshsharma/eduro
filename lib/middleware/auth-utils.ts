@@ -19,73 +19,29 @@ export class AuthHandler {
    */
   static async validateUser(request: NextRequest): Promise<UserContext | null> {
     try {
-      // Get access token from cookies or Authorization header
-      const authCookie = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token') ||
-                        request.cookies.get('supabase-auth-token') ||
-                        request.cookies.get('sb-auth-token')
-      const authHeader = request.headers.get('authorization')
+      // CRITICAL: Check if Supabase middleware already authenticated the user
+      // This header is set by supabase-middleware.ts after successful auth
+      const isAuthenticated = request.headers.get('x-user-authenticated')
+      const userId = request.headers.get('x-user-id')
+      const email = request.headers.get('x-user-email')
       
-      let accessToken: string | null = null
-      
-      if (authCookie) {
-        accessToken = authCookie.value
-      } else if (authHeader && authHeader.startsWith('Bearer ')) {
-        accessToken = authHeader.substring(7)
-      }
-      
-      // Try to get token from localStorage-style cookie (Supabase's default format)
-      if (!accessToken) {
-        const supabaseSession = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token')
-        if (supabaseSession) {
-          try {
-            const sessionData = JSON.parse(supabaseSession.value)
-            accessToken = sessionData.access_token
-          } catch (e) {
-            // Not JSON, try as direct token
-            accessToken = supabaseSession.value
-          }
-        }
-      }
-      
-      // Debug logging
-      console.log('[AUTH] Cookie found:', !!authCookie)
-      console.log('[AUTH] Header found:', !!authHeader)
-      console.log('[AUTH] Access token found:', !!accessToken)
-      
-      if (!accessToken) {
-        console.log('[AUTH] No access token, user not authenticated')
-        return null
-      }
-
-      // Minimal, Edge-compatible auth: decode the JWT payload without importing
-      // supabase-js (which uses Node APIs and breaks Edge runtime). We avoid
-      // network calls here to keep middleware fast and Edge-safe. This yields
-      // a best-effort user context for middleware decisions.
-      try {
-        const payload = this.decodeJwtPayload(accessToken)
-        const userId = payload?.sub || payload?.user_id || payload?.id
-        const email = payload?.email || null
-        const phone = payload?.phone || null
-        const lastActivity = payload?.iat ? new Date(payload.iat * 1000) : undefined
-
-        if (!userId) {
-          return null
-        }
-
+      if (isAuthenticated === 'true' && userId) {
+        console.log('[AUTH] User authenticated via Supabase middleware:', userId)
+        
         return {
           id: userId,
-          email,
-          phone,
+          email: email || undefined,
+          phone: undefined,
           role: UserRole.STUDENT,
           permissions: this.getRolePermissions(UserRole.STUDENT),
           isOnline: false,
-          lastActivity,
-          sessionId: this.extractSessionId(request)
+          lastActivity: new Date(),
+          sessionId: userId
         }
-      } catch (err) {
-        console.log('[AUTH] JWT decode failed', err)
-        return null
       }
+      
+      console.log('[AUTH] No authenticated user found in headers')
+      return null
     } catch (error) {
       console.error('Auth validation error:', error)
       return null

@@ -5,8 +5,11 @@
  * Provides a clean interface for follower/following CRUD operations
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import { SupabaseRequestWrapper } from '../api-interceptor';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   FollowRelationship,
   FollowRelationshipWithProfile,

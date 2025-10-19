@@ -4,7 +4,10 @@
  * Handles reporting functionality for posts, comments, LMS content, and users
  */
 
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
+
+// Get browser client (with cookie storage)
+const supabase = createClient();
 import type { 
   Report, 
   ReportCreate, 
