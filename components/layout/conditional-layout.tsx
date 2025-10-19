@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ConditionalHeader } from "./headers/conditional-header";
 import { BottomNavigation } from "./navigation/bottom-navigation";
-// import NetworkBottomNavigation from "./navigation/network-bottom-navigation"; // commented out per request
 import { LayoutUtils } from "./config";
 import type { ConditionalLayoutProps, LayoutConfig, NavigationItem } from "./types";
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
@@ -15,10 +14,10 @@ export function ConditionalLayout({
     className = "",
     forceConfig
 }: ConditionalLayoutProps) {
-    const [isInitializing, setIsInitializing] = useState(true);
-    // Use a deterministic server-safe initial config to avoid hydration mismatches.
-    // On the server `window` is undefined so LayoutUtils.getDeviceType would return 'desktop'.
-    // We'll initialize with a desktop config and update on mount to the actual device.
+    // ✅ Start with isMounted = false to prevent hydration mismatch
+    const [isMounted, setIsMounted] = useState(false);
+
+    // ✅ Initialize with server-safe config
     const [config, setConfig] = useState<LayoutConfig>(() => ({
         platform,
         device: 'desktop',
@@ -28,18 +27,24 @@ export function ConditionalLayout({
         headerType: platform === 'community' ? 'community' : 'lms',
         ...forceConfig
     } as LayoutConfig));
+
     const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
 
-    // Update config when platform changes or window resizes
+    // ✅ Single useEffect to handle mounting and config updates
     useEffect(() => {
-        // On mount, compute the real config (this runs only on client)
+        // Update config with real device detection
         const updateConfig = () => {
             const newConfig = LayoutUtils.generateConfig(platform, forceConfig);
             setConfig(newConfig);
         };
 
-        // Initial setup on client
+        // Initial setup - update config first, then show content
         updateConfig();
+
+        // Small delay to ensure smooth transition
+        const mountTimer = setTimeout(() => {
+            setIsMounted(true);
+        }, 100); // Reduced from 800ms
 
         // Listen for window resize to update device type
         const handleResize = () => {
@@ -47,16 +52,14 @@ export function ConditionalLayout({
         };
 
         window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
+
+        return () => {
+            clearTimeout(mountTimer);
+            window.removeEventListener('resize', handleResize);
+        };
     }, [platform, forceConfig]);
 
-    // Simulate initial loading to match previous page behavior
-    useEffect(() => {
-        const timer = setTimeout(() => setIsInitializing(false), 800);
-        return () => clearTimeout(timer);
-    }, []);
-
-    // Update navigation items when config changes
+    // ✅ Update navigation items when config changes
     useEffect(() => {
         const items = LayoutUtils.getNavigationItems(config.platform);
         const filteredItems = LayoutUtils.filterNavigationItems(
@@ -70,8 +73,16 @@ export function ConditionalLayout({
     const shouldShowHeader = LayoutUtils.shouldShowHeader(config);
     const shouldShowBottomNav = LayoutUtils.shouldShowBottomNav(config);
 
-    // Temporarily disable network bottom nav and always use the default BottomNavigation
-    // const useNetworkBottomNav = config.page === 'network' || config.bottomNavType === 'network';
+    // ✅ Show loading only once on initial mount
+    if (!isMounted) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="flex flex-col items-center space-y-4">
+                    <LoadingSpinner message="Loading community feed..." size="lg" />
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={cn(
@@ -79,12 +90,11 @@ export function ConditionalLayout({
             "flex flex-col",
             className
         )}>
-            {/* Conditional Header (hidden during initial layout loading) */}
-            {!isInitializing && shouldShowHeader && (
+            {/* Conditional Header */}
+            {shouldShowHeader && (
                 <ConditionalHeader
                     config={config}
                     onNavigationClick={(item) => {
-                        // Handle navigation item clicks
                         console.log('Navigation item clicked:', item);
                     }}
                 />
@@ -93,46 +103,21 @@ export function ConditionalLayout({
             {/* Main Content Area */}
             <main className={cn(
                 "flex-1",
-                shouldShowBottomNav && "pb-20", // Add padding for bottom nav
-                shouldShowHeader && "pt-0" // Header is sticky, no extra padding needed
+                shouldShowBottomNav && "pb-20",
+                shouldShowHeader && "pt-0"
             )}>
-                {isInitializing ? (
-                    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                        <div className="flex flex-col items-center space-y-4">
-                            <LoadingSpinner message="Loading community feed..." size="lg" />
-                        </div>
-                    </div>
-                ) : (
-                    children
-                )}
+                {children}
             </main>
 
             {/* Conditional Bottom Navigation */}
             {shouldShowBottomNav && (
-                // Always render the default BottomNavigation for now
                 <BottomNavigation
                     config={config}
                     navigationItems={navigationItems}
                     onItemClick={(item) => {
-                        // Handle navigation item clicks
                         console.log('Bottom nav item clicked:', item);
                     }}
                 />
-
-                /*
-                If you want to re-enable the network bottom nav later, uncomment the import above
-                and replace the block with the conditional rendering below:
-
-                useNetworkBottomNav ? (
-                    <NetworkBottomNavigation
-                        activeItem={undefined}
-                        onItemClick={(item) => console.log('Network bottom nav clicked', item)}
-                        connectionRequests={0}
-                    />
-                ) : (
-                    <BottomNavigation ... />
-                )
-                */
             )}
         </div>
     );

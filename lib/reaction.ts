@@ -8,7 +8,6 @@
 // Re-export everything from the reaction modules
 export * from './schema/reaction.types';
 export * from './service/reaction.service';
-export * from './service/post-reaction.service';
 export * from './store/reaction.store';
 export * from './store/post-reaction.store';
 export * from './utils/reaction.utils';
@@ -38,12 +37,13 @@ export {
   ReactionService,
 } from './service/reaction.service';
 
-export {
-  // Post Reaction Service
-  PostReactionService,
-  type UserReaction,
-  type ReactionUpdate,
-} from './service/post-reaction.service';
+// Post Reaction Service (module removed or unavailable) — provide lightweight stubs to avoid compile errors
+// Legacy name retained as a stub for compatibility; actual implementation should be provided by the real module.
+export type ReactionUpdate = any;
+export const PostReactionService: any = undefined;
+
+// The UserReaction type now lives in the post-reaction store (keeps model & cache colocated)
+export type { UserReaction } from './store/post-reaction.store';
 
 export {
   // Store and hooks

@@ -4,6 +4,10 @@
  * Shows existing reactions on a post/comment with counts and user interactions
  * Displays top reactions with smooth animations and hover effects
  * On hover (200ms), reveals a floating ReactionBar with bubble-pop animation
+ * 
+ * ✅ Uses PostReactionStore for real-time reaction updates
+ * ✅ Proper subscription management with automatic cleanup
+ * ✅ Optimized re-renders with selective state subscriptions
  */
 
 "use client";
@@ -51,6 +55,9 @@ import {
 } from "@/lib/utils/reaction.utils";
 
 import { ReactionBar } from "./reaction-bar";
+
+// ✅ Import PostReactionStore hooks
+import { useReactionSubscription } from "@/lib/store/post-reaction.store";
 
 export interface ReactionDisplayProps {
     /** Target type for reactions */
@@ -117,40 +124,38 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     const [showBar, setShowBar] = useState(false);
 
     // Store hooks
-    const { loadReactionAnalytics, getReactionById, loadAllReactions, clearAnalyticsCache } = useReactionStore();
+    const { loadReactionAnalytics, getReactionById, loadAllReactions } = useReactionStore();
     const analytics = useReactionAnalytics(targetType, targetId);
 
-    // Real-time subscription using the new PostReactionStore
-    const { usePostReactionStore } = require('@/lib/store/post-reaction.store');
-    const { subscribeToTarget, unsubscribeFromTarget } = usePostReactionStore();
+    // ✅ FIXED: Use the proper hook for subscription management
+    // This handles all subscription logic automatically with proper cleanup
+    useReactionSubscription(targetType, targetId, true);
 
-    // Load analytics on mount and subscribe to real-time updates
+    // ✅ Load analytics on mount
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true);
-            await loadReactionAnalytics(targetType, targetId);
-            setIsLoading(false);
+            try {
+                await loadReactionAnalytics(targetType, targetId);
+            } catch (error) {
+                console.error('[ReactionDisplay] Error loading analytics:', error);
+            } finally {
+                setIsLoading(false);
+            }
         };
         loadData();
+    }, [targetType, targetId, loadReactionAnalytics]);
 
-        // Subscribe to real-time reaction changes using PostReactionStore
-        subscribeToTarget(targetType, targetId);
-
-        // Cleanup subscription on unmount
-        return () => {
-            unsubscribeFromTarget(targetType, targetId);
-        };
-    }, [targetType, targetId, loadReactionAnalytics, subscribeToTarget, unsubscribeFromTarget]);    // Default reaction id to show when there are no reactions
+    // Default reaction id to show when there are no reactions
     const DEFAULT_REACTION_ID = 1;
     const defaultReaction = getReactionById(DEFAULT_REACTION_ID) as PublicReaction | null;
 
     // Ensure reactions catalog is loaded so defaultReaction can be resolved
     useEffect(() => {
         if (!defaultReaction) {
-            // fire-and-forget: load the reaction catalog so getReactionById can find id 1
+            // Fire-and-forget: load the reaction catalog so getReactionById can find id 1
             loadAllReactions().catch(() => undefined);
         }
-        // Intentionally depend on defaultReaction reference and loader
     }, [defaultReaction, loadAllReactions]);
 
     // Memoize sorted reactions using utility function
@@ -160,7 +165,10 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     }, [analytics?.reactions_breakdown]);
 
     // Memoize displayed reactions
-    const displayedReactions = useMemo(() => sortedReactions.slice(0, maxDisplay), [sortedReactions, maxDisplay]);
+    const displayedReactions = useMemo(
+        () => sortedReactions.slice(0, maxDisplay),
+        [sortedReactions, maxDisplay]
+    );
 
     // Calculate hidden count
     const hiddenCount = useMemo(
@@ -194,8 +202,13 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     );
 
     // Chip hover
-    const handleMouseEnterChip = useCallback((reactionId: number) => setHoveredReaction(reactionId), []);
-    const handleMouseLeaveChip = useCallback(() => setHoveredReaction(null), []);
+    const handleMouseEnterChip = useCallback((reactionId: number) => {
+        setHoveredReaction(reactionId);
+    }, []);
+
+    const handleMouseLeaveChip = useCallback(() => {
+        setHoveredReaction(null);
+    }, []);
 
     // Flyout timing and visibility
     const openBarWithDelay = useCallback(() => {
@@ -227,7 +240,10 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
         window.setTimeout(maybeCloseBar, 80);
     }, [cancelBarDelay, maybeCloseBar]);
 
-    const onFlyoutPointerEnter = useCallback(() => setIsFlyoutHover(true), []);
+    const onFlyoutPointerEnter = useCallback(() => {
+        setIsFlyoutHover(true);
+    }, []);
+
     const onFlyoutPointerLeave = useCallback(() => {
         setIsFlyoutHover(false);
         window.setTimeout(maybeCloseBar, 80);
@@ -287,7 +303,11 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     // Loading skeleton
     if (isLoading) {
         return (
-            <div className={cn("flex items-center", sizeClasses.gap, className)} role="status" aria-label="Loading reactions">
+            <div
+                className={cn("flex items-center", sizeClasses.gap, className)}
+                role="status"
+                aria-label="Loading reactions"
+            >
                 {Array.from({ length: 3 }).map((_, i) => (
                     <div
                         key={i}
@@ -305,9 +325,7 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
     }
 
     // If there's no analytics or no reactions yet, still render a minimal control
-    // so users can add a reaction (important for comments with zero reactions).
     const shouldRenderEmptyControl = !analytics || sortedReactions.length === 0;
-
 
     if (shouldRenderEmptyControl) {
         return (
@@ -317,26 +335,29 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                     ref={containerRef}
                     className="relative"
                     onPointerEnter={() => openBarWithDelay()}
-                    onPointerLeave={() => { cancelBarDelay(); maybeCloseBar(); }}
+                    onPointerLeave={() => {
+                        cancelBarDelay();
+                        maybeCloseBar();
+                    }}
                 >
                     <Button
                         variant="outline"
                         size="sm"
                         onClick={() => {
                             if (defaultReaction) {
-                                // If parent provided a click handler, use it to toggle/add the reaction
                                 onReactionClick?.(defaultReaction as PublicReaction);
                             } else {
-                                // Fallback to opening the reaction bar when default isn't available
                                 setShowBar((v) => !v);
                             }
                         }}
-                        className={cn(sizeClasses.button, "rounded-full ")}
-
+                        className={cn(sizeClasses.button, "rounded-full")}
+                        aria-label="Add reaction"
                     >
                         {defaultReaction ? (
                             <>
-                                <span className={cn(sizeClasses.emoji, "mr-1")}>{formatReactionEmoji(defaultReaction)}</span>
+                                <span className={cn(sizeClasses.emoji, "mr-1")}>
+                                    {formatReactionEmoji(defaultReaction)}
+                                </span>
                                 <span className={sizeClasses.count}>{defaultReaction.name}</span>
                             </>
                         ) : (
@@ -443,7 +464,6 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                         category: reactionSummary.category,
                     };
 
-                    const categoryColor = getCategoryColor(reactionSummary.category); // currently unused, kept for future styling
                     const isHovered = hoveredReaction === reactionSummary.reaction_id;
 
                     return (
@@ -473,13 +493,18 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                                         : "bg-white border-gray-200 text-gray-700 hover:border-gray-300 hover:bg-gray-50",
                                     isHovered && "scale-105 shadow-md"
                                 )}
-                                aria-label={getReactionAriaLabel(reactionData as PublicReaction, reactionSummary.count)}
+                                aria-label={getReactionAriaLabel(
+                                    reactionData as PublicReaction,
+                                    reactionSummary.count
+                                )}
                                 aria-pressed={reactionSummary.user_reacted}
                             >
                                 <span className={cn(sizeClasses.emoji, "mr-1")}>
                                     {formatReactionEmoji(reactionData as PublicReaction)}
                                 </span>
-                                <span className={sizeClasses.count}>{formatReactionCount(reactionSummary.count)}</span>
+                                <span className={sizeClasses.count}>
+                                    {formatReactionCount(reactionSummary.count)}
+                                </span>
 
                                 {reactionSummary.user_reacted && (
                                     <motion.div
@@ -510,6 +535,13 @@ export const ReactionDisplay = React.memo(function ReactionDisplay({
                             "hover:border-gray-300 hover:bg-gray-50 cursor-pointer transition-all"
                         )}
                         role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onShowAllReactions?.();
+                            }
+                        }}
                         aria-label={`Show ${hiddenCount} more reaction${hiddenCount === 1 ? "" : "s"}`}
                     >
                         +{hiddenCount}

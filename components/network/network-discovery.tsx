@@ -7,7 +7,7 @@
  * Optimized for web view in mobile apps with full responsiveness.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Users } from 'lucide-react';
 import { ProfileAPI } from '@/lib/profile';
 import { ProfileDisplayUtils, ProfileUrlUtils } from '@/lib/utils/profile.utils';
@@ -66,15 +66,12 @@ export function NetworkDiscovery({
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
 
-    // Use external props instead of internal state
-    const searchQuery = externalSearchQuery;
-    const selectedRole = externalSelectedRole;
-    const selectedSort = externalSelectedSort;
-    const showVerifiedOnly = externalShowVerifiedOnly;
-    const showOnlineOnly = externalShowOnlineOnly;
+    // Use refs to track previous values and prevent unnecessary fetches
+    const searchTimerRef = useRef<NodeJS.Timeout>();
+    const isMountedRef = useRef(true);
 
     // Helper to convert PublicProfile to FollowerProfile
-    const toFollowerProfile = (profile: PublicProfile): FollowerProfile => ({
+    const toFollowerProfile = useCallback((profile: PublicProfile): FollowerProfile => ({
         id: profile.id,
         username: profile.username,
         full_name: profile.full_name || ProfileDisplayUtils.getDisplayName(profile),
@@ -85,12 +82,12 @@ export function NetworkDiscovery({
         follower_count: 0,
         following_count: 0,
         created_at: profile.created_at,
-    });
+    }), []);
 
-    // Helper to convert auth user to FollowerProfile
-    const toFollowerProfileFromUser = (): FollowerProfile | undefined => {
-        if (!user) return undefined;
-        return {
+    // Helper to convert auth user to FollowerProfile (memoized)
+    const currentUserProfile = useRef<FollowerProfile | undefined>();
+    if (!currentUserProfile.current && user) {
+        currentUserProfile.current = {
             id: user.id,
             username: null,
             full_name: user.user_metadata?.full_name || null,
@@ -102,10 +99,20 @@ export function NetworkDiscovery({
             following_count: 0,
             created_at: user.created_at,
         };
-    };
+    }
 
-    // Fetch profiles
-    const fetchProfiles = useCallback(async (page: number = 1, append: boolean = false) => {
+    // Fetch profiles - removed from useCallback dependencies that cause loops
+    const fetchProfiles = useCallback(async (
+        page: number = 1,
+        append: boolean = false,
+        searchQuery: string,
+        selectedRole: string,
+        selectedSort: string,
+        showVerifiedOnly: boolean,
+        showOnlineOnly: boolean
+    ) => {
+        if (!isMountedRef.current) return;
+
         console.log('🔴 NetworkDiscovery - Fetching profiles with filters:', {
             searchQuery,
             selectedRole,
@@ -116,9 +123,8 @@ export function NetworkDiscovery({
             append
         });
 
-        const loadingState = true;
-        setIsLoading(loadingState);
-        onLoadingChange?.(loadingState);
+        setIsLoading(true);
+        onLoadingChange?.(true);
 
         try {
             const profileFilters: ProfileFilters = {
@@ -140,7 +146,7 @@ export function NetworkDiscovery({
 
             console.log('🔴 NetworkDiscovery - API returned:', result);
 
-            if (result) {
+            if (result && isMountedRef.current) {
                 const convertedProfiles = (result.profiles || []).map(toFollowerProfile);
                 if (append) {
                     setProfiles(prev => [...prev, ...convertedProfiles]);
@@ -157,56 +163,114 @@ export function NetworkDiscovery({
         } catch (error) {
             console.error('🔴 NetworkDiscovery - Failed to fetch profiles:', error);
         } finally {
-            const loadingState = false;
-            setIsLoading(loadingState);
-            onLoadingChange?.(loadingState);
+            if (isMountedRef.current) {
+                setIsLoading(false);
+                onLoadingChange?.(false);
+            }
         }
-    }, [searchQuery, selectedRole, selectedSort, showVerifiedOnly, showOnlineOnly, onLoadingChange, onTotalCountChange]);
+    }, [toFollowerProfile, onLoadingChange, onTotalCountChange]);
 
-    // Fetch immediately when non-search filters change (role, sort, toggles)
+    // Single useEffect that handles ALL filter changes
     useEffect(() => {
-        console.log('🔴 NetworkDiscovery - Non-search filter changed, fetching immediately');
-        fetchProfiles(1, false);
-    }, [selectedRole, selectedSort, showVerifiedOnly, showOnlineOnly, fetchProfiles]);
+        console.log('🔴 NetworkDiscovery - Filter changed');
 
-    // Debounce search queries
-    useEffect(() => {
-        console.log('🔴 NetworkDiscovery - Search query changed, debouncing...');
+        // Clear any existing search timer
+        if (searchTimerRef.current) {
+            clearTimeout(searchTimerRef.current);
+        }
 
-        const timer = setTimeout(() => {
-            console.log('🔴 NetworkDiscovery - Search timer fired, fetching now');
-            fetchProfiles(1, false);
-        }, 500);
+        // Debounce only search queries, fetch immediately for other filters
+        if (externalSearchQuery) {
+            console.log('🔴 NetworkDiscovery - Debouncing search query...');
+            searchTimerRef.current = setTimeout(() => {
+                console.log('🔴 NetworkDiscovery - Search timer fired');
+                fetchProfiles(
+                    1,
+                    false,
+                    externalSearchQuery,
+                    externalSelectedRole,
+                    externalSelectedSort,
+                    externalShowVerifiedOnly,
+                    externalShowOnlineOnly
+                );
+            }, 500);
+        } else {
+            // Immediate fetch for non-search changes
+            console.log('🔴 NetworkDiscovery - Fetching immediately (no search query)');
+            fetchProfiles(
+                1,
+                false,
+                externalSearchQuery,
+                externalSelectedRole,
+                externalSelectedSort,
+                externalShowVerifiedOnly,
+                externalShowOnlineOnly
+            );
+        }
 
         return () => {
-            console.log('🔴 NetworkDiscovery - Cleaning up search timer');
-            clearTimeout(timer);
+            if (searchTimerRef.current) {
+                clearTimeout(searchTimerRef.current);
+            }
         };
-    }, [searchQuery, fetchProfiles]);
+    }, [
+        externalSearchQuery,
+        externalSelectedRole,
+        externalSelectedSort,
+        externalShowVerifiedOnly,
+        externalShowOnlineOnly,
+        fetchProfiles
+    ]);
 
-    const handleLoadMore = () => {
-        fetchProfiles(currentPage + 1, true);
-    };
+    // Cleanup on unmount
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
 
-    const handleApplyAdvancedFilters = () => {
-        // Advanced filters will be handled by parent component
-        fetchProfiles(1, false);
-    };
+    const handleLoadMore = useCallback(() => {
+        fetchProfiles(
+            currentPage + 1,
+            true,
+            externalSearchQuery,
+            externalSelectedRole,
+            externalSelectedSort,
+            externalShowVerifiedOnly,
+            externalShowOnlineOnly
+        );
+    }, [
+        currentPage,
+        externalSearchQuery,
+        externalSelectedRole,
+        externalSelectedSort,
+        externalShowVerifiedOnly,
+        externalShowOnlineOnly,
+        fetchProfiles
+    ]);
 
-    const handleClearAdvancedFilters = () => {
-        // Advanced filters will be handled by parent component
-        fetchProfiles(1, false);
-    };
-
-    const activeFiltersCount = [
-        showVerifiedOnly,
-        showOnlineOnly,
-        selectedRole !== 'all',
-    ].filter(Boolean).length;
+    const handleConnectionChange = useCallback(() => {
+        fetchProfiles(
+            1,
+            false,
+            externalSearchQuery,
+            externalSelectedRole,
+            externalSelectedSort,
+            externalShowVerifiedOnly,
+            externalShowOnlineOnly
+        );
+    }, [
+        externalSearchQuery,
+        externalSelectedRole,
+        externalSelectedSort,
+        externalShowVerifiedOnly,
+        externalShowOnlineOnly,
+        fetchProfiles
+    ]);
 
     return (
         <div className={cn('space-y-4 sm:space-y-6', className)}>
-
             {/* Results */}
             {isLoading && profiles.length === 0 ? (
                 <LoadingSpinner
@@ -224,8 +288,8 @@ export function NetworkDiscovery({
                 <>
                     <ProfileGrid
                         profiles={profiles}
-                        currentUser={toFollowerProfileFromUser()}
-                        onConnectionChange={() => fetchProfiles(1, false)}
+                        currentUser={currentUserProfile.current}
+                        onConnectionChange={handleConnectionChange}
                     />
 
                     {hasMore && (

@@ -1207,14 +1207,61 @@ export class FollowService {
       }
 
       // Get users the current user is not following
-      const { data: suggestions, error } = await supabase
-        .rpc('get_follow_suggestions', {
+      // Attempt RPC call and provide richer error logging on failure.
+      let suggestions: any = null;
+      try {
+        const res = await supabase.rpc('get_follow_suggestions', {
           p_user_id: user.id,
           p_limit: limit
         });
 
-      if (error) {
-        return { success: false, error: error.message };
+        // supabase.rpc can return a single object with { data, error }
+        // or a direct tuple depending on client version. Normalize.
+        // If using the modular client, res may be { data, error }
+        if ((res as any).error) {
+          throw (res as any).error;
+        }
+
+        suggestions = (res as any).data ?? res;
+      } catch (rpcError) {
+        // Log full error object for debugging (includes hint/details)
+        console.error('[FollowService] getFollowSuggestions RPC failed (p_user_id):', rpcError);
+
+        // Try fallback with alternate param name in case function signature was deployed differently
+        try {
+          console.log('[FollowService] Retrying get_follow_suggestions RPC with fallback param "user_id"');
+          const res2 = await supabase.rpc('get_follow_suggestions', {
+            user_id: user.id,
+            p_limit: limit
+          });
+
+          if ((res2 as any).error) {
+            throw (res2 as any).error;
+          }
+
+          suggestions = (res2 as any).data ?? res2;
+        } catch (rpcError2) {
+          console.error('[FollowService] getFollowSuggestions RPC failed (fallback user_id):', rpcError2);
+          // Return a helpful error message including PostgREST/Supabase error fields if available
+          // Safely extract known fields from the RPC error object if present
+          const extractField = (obj: any, field: string) => {
+            try {
+              if (!obj) return null;
+              const v = obj[field];
+              if (v === undefined || v === null) return null;
+              return typeof v === 'string' ? v : JSON.stringify(v);
+            } catch (_) {
+              return null;
+            }
+          };
+
+          const message = extractField(rpcError2, 'message') || extractField(rpcError, 'message') || 'RPC get_follow_suggestions failed with 400 Bad Request';
+          const details = extractField(rpcError2, 'details') || extractField(rpcError, 'details');
+          const hint = extractField(rpcError2, 'hint') || extractField(rpcError, 'hint');
+
+          const composed = `${message}${details ? ' - ' + details : ''}${hint ? ' (' + hint + ')' : ''}`;
+          return { success: false, error: composed };
+        }
       }
 
       const result: FollowSuggestionsResult = {
