@@ -5,11 +5,14 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useRef, useCallback } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/auth-store'
 import { authToasts } from '@/lib/toast'
 import { PageLoadingSpinner } from '@/components/ui/loading-spinner'
 import { getAuthRedirectDestination } from '@/lib/utils/auth-redirect'
+
+// Get browser client (with cookie storage)
+const supabase = createClient()
 
 export default function AuthCallbackPage() {
     const router = useRouter()

@@ -5,7 +5,10 @@
  * Provides a clean interface for address CRUD operations, geocoding, and mapping
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   Address,
   PublicAddress,

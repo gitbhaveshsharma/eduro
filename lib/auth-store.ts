@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import { persist, createJSONStorage } from 'zustand/middleware'
 import { User, Session } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import Cookies from 'js-cookie'
+import { createClient } from '@/lib/supabase/client'
+
+// Get the browser client (with cookie storage)
+const supabase = createClient()
 
 // Define Profile type directly
 interface Profile {
@@ -38,176 +39,103 @@ interface AuthActions {
 
 type AuthStore = AuthState & AuthActions
 
-// Cookie storage implementation for auth state
-const cookieStorage = {
-  getItem: (name: string): string | null => {
-    return Cookies.get(name) || null
+/**
+ * Auth Store - In-Memory State Management
+ * 
+ * CRITICAL: NO localStorage or cookie persistence here!
+ * Supabase handles all cookie storage via createBrowserClient
+ * This store only manages in-memory state for React components
+ */
+export const useAuthStore = create<AuthStore>((set, get) => ({
+  // Initial state
+  user: null,
+  session: null,
+  profile: null,
+  isLoading: true,
+  isInitialized: false,
+
+  // Actions
+  setAuth: (user: User | null, session: Session | null) => {
+    set({ user, session })
   },
-  setItem: (name: string, value: string): void => {
-    Cookies.set(name, value, { 
-      expires: 7, // 7 days
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict'
+
+  setProfile: (profile: Profile | null) => {
+    set({ profile })
+  },
+
+  setLoading: (isLoading: boolean) => {
+    set({ isLoading })
+  },
+
+  setInitialized: (isInitialized: boolean) => {
+    set({ isInitialized })
+  },
+
+  signOut: async () => {
+    try {
+      set({ isLoading: true })
+      
+      // Sign out user - Supabase will clear cookies automatically
+      await supabase.auth.signOut()
+      
+      // Clear all auth data from memory
+      set({ 
+        user: null, 
+        session: null, 
+        profile: null,
+        isLoading: false
+      })
+    } catch (error) {
+      console.error('Error during sign out:', error)
+      set({ isLoading: false })
+    }
+  },
+
+  updateOnlineStatus: async (isOnline: boolean) => {
+    try {
+      const { user } = get()
+      if (!user) return
+
+      // Update profile directly
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          is_online: isOnline,
+          last_seen_at: new Date().toISOString()
+        })
+        .eq('id', user.id)
+      
+      if (error) {
+        console.error('Error updating online status:', error)
+        return
+      }
+      
+      // Update local profile state
+      const { profile } = get()
+      if (profile) {
+        set({ 
+          profile: { 
+            ...profile, 
+            is_online: isOnline,
+            last_seen_at: new Date().toISOString()
+          } 
+        })
+      }
+    } catch (error) {
+      console.error('Error updating online status:', error)
+    }
+  },
+
+  clearAuth: () => {
+    set({ 
+      user: null, 
+      session: null, 
+      profile: null,
+      isLoading: false,
+      isInitialized: true
     })
   },
-  removeItem: (name: string): void => {
-    Cookies.remove(name)
-  },
-}
-
-// Enhanced cookie storage for Supabase session
-const enhancedCookieStorage = {
-  getItem: (name: string): string | null => {
-    return cookieStorage.getItem(name)
-  },
-  setItem: (name: string, value: string): void => {
-    cookieStorage.setItem(name, value)
-    
-    // Also set with Supabase standard naming for middleware compatibility
-    if (name.includes('auth-storage')) {
-      try {
-        const sessionData = JSON.parse(value)
-        if (sessionData?.user && sessionData?.session) {
-          cookieStorage.setItem('supabase-auth-token', sessionData.session.access_token)
-          cookieStorage.setItem('supabase-refresh-token', sessionData.session.refresh_token || '')
-        }
-      } catch (e) {
-        // Not JSON, set as is
-        cookieStorage.setItem('supabase-auth-token', value)
-      }
-    }
-  },
-  removeItem: (name: string): void => {
-    cookieStorage.removeItem(name)
-    
-    // Also remove Supabase standard cookies
-    if (name.includes('auth-storage')) {
-      cookieStorage.removeItem('supabase-auth-token')
-      cookieStorage.removeItem('supabase-refresh-token')
-    }
-  },
-}
-
-export const useAuthStore = create<AuthStore>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      user: null,
-      session: null,
-      profile: null,
-      isLoading: true,
-      isInitialized: false,
-
-      // Actions
-      setAuth: (user, session) => {
-        set({ user, session })
-        
-        // Store session token in cookies for SSR
-        if (session?.access_token) {
-          cookieStorage.setItem('supabase-auth-token', session.access_token)
-          cookieStorage.setItem('supabase-refresh-token', session.refresh_token || '')
-        } else {
-          cookieStorage.removeItem('supabase-auth-token')
-          cookieStorage.removeItem('supabase-refresh-token')
-        }
-      },
-
-      setProfile: (profile) => {
-        set({ profile })
-      },
-
-      setLoading: (isLoading) => {
-        set({ isLoading })
-      },
-
-      setInitialized: (isInitialized) => {
-        set({ isInitialized })
-      },
-
-      signOut: async () => {
-        try {
-          set({ isLoading: true })
-          
-          // Sign out user
-          await supabase.auth.signOut()
-          
-          // Clear all auth data
-          set({ 
-            user: null, 
-            session: null, 
-            profile: null,
-            isLoading: false
-          })
-          
-          // Clear cookies
-          cookieStorage.removeItem('supabase-auth-token')
-          cookieStorage.removeItem('supabase-refresh-token')
-          
-        } catch (error) {
-          console.error('Error during sign out:', error)
-          set({ isLoading: false })
-        }
-      },
-
-      updateOnlineStatus: async (isOnline: boolean) => {
-        try {
-          const { user } = get()
-          if (!user) return
-
-          // Update profile directly
-          const { error } = await supabase
-            .from('profiles')
-            .update({ 
-              is_online: isOnline,
-              last_seen_at: new Date().toISOString()
-            })
-            .eq('id', user.id)
-          
-          if (error) {
-            console.error('Error updating online status:', error)
-            return
-          }
-          
-          // Update local profile state
-          const { profile } = get()
-          if (profile) {
-            set({ 
-              profile: { 
-                ...profile, 
-                is_online: isOnline,
-                last_seen_at: new Date().toISOString()
-              } 
-            })
-          }
-        } catch (error) {
-          console.error('Error updating online status:', error)
-        }
-      },
-
-      clearAuth: () => {
-        set({ 
-          user: null, 
-          session: null, 
-          profile: null,
-          isLoading: false,
-          isInitialized: true
-        })
-        cookieStorage.removeItem('supabase-auth-token')
-        cookieStorage.removeItem('supabase-refresh-token')
-      },
-    }),
-    {
-      name: 'auth-storage',
-      storage: createJSONStorage(() => enhancedCookieStorage),
-      partialize: (state) => ({
-        // Only persist essential user data, not loading states
-        user: state.user,
-        session: state.session,
-        profile: state.profile,
-      }),
-    }
-  )
-)
+}))
 
 // Utility functions for easier access
 export const getAuthState = () => useAuthStore.getState()

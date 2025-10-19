@@ -5,7 +5,10 @@
  * Handles threaded comments, replies, reactions, and real-time subscriptions
  */
 
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase/client';
+
+// Get browser client (with cookie storage)
+const supabase = createClient();
 import type { 
     Comment, 
     CommentCreate, 

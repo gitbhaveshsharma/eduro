@@ -85,9 +85,16 @@ export class ProfileAPI {
     page?: number,
     perPage?: number
   ) {
-    const store = useProfileStore.getState();
-    await store.searchProfiles(filters, sort, page, perPage);
-    return store.searchResults;
+    // Call the ProfileService directly instead of using the store
+    // This ensures we get fresh results and avoid timing issues
+    const { ProfileService } = await import('./service/profile.service');
+    const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
+    
+    if (result.success && result.data) {
+      return result.data;
+    } else {
+      throw new Error(result.error || 'Failed to search profiles');
+    }
   }
 
   /**

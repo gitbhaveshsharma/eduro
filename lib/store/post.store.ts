@@ -11,9 +11,12 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import { withAuth } from '../api-interceptor';
 import { PostService } from '../service/post.service';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   PublicPost,
   PostCreate,

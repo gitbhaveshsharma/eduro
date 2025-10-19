@@ -27,8 +27,11 @@ import { immer } from 'zustand/middleware/immer';
 import GlobalReactionBroadcastService, { 
   type ReactionBroadcastPayload 
 } from '../service/post-reaction.service';
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import type { PostOperationResult } from '../schema/post.types';
+
+// Initialize Supabase client
+const supabase = createClient();
 
 // ========== TYPE DEFINITIONS ==========
 

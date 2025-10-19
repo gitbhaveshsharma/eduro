@@ -5,8 +5,11 @@
  * Provides a clean interface for reaction CRUD operations, analytics, and user preferences
  */
 
-import { supabase } from '../supabase';
+import { createClient } from '../supabase/client';
 import { withAuth } from '../api-interceptor';
+
+// Initialize Supabase client
+const supabase = createClient();
 import type {
   Reaction,
   PublicReaction,

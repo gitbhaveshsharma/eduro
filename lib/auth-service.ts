@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import { useAuthStore } from '@/lib/auth-store'
 import { 
   OtpVerificationData, 
@@ -7,6 +7,9 @@ import {
   PhoneOtpVerificationData
 } from '@/lib/validations'
 import { AuthError, AuthResponse, OAuthResponse } from '@supabase/supabase-js'
+
+// Get the browser client (with cookie storage)
+const supabase = createClient()
 
 // Provider type for OAuth
 export type Provider = 'google' | 'github' | 'facebook'
