@@ -93,12 +93,24 @@ export function NetworkDiscovery({
 
         try {
             // Build filters
-            const profileFilters: ProfileFilters = {
-                search_query: searchQuery || undefined,
-                role: selectedRole !== 'all' ? selectedRole as any : undefined,
-                is_verified: showVerifiedOnly || undefined,
-                is_online: showOnlineOnly || undefined,
-            };
+            const profileFilters: ProfileFilters = {};
+
+            // Only add filters if they have meaningful values
+            if (searchQuery && searchQuery.trim()) {
+                profileFilters.search_query = searchQuery.trim();
+            }
+
+            if (selectedRole && selectedRole !== 'all') {
+                profileFilters.role = selectedRole as any;
+            }
+
+            if (showVerifiedOnly === true) {
+                profileFilters.is_verified = true;
+            }
+
+            if (showOnlineOnly === true) {
+                profileFilters.is_online = true;
+            }
 
             // Parse sort
             const [field, direction] = selectedSort.split(':');
@@ -109,7 +121,7 @@ export function NetworkDiscovery({
 
             console.log('🔵 NetworkDiscovery - Calling API with:', { profileFilters, sort, page });
 
-            // Fetch from API
+            // Fetch from API - now returns direct result instead of store state
             const result = await ProfileAPI.searchProfiles(profileFilters, sort, page, 20);
 
             console.log('🔵 NetworkDiscovery - API response:', {
@@ -170,10 +182,37 @@ export function NetworkDiscovery({
     }, []); // ✅ Empty dependencies - function is stable
 
     /**
+     * Effect: Initial load on mount
+     */
+    useEffect(() => {
+        console.log('🟢 NetworkDiscovery - Initial mount, loading profiles...');
+
+        // Load profiles immediately on mount with current filter state
+        fetchProfiles(
+            1,
+            false,
+            externalSearchQuery,
+            externalSelectedRole,
+            externalSelectedSort,
+            externalShowVerifiedOnly,
+            externalShowOnlineOnly
+        );
+    }, []); // Only run on mount
+
+    /**
+     * Effect: Handle filter changes with debouncing for search
+     */
+    /**
      * Effect: Handle filter changes with debouncing for search
      */
     useEffect(() => {
-        console.log('🟡 NetworkDiscovery - Filters changed, scheduling fetch...');
+        console.log('🟡 NetworkDiscovery - Filters changed, scheduling fetch...', {
+            searchQuery: externalSearchQuery,
+            role: externalSelectedRole,
+            sort: externalSelectedSort,
+            verified: externalShowVerifiedOnly,
+            online: externalShowOnlineOnly,
+        });
 
         // Clear existing timer
         if (searchTimerRef.current) {
@@ -185,8 +224,8 @@ export function NetworkDiscovery({
             searchTimerRef.current = setTimeout(() => {
                 console.log('🟡 NetworkDiscovery - Search debounce completed, fetching...');
                 fetchProfiles(
-                    1,
-                    false,
+                    1, // Always reset to page 1 when filters change
+                    false, // Don't append, replace results
                     externalSearchQuery,
                     externalSelectedRole,
                     externalSelectedSort,
@@ -197,8 +236,8 @@ export function NetworkDiscovery({
         } else {
             console.log('🟡 NetworkDiscovery - Fetching immediately (no search query)');
             fetchProfiles(
-                1,
-                false,
+                1, // Always reset to page 1 when filters change
+                false, // Don't append, replace results
                 externalSearchQuery,
                 externalSelectedRole,
                 externalSelectedSort,
