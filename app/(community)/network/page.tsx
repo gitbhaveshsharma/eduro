@@ -57,14 +57,14 @@ export default function NetworkPage() {
                 {/* Sticky Tab Navigation - Same design always */}
                 <div className={cn(
                     "transition-all duration-300",
-                    isSticky && "sticky top-15 z-40 py-3 -mx-4 sm:-mx-6 px-4 sm:px-6 "
+                    isSticky && "sticky top-15 z-40 py-3 -mx-4 sm:-mx-6 px-4 sm:px-6"
                 )}>
                     <div className="flex bg-white p-1 rounded-lg shadow-sm border border-border max-w-md">
                         <button
                             onClick={() => setActiveTab('discover')}
                             className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'discover'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-primary text-white shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             <Search className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -73,8 +73,8 @@ export default function NetworkPage() {
                         <button
                             onClick={() => setActiveTab('suggestions')}
                             className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 ${activeTab === 'suggestions'
-                                ? 'bg-primary text-white shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
+                                    ? 'bg-primary text-white shadow-sm'
+                                    : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             <Sparkles className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -83,14 +83,17 @@ export default function NetworkPage() {
                     </div>
                 </div>
 
-                {/* Tab Content with Smooth Transitions */}
+                {/* Tab Content - Both mounted, visibility controlled */}
                 <div className="relative min-h-[400px]">
-                    {/* Discover Tab */}
+                    {/* Discover Tab - Always mounted */}
                     <div
-                        className={`transition-all duration-300 ease-in-out ${activeTab === 'discover'
-                            ? 'opacity-100 translate-x-0'
-                            : 'opacity-0 translate-x-4 pointer-events-none absolute inset-0'
-                            }`}
+                        className={cn(
+                            "transition-opacity duration-300 ease-in-out",
+                            activeTab === 'discover'
+                                ? 'opacity-100'
+                                : 'opacity-0 absolute inset-0 pointer-events-none'
+                        )}
+                        aria-hidden={activeTab !== 'discover'}
                     >
                         <NetworkDiscovery
                             searchQuery={searchQuery}
@@ -103,12 +106,15 @@ export default function NetworkPage() {
                         />
                     </div>
 
-                    {/* Suggestions Tab */}
+                    {/* Suggestions Tab - Always mounted */}
                     <div
-                        className={`transition-all duration-300 ease-in-out ${activeTab === 'suggestions'
-                            ? 'opacity-100 translate-x-0'
-                            : 'opacity-0 -translate-x-4 pointer-events-none absolute inset-0'
-                            }`}
+                        className={cn(
+                            "transition-opacity duration-300 ease-in-out",
+                            activeTab === 'suggestions'
+                                ? 'opacity-100'
+                                : 'opacity-0 absolute inset-0 pointer-events-none'
+                        )}
+                        aria-hidden={activeTab !== 'suggestions'}
                     >
                         <ConnectionSuggestions />
                     </div>

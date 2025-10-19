@@ -4,6 +4,10 @@
  * State management store for posts data using the get_posts service
  * Handles loading states, caching, data management, and real-time updates
  * Built with Zustand for optimal performance and TypeScript support
+ * 
+ * ✅ Reaction subscriptions handled by components via useReactionSubscription
+ * ✅ GetPostStore only handles engagement subscriptions (separate concern)
+ * ✅ No duplicate subscriptions
  */
 
 import React from 'react';
@@ -78,7 +82,7 @@ interface FeedState {
   lastUpdateTime: number;
   pendingUpdates: EnhancedPost[];
   
-  // Real-time subscriptions
+  // Real-time subscriptions (only for engagement, not reactions)
   realtimeSubscriptions: Map<string, () => void>;
   subscribedPostIds: Set<string>;
 }
@@ -119,13 +123,10 @@ interface FeedActions {
   incrementPostShareCount: (postId: string) => void;
   recordPostViews: (postIds: string[]) => Promise<void>;
   
-  // Real-time subscriptions
-  subscribeToPostReactions: (postId: string) => void;
+  // Real-time subscriptions (only engagement, reactions handled by components)
   subscribeToPostEngagement: (postId: string) => void;
-  subscribeToFeedUpdates: () => void;
   unsubscribeFromPost: (postId: string) => void;
   unsubscribeAll: () => void;
-  handleReactionUpdate: (payload: any) => void;
   handleEngagementUpdate: (payload: any) => void;
   
   // Post operations
@@ -207,6 +208,12 @@ export const useGetPostStore = create<GetPostStore>()(
         const state = get();
         const cacheKey = generateCacheKey(params);
         
+        // Prevent duplicate requests for the same parameters
+        if (state.loadingState === 'loading' && 
+            JSON.stringify(state.currentFilters) === JSON.stringify(params)) {
+          return;
+        }
+        
         // Check cache first
         const cachedResult = state.getCachedResult(cacheKey);
         if (cachedResult) {
@@ -222,8 +229,14 @@ export const useGetPostStore = create<GetPostStore>()(
           return;
         }
 
+        // Only set loading if we don't have existing posts or it's a significantly different request
+        const shouldShowLoading = state.posts.length === 0 || 
+          JSON.stringify(state.currentFilters) !== JSON.stringify(params);
+
         set((draft) => {
-          draft.loadingState = 'loading';
+          if (shouldShowLoading) {
+            draft.loadingState = 'loading';
+          }
           draft.error = null;
           draft.currentFilters = params;
         });
@@ -478,7 +491,6 @@ export const useGetPostStore = create<GetPostStore>()(
             draft.viewedPosts.push(postId);
           }
           
-          // Update post in the list
           const post = draft.posts.find((p: EnhancedPost) => p.id === postId);
           if (post) {
             post.user_has_viewed = true;
@@ -547,7 +559,7 @@ export const useGetPostStore = create<GetPostStore>()(
             });
           });
         } catch (error) {
-          console.warn('Failed to record post views:', error);
+          console.warn('[GetPostStore] Failed to record post views:', error);
         }
       },
 
@@ -560,19 +572,16 @@ export const useGetPostStore = create<GetPostStore>()(
             draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== postId);
           });
 
-          // Call the service
           const { PostService } = await import('../service/post.service');
           const result = await PostService.deletePost(postId);
           
           if (!result.success) {
-            // Revert the optimistic update by refreshing the feed
             await get().refreshFeed();
             return false;
           }
 
           return true;
         } catch (error) {
-          // Revert the optimistic update
           await get().refreshFeed();
           return false;
         }
@@ -648,7 +657,6 @@ export const useGetPostStore = create<GetPostStore>()(
         
         if (!entry) return null;
         
-        // Check if cache is still valid
         const age = Date.now() - entry.timestamp;
         if (age > CACHE_DURATION) {
           set((draft) => {
@@ -707,150 +715,87 @@ export const useGetPostStore = create<GetPostStore>()(
       },
 
       // =================== REAL-TIME SUBSCRIPTIONS ===================
-
-      subscribeToPostReactions: (postId: string) => {
-        const state = get();
-        if (state.subscribedPostIds.has(`reactions:${postId}`)) {
-          return; // Already subscribed
-        }
-
-        // ✅ SINGLE SOURCE OF TRUTH: Use PostReactionStore for all reaction subscriptions
-        // This delegates to the optimized PostReactionStore which handles:
-        // - Batched loading to prevent thundering herd
-        // - Optimistic updates to prevent UI flashing  
-        // - Proper cache management
-        const { usePostReactionStore } = require('./post-reaction.store');
-        const postReactionStore = usePostReactionStore.getState();
-        
-        // Subscribe via PostReactionStore (single source of truth)
-        postReactionStore.subscribeToTarget('POST', postId);
-
-        // Create a lightweight unsubscribe function that delegates to PostReactionStore
-        const unsubscribe = () => {
-          postReactionStore.unsubscribeFromTarget('POST', postId);
-        };
-
-        set((draft) => {
-          draft.realtimeSubscriptions.set(`reactions:${postId}`, unsubscribe);
-          draft.subscribedPostIds.add(`reactions:${postId}`);
-        });
-
-        // Listen to PostReactionStore updates and sync lastUpdateTime
-        // This ensures GetPostStore UI updates when reactions change
-        const syncState = () => {
-          set((draft) => {
-            draft.lastUpdateTime = Date.now();
-          });
-        };
-
-        // Subscribe to PostReactionStore state changes for this target
-        const storeUnsubscribe = usePostReactionStore.subscribe(
-          (state: any) => state.reactionCache.get(`POST:${postId}`),
-          () => syncState()
-        );
-
-        // Enhance unsubscribe to also cleanup store subscription
-        const enhancedUnsubscribe = () => {
-          unsubscribe();
-          storeUnsubscribe();
-        };
-
-        // Update the stored unsubscribe function
-        set((draft) => {
-          draft.realtimeSubscriptions.set(`reactions:${postId}`, enhancedUnsubscribe);
-        });
-      },
+      // ✅ ONLY ENGAGEMENT SUBSCRIPTIONS - Reactions handled by components
 
       subscribeToPostEngagement: (postId: string) => {
         const state = get();
-        if (state.subscribedPostIds.has(`engagement:${postId}`)) {
-          return; // Already subscribed
-        }
-
-        const { PostService } = require('../service/post.service');
-        const unsubscribe = PostService.subscribeToPostEngagement(postId, (payload: any) => {
-          state.handleEngagementUpdate(payload);
-        });
-
-        set((draft) => {
-          draft.realtimeSubscriptions.set(`engagement:${postId}`, unsubscribe);
-          draft.subscribedPostIds.add(`engagement:${postId}`);
-        });
-      },
-
-      subscribeToFeedUpdates: () => {
-        const state = get();
-        const currentPostIds = state.posts.map(p => p.id);
+        const subscriptionKey = `engagement:${postId}`;
         
-        if (currentPostIds.length === 0) {
-          return; // No posts to subscribe to
+        if (state.subscribedPostIds.has(subscriptionKey)) {
+          console.log(`[GetPostStore] Already subscribed to engagement for post ${postId}`);
+          return;
         }
 
-        const { PostService } = require('../service/post.service');
-        const unsubscribe = PostService.subscribeToMultiplePostsEngagement(currentPostIds, (payload: any) => {
-          state.handleEngagementUpdate(payload);
-        });
+        console.log(`[GetPostStore] 📡 Subscribing to engagement for post ${postId}`);
 
-        set((draft) => {
-          draft.realtimeSubscriptions.set('feed_engagement', unsubscribe);
-          draft.subscribedPostIds.add('feed_engagement');
-        });
+        try {
+          const { PostService } = require('../service/post.service');
+          
+          if (typeof PostService.subscribeToPostEngagement !== 'function') {
+            console.warn('[GetPostStore] PostService.subscribeToPostEngagement not available');
+            return;
+          }
 
-        // Subscribe to individual post reactions
-        currentPostIds.forEach(postId => {
-          state.subscribeToPostReactions(postId);
-        });
+          const unsubscribe = PostService.subscribeToPostEngagement(postId, (payload: any) => {
+            state.handleEngagementUpdate(payload);
+          });
+
+          set((draft) => {
+            draft.realtimeSubscriptions.set(subscriptionKey, unsubscribe);
+            draft.subscribedPostIds.add(subscriptionKey);
+          });
+        } catch (error) {
+          console.error(`[GetPostStore] Error subscribing to engagement for post ${postId}:`, error);
+        }
       },
 
       unsubscribeFromPost: (postId: string) => {
-        const state = get();
+        console.log(`[GetPostStore] 📴 Unsubscribing from engagement for post ${postId}`);
         
         set((draft) => {
-          // Unsubscribe from reactions
-          const reactionsKey = `reactions:${postId}`;
-          const reactionsUnsubscribe = draft.realtimeSubscriptions.get(reactionsKey);
-          if (reactionsUnsubscribe) {
-            reactionsUnsubscribe();
-            draft.realtimeSubscriptions.delete(reactionsKey);
-            draft.subscribedPostIds.delete(reactionsKey);
-          }
-
-          // Unsubscribe from engagement
           const engagementKey = `engagement:${postId}`;
           const engagementUnsubscribe = draft.realtimeSubscriptions.get(engagementKey);
+          
           if (engagementUnsubscribe) {
-            engagementUnsubscribe();
-            draft.realtimeSubscriptions.delete(engagementKey);
-            draft.subscribedPostIds.delete(engagementKey);
+            try {
+              engagementUnsubscribe();
+              draft.realtimeSubscriptions.delete(engagementKey);
+              draft.subscribedPostIds.delete(engagementKey);
+            } catch (error) {
+              console.error(`[GetPostStore] Error unsubscribing from ${engagementKey}:`, error);
+            }
           }
         });
       },
 
       unsubscribeAll: () => {
         const state = get();
+        const count = state.realtimeSubscriptions.size;
+        
+        if (count === 0) {
+          console.log('[GetPostStore] No subscriptions to clean up');
+          return;
+        }
+        
+        console.log(`[GetPostStore] 📴 Unsubscribing from all (${count} subscriptions)`);
         
         set((draft) => {
-          // Call all unsubscribe functions
-          draft.realtimeSubscriptions.forEach(unsubscribe => {
-            unsubscribe();
+          draft.realtimeSubscriptions.forEach((unsubscribe, key) => {
+            console.log(`[GetPostStore] Unsubscribing from ${key}`);
+            try {
+              unsubscribe();
+            } catch (error) {
+              console.error(`[GetPostStore] Error unsubscribing from ${key}:`, error);
+            }
           });
           
-          // Clear all subscriptions
           draft.realtimeSubscriptions.clear();
           draft.subscribedPostIds.clear();
         });
       },
 
-      handleReactionUpdate: (payload: any) => {
-        // ⚠️ DEPRECATED: Reaction updates now handled by PostReactionStore
-        // This method is kept for backward compatibility but does nothing
-        // All reaction logic has been moved to the dedicated PostReactionStore
-        // which provides better performance, caching, and batched loading
-        console.warn('[GetPostStore] handleReactionUpdate is deprecated. Use PostReactionStore instead.');
-      },
-
       handleEngagementUpdate: (payload: any) => {
-        console.log('Handling engagement update:', payload);
+        console.log('[GetPostStore] 📨 Handling engagement update:', payload);
         
         set((draft) => {
           const { new: newData } = payload;
@@ -859,7 +804,6 @@ export const useGetPostStore = create<GetPostStore>()(
             const postIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === newData.id);
             
             if (postIndex !== -1) {
-              // Update the post with new engagement metrics
               const existingPost = draft.posts[postIndex];
               draft.posts[postIndex] = {
                 ...existingPost,
@@ -872,6 +816,10 @@ export const useGetPostStore = create<GetPostStore>()(
               };
               
               draft.lastUpdateTime = Date.now();
+              
+              console.log(`[GetPostStore] ✅ Updated engagement for post ${newData.id}`);
+            } else {
+              console.debug(`[GetPostStore] Post ${newData.id} not found in current feed`);
             }
           }
         });
@@ -953,26 +901,56 @@ export const usePostInteractions = () => {
 };
 
 /**
- * Hook for real-time functionality
- * Automatically subscribes to updates for loaded posts
+ * Hook for real-time engagement (NOT reactions)
+ * Reactions are handled by components via useReactionSubscription
+ * Optimized to prevent unnecessary re-subscriptions
  */
 export const useRealtimePosts = (autoSubscribe = true) => {
   const store = useGetPostStore();
+  const isSubscribedRef = React.useRef(false);
+  const postsLengthRef = React.useRef(store.posts.length);
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
   
+  // Debounced effect to prevent too many subscription updates
   React.useEffect(() => {
-    if (autoSubscribe && store.posts.length > 0) {
-      // Subscribe to feed-wide updates
-      store.subscribeToFeedUpdates();
+    postsLengthRef.current = store.posts.length;
+    
+    // Only subscribe once when posts are first loaded
+    if (autoSubscribe && store.posts.length > 0 && !isSubscribedRef.current) {
+      isSubscribedRef.current = true;
       
-      return () => {
-        // Cleanup subscriptions when component unmounts
-        store.unsubscribeAll();
-      };
+      const currentPostIds = store.posts.map(p => p.id);
+      
+      // Optional: Subscribe to feed-wide engagement if you have that feature
+      try {
+        const { PostService } = require('../service/post.service');
+        
+        if (typeof PostService.subscribeToMultiplePostsEngagement === 'function') {
+          const unsubscribe = PostService.subscribeToMultiplePostsEngagement(
+            currentPostIds,
+            (payload: any) => {
+              store.handleEngagementUpdate(payload);
+            }
+          );
+
+          unsubscribeRef.current = unsubscribe;
+        }
+      } catch (error) {
+        console.debug('[useRealtimePosts] Engagement subscription not available:', error);
+      }
     }
-  }, [store.posts.length, autoSubscribe]);
+    
+    // Cleanup function for unmount
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+        isSubscribedRef.current = false;
+      }
+    };
+  }, [autoSubscribe]); // Only depend on autoSubscribe, not posts.length
   
   return {
-    subscribeToPost: store.subscribeToPostReactions,
     subscribeToEngagement: store.subscribeToPostEngagement,
     unsubscribeFromPost: store.unsubscribeFromPost,
     unsubscribeAll: store.unsubscribeAll,

@@ -96,12 +96,19 @@ export function FeedContainer({
     }, [loadingMore, hasMore, enableInfiniteScroll, loadMorePosts]);
 
     // Load feed when component mounts or filters change
+    // Debounced to prevent rapid successive calls
     useEffect(() => {
         const params: GetPostsParams = {
             ...filters,
             feed_type: feedType
         };
-        loadFeed(params);
+
+        // Add a small delay to batch rapid filter changes
+        const timeoutId = setTimeout(() => {
+            loadFeed(params);
+        }, 50);
+
+        return () => clearTimeout(timeoutId);
     }, [feedType, JSON.stringify(filters), loadFeed]);
 
     // Handle post interactions
@@ -241,20 +248,21 @@ export function FeedContainer({
         refreshFeed();
     }, [clearError, refreshFeed]);
 
-    // Render loading state
-    if (loadingState === 'loading' && posts.length === 0) {
+    // Render loading state - only show if truly loading from scratch
+    if (loadingState === 'loading' && posts.length === 0 && !refreshing) {
         return (
             <div className={className}>
                 <FeedLoading
                     state="loading"
                     compact={compact}
+                    skeletonCount={compact ? 2 : 3}
                 />
             </div>
         );
     }
 
-    // Render error state
-    if (loadingState === 'error' && posts.length === 0) {
+    // Render error state - only if no posts and genuine error
+    if (loadingState === 'error' && posts.length === 0 && !refreshing) {
         return (
             <div className={className}>
                 <FeedLoading

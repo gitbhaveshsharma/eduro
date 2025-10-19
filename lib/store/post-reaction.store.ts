@@ -1,20 +1,52 @@
 /**
- * Post Reaction Store
+ * Post Reaction Store (Global Broadcast Edition)
  * 
- * Zustand store for managing real-time post and comment reactions
- * Handles WebSocket subscriptions, caching, and UI state synchronization
+ * Zustand store for managing real-time post and comment reactions.
+ * Uses GlobalReactionBroadcastService for scalable single-channel architecture.
+ * 
+ * Key Features:
+ * - ONE global WebSocket channel instead of N channels
+ * - Client-side filtering for efficiency
+ * - Optimistic updates for instant UI
+ * - Smart caching with TTL (5 minutes)
+ * - Batch loading for performance
+ * - No duplicate subscriptions
+ * - Proper cleanup on unmount
+ * 
+ * @example
+ * ```
+ * // In a component
+ * const { reaction, loading } = useUserReaction('POST', postId);
+ * useReactionSubscription('POST', postId); // Auto-subscribes
+ * ```
  */
 
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import { enableMapSet } from 'immer';
-import { PostReactionService, type UserReaction, type ReactionUpdate } from '../service/post-reaction.service';
+import GlobalReactionBroadcastService, { 
+  type ReactionBroadcastPayload 
+} from '../service/post-reaction.service';
+import { supabase } from '../supabase';
+import type { PostOperationResult } from '../schema/post.types';
 
-// Enable Map and Set support for Immer
-enableMapSet();
+// ========== TYPE DEFINITIONS ==========
 
-// Cache entry for user reactions
+export interface UserReaction {
+  id: string;
+  user_id: string;
+  target_type: 'POST' | 'COMMENT';
+  target_id: string;
+  reaction_id: number;
+  created_at: string;
+  reaction?: {
+    name: string;
+    emoji_unicode: string;
+    category: string;
+    description?: string;
+  };
+}
+
 interface ReactionCacheEntry {
   targetType: 'POST' | 'COMMENT';
   targetId: string;
@@ -25,34 +57,41 @@ interface ReactionCacheEntry {
   error: string | null;
 }
 
-// Store state interface
 interface PostReactionState {
   // Cache of reactions by target
-  reactionCache: Map<string, ReactionCacheEntry>;
+  reactionCache: Record<string, ReactionCacheEntry>;
   
-  // Active subscriptions
-  activeSubscriptions: Map<string, () => void>; // channelKey -> unsubscribe function
+  // Active subscriptions (unsubscribe functions)
+  activeSubscriptions: Record<string, () => void>;
   
   // Loading states
   loadingTargets: Set<string>;
   
   // Batch loading for initial subscriptions
-  pendingBatchLoad: Set<string>; // Cache keys pending batch load
+  pendingBatchLoad: Set<string>;
   batchLoadTimer: NodeJS.Timeout | null;
   
   // Error tracking
-  errors: Map<string, string>;
+  errors: Record<string, string>;
   
-  // Real-time connection status
+  // Connection status
   connectionStatus: 'connected' | 'disconnected' | 'error';
   lastConnectionCheck: number;
 }
 
-// Store actions interface
 interface PostReactionActions {
   // Query operations
-  loadUserReaction: (targetType: 'POST' | 'COMMENT', targetId: string, force?: boolean) => Promise<void>;
-  loadAllReactions: (targetType: 'POST' | 'COMMENT', targetId: string, force?: boolean) => Promise<void>;
+  loadUserReaction: (
+    targetType: 'POST' | 'COMMENT', 
+    targetId: string, 
+    force?: boolean
+  ) => Promise<void>;
+  
+  loadAllReactions: (
+    targetType: 'POST' | 'COMMENT', 
+    targetId: string, 
+    force?: boolean
+  ) => Promise<void>;
   
   // Subscription management
   subscribeToTarget: (targetType: 'POST' | 'COMMENT', targetId: string) => void;
@@ -65,42 +104,154 @@ interface PostReactionActions {
   invalidateCache: (targetType: 'POST' | 'COMMENT', targetId: string) => void;
   
   // Real-time update handlers
-  handleReactionUpdate: (update: ReactionUpdate) => void;
+  handleReactionUpdate: (payload: ReactionBroadcastPayload) => void;
   
   // Batch loading
   processBatchLoad: () => void;
   
   // Utility
   getSubscriptionCount: () => number;
-  getChannelStatus: () => Record<string, any>;
+  isHealthy: () => boolean;
   
   // Error handling
   clearError: (targetType: 'POST' | 'COMMENT', targetId: string) => void;
   clearAllErrors: () => void;
 }
 
-// Combined store interface
 export interface PostReactionStore extends PostReactionState, PostReactionActions {}
 
-// Cache TTL (5 minutes)
-const CACHE_TTL = 5 * 60 * 1000;
+// ========== CONSTANTS ==========
 
-// Generate cache key
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const BATCH_LOAD_DELAY = 150; // 150ms batch window
+const BATCH_STAGGER_DELAY = 25; // 25ms between each load
+
+// ========== HELPER FUNCTIONS ==========
+
+/**
+ * Generate cache key for type safety and consistency
+ */
 function getCacheKey(targetType: 'POST' | 'COMMENT', targetId: string): string {
   return `${targetType}:${targetId}`;
 }
 
-// Create the store
+/**
+ * Check if cache is fresh
+ */
+function isCacheFresh(entry: ReactionCacheEntry | undefined, ttl: number = CACHE_TTL): boolean {
+  if (!entry || entry.loading) return false;
+  const age = Date.now() - entry.lastFetched;
+  return age < ttl;
+}
+
+/**
+ * Fetch user's reaction from database
+ */
+async function fetchUserReaction(
+  targetType: 'POST' | 'COMMENT',
+  targetId: string
+): Promise<PostOperationResult<UserReaction | null>> {
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    
+    if (authError || !user) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const { data, error } = await supabase
+      .from('post_reactions')
+      .select(`
+        *,
+        reaction:reactions!inner(
+          name,
+          emoji_unicode,
+          category,
+          description
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('target_type', targetType)
+      .eq('target_id', targetId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('[fetchUserReaction] Error:', error);
+      return { success: false, error: error.message };
+    }
+
+    if (data && data.reaction) {
+      const reaction = Array.isArray(data.reaction) ? data.reaction[0] : data.reaction;
+      return {
+        success: true,
+        data: { ...data, reaction } as UserReaction
+      };
+    }
+
+    return { success: true, data: null };
+  } catch (error) {
+    console.error('[fetchUserReaction] Exception:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
+ * Fetch all reactions for a target from database
+ */
+async function fetchTargetReactions(
+  targetType: 'POST' | 'COMMENT',
+  targetId: string
+): Promise<PostOperationResult<UserReaction[]>> {
+  try {
+    const { data, error } = await supabase
+      .from('post_reactions')
+      .select(`
+        *,
+        reaction:reactions!inner(
+          name,
+          emoji_unicode,
+          category,
+          description
+        )
+      `)
+      .eq('target_type', targetType)
+      .eq('target_id', targetId);
+
+    if (error) {
+      console.error('[fetchTargetReactions] Error:', error);
+      return { success: false, error: error.message };
+    }
+
+    const reactions = (data || []).map(item => ({
+      ...item,
+      reaction: Array.isArray(item.reaction) ? item.reaction[0] : item.reaction
+    })) as UserReaction[];
+
+    return { success: true, data: reactions };
+  } catch (error) {
+    console.error('[fetchTargetReactions] Exception:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+// ========== ZUSTAND STORE ==========
+
 export const usePostReactionStore = create<PostReactionStore>()(
   devtools(
     immer((set, get) => ({
-      // Initial state
-      reactionCache: new Map(),
-      activeSubscriptions: new Map(),
+      // ========== INITIAL STATE ==========
+      
+      reactionCache: {},
+      activeSubscriptions: {},
       loadingTargets: new Set(),
       pendingBatchLoad: new Set(),
       batchLoadTimer: null,
-      errors: new Map(),
+      errors: {},
       connectionStatus: 'disconnected',
       lastConnectionCheck: 0,
 
@@ -112,22 +263,18 @@ export const usePostReactionStore = create<PostReactionStore>()(
         force: boolean = false
       ) => {
         const cacheKey = getCacheKey(targetType, targetId);
-        const cached = get().reactionCache.get(cacheKey);
+        const cached = get().reactionCache[cacheKey];
 
         // Check cache validity
-        if (!force && cached && !cached.loading) {
-          const age = Date.now() - cached.lastFetched;
-          if (age < CACHE_TTL) {
-            return; // Cache is still fresh
-          }
+        if (!force && isCacheFresh(cached)) {
+          console.log(`[PostReactionStore] Using cached user reaction for ${cacheKey}`);
+          return;
         }
 
         // Set loading state
         set((draft) => {
-          draft.loadingTargets.add(cacheKey);
-          
-          if (!draft.reactionCache.has(cacheKey)) {
-            draft.reactionCache.set(cacheKey, {
+          if (!draft.reactionCache[cacheKey]) {
+            draft.reactionCache[cacheKey] = {
               targetType,
               targetId,
               userReaction: null,
@@ -135,22 +282,21 @@ export const usePostReactionStore = create<PostReactionStore>()(
               lastFetched: 0,
               loading: true,
               error: null,
-            });
+            };
           } else {
-            const entry = draft.reactionCache.get(cacheKey)!;
-            entry.loading = true;
-            entry.error = null;
+            draft.reactionCache[cacheKey].loading = true;
+            draft.reactionCache[cacheKey].error = null;
           }
+          draft.loadingTargets.add(cacheKey);
         });
 
         try {
-          // Fetch user reaction
-          const result = await PostReactionService.getUserReaction(targetType, targetId);
+          const result = await fetchUserReaction(targetType, targetId);
 
           set((draft) => {
             draft.loadingTargets.delete(cacheKey);
             
-            const entry = draft.reactionCache.get(cacheKey);
+            const entry = draft.reactionCache[cacheKey];
             if (entry) {
               entry.loading = false;
               entry.lastFetched = Date.now();
@@ -158,10 +304,10 @@ export const usePostReactionStore = create<PostReactionStore>()(
               if (result.success) {
                 entry.userReaction = result.data || null;
                 entry.error = null;
-                draft.errors.delete(cacheKey);
+                delete draft.errors[cacheKey];
               } else {
                 entry.error = result.error || 'Failed to load reaction';
-                draft.errors.set(cacheKey, entry.error);
+                draft.errors[cacheKey] = entry.error;
               }
             }
           });
@@ -171,13 +317,13 @@ export const usePostReactionStore = create<PostReactionStore>()(
           set((draft) => {
             draft.loadingTargets.delete(cacheKey);
             
-            const entry = draft.reactionCache.get(cacheKey);
+            const entry = draft.reactionCache[cacheKey];
             if (entry) {
               entry.loading = false;
               entry.error = errorMessage;
             }
             
-            draft.errors.set(cacheKey, errorMessage);
+            draft.errors[cacheKey] = errorMessage;
           });
         }
       },
@@ -188,22 +334,18 @@ export const usePostReactionStore = create<PostReactionStore>()(
         force: boolean = false
       ) => {
         const cacheKey = getCacheKey(targetType, targetId);
-        const cached = get().reactionCache.get(cacheKey);
+        const cached = get().reactionCache[cacheKey];
 
         // Check cache validity
-        if (!force && cached && !cached.loading) {
-          const age = Date.now() - cached.lastFetched;
-          if (age < CACHE_TTL) {
-            return; // Cache is still fresh
-          }
+        if (!force && isCacheFresh(cached)) {
+          console.log(`[PostReactionStore] Using cached all reactions for ${cacheKey}`);
+          return;
         }
 
         // Set loading state
         set((draft) => {
-          draft.loadingTargets.add(cacheKey);
-          
-          if (!draft.reactionCache.has(cacheKey)) {
-            draft.reactionCache.set(cacheKey, {
+          if (!draft.reactionCache[cacheKey]) {
+            draft.reactionCache[cacheKey] = {
               targetType,
               targetId,
               userReaction: null,
@@ -211,22 +353,21 @@ export const usePostReactionStore = create<PostReactionStore>()(
               lastFetched: 0,
               loading: true,
               error: null,
-            });
+            };
           } else {
-            const entry = draft.reactionCache.get(cacheKey)!;
-            entry.loading = true;
-            entry.error = null;
+            draft.reactionCache[cacheKey].loading = true;
+            draft.reactionCache[cacheKey].error = null;
           }
+          draft.loadingTargets.add(cacheKey);
         });
 
         try {
-          // Fetch all reactions
-          const result = await PostReactionService.getTargetReactions(targetType, targetId);
+          const result = await fetchTargetReactions(targetType, targetId);
 
           set((draft) => {
             draft.loadingTargets.delete(cacheKey);
             
-            const entry = draft.reactionCache.get(cacheKey);
+            const entry = draft.reactionCache[cacheKey];
             if (entry) {
               entry.loading = false;
               entry.lastFetched = Date.now();
@@ -234,10 +375,10 @@ export const usePostReactionStore = create<PostReactionStore>()(
               if (result.success) {
                 entry.allReactions = result.data || [];
                 entry.error = null;
-                draft.errors.delete(cacheKey);
+                delete draft.errors[cacheKey];
               } else {
                 entry.error = result.error || 'Failed to load reactions';
-                draft.errors.set(cacheKey, entry.error);
+                draft.errors[cacheKey] = entry.error;
               }
             }
           });
@@ -247,13 +388,13 @@ export const usePostReactionStore = create<PostReactionStore>()(
           set((draft) => {
             draft.loadingTargets.delete(cacheKey);
             
-            const entry = draft.reactionCache.get(cacheKey);
+            const entry = draft.reactionCache[cacheKey];
             if (entry) {
               entry.loading = false;
               entry.error = errorMessage;
             }
             
-            draft.errors.set(cacheKey, errorMessage);
+            draft.errors[cacheKey] = errorMessage;
           });
         }
       },
@@ -264,31 +405,32 @@ export const usePostReactionStore = create<PostReactionStore>()(
         const cacheKey = getCacheKey(targetType, targetId);
         const state = get();
 
-        // Don't subscribe if already subscribed
-        if (state.activeSubscriptions.has(cacheKey)) {
+        // Prevent duplicate subscriptions
+        if (state.activeSubscriptions[cacheKey]) {
           console.log(`[PostReactionStore] Already subscribed to ${cacheKey}`);
           return;
         }
 
-        console.log(`[PostReactionStore] Subscribing to ${cacheKey}`);
+        console.log(`[PostReactionStore] 📡 Subscribing to ${cacheKey} via global broadcast`);
 
-        // Create subscription
-        const unsubscribe = PostReactionService.subscribeToTarget(
+        // Subscribe via GlobalReactionBroadcastService
+        const unsubscribe = GlobalReactionBroadcastService.subscribe(
           targetType,
           targetId,
-          (update) => {
-            get().handleReactionUpdate(update);
+          (payload) => {
+            // Handle real-time updates
+            get().handleReactionUpdate(payload);
           }
         );
 
         // Store unsubscribe function
         set((draft) => {
-          draft.activeSubscriptions.set(cacheKey, unsubscribe);
+          draft.activeSubscriptions[cacheKey] = unsubscribe;
           draft.connectionStatus = 'connected';
           draft.lastConnectionCheck = Date.now();
         });
 
-        // Add to batch loading queue instead of immediate load
+        // Add to batch loading queue
         set((draft) => {
           draft.pendingBatchLoad.add(cacheKey);
           
@@ -296,7 +438,7 @@ export const usePostReactionStore = create<PostReactionStore>()(
           if (!draft.batchLoadTimer) {
             draft.batchLoadTimer = setTimeout(() => {
               get().processBatchLoad();
-            }, 150); // 150ms batch window
+            }, BATCH_LOAD_DELAY);
           }
         });
       },
@@ -305,13 +447,13 @@ export const usePostReactionStore = create<PostReactionStore>()(
         const cacheKey = getCacheKey(targetType, targetId);
         const state = get();
         
-        const unsubscribe = state.activeSubscriptions.get(cacheKey);
+        const unsubscribe = state.activeSubscriptions[cacheKey];
         if (unsubscribe) {
-          console.log(`[PostReactionStore] Unsubscribing from ${cacheKey}`);
+          console.log(`[PostReactionStore] 📴 Unsubscribing from ${cacheKey}`);
           unsubscribe();
           
           set((draft) => {
-            draft.activeSubscriptions.delete(cacheKey);
+            delete draft.activeSubscriptions[cacheKey];
           });
         }
       },
@@ -319,26 +461,24 @@ export const usePostReactionStore = create<PostReactionStore>()(
       unsubscribeAll: () => {
         const state = get();
         
-        console.log(`[PostReactionStore] Unsubscribing from all (${state.activeSubscriptions.size} subscriptions)`);
+        const count = Object.keys(state.activeSubscriptions).length;
+        console.log(`[PostReactionStore] Unsubscribing from all (${count} subscriptions)`);
         
-        state.activeSubscriptions.forEach((unsubscribe) => {
+        Object.values(state.activeSubscriptions).forEach((unsubscribe) => {
           unsubscribe();
         });
         
         set((draft) => {
-          draft.activeSubscriptions.clear();
+          draft.activeSubscriptions = {};
           draft.connectionStatus = 'disconnected';
         });
-        
-        // Also cleanup the service
-        PostReactionService.unsubscribeAll();
       },
 
       // ========== CACHE MANAGEMENT ==========
 
       getCachedReaction: (targetType: 'POST' | 'COMMENT', targetId: string) => {
         const cacheKey = getCacheKey(targetType, targetId);
-        return get().reactionCache.get(cacheKey) || null;
+        return get().reactionCache[cacheKey] || null;
       },
 
       clearCache: (targetType?: 'POST' | 'COMMENT', targetId?: string) => {
@@ -346,24 +486,20 @@ export const usePostReactionStore = create<PostReactionStore>()(
           if (targetType && targetId) {
             // Clear specific cache entry
             const cacheKey = getCacheKey(targetType, targetId);
-            draft.reactionCache.delete(cacheKey);
-            draft.errors.delete(cacheKey);
+            delete draft.reactionCache[cacheKey];
+            delete draft.errors[cacheKey];
           } else if (targetType) {
             // Clear all entries of a specific type
-            const keysToDelete: string[] = [];
-            draft.reactionCache.forEach((_, key) => {
+            Object.keys(draft.reactionCache).forEach((key) => {
               if (key.startsWith(targetType)) {
-                keysToDelete.push(key);
+                delete draft.reactionCache[key];
+                delete draft.errors[key];
               }
-            });
-            keysToDelete.forEach(key => {
-              draft.reactionCache.delete(key);
-              draft.errors.delete(key);
             });
           } else {
             // Clear all cache
-            draft.reactionCache.clear();
-            draft.errors.clear();
+            draft.reactionCache = {};
+            draft.errors = {};
           }
         });
       },
@@ -372,7 +508,7 @@ export const usePostReactionStore = create<PostReactionStore>()(
         const cacheKey = getCacheKey(targetType, targetId);
         
         set((draft) => {
-          const entry = draft.reactionCache.get(cacheKey);
+          const entry = draft.reactionCache[cacheKey];
           if (entry) {
             entry.lastFetched = 0; // Force next load to fetch fresh data
           }
@@ -381,31 +517,39 @@ export const usePostReactionStore = create<PostReactionStore>()(
 
       // ========== REAL-TIME UPDATE HANDLERS ==========
 
-      handleReactionUpdate: (update: ReactionUpdate) => {
-        console.log('[PostReactionStore] Handling reaction update:', update);
+      handleReactionUpdate: (payload: ReactionBroadcastPayload) => {
+        console.log('[PostReactionStore] 📨 Handling reaction update:', payload);
         
-        const cacheKey = getCacheKey(update.targetType, update.targetId);
+        const cacheKey = getCacheKey(payload.target_type, payload.target_id);
         
-        // Get current cached data to preserve during update
-        const currentCached = get().reactionCache.get(cacheKey);
+        // Reload data immediately to keep UI in sync
+        // Use Promise.all to load both user reaction and all reactions
+        Promise.all([
+          get().loadUserReaction(payload.target_type, payload.target_id, true),
+          get().loadAllReactions(payload.target_type, payload.target_id, true)
+        ]).catch((error) => {
+          console.error('[PostReactionStore] Error reloading after update:', error);
+        });
         
-        // Don't invalidate cache immediately - instead reload data directly
-        // This prevents the UI from showing 0 reactions during the reload
-        const loadPromise = get().loadUserReaction(update.targetType, update.targetId, true);
-        
-        // Also trigger a reload of the reaction analytics in the reaction store
-        // but preserve current analytics during the update
+        // Also trigger reload of reaction analytics if available
         setTimeout(async () => {
           try {
             const { useReactionStore } = await import('./reaction.store');
             const reactionStore = useReactionStore.getState();
             
-            // Use optimistic reload to preserve existing data during loading
-            await reactionStore.reloadAnalyticsOptimistically(update.targetType, update.targetId);
+            // Check if method exists before calling
+            if (typeof reactionStore.loadReactionAnalytics === 'function') {
+              await reactionStore.loadReactionAnalytics(
+                payload.target_type, 
+                payload.target_id, 
+                true
+              );
+            }
           } catch (error) {
-            console.error('[PostReactionStore] Error reloading analytics:', error);
+            // Ignore if reaction store doesn't exist
+            console.debug('[PostReactionStore] Reaction store not available:', error);
           }
-        }, 50); // Reduced delay for faster updates
+        }, 50);
       },
 
       // ========== BATCH LOADING ==========
@@ -416,7 +560,7 @@ export const usePostReactionStore = create<PostReactionStore>()(
         
         if (pending.length === 0) return;
         
-        console.log(`[PostReactionStore] Processing batch load for ${pending.length} targets`);
+        console.log(`[PostReactionStore] 🔄 Processing batch load for ${pending.length} targets`);
         
         // Clear pending set and timer
         set((draft) => {
@@ -427,34 +571,43 @@ export const usePostReactionStore = create<PostReactionStore>()(
           }
         });
         
-        // Process each pending load with slight stagger
+        // Process each pending load with stagger to prevent thundering herd
         pending.forEach((cacheKey, index) => {
           const [targetType, targetId] = cacheKey.split(':') as ['POST' | 'COMMENT', string];
           
           setTimeout(() => {
             const currentState = get();
             
-            // Only load if still subscribed and no fresh cache
-            if (!currentState.activeSubscriptions.has(cacheKey)) return;
-            
-            const cached = currentState.reactionCache.get(cacheKey);
-            const isFresh = cached && (Date.now() - (cached.lastFetched || 0) < CACHE_TTL);
-            
-            if (!isFresh) {
-              get().loadUserReaction(targetType, targetId, true);
+            // Only load if still subscribed
+            if (!currentState.activeSubscriptions[cacheKey]) {
+              console.log(`[PostReactionStore] Skipping ${cacheKey} - no longer subscribed`);
+              return;
             }
-          }, index * 25); // 25ms stagger between each load
+            
+            const cached = currentState.reactionCache[cacheKey];
+            
+            // Only load if cache is stale or missing
+            if (!isCacheFresh(cached)) {
+              get().loadUserReaction(targetType, targetId, true);
+            } else {
+              console.log(`[PostReactionStore] Skipping ${cacheKey} - cache is fresh`);
+            }
+          }, index * BATCH_STAGGER_DELAY);
         });
       },
 
       // ========== UTILITY ==========
 
       getSubscriptionCount: () => {
-        return get().activeSubscriptions.size;
+        return Object.keys(get().activeSubscriptions).length;
       },
 
-      getChannelStatus: () => {
-        return PostReactionService.getChannelStatus();
+      isHealthy: () => {
+        const state = get();
+        return (
+          state.connectionStatus === 'connected' &&
+          GlobalReactionBroadcastService.isHealthy()
+        );
       },
 
       // ========== ERROR HANDLING ==========
@@ -463,9 +616,9 @@ export const usePostReactionStore = create<PostReactionStore>()(
         const cacheKey = getCacheKey(targetType, targetId);
         
         set((draft) => {
-          draft.errors.delete(cacheKey);
+          delete draft.errors[cacheKey];
           
-          const entry = draft.reactionCache.get(cacheKey);
+          const entry = draft.reactionCache[cacheKey];
           if (entry) {
             entry.error = null;
           }
@@ -474,9 +627,9 @@ export const usePostReactionStore = create<PostReactionStore>()(
 
       clearAllErrors: () => {
         set((draft) => {
-          draft.errors.clear();
+          draft.errors = {};
           
-          draft.reactionCache.forEach((entry) => {
+          Object.values(draft.reactionCache).forEach((entry) => {
             entry.error = null;
           });
         });
@@ -496,7 +649,7 @@ export const usePostReactionStore = create<PostReactionStore>()(
 export const useUserReaction = (targetType: 'POST' | 'COMMENT', targetId: string) => {
   return usePostReactionStore((state) => {
     const cacheKey = getCacheKey(targetType, targetId);
-    const cached = state.reactionCache.get(cacheKey);
+    const cached = state.reactionCache[cacheKey];
     return {
       reaction: cached?.userReaction || null,
       loading: cached?.loading || false,
@@ -511,7 +664,7 @@ export const useUserReaction = (targetType: 'POST' | 'COMMENT', targetId: string
 export const useTargetReactions = (targetType: 'POST' | 'COMMENT', targetId: string) => {
   return usePostReactionStore((state) => {
     const cacheKey = getCacheKey(targetType, targetId);
-    const cached = state.reactionCache.get(cacheKey);
+    const cached = state.reactionCache[cacheKey];
     return {
       reactions: cached?.allReactions || [],
       loading: cached?.loading || false,
@@ -522,31 +675,45 @@ export const useTargetReactions = (targetType: 'POST' | 'COMMENT', targetId: str
 
 /**
  * Hook to manage subscription for a target
+ * 
+ * @example
+ * ```
+ * // In PostCard component
+ * useReactionSubscription('POST', postId); // Auto-subscribes and cleans up
+ * const { reaction } = useUserReaction('POST', postId);
+ * ```
  */
-export const useReactionSubscription = (
+export function useReactionSubscription(
   targetType: 'POST' | 'COMMENT',
   targetId: string,
   autoSubscribe: boolean = true
-) => {
-  const { subscribeToTarget, unsubscribeFromTarget } = usePostReactionStore();
+) {
+  const subscribeToTargetRef = React.useRef(usePostReactionStore.getState().subscribeToTarget);
+  const unsubscribeFromTargetRef = React.useRef(usePostReactionStore.getState().unsubscribeFromTarget);
+  
+  // Update refs on each render to get latest store functions
+  React.useEffect(() => {
+    subscribeToTargetRef.current = usePostReactionStore.getState().subscribeToTarget;
+    unsubscribeFromTargetRef.current = usePostReactionStore.getState().unsubscribeFromTarget;
+  });
   
   React.useEffect(() => {
     if (autoSubscribe) {
-      subscribeToTarget(targetType, targetId);
+      subscribeToTargetRef.current(targetType, targetId);
       
       return () => {
-        unsubscribeFromTarget(targetType, targetId);
+        unsubscribeFromTargetRef.current(targetType, targetId);
       };
     }
-  }, [targetType, targetId, autoSubscribe, subscribeToTarget, unsubscribeFromTarget]);
+  }, [targetType, targetId, autoSubscribe]); // ✅ Only stable dependencies
   
   return {
-    subscribeToTarget,
-    unsubscribeFromTarget,
+    subscribeToTarget: subscribeToTargetRef.current,
+    unsubscribeFromTarget: unsubscribeFromTargetRef.current,
   };
-};
+}
 
-// Need to import React for useEffect
+// Import React for hooks
 import React from 'react';
 
 export default usePostReactionStore;
