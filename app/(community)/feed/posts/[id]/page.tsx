@@ -3,6 +3,9 @@
  * 
  * Displays a single post with comments, reactions, and full interaction capabilities
  * Supports direct linking and sharing of specific posts
+ * 
+ * ✅ Reaction subscriptions handled by PostCard via useReactionSubscription
+ * ✅ This page only subscribes to engagement metrics via store
  */
 
 "use client";
@@ -46,13 +49,14 @@ export default function PostPage() {
         lastUpdateTime
     } = useGetPostStore();
 
-    // Enable real-time subscriptions for this specific post
-    const { subscribeToPost, subscribeToEngagement, unsubscribeFromPost } = useRealtimePosts(false);
+    // ✅ Only subscribe to ENGAGEMENT (like_count, comment_count, etc.)
+    // ⚠️ Reactions are handled by PostCard component via useReactionSubscription
+    const { subscribeToEngagement, unsubscribeFromPost } = useRealtimePosts(false);
 
     // Get post from store (with real-time updates)
     const post = posts.find(p => p.id === postId);
 
-    // Load post data and setup real-time subscriptions
+    // Load post data and setup real-time engagement subscription
     useEffect(() => {
         const loadPost = async () => {
             try {
@@ -63,8 +67,7 @@ export default function PostPage() {
                 const existingPost = posts.find(p => p.id === postId);
                 if (existingPost) {
                     setLoading(false);
-                    // Setup real-time subscriptions
-                    subscribeToPost(postId);
+                    // ✅ Subscribe to engagement only (reactions handled by PostCard)
                     subscribeToEngagement(postId);
                     recordPostView(postId);
                     return;
@@ -83,8 +86,7 @@ export default function PostPage() {
                     addPost(enhancedPost);
 
                     setLoading(false);
-                    // Setup real-time subscriptions
-                    subscribeToPost(postId);
+                    // ✅ Subscribe to engagement only
                     subscribeToEngagement(postId);
                     recordPostView(postId);
                     return;
@@ -112,8 +114,7 @@ export default function PostPage() {
                 cachePost(result.data);
                 setLoading(false);
 
-                // Setup real-time subscriptions
-                subscribeToPost(postId);
+                // ✅ Subscribe to engagement only
                 subscribeToEngagement(postId);
 
                 // Record view
@@ -130,11 +131,12 @@ export default function PostPage() {
             loadPost();
         }
 
-        // Cleanup subscriptions on unmount
+        // Cleanup engagement subscription on unmount
+        // ⚠️ Reaction cleanup is handled by PostCard component
         return () => {
             unsubscribeFromPost(postId);
         };
-    }, [postId, postCache, recordPostView, cachePost, posts, subscribeToPost, subscribeToEngagement, unsubscribeFromPost, addPost]);
+    }, [postId, postCache, recordPostView, cachePost, posts, subscribeToEngagement, unsubscribeFromPost, addPost]);
 
     // Handle post interactions
     const handlePostLike = async (postId: string, liked: boolean) => {
@@ -217,7 +219,7 @@ export default function PostPage() {
 
     const handleReactionChange = async (postId: string, reaction: PublicReaction, action: 'add' | 'remove') => {
         try {
-            // The real-time system will handle optimistic updates
+            // ✅ The real-time system will handle optimistic updates via PostCard's useReactionSubscription
             const result = await PostService.toggleReaction('POST', postId, reaction.id);
 
             if (!result.success) {
@@ -344,6 +346,11 @@ export default function PostPage() {
             <div className="max-w-2xl mx-auto px-4 py-6">
                 {/* Post */}
                 <div className="mb-6">
+                    {/* 
+                        ✅ PostCard handles its own reaction subscriptions via useReactionSubscription
+                        ✅ This page only manages engagement subscriptions (like_count, comment_count, etc.)
+                        ✅ No duplicate subscriptions
+                    */}
                     <PostCard
                         key={`post-${post.id}-${lastUpdateTime}`}
                         post={post}

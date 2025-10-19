@@ -208,6 +208,12 @@ export const useGetPostStore = create<GetPostStore>()(
         const state = get();
         const cacheKey = generateCacheKey(params);
         
+        // Prevent duplicate requests for the same parameters
+        if (state.loadingState === 'loading' && 
+            JSON.stringify(state.currentFilters) === JSON.stringify(params)) {
+          return;
+        }
+        
         // Check cache first
         const cachedResult = state.getCachedResult(cacheKey);
         if (cachedResult) {
@@ -223,8 +229,14 @@ export const useGetPostStore = create<GetPostStore>()(
           return;
         }
 
+        // Only set loading if we don't have existing posts or it's a significantly different request
+        const shouldShowLoading = state.posts.length === 0 || 
+          JSON.stringify(state.currentFilters) !== JSON.stringify(params);
+
         set((draft) => {
-          draft.loadingState = 'loading';
+          if (shouldShowLoading) {
+            draft.loadingState = 'loading';
+          }
           draft.error = null;
           draft.currentFilters = params;
         });
@@ -891,19 +903,21 @@ export const usePostInteractions = () => {
 /**
  * Hook for real-time engagement (NOT reactions)
  * Reactions are handled by components via useReactionSubscription
+ * Optimized to prevent unnecessary re-subscriptions
  */
 export const useRealtimePosts = (autoSubscribe = true) => {
   const store = useGetPostStore();
+  const isSubscribedRef = React.useRef(false);
   const postsLengthRef = React.useRef(store.posts.length);
+  const unsubscribeRef = React.useRef<(() => void) | null>(null);
   
+  // Debounced effect to prevent too many subscription updates
   React.useEffect(() => {
     postsLengthRef.current = store.posts.length;
-  }, [store.posts.length]);
-  
-  React.useEffect(() => {
-    if (autoSubscribe && store.posts.length > 0) {
-      // ✅ ONLY subscribe to engagement updates (if you have that service)
-      // ❌ DON'T subscribe to reactions here - components handle that via useReactionSubscription
+    
+    // Only subscribe once when posts are first loaded
+    if (autoSubscribe && store.posts.length > 0 && !isSubscribedRef.current) {
+      isSubscribedRef.current = true;
       
       const currentPostIds = store.posts.map(p => p.id);
       
@@ -919,17 +933,22 @@ export const useRealtimePosts = (autoSubscribe = true) => {
             }
           );
 
-          return () => {
-            if (unsubscribe && typeof unsubscribe === 'function') {
-              unsubscribe();
-            }
-          };
+          unsubscribeRef.current = unsubscribe;
         }
       } catch (error) {
         console.debug('[useRealtimePosts] Engagement subscription not available:', error);
       }
     }
-  }, [store.posts.length, autoSubscribe]);
+    
+    // Cleanup function for unmount
+    return () => {
+      if (unsubscribeRef.current) {
+        unsubscribeRef.current();
+        unsubscribeRef.current = null;
+        isSubscribedRef.current = false;
+      }
+    };
+  }, [autoSubscribe]); // Only depend on autoSubscribe, not posts.length
   
   return {
     subscribeToEngagement: store.subscribeToPostEngagement,
