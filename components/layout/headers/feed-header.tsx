@@ -14,6 +14,8 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/avatar";
+import { useCurrentProfile } from '@/lib/profile';
 
 export type FeedSortType = 'recent' | 'trending' | 'popular' | 'following';
 
@@ -51,6 +53,11 @@ export function FeedHeader({
 }: FeedHeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
+
+    // Use profile store hook to get current user profile
+    const profile = useCurrentProfile();
+
+
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -179,6 +186,18 @@ export function FeedHeader({
                                 </Badge>
                             )}
                         </Button>
+
+                        {/* User Avatar */}
+                        <UserAvatar
+                            profile={profile}
+                            size="sm"
+                            showOnlineStatus
+                            className="cursor-pointer hover:ring-2 hover:ring-gray-200 transition-all"
+                            onClick={() => {
+                                // Navigate to user profile
+                                router.push(`/dashboard`);
+                            }}
+                        />
                     </div>
                 </div>
             </div>
