@@ -17,14 +17,17 @@ export default function NetworkLayout({ children }: { children: React.ReactNode 
 
     // ✅ Memoize ALL callbacks with useCallback
     const onSearchChange = useCallback((value: string) => {
+        console.log('🟣 NetworkLayout - Search changing to:', value);
         setSearchQuery(value);
     }, []);
 
     const onRoleChange = useCallback((value: string) => {
+        console.log('🟣 NetworkLayout - Role changing to', value);
         setSelectedRole(value);
     }, []);
 
     const onSortChange = useCallback((value: string) => {
+        console.log('🟣 NetworkLayout - Sort changing to:', value);
         setSelectedSort(value);
     }, []);
 

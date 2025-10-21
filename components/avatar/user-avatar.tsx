@@ -8,6 +8,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useProfileStore } from '@/lib/store/profile.store';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
@@ -56,7 +57,14 @@ export function UserAvatar({
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
-  if (!profile) {
+  // Prefer the live currentProfile from the central store when no explicit
+  // `profile` prop is provided, or when the provided profile refers to the
+  // current user. This centralizes subscription logic so parent components
+  // don't need to re-subscribe after updates (like avatar changes).
+  const currentProfile = useProfileStore(state => state.currentProfile);
+  const effectiveProfile = profile ?? currentProfile;
+
+  if (!effectiveProfile) {
     return (
       <Avatar className={cn(AVATAR_SIZES[size], className, onClick && 'cursor-pointer')} onClick={onClick}>
         <AvatarFallback className="bg-muted">
@@ -66,12 +74,13 @@ export function UserAvatar({
     );
   }
 
-  const initials = fallbackToInitials ? ProfileDisplayUtils.getInitials(profile) : '';
+  const initials = fallbackToInitials ? ProfileDisplayUtils.getInitials(effectiveProfile as Partial<typeof effectiveProfile>) : '';
   let avatarUrl: string;
 
   try {
     avatarUrl = AvatarUtils.getAvatarUrl(
-      profile.avatar_url as string | AvatarConfig | null,
+      // effectiveProfile is checked above to be non-null
+      (effectiveProfile as any).avatar_url as string | AvatarConfig | null,
       initials
     );
   } catch (error) {
@@ -84,7 +93,7 @@ export function UserAvatar({
   // Reset error state when avatar/source changes
   useEffect(() => {
     setImageError(false);
-  }, [profile?.avatar_url]);
+  }, [effectiveProfile?.avatar_url]);
 
   return (
     <div className="relative inline-block">
@@ -99,7 +108,7 @@ export function UserAvatar({
         {!imageError && (
           <AvatarImage
             src={avatarUrl}
-            alt={ProfileDisplayUtils.getDisplayName(profile)}
+            alt={ProfileDisplayUtils.getDisplayName(effectiveProfile)}
             onError={() => {
               setImageError(true);
               onError?.();
@@ -116,7 +125,7 @@ export function UserAvatar({
       </Avatar>
 
       {/* Online status indicator */}
-      {showOnlineStatus && profile.is_online && (
+      {showOnlineStatus && effectiveProfile.is_online && (
         <div
           className={cn(
             'absolute -bottom-0.5 -right-0.5 rounded-full bg-green-500 border-2 border-background',

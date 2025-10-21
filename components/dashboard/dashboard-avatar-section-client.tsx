@@ -35,7 +35,14 @@ interface AvatarSectionClientProps {
 // Client Component - Interactive features only
 export function AvatarSectionClient({ profile }: AvatarSectionClientProps) {
     const [showAvatarDemo, setShowAvatarDemo] = useState(false)
-    const { updateCurrentProfile } = useProfileStore()
+
+    // Subscribe to the profile store so the UI updates immediately when the
+    // avatar (or other profile fields) change. Keep the `profile` prop as a
+    // fallback for initial server-provided data.
+    const currentProfile = useProfileStore(state => state.currentProfile)
+    const updateCurrentProfile = useProfileStore(state => state.updateCurrentProfile)
+
+    const displayProfile = currentProfile ?? profile
 
     return (
         <Card>
@@ -49,18 +56,18 @@ export function AvatarSectionClient({ profile }: AvatarSectionClientProps) {
                 {/* Avatar size preview - Minimal client-side rendering */}
                 <div className="flex flex-wrap items-center gap-4">
                     <div className="text-sm text-muted-foreground">Different sizes:</div>
-                    <UserAvatar profile={profile} size="xs" />
-                    <UserAvatar profile={profile} size="sm" />
-                    <UserAvatar profile={profile} size="md" />
-                    <UserAvatar profile={profile} size="lg" />
-                    <UserAvatar profile={profile} size="xl" />
+                    <UserAvatar profile={displayProfile} size="xs" />
+                    <UserAvatar profile={displayProfile} size="sm" />
+                    <UserAvatar profile={displayProfile} size="md" />
+                    <UserAvatar profile={displayProfile} size="lg" />
+                    <UserAvatar profile={displayProfile} size="xl" />
                 </div>
 
                 {/* Interactive controls */}
                 <div className="flex flex-wrap gap-4">
                     {/* AvatarManager loads immediately (but is lazy-loaded) */}
                     <AvatarManager
-                        profile={profile}
+                        profile={displayProfile}
                         onAvatarUpdate={(avatar) => {
                             toast.success('Avatar updated!')
                         }}

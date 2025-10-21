@@ -243,6 +243,12 @@ export class ProfileService {
     perPage: number = 20
   ): Promise<ProfileOperationResult<ProfileSearchResult>> {
     try {
+      console.log('🟪 ProfileService.searchProfiles - Called with:', {
+        filters,
+        sort,
+        page,
+        perPage
+      });
       let query = supabase
         .from('profiles')
         .select(`
@@ -266,6 +272,7 @@ export class ProfileService {
 
       // Apply filters
       if (filters.role) {
+        console.log('🟪 ProfileService.searchProfiles - Applying role filter:', filters.role);
         if (Array.isArray(filters.role)) {
           query = query.in('role', filters.role);
         } else {
@@ -298,6 +305,7 @@ export class ProfileService {
       }
 
       if (filters.search_query) {
+        console.log('🟪 ProfileService.searchProfiles - Applying search filter:', filters.search_query);
         query = query.or(`full_name.ilike.%${filters.search_query}%,username.ilike.%${filters.search_query}%,bio.ilike.%${filters.search_query}%`);
       }
 
@@ -311,7 +319,14 @@ export class ProfileService {
 
       const { data, error, count } = await query;
 
+      console.log('🟪 ProfileService.searchProfiles - Query result:', {
+        dataCount: data?.length || 0,
+        totalCount: count,
+        error: error?.message
+      });
+
       if (error) {
+        console.error('🟪 ProfileService.searchProfiles - Query error:', error);
         return { success: false, error: error.message };
       }
 
