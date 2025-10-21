@@ -17,7 +17,6 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ReactionPicker } from "./reaction-picker";
 import { type PublicReaction } from "@/lib/reaction";
 
 export interface ReactionTriggerProps {
@@ -188,15 +187,7 @@ export function ReactionTrigger({
         <>
             {triggerButton}
 
-            {/* Reaction Picker */}
-            <ReactionPicker
-                isOpen={isPickerOpen}
-                targetType={targetType}
-                targetId={targetId}
-                triggerRef={triggerRef}
-                onReactionSelect={handleReactionSelect}
-                onClose={() => setIsPickerOpen(false)}
-            />
+
         </>
     );
 }
