@@ -25,6 +25,9 @@ interface UserAvatarProps {
   // Optional callbacks forwarded to the underlying <img>
   onLoad?: () => void;
   onError?: () => void;
+  // Optional image fetch priority (defaults to low for avatars so they don't
+  // compete with the page's LCP resource).
+  imageFetchPriority?: 'high' | 'low' | 'auto';
 }
 
 const AVATAR_SIZES = {
@@ -34,6 +37,16 @@ const AVATAR_SIZES = {
   lg: 'size-12',
   xl: 'size-16',
   '2xl': 'size-20'
+};
+
+// Pixel sizes for width/height attributes (keeps layout stable)
+const AVATAR_PX: Record<string, number> = {
+  xs: 24,
+  sm: 32,
+  md: 40,
+  lg: 48,
+  xl: 64,
+  '2xl': 80,
 };
 
 const ONLINE_DOT_SIZES = {
@@ -54,6 +67,7 @@ export function UserAvatar({
   onClick,
   onLoad,
   onError
+  , imageFetchPriority = 'low'
 }: UserAvatarProps) {
   const [imageError, setImageError] = useState(false);
 
@@ -109,6 +123,9 @@ export function UserAvatar({
           <AvatarImage
             src={avatarUrl}
             alt={ProfileDisplayUtils.getDisplayName(effectiveProfile)}
+            width={AVATAR_PX[size]}
+            height={AVATAR_PX[size]}
+            fetchPriority={imageFetchPriority}
             onError={() => {
               setImageError(true);
               onError?.();
@@ -184,6 +201,7 @@ interface EditableAvatarProps {
   onEdit?: () => void;
   isEditing?: boolean;
   className?: string;
+  showOnlineStatus?: boolean;
 }
 
 export function EditableAvatar({
@@ -192,6 +210,7 @@ export function EditableAvatar({
   onEdit,
   isEditing = false,
   className
+  , showOnlineStatus = false
 }: EditableAvatarProps) {
   return (
     <div className={cn('relative group', className)}>
@@ -199,6 +218,7 @@ export function EditableAvatar({
         profile={profile}
         size={size}
         onClick={onEdit}
+        showOnlineStatus={showOnlineStatus}
         className="transition-all duration-200"
       />
 

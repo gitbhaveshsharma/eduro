@@ -62,6 +62,7 @@ interface ProfileState {
 // Store actions interface
 interface ProfileActions {
   // Current user profile actions
+  hydrateCurrentProfile: (profile: Profile) => void;
   loadCurrentProfile: () => Promise<void>;
   updateCurrentProfile: (updates: ProfileUpdate) => Promise<boolean>;
   updateCurrentProfileOptimistic: (updates: ProfileUpdate) => void;
@@ -155,6 +156,10 @@ export const useProfileStore = create<ProfileStore>()(
 
         // Current user profile actions
         loadCurrentProfile: async () => {
+          // ✅ If profile is already loaded or is loading, don't fetch again
+          if (get().currentProfile || get().currentProfileLoading) {
+            return;
+          }
           set((state) => {
             state.currentProfileLoading = true;
             state.currentProfileError = null;
@@ -171,6 +176,13 @@ export const useProfileStore = create<ProfileStore>()(
               state.currentProfileError = result.error || 'Failed to load profile';
             }
           });
+        },
+        hydrateCurrentProfile: (profile: Profile) => {
+            set((state) => {
+                if (!state.currentProfile) {
+                    state.currentProfile = profile;
+                }
+            });
         },
 
         updateCurrentProfile: async (updates: ProfileUpdate) => {

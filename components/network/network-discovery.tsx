@@ -24,6 +24,7 @@ import { LoadMoreButton } from './network-load-more-button';
 
 interface NetworkDiscoveryProps {
     className?: string;
+    initialProfiles?: any[];
     // Props from parent (network page)
     searchQuery?: string;
     selectedRole?: string;
@@ -36,6 +37,7 @@ interface NetworkDiscoveryProps {
 
 export function NetworkDiscovery({
     className,
+    initialProfiles = [],
     searchQuery: externalSearchQuery = '',
     selectedRole: externalSelectedRole = 'all',
     selectedSort: externalSelectedSort = 'created_at:desc',
@@ -45,15 +47,16 @@ export function NetworkDiscovery({
     onLoadingChange,
 }: NetworkDiscoveryProps) {
     // State
-    const [profiles, setProfiles] = useState<FollowerProfile[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    // Initialize profiles from server-provided initial data when available
+    const [profiles, setProfiles] = useState<FollowerProfile[]>(() => (initialProfiles as FollowerProfile[]) || []);
+    const [isLoading, setIsLoading] = useState(profiles.length === 0);
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
 
     // Refs for lifecycle and callbacks
     const searchTimerRef = useRef<NodeJS.Timeout>();
-    const isMountedRef = useRef(true);
+    const isMounted = useRef(false); // Ref to track mount status
     const onLoadingChangeRef = useRef(onLoadingChange);
     const onTotalCountChangeRef = useRef(onTotalCountChange);
 
@@ -76,8 +79,6 @@ export function NetworkDiscovery({
         showVerifiedOnly: boolean,
         showOnlineOnly: boolean
     ) => {
-        if (!isMountedRef.current) return;
-
         console.log('🔵 NetworkDiscovery - Fetching profiles:', {
             page,
             append,
@@ -130,7 +131,7 @@ export function NetworkDiscovery({
                 hasMore: result?.has_more || false,
             });
 
-            if (result && isMountedRef.current) {
+            if (result) {
                 // Convert profiles inline
                 const convertedProfiles = (result.profiles || []).map((profile: PublicProfile): FollowerProfile => ({
                     id: profile.id,
@@ -168,44 +169,28 @@ export function NetworkDiscovery({
             console.error('🔴 NetworkDiscovery - Failed to fetch profiles:', error);
 
             // Clear profiles on error if not appending
-            if (!append && isMountedRef.current) {
+            if (!append) {
                 setProfiles([]);
                 setTotalCount(0);
                 setHasMore(false);
             }
         } finally {
-            if (isMountedRef.current) {
-                setIsLoading(false);
-                onLoadingChangeRef.current?.(false);
-            }
+            setIsLoading(false);
+            onLoadingChangeRef.current?.(false);
         }
     }, []); // ✅ Empty dependencies - function is stable
 
     /**
-     * Effect: Initial load on mount
-     */
-    useEffect(() => {
-        console.log('🟢 NetworkDiscovery - Initial mount, loading profiles...');
-
-        // Load profiles immediately on mount with current filter state
-        fetchProfiles(
-            1,
-            false,
-            externalSearchQuery,
-            externalSelectedRole,
-            externalSelectedSort,
-            externalShowVerifiedOnly,
-            externalShowOnlineOnly
-        );
-    }, []); // Only run on mount
-
-    /**
-     * Effect: Handle filter changes with debouncing for search
-     */
-    /**
      * Effect: Handle filter changes with debouncing for search
      */
     useEffect(() => {
+        // On initial mount, data is provided by the server. Do not fetch.
+        // Subsequent runs of this effect are due to user filter changes.
+        if (!isMounted.current) {
+            isMounted.current = true;
+            return;
+        }
+
         console.log('🟡 NetworkDiscovery - Filters changed, scheduling fetch...', {
             searchQuery: externalSearchQuery,
             role: externalSelectedRole,
@@ -260,16 +245,6 @@ export function NetworkDiscovery({
         externalShowOnlineOnly,
         fetchProfiles, // ✅ Safe - fetchProfiles is stable
     ]);
-
-    /**
-     * Effect: Setup and cleanup mounted state
-     */
-    useEffect(() => {
-        isMountedRef.current = true;
-        return () => {
-            isMountedRef.current = false;
-        };
-    }, []);
 
     /**
      * Handler: Load more profiles (pagination)
