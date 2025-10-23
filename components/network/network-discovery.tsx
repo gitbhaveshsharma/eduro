@@ -53,6 +53,7 @@ export function NetworkDiscovery({
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
+    const [hasInitialLoad, setHasInitialLoad] = useState(false); // Track if we've done initial load
 
     // Refs for lifecycle and callbacks
     const searchTimerRef = useRef<NodeJS.Timeout>();
@@ -181,23 +182,51 @@ export function NetworkDiscovery({
     }, []); // ✅ Empty dependencies - function is stable
 
     /**
+     * Effect: Initial load - fetch profiles on mount if no initial data provided
+     */
+    useEffect(() => {
+        // Only run once on mount
+        if (hasInitialLoad) return;
+
+        console.log('🟢 NetworkDiscovery - Initial mount check:', {
+            hasInitialProfiles: initialProfiles.length > 0,
+            profilesInState: profiles.length,
+        });
+
+        // If we have no profiles from server, fetch immediately on client
+        if (profiles.length === 0) {
+            console.log('🟢 NetworkDiscovery - No initial profiles, fetching on client...');
+            fetchProfiles(
+                1,
+                false,
+                externalSearchQuery,
+                externalSelectedRole,
+                externalSelectedSort,
+                externalShowVerifiedOnly,
+                externalShowOnlineOnly
+            );
+        }
+
+        setHasInitialLoad(true);
+    }, []); // Run only once on mount
+
+    /**
      * Effect: Handle filter changes with debouncing for search
      */
     useEffect(() => {
-        // On initial mount, data is provided by the server. Do not fetch.
-        // Subsequent runs of this effect are due to user filter changes.
+        // Skip initial mount - let the initial load effect handle it
         if (!isMounted.current) {
             isMounted.current = true;
             return;
         }
 
-        console.log('🟡 NetworkDiscovery - Filters changed, scheduling fetch...', {
-            searchQuery: externalSearchQuery,
-            role: externalSelectedRole,
-            sort: externalSelectedSort,
-            verified: externalShowVerifiedOnly,
-            online: externalShowOnlineOnly,
-        });
+        // console.log('🟡 NetworkDiscovery (effect) - Filters changed (effect), current values:', {
+        //     searchQuery: externalSearchQuery,
+        //     role: externalSelectedRole,
+        //     sort: externalSelectedSort,
+        //     verified: externalShowVerifiedOnly,
+        //     online: externalShowOnlineOnly,
+        // });
 
         // Clear existing timer
         if (searchTimerRef.current) {

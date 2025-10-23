@@ -9,7 +9,7 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 // Lazy load the suggestions component
 const ConnectionSuggestions = lazy(() =>
-  import('@/components/connections').then(module => ({ default: module.ConnectionSuggestions }))
+    import('@/components/connections').then(module => ({ default: module.ConnectionSuggestions }))
 );
 
 // This client component receives `initialProfiles` from the server page and
@@ -19,11 +19,36 @@ export default function NetworkPageClient({ initialProfiles }: { initialProfiles
     const [activeTab, setActiveTab] = React.useState<'discover' | 'suggestions'>('discover');
     const [isSticky, setIsSticky] = React.useState(false);
 
+    // Log the initial profiles we received
+    React.useEffect(() => {
+        console.log('🔷 NetworkPageClient - Received initial profiles:', {
+            count: initialProfiles?.length || 0,
+            hasProfiles: (initialProfiles?.length || 0) > 0,
+        });
+    }, [initialProfiles]);
+
     React.useEffect(() => {
         const handleScroll = () => setIsSticky(window.scrollY > 50);
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    const filters = useNetworkFilters();
+
+    // Map context to props expected by NetworkDiscovery
+    const externalSearchQuery = filters?.searchQuery ?? '';
+    const externalSelectedRole = filters?.selectedRole ?? 'all';
+    const externalSelectedSort = filters?.selectedSort ?? 'created_at:desc';
+    const externalShowVerifiedOnly = filters?.showVerifiedOnly ?? false;
+    const externalShowOnlineOnly = filters?.showOnlineOnly ?? false;
+
+    const handleTotalCountChange = (count: number) => {
+        filters?.setTotalCount?.(count);
+    };
+
+    const handleLoadingChange = (loading: boolean) => {
+        filters?.setIsLoading?.(loading);
+    };
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
@@ -37,7 +62,16 @@ export default function NetworkPageClient({ initialProfiles }: { initialProfiles
 
                 <div className="relative min-h-[400px]">
                     <div className={cn("transition-opacity duration-300 ease-in-out", activeTab === 'discover' ? 'opacity-100' : 'opacity-0 absolute inset-0 pointer-events-none')}>
-                        <NetworkDiscovery initialProfiles={initialProfiles} />
+                        <NetworkDiscovery
+                            initialProfiles={initialProfiles}
+                            searchQuery={externalSearchQuery}
+                            selectedRole={externalSelectedRole}
+                            selectedSort={externalSelectedSort}
+                            showVerifiedOnly={externalShowVerifiedOnly}
+                            showOnlineOnly={externalShowOnlineOnly}
+                            onTotalCountChange={handleTotalCountChange}
+                            onLoadingChange={handleLoadingChange}
+                        />
                     </div>
 
                     {activeTab === 'suggestions' && (
