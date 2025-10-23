@@ -678,7 +678,14 @@ export class ProfileUrlUtils {
     
     // Generate initials-based avatar URL as fallback
     const initials = ProfileDisplayUtils.getInitials(profile);
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=random&format=png`;
+    try {
+      // Use AvatarUtils if available (dynamic import to avoid circular deps)
+      const AvatarUtils = require('./avatar.utils').AvatarUtils;
+      return AvatarUtils.generateInitialsAvatar(initials);
+    } catch (err) {
+      // Fallback to ui-avatars directly if AvatarUtils isn't available
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=random&format=png`;
+    }
   }
 
   /**

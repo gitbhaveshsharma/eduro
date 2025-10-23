@@ -8,7 +8,26 @@
 import { createClient } from '../supabase/client';
 import { SupabaseRequestWrapper } from '../api-interceptor';
 
-// Initialize Supabase client
+/**
+ * Get the appropriate Supabase client based on environment
+ * - Server-side (SSR): Use server client with cookies
+ * - Client-side: Use browser client
+ */
+async function getSupabaseClient() {
+  // Check if we're on the server
+  if (typeof window === 'undefined') {
+    // console.log('🟣 ProfileService - Using server client');
+    // Server-side: use server client
+    const { createServerClient } = await import('../supabase/server');
+    return await createServerClient();
+  } else {
+    // console.log('🔵 ProfileService - Using browser client');
+    // Client-side: use browser client
+    return createClient();
+  }
+}
+
+// Initialize Supabase client (this will be overridden per request)
 const supabase = createClient();
 import type {
   Profile,
@@ -243,12 +262,16 @@ export class ProfileService {
     perPage: number = 20
   ): Promise<ProfileOperationResult<ProfileSearchResult>> {
     try {
-      console.log('🟪 ProfileService.searchProfiles - Called with:', {
-        filters,
-        sort,
-        page,
-        perPage
-      });
+      // console.log('🟪 ProfileService.searchProfiles - Called with:', {
+      //   filters,
+      //   sort,
+      //   page,
+      //   perPage
+      // });
+      
+      // Get the appropriate client for the environment
+      const supabase = await getSupabaseClient();
+      
       let query = supabase
         .from('profiles')
         .select(`
@@ -272,7 +295,7 @@ export class ProfileService {
 
       // Apply filters
       if (filters.role) {
-        console.log('🟪 ProfileService.searchProfiles - Applying role filter:', filters.role);
+        // console.log('🟪 ProfileService.searchProfiles - Applying role filter:', filters.role);
         if (Array.isArray(filters.role)) {
           query = query.in('role', filters.role);
         } else {
@@ -305,7 +328,7 @@ export class ProfileService {
       }
 
       if (filters.search_query) {
-        console.log('🟪 ProfileService.searchProfiles - Applying search filter:', filters.search_query);
+        // console.log('🟪 ProfileService.searchProfiles - Applying search filter:', filters.search_query);
         query = query.or(`full_name.ilike.%${filters.search_query}%,username.ilike.%${filters.search_query}%,bio.ilike.%${filters.search_query}%`);
       }
 
@@ -319,11 +342,11 @@ export class ProfileService {
 
       const { data, error, count } = await query;
 
-      console.log('🟪 ProfileService.searchProfiles - Query result:', {
-        dataCount: data?.length || 0,
-        totalCount: count,
-        error: error?.message
-      });
+      // console.log('🟪 ProfileService.searchProfiles - Query result:', {
+      //   dataCount: data?.length || 0,
+      //   totalCount: count,
+      //   error: error?.message
+      // });
 
       if (error) {
         console.error('🟪 ProfileService.searchProfiles - Query error:', error);

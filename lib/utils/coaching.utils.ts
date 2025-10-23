@@ -764,10 +764,16 @@ export class CoachingUrlUtils {
       return center.logo_url;
     }
     
-    // Generate initials-based logo URL
+    // Generate initials-based logo URL (use AvatarUtils to enable proxy when configured)
     const initials = CoachingDisplayUtils.getInitials(center);
     const categoryColor = CoachingDisplayUtils.getCategoryColor(center.category || 'OTHER');
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=${categoryColor}&color=white`;
+    try {
+      const AvatarUtils = require('./avatar.utils').AvatarUtils;
+      const remote = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=${categoryColor}&color=white`;
+      return AvatarUtils.getPublicAvatarUrlFromRemote(remote);
+    } catch {
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=${categoryColor}&color=white`;
+    }
   }
 
   /**
