@@ -85,15 +85,30 @@ export class ProfileAPI {
     page?: number,
     perPage?: number
   ) {
+    // console.log('🟠 ProfileAPI.searchProfiles - Called with:', { filters, sort, page, perPage });
+    
     // Call the ProfileService directly instead of using the store
     // This ensures we get fresh results and avoid timing issues
     const { ProfileService } = await import('./service/profile.service');
-    const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
     
-    if (result.success && result.data) {
-      return result.data;
-    } else {
-      throw new Error(result.error || 'Failed to search profiles');
+    try {
+      const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
+      
+      // console.log('🟠 ProfileAPI.searchProfiles - Service result:', {
+      //   success: result.success,
+      //   profileCount: result.data?.profiles?.length || 0,
+      //   error: result.error,
+      // });
+      
+      if (result.success && result.data) {
+        return result.data;
+      } else {
+        console.error('🔴 ProfileAPI.searchProfiles - Service returned error:', result.error);
+        throw new Error(result.error || 'Failed to search profiles');
+      }
+    } catch (error) {
+      console.error('🔴 ProfileAPI.searchProfiles - Exception caught:', error);
+      throw error;
     }
   }
 

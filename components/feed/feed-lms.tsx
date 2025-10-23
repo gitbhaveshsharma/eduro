@@ -38,7 +38,16 @@ const dummyCenter: CoachingCenter = {
     name: 'Elite Learning Academy',
     slug: 'elite-learning-academy',
     description: 'Premier coaching institute for competitive exams preparation with expert faculty and proven track record',
-    logo_url: 'https://ui-avatars.com/api/?name=Elite+Learning&size=200&background=1D4ED8&color=fff&bold=true',
+    // Use avatar proxy when available to ensure COEP/COOP compatibility
+    logo_url: (() => {
+        try {
+            const AvatarUtils = require('@/lib/utils/avatar.utils').AvatarUtils;
+            const remote = 'https://ui-avatars.com/api/?name=Elite+Learning&size=200&background=1D4ED8&color=fff&bold=true';
+            return AvatarUtils.getPublicAvatarUrlFromRemote(remote);
+        } catch {
+            return 'https://ui-avatars.com/api/?name=Elite+Learning&size=200&background=1D4ED8&color=fff&bold=true';
+        }
+    })(),
     cover_url: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=200&fit=crop',
     subjects: ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English'],
     target_audience: ['JEE', 'NEET', 'Grade 11-12'],
@@ -62,7 +71,15 @@ export function CoachingCenterCard({ center = dummyCenter, className = "" }: Coa
                             <img
                                 src={
                                     center.logo_url ||
-                                    "https://ui-avatars.com/api/?name=Institute&size=200"
+                                    (() => {
+                                        try {
+                                            const AvatarUtils = require('@/lib/utils/avatar.utils').AvatarUtils;
+                                            const remote = 'https://ui-avatars.com/api/?name=Institute&size=200';
+                                            return AvatarUtils.getPublicAvatarUrlFromRemote(remote);
+                                        } catch {
+                                            return 'https://ui-avatars.com/api/?name=Institute&size=200';
+                                        }
+                                    })()
                                 }
                                 alt={center.name}
                                 className="w-20 h-20 rounded-lg border-4 border-white object-cover bg-white shadow-md"

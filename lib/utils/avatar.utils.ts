@@ -180,14 +180,16 @@ export class AvatarUtils {
    * Generate initials-based avatar
    */
   static generateInitialsAvatar(initials: string): string {
-    return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${this.AVATAR_SIZE}&background=random&format=png`;
+    const remote = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${this.AVATAR_SIZE}&background=random&format=png`;
+    return this.getPublicAvatarUrlFromRemote(remote);
   }
 
   /**
    * Generate default avatar
    */
   static generateDefaultAvatar(): string {
-    return `https://ui-avatars.com/api/?name=User&size=${this.AVATAR_SIZE}&background=e0e7ff&color=3b82f6&format=png`;
+    const remote = `https://ui-avatars.com/api/?name=User&size=${this.AVATAR_SIZE}&background=e0e7ff&color=3b82f6&format=png`;
+    return this.getPublicAvatarUrlFromRemote(remote);
   }
 
   /**
