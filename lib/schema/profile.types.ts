@@ -105,6 +105,8 @@ export interface PublicProfile {
   avatar_url: string | AvatarConfig | null; // Can be legacy URL or new avatar config
   role: UserRole;
   is_online: boolean;
+  // Optional completion percentage exposed for public views when available
+  profile_completion_percentage?: number;
   reputation_score: number;
   expertise_areas: string[] | null;
   years_of_experience: number | null;

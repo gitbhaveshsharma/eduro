@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from '@/components/avatar';
@@ -11,12 +12,14 @@ interface ProfileCardProps {
     profile: FollowerProfile;
     currentUser?: FollowerProfile;
     onConnectionChange?: () => void;
+    index?: number;
 }
 
-export function ProfileCard({
+function ProfileCardComponent({
     profile,
     currentUser,
-    onConnectionChange
+    onConnectionChange,
+    index = -1
 }: ProfileCardProps) {
     return (
         <Card className="hover:shadow-md transition-shadow">
@@ -26,6 +29,7 @@ export function ProfileCard({
                     <UserAvatar
                         profile={profile}
                         size="lg"
+                        imageFetchPriority={index === 0 ? 'high' : 'low'}
                         showOnlineStatus
                         className="flex-shrink-0"
                     />
@@ -72,3 +76,5 @@ export function ProfileCard({
         </Card>
     );
 }
+
+export const ProfileCard = React.memo(ProfileCardComponent);

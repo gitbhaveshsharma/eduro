@@ -2,7 +2,7 @@
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { DashboardActions } from '@/components/dashboard/dashboard-actions'
-import { AvatarSectionClient } from '@/components/dashboard/dashboard-avatar-section-client'
+import { DashboardHeaderAvatar } from '@/components/dashboard/dashboard-header-avatar'
 import { ProfileServerService } from '@/lib/service/server/profile-server.service'
 
 // Force dynamic rendering for authenticated pages
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
                 <DashboardActions role={profile.role} />
 
                 {/* Interactive avatar section - Client component */}
-                <AvatarSectionClient profile={profile} />
+                {/* <DashboardHeaderAvatar profile={profile} /> */}
             </div>
         </main>
     )

@@ -1,11 +1,20 @@
-// components/dashboard/dashboard-header.tsx
 import { Badge } from '@/components/ui/badge'
 import { UserAvatar } from '@/components/avatar'
 import type { Profile } from '@/lib/profile'
+import dynamic from 'next/dynamic'
 
-interface DashboardHeaderProps {
-    profile: Profile
-}
+// Lazy-load AvatarManager (client-side only)
+const DashboardHeaderAvatar = dynamic(
+    () => import('./dashboard-header-avatar').then(mod => mod.DashboardHeaderAvatar),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="relative flex items-center justify-center h-20 w-20 rounded-full bg-gradient-to-br from-muted to-muted-foreground/10 animate-pulse ring-4 ring-primary/10">
+                <span className="text-[10px] text-muted-foreground">Loading...</span>
+            </div>
+        ),
+    }
+)
 
 const getRoleDisplay = (role: string) => {
     switch (role) {
@@ -16,23 +25,27 @@ const getRoleDisplay = (role: string) => {
     }
 }
 
-// Pure Server Component - No JavaScript needed for rendering
-export function DashboardHeader({ profile }: DashboardHeaderProps) {
+export function DashboardHeader({ profile }: { profile: Profile }) {
     const roleInfo = getRoleDisplay(profile.role || 'S')
 
     return (
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
+                {/* SSR-visible static avatar (renders instantly) */}
                 <div className="relative">
                     <UserAvatar
                         profile={profile}
                         size="2xl"
-                        showOnlineStatus={true}
+                        showOnlineStatus
                         className="ring-4 ring-primary/10"
                     />
+                    {/* Dynamically injected Avatar Manager */}
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                        <DashboardHeaderAvatar profile={profile} />
+                    </div>
                 </div>
+
                 <div>
-                    {/* LCP Element - Renders immediately from server HTML */}
                     <h1 className="text-3xl font-bold text-foreground">
                         Welcome back, {profile.full_name || 'User'}!
                     </h1>
@@ -41,6 +54,7 @@ export function DashboardHeader({ profile }: DashboardHeaderProps) {
                     </p>
                 </div>
             </div>
+
             <Badge className={roleInfo.color}>
                 {roleInfo.label}
             </Badge>

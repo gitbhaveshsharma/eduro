@@ -26,11 +26,13 @@ import type { Profile, AvatarConfig } from '@/lib/schema/profile.types';
 
 interface AvatarManagerProps {
   profile?: Profile | null;
-  onAvatarUpdate?: (avatar: AvatarConfig) => void;
+  onAvatarUpdate?: (avatar: AvatarConfig) => void | Promise<void>;
   className?: string;
+  size?: 'md' | 'lg' | 'xl' | '2xl';
+  showOnlineStatus?: boolean;
 }
 
-export function AvatarManager({ profile, onAvatarUpdate, className }: AvatarManagerProps) {
+export function AvatarManager({ profile, onAvatarUpdate, className, size, showOnlineStatus }: AvatarManagerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('select');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -102,7 +104,8 @@ export function AvatarManager({ profile, onAvatarUpdate, className }: AvatarMana
       <div className={className}>
         <EditableAvatar
           profile={profile}
-          size="xl"
+          size={size ?? 'xl'}
+          showOnlineStatus={showOnlineStatus}
           onEdit={() => setIsOpen(true)}
         />
       </div>

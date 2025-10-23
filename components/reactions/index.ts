@@ -9,7 +9,6 @@
 export { ReactionSystem, type ReactionSystemProps } from './reaction-system';
 export { PostReactions, type PostReactionsProps } from './post-reactions';
 export { ReactionBar, type ReactionBarProps } from './reaction-bar';
-export { ReactionPicker, type ReactionPickerProps } from './reaction-picker';
 export { ReactionDisplay, type ReactionDisplayProps } from './reaction-display';
 export { ReactionTrigger, type ReactionTriggerProps } from './reaction-trigger';
 

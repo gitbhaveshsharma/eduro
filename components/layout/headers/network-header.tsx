@@ -167,14 +167,28 @@ export function NetworkHeader({
 
     const handleRoleSelect = (role: string) => {
         console.log('🔵 NetworkHeader - Role selected:', role);
+        console.log('🔵 NetworkHeader - Current selectedRole:', selectedRole);
         console.log('🔵 NetworkHeader - onRoleChange function:', onRoleChange);
-        onRoleChange?.(role);
+
+        if (onRoleChange) {
+            onRoleChange(role);
+            console.log('🔵 NetworkHeader - Role change called');
+        } else {
+            console.warn('🔵 NetworkHeader - No onRoleChange function available');
+        }
     };
 
     const handleSortSelect = (sort: string) => {
         console.log('🔵 NetworkHeader - Sort selected:', sort);
+        console.log('🔵 NetworkHeader - Current selectedSort:', selectedSort);
         console.log('🔵 NetworkHeader - onSortChange function:', onSortChange);
-        onSortChange?.(sort);
+
+        if (onSortChange) {
+            onSortChange(sort);
+            console.log('🔵 NetworkHeader - Sort change called');
+        } else {
+            console.warn('🔵 NetworkHeader - No onSortChange function available');
+        }
     };
 
     const handleFeedClick = () => {
