@@ -31,6 +31,7 @@ interface FeedHeaderProps extends Omit<HeaderProps, 'config'> {
     // onNavigationClick provided by HeaderProps (NavigationItem) via Omit
     className?: string;
     config?: LayoutConfig;
+    showAvatar?: boolean;
 }
 
 const sortOptions = [
@@ -51,7 +52,8 @@ export function FeedHeader({
     onNetworkClick,
     onNavigationClick,
     className = '',
-    config
+    config,
+    showAvatar = true
 }: FeedHeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
@@ -192,17 +194,19 @@ export function FeedHeader({
                             )}
                         </Button>
 
-                        {/* User Avatar */}
-                        <UserAvatar
-                            profile={profile}
-                            size="sm"
-                            showOnlineStatus
-                            className="cursor-pointer hover:ring-2 hover:ring-gray-200 transition-all"
-                            onClick={() => {
-                                // Navigate to user profile
-                                router.push(`/dashboard`);
-                            }}
-                        />
+                        {/* User Avatar (centralized control) */}
+                        {showAvatar && (
+                            <UserAvatar
+                                profile={profile}
+                                size="sm"
+                                showOnlineStatus
+                                className="cursor-pointer hover:ring-2 hover:ring-gray-200 transition-all"
+                                onClick={() => {
+                                    // Navigate to user profile
+                                    router.push(`/dashboard`);
+                                }}
+                            />
+                        )}
                     </div>
                 </div>
             </div>

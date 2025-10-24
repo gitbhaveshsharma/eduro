@@ -35,6 +35,8 @@ export interface NavigationItem {
 export interface HeaderProps {
     config: LayoutConfig;
     className?: string;
+    // Whether to show the user's avatar in the header. Defaults to true when omitted.
+    showAvatar?: boolean;
     // Return `false` to prevent default navigation behavior. Can be async.
     onNavigationClick?: (item: NavigationItem) => void | boolean | Promise<void | boolean>;
 }

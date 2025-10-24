@@ -24,7 +24,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { UserAvatar } from "@/components/avatar";
+import { useCurrentProfile } from '@/lib/profile';
 import type { HeaderProps, LayoutConfig } from "../types";
 
 interface LMSHeaderProps extends Omit<HeaderProps, 'config'> {
@@ -78,12 +79,7 @@ export function LMSHeader({
     onSearch?.(searchQuery);
   };
 
-  const userInitials = userName
-    .split(" ")
-    .map(n => n[0])
-    .join("")
-    .toUpperCase()
-    .slice(0, 2);
+  const profile = useCurrentProfile();
 
   return (
     <header className={`bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm ${className}`}>
@@ -238,24 +234,21 @@ export function LMSHeader({
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-10 w-10 p-0 rounded-full">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={userAvatar} alt={userName} />
-                    <AvatarFallback className="text-xs">
-                      {userInitials}
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Use centralized UserAvatar component when available */}
+                  <UserAvatar
+                    profile={profile}
+                    size="sm"
+                    className="h-8 w-8"
+                    onClick={onProfileClick}
+                  />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <div className="px-3 py-2">
-                  <p className="text-sm font-medium">{userName}</p>
+                  <p className="text-sm font-medium">{profile?.full_name || userName}</p>
                   <p className="text-xs text-muted-foreground">Learning Platform</p>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={onProfileClick}>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
                   Settings

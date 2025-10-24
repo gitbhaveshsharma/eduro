@@ -59,6 +59,7 @@ interface NetworkHeaderProps extends Omit<HeaderProps, 'config'> {
 
     // Styling
     className?: string;
+    showAvatar?: boolean;
 }
 
 // Default sort options for network (matching ProfileService sort format)
@@ -100,7 +101,8 @@ export function NetworkHeader({
     onNotificationClick,
     notificationCount = 0,
     onNavigationClick,
-    className = ''
+    className = '',
+    showAvatar = true
 }: NetworkHeaderProps) {
     // Try to use context from network page, fallback to props
     const contextFilters = useNetworkFilters();
@@ -395,8 +397,8 @@ export function NetworkHeader({
                             )}
                         </Button>
 
-                        {/* User Avatar */}
-                        {currentUserProfile && (
+                        {/* User Avatar (centralized control) */}
+                        {showAvatar && currentUserProfile && (
                             <UserAvatar
                                 profile={currentUserProfile}
                                 size="sm"
