@@ -29,6 +29,14 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
         icon: Home,
         href: '/feed',
         platforms: ['community'],
+        devices: ['mobile', 'tablet']
+    },
+    {
+        id: 'lms',
+        label: 'LMS',
+        icon: BookOpen,
+        href: '/dashboard',
+        platforms: ['community'],
         devices: ['mobile', 'tablet', 'desktop']
     },
     {
@@ -39,29 +47,21 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
         platforms: ['community'],
         devices: ['mobile', 'tablet', 'desktop']
     },
-    {
-        id: 'messages',
-        label: 'Messages',
-        icon: MessageCircle,
-        href: '/messages',
-        platforms: ['community'],
-        devices: ['mobile', 'tablet', 'desktop']
-    },
-    {
-        id: 'notifications',
-        label: 'Notifications',
-        icon: Bell,
-        href: '/notifications',
-        platforms: ['community'],
-        devices: ['mobile', 'tablet', 'desktop']
-    },
+    // {
+    //     id: 'messages',
+    //     label: 'Messages',
+    //     icon: MessageCircle,
+    //     href: '/messages',
+    //     platforms: ['community'],
+    //     devices: ['mobile', 'tablet', 'desktop']
+    // },
     {
         id: 'profile',
         label: 'Profile',
         icon: User,
-        href: '/profile',
+        href: '/dashboard',
         platforms: ['community'],
-        devices: ['mobile', 'tablet', 'desktop']
+        devices: ['mobile', 'tablet',]
     }
 ];
 
@@ -72,7 +72,7 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
         icon: Home,
         href: '/dashboard',
         platforms: ['lms'],
-        devices: ['mobile', 'tablet', 'desktop']
+        devices: ['mobile', 'tablet']
     },
     {
         id: 'courses',
@@ -80,7 +80,7 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
         icon: BookOpen,
         href: '/courses',
         platforms: ['lms'],
-        devices: ['mobile', 'tablet', 'desktop']
+        devices: ['mobile', 'tablet']
     },
     {
         id: 'assignments',
@@ -96,23 +96,31 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
         icon: Calendar,
         href: '/calendar',
         platforms: ['lms'],
-        devices: ['mobile', 'tablet', 'desktop']
+        devices: ['mobile', 'tablet',]
     },
     {
-        id: 'grades',
-        label: 'Grades',
-        icon: Award,
-        href: '/grades',
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        href: '/feed',
         platforms: ['lms'],
         devices: ['mobile', 'tablet', 'desktop']
     },
+    // {
+    //     id: 'grades',
+    //     label: 'Grades',
+    //     icon: Award,
+    //     href: '/grades',
+    //     platforms: ['lms'],
+    //     devices: ['mobile', 'tablet', 'desktop']
+    // },
     {
         id: 'analytics',
         label: 'Analytics',
         icon: BarChart3,
         href: '/analytics',
         platforms: ['lms'],
-        devices: ['tablet', 'desktop'] // Role-based, but we'll handle this in the component
+        devices: ['tablet'] // Role-based, but we'll handle this in the component
     }
 ];
 

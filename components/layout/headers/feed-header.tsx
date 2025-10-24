@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Search, Filter, Bell, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { LayoutUtils } from "@/components/layout/config";
-import type { HeaderProps } from "@/components/layout/types";
+import type { HeaderProps, LayoutConfig } from "@/components/layout/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,6 +30,7 @@ interface FeedHeaderProps extends Omit<HeaderProps, 'config'> {
     onNetworkClick?: () => void;
     // onNavigationClick provided by HeaderProps (NavigationItem) via Omit
     className?: string;
+    config?: LayoutConfig;
 }
 
 const sortOptions = [
@@ -49,7 +50,8 @@ export function FeedHeader({
     onNotificationClick,
     onNetworkClick,
     onNavigationClick,
-    className = ''
+    className = '',
+    config
 }: FeedHeaderProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
@@ -70,6 +72,16 @@ export function FeedHeader({
     };
 
     const currentSortOption = sortOptions.find(option => option.value === currentSort);
+
+    // Use device from config when provided, otherwise detect
+    const device = config?.device ?? LayoutUtils.getDeviceType();
+
+    // Filter community navigation items for this device
+    const navItems = LayoutUtils.filterNavigationItems(
+        LayoutUtils.getNavigationItems('community'),
+        'community',
+        device
+    );
 
     return (
         <header className={`bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm ${className}`}>
@@ -98,42 +110,35 @@ export function FeedHeader({
 
                     {/* Actions - Always visible */}
                     <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Network Button - Hidden on mobile (shows in bottom nav) */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={async () => {
-                                // Try calling provided network handler first
-                                if (onNetworkClick) {
-                                    try {
-                                        const r = await onNetworkClick();
-                                        // onNetworkClick may choose to handle navigation; if it returns false, stop
-                                        if ((r as unknown as boolean) === false) return;
-                                    } catch (e) {
-                                        return;
-                                    }
-                                }
+                        {/* Desktop/Tablet inline nav (use config/device to filter) */}
+                        <nav className="hidden lg:flex items-center gap-2">
+                            {navItems.filter(i => i.id !== 'feed').map(item => {
+                                const Icon = item.icon as any;
+                                return (
+                                    <Button
+                                        key={item.id}
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                            if (onNavigationClick) {
+                                                try {
+                                                    const res = await onNavigationClick(item);
+                                                    if ((res as unknown as boolean) === false) return;
+                                                } catch (e) {
+                                                    return;
+                                                }
+                                            }
 
-                                // Prefer a centralized navigation handler if provided
-                                const navItem = LayoutUtils.getNavigationItems('community').find(i => i.id === 'network');
-                                if (onNavigationClick && navItem) {
-                                    try {
-                                        const res = await onNavigationClick(navItem);
-                                        if ((res as unknown as boolean) === false) return;
-                                    } catch (e) {
-                                        return;
-                                    }
-                                }
-
-                                if (navItem?.href) router.push(navItem.href);
-                            }}
-                            className="hidden md:flex h-10 px-3 gap-2 hover:bg-gray-100 rounded-full"
-                        >
-                            <Users className="h-4 w-4" />
-                            <span className="hidden lg:inline text-sm font-medium">
-                                Network
-                            </span>
-                        </Button>
+                                            if (item.href) router.push(item.href);
+                                        }}
+                                        className="h-10 px-3 flex items-center gap-2 rounded-full"
+                                    >
+                                        {Icon && <Icon className="h-4 w-4 text-current" />}
+                                        <span className="hidden xl:inline">{item.label}</span>
+                                    </Button>
+                                );
+                            })}
+                        </nav>
 
                         {/* Filter Dropdown */}
                         {showFilters && (

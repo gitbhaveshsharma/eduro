@@ -11,18 +11,19 @@ export function ConditionalHeader({
     onNavigationClick
 }: HeaderProps) {
 
+    // If headerType or page explicitly requests the network header, use it first
+    if (config.headerType === 'network' || config.page === 'network') {
+        return (
+            <NetworkHeader
+                className={className}
+                config={config}
+                onNavigationClick={onNavigationClick}
+            />
+        );
+    }
+
     // Use community header (FeedHeader) for community platform
     if (config.platform === 'community') {
-        // If headerType is network, render the NetworkHeader variant
-        if (config.headerType === 'network') {
-            return (
-                <NetworkHeader
-                    config={config}
-                // Use defaults for network header; parent components can override via forceConfig
-                />
-            );
-        }
-
         return (
             <FeedHeader
                 className={className}
@@ -35,6 +36,7 @@ export function ConditionalHeader({
                 onNetworkClick={() => {
                     // TODO: Handle network click
                 }}
+                config={config}
             />
         );
     }
@@ -46,6 +48,7 @@ export function ConditionalHeader({
                 className={className}
                 title="Tutrsy LMS"
                 showSearch={config.device !== 'mobile'}
+                config={config}
                 notificationCount={0} // TODO: Get from notification store
                 userName="User" // TODO: Get from auth store
                 userAvatar="" // TODO: Get from profile store
