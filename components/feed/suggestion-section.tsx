@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { LocationReviewsCardCompact } from "../reviews";
+// import { LocationReviewsCardCompact } from "../reviews";
 
 interface SuggestionSectionProps {
     className?: string;
@@ -135,14 +135,14 @@ export function SuggestionSection({ className = "" }: SuggestionSectionProps) {
 
     return (
         <div className={`space-y-6 ${className}`}>
-            {/* cochin Location Reviews */}
+            {/* cochin Location Reviews
             <LocationReviewsCardCompact
                 key="suggestion-section"
                 sortOption={false}
                 commentPreviewLength={100}
                 title="Coaching Reviews"
                 className="h-fit"
-            />
+            /> */}
 
 
             {/* Suggested Users */}
