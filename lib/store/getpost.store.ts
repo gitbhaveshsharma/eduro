@@ -594,6 +594,12 @@ export const useGetPostStore = create<GetPostStore>()(
 
       updatePost: (postId: string, updates: Partial<EnhancedPost>) => {
         set((draft) => {
+          // Ensure posts array is initialized
+          if (!draft.posts) {
+            draft.posts = [];
+            return;
+          }
+          
           const postIndex = draft.posts.findIndex((p: EnhancedPost) => p.id === postId);
           if (postIndex !== -1) {
             Object.assign(draft.posts[postIndex], updates);
@@ -603,12 +609,23 @@ export const useGetPostStore = create<GetPostStore>()(
 
       removePost: (postId: string) => {
         set((draft) => {
+          // Ensure posts array is initialized
+          if (!draft.posts) {
+            draft.posts = [];
+            return;
+          }
+          
           draft.posts = draft.posts.filter((p: EnhancedPost) => p.id !== postId);
         });
       },
 
       addPost: (post: EnhancedPost) => {
         set((draft) => {
+          // Ensure posts array is initialized
+          if (!draft.posts) {
+            draft.posts = [];
+          }
+          
           draft.posts.unshift(post);
         });
       },
@@ -691,6 +708,14 @@ export const useGetPostStore = create<GetPostStore>()(
 
       processRealtimeUpdate: (post: EnhancedPost, eventType: 'INSERT' | 'UPDATE' | 'DELETE') => {
         set((draft) => {
+          // Ensure arrays are initialized
+          if (!draft.posts) {
+            draft.posts = [];
+          }
+          if (!draft.pendingUpdates) {
+            draft.pendingUpdates = [];
+          }
+          
           switch (eventType) {
             case 'INSERT':
               draft.pendingUpdates.push(post);
@@ -712,6 +737,14 @@ export const useGetPostStore = create<GetPostStore>()(
 
       applyPendingUpdates: () => {
         set((draft) => {
+          // Ensure arrays are initialized
+          if (!draft.posts) {
+            draft.posts = [];
+          }
+          if (!draft.pendingUpdates) {
+            draft.pendingUpdates = [];
+          }
+          
           if (draft.pendingUpdates.length > 0) {
             draft.posts.unshift(...draft.pendingUpdates);
             draft.pendingUpdates = [];
@@ -725,6 +758,12 @@ export const useGetPostStore = create<GetPostStore>()(
       subscribeToPostEngagement: (postId: string) => {
         const state = get();
         const subscriptionKey = `engagement:${postId}`;
+        
+        // Ensure subscribedPostIds is initialized
+        if (!state.subscribedPostIds) {
+          console.warn('[GetPostStore] subscribedPostIds not initialized, skipping subscription');
+          return;
+        }
         
         if (state.subscribedPostIds.has(subscriptionKey)) {
           console.log(`[GetPostStore] Already subscribed to engagement for post ${postId}`);
@@ -746,6 +785,14 @@ export const useGetPostStore = create<GetPostStore>()(
           });
 
           set((draft) => {
+            // Ensure collections are initialized
+            if (!draft.realtimeSubscriptions) {
+              draft.realtimeSubscriptions = new Map();
+            }
+            if (!draft.subscribedPostIds) {
+              draft.subscribedPostIds = new Set();
+            }
+            
             draft.realtimeSubscriptions.set(subscriptionKey, unsubscribe);
             draft.subscribedPostIds.add(subscriptionKey);
           });
@@ -758,6 +805,14 @@ export const useGetPostStore = create<GetPostStore>()(
         console.log(`[GetPostStore] 📴 Unsubscribing from engagement for post ${postId}`);
         
         set((draft) => {
+          // Ensure collections are initialized
+          if (!draft.realtimeSubscriptions) {
+            draft.realtimeSubscriptions = new Map();
+          }
+          if (!draft.subscribedPostIds) {
+            draft.subscribedPostIds = new Set();
+          }
+          
           const engagementKey = `engagement:${postId}`;
           const engagementUnsubscribe = draft.realtimeSubscriptions.get(engagementKey);
           
@@ -775,6 +830,13 @@ export const useGetPostStore = create<GetPostStore>()(
 
       unsubscribeAll: () => {
         const state = get();
+        
+        // Ensure collections are initialized
+        if (!state.realtimeSubscriptions) {
+          console.log('[GetPostStore] No subscriptions to clean up (not initialized)');
+          return;
+        }
+        
         const count = state.realtimeSubscriptions.size;
         
         if (count === 0) {
@@ -785,6 +847,14 @@ export const useGetPostStore = create<GetPostStore>()(
         console.log(`[GetPostStore] 📴 Unsubscribing from all (${count} subscriptions)`);
         
         set((draft) => {
+          // Ensure collections are initialized
+          if (!draft.realtimeSubscriptions) {
+            draft.realtimeSubscriptions = new Map();
+          }
+          if (!draft.subscribedPostIds) {
+            draft.subscribedPostIds = new Set();
+          }
+          
           draft.realtimeSubscriptions.forEach((unsubscribe, key) => {
             console.log(`[GetPostStore] Unsubscribing from ${key}`);
             try {
