@@ -24,6 +24,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import GlobalReactionBroadcastService, { 
   type ReactionBroadcastPayload 
 } from '../service/post-reaction.service';
@@ -32,6 +33,9 @@ import type { PostOperationResult } from '../schema/post.types';
 
 // Initialize Supabase client
 const supabase = createClient();
+
+// Enable Map and Set support for Immer when using immer middleware in Zustand
+enableMapSet();
 
 // ========== TYPE DEFINITIONS ==========
 

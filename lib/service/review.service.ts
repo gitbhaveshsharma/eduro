@@ -85,16 +85,23 @@ export class ReviewService {
     input: CreateReviewInput
   ): Promise<ServiceResponse<Review>> {
     try {
+      console.log('ReviewService: Starting createReview with input:', input);
+      
       // Validate input
       const validation = this.validateInput(CreateReviewSchema, input);
       if (!validation.success) {
+        console.error('ReviewService: Validation failed:', validation.error);
         return validation as ServiceResponse<Review>;
       }
 
+      console.log('ReviewService: Input validation passed');
+
       const supabase = createClient();
       const userId = await this.getCurrentUserId();
+      console.log('ReviewService: Current user ID:', userId);
 
       if (!userId && !input.is_anonymous) {
+        console.error('ReviewService: User not authenticated and review is not anonymous');
         return {
           success: false,
           error: 'Authentication required',
@@ -103,12 +110,15 @@ export class ReviewService {
       }
 
       // Check rate limit
+      console.log('ReviewService: Checking rate limit...');
       const rateLimitCheck = await this.checkRateLimit(
         input.coaching_branch_id,
         userId
       );
+      console.log('ReviewService: Rate limit check result:', rateLimitCheck);
 
       if (!rateLimitCheck.can_review) {
+        console.error('ReviewService: Rate limit exceeded:', rateLimitCheck.reason);
         return {
           success: false,
           error: rateLimitCheck.reason || 'Rate limit exceeded',
@@ -121,11 +131,14 @@ export class ReviewService {
       let reviewerRoleSnapshot = input.reviewer_role_snapshot;
 
       if (!input.is_anonymous && userId) {
+        console.log('ReviewService: Fetching user profile...');
         const { data: profile } = await supabase
           .from('profiles')
           .select('full_name, role')
           .eq('id', userId)
           .single();
+
+        console.log('ReviewService: User profile:', profile);
 
         if (profile) {
           reviewerNameSnapshot = reviewerNameSnapshot || profile.full_name || 'User';
@@ -133,8 +146,8 @@ export class ReviewService {
         }
       }
 
-      // Use RPC function to create review with all validations
-      const { data, error } = await supabase.rpc('submit_review', {
+      // Prepare RPC parameters
+      const rpcParams = {
         p_branch_id: input.coaching_branch_id,
         p_reviewer_id: input.is_anonymous ? null : userId,
         p_reviewer_user_type: input.reviewer_user_type,
@@ -148,10 +161,17 @@ export class ReviewService {
         p_is_anonymous: input.is_anonymous || false,
         p_reviewer_name_snapshot: reviewerNameSnapshot,
         p_reviewer_role_snapshot: reviewerRoleSnapshot
-      });
+      };
+
+      console.log('ReviewService: Calling submit_review RPC with params:', rpcParams);
+
+      // Use RPC function to create review with all validations
+      const { data, error } = await supabase.rpc('submit_review', rpcParams);
+
+      console.log('ReviewService: RPC submit_review response:', { data, error });
 
       if (error) {
-        console.error('Error creating review:', error);
+        console.error('ReviewService: RPC submit_review error:', error);
         
         // Check for specific error messages
         if (error.message.includes('cannot review')) {
@@ -177,6 +197,8 @@ export class ReviewService {
         };
       }
 
+      console.log('ReviewService: RPC call successful, fetching created review...');
+
       // Fetch the created review
       const { data: review, error: fetchError } = await supabase
         .from('reviews')
@@ -184,7 +206,10 @@ export class ReviewService {
         .eq('id', data)
         .single();
 
+      console.log('ReviewService: Fetch review result:', { review, fetchError });
+
       if (fetchError || !review) {
+        console.error('ReviewService: Failed to fetch created review:', fetchError);
         return {
           success: false,
           error: 'Review created but failed to fetch',
@@ -192,13 +217,14 @@ export class ReviewService {
         };
       }
 
+      console.log('ReviewService: Review creation completed successfully');
       return {
         success: true,
         data: review
       };
 
     } catch (error) {
-      console.error('Error in createReview:', error);
+      console.error('ReviewService: Exception in createReview:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -1229,7 +1255,10 @@ static async getBranchRatingSummary(
     userId: string | null
   ): Promise<RateLimitCheckResponse> {
     try {
+      console.log('ReviewService.checkRateLimit: Starting check for branchId:', branchId, 'userId:', userId);
+      
       if (!userId) {
+        console.log('ReviewService.checkRateLimit: No userId provided');
         return {
           can_review: false,
           reason: 'Authentication required'
@@ -1238,14 +1267,18 @@ static async getBranchRatingSummary(
 
       const supabase = createClient();
 
+      console.log('ReviewService.checkRateLimit: Calling check_review_rate_limit RPC...');
+      
       // Use the RPC function
       const { data, error } = await supabase.rpc('check_review_rate_limit', {
         user_id: userId,
         branch_id: branchId
       });
 
+      console.log('ReviewService.checkRateLimit: RPC response:', { data, error });
+
       if (error) {
-        console.error('Error checking rate limit:', error);
+        console.error('ReviewService.checkRateLimit: RPC error:', error);
         return {
           can_review: false,
           reason: 'Failed to check rate limit'
@@ -1253,18 +1286,20 @@ static async getBranchRatingSummary(
       }
 
       if (!data) {
+        console.log('ReviewService.checkRateLimit: RPC returned false');
         return {
           can_review: false,
           reason: 'You cannot review this branch'
         };
       }
 
+      console.log('ReviewService.checkRateLimit: Check passed');
       return {
         can_review: true
       };
 
     } catch (error) {
-      console.error('Error in checkRateLimit:', error);
+      console.error('ReviewService.checkRateLimit: Exception:', error);
       return {
         can_review: false,
         reason: 'Rate limit check failed'

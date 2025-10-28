@@ -8,6 +8,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Plus, AlertTriangle, X } from 'lucide-react';
 import {
@@ -35,6 +36,7 @@ import {
     useCurrentPage,
     useCurrentFilters
 } from '@/lib/review';
+import { useAuthGuard } from '@/hooks/use-auth-guard';
 import type { ReviewSearchFilters } from '@/lib/validations/review.validation';
 import type { ReviewWithDetails } from '@/lib/schema/review.types';
 
@@ -42,15 +44,19 @@ interface CoachingReviewsPageProps {
     branchId: string;
     branchName?: string;
     centerName?: string;
-    currentUserId?: string;
+    // Remove currentUserId prop - we'll get it from auth state
 }
 
 export function CoachingReviewsPage({
     branchId,
     branchName = 'This Coaching Center',
-    centerName,
-    currentUserId
+    centerName
 }: CoachingReviewsPageProps) {
+
+    // Use the auth guard hook for authentication logic
+    const { profile, getCurrentUserId, getCurrentUserRole, requireAuth, createAuthAsyncHandler } = useAuthGuard();
+    const currentUserId = getCurrentUserId();
+    const currentUserRole = getCurrentUserRole && getCurrentUserRole();
     // Zustand store
     const reviews = useSearchResults();
     const loading = useSearchLoading();
@@ -130,24 +136,23 @@ export function CoachingReviewsPage({
         }
     };
 
-    // Handle helpful vote
-    const handleHelpfulVote = async (reviewId: string) => {
-        if (!currentUserId) {
-            showErrorToast('Please log in to vote');
-            return;
-        }
-
-        const voted = await toggleHelpfulVote(reviewId);
-        if (voted !== undefined) {
-            showSuccessToast(
-                voted
-                    ? 'Marked as helpful'
-                    : 'Removed helpful vote'
-            );
-        } else {
-            showErrorToast('Failed to update vote');
-        }
-    };
+    // Handle helpful vote with auth protection
+    const handleHelpfulVote = createAuthAsyncHandler(
+        'vote on reviews',
+        async (reviewId: string) => {
+            const voted = await toggleHelpfulVote(reviewId);
+            if (voted !== undefined) {
+                showSuccessToast(
+                    voted
+                        ? 'Marked as helpful'
+                        : 'Removed helpful vote'
+                );
+            } else {
+                showErrorToast('Failed to update vote');
+            }
+        },
+        `/coaching-reviews/${branchId}`
+    );
 
     // Handle delete review
     const handleDeleteReview = async () => {
@@ -198,8 +203,7 @@ export function CoachingReviewsPage({
 
                         <Button
                             onClick={() => {
-                                if (!currentUserId) {
-                                    showErrorToast('Please log in to write a review');
+                                if (!requireAuth('write a review', `/coaching-reviews/${branchId}`)) {
                                     return;
                                 }
                                 setEditingReview(null);
@@ -277,6 +281,8 @@ export function CoachingReviewsPage({
                 branchId={branchId}
                 branchName={branchName}
                 existingReview={editingReview || undefined}
+                userProfile={profile}
+                userRole={currentUserRole}
                 onSuccess={handleReviewSuccess}
             />
 

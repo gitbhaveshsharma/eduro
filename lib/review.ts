@@ -85,6 +85,13 @@ export {
   useRatingSummaryFromCache
 } from './store/review.store';
 
+// Location-based Review Hooks
+export {
+  useLocationReviews,
+  useUserLocationReviews,
+  useCustomLocationReviews
+} from '../hooks/use-location-reviews';
+
 // Utilities
 export {
   ReviewDisplayUtils,

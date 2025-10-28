@@ -277,9 +277,12 @@ export const useReviewStore = create<ReviewStore>()(
 
       createReview: async (input: CreateReviewInput) => {
         set({ isSubmitting: true, submitError: null });
+        
+        console.log('Store: Starting review creation with input:', input);
 
         try {
           const result = await ReviewService.createReview(input);
+          console.log('Store: ReviewService.createReview result:', result);
 
           if (result.success && result.data) {
             set({ isSubmitting: false });
@@ -288,8 +291,10 @@ export const useReviewStore = create<ReviewStore>()(
             get().clearSearchCache();
             get().clearRatingSummaryCache();
 
+            console.log('Store: Review created successfully:', result.data);
             return result.data;
           } else {
+            console.error('Store: Review creation failed:', result.error);
             set({
               isSubmitting: false,
               submitError: result.error || 'Failed to create review'
@@ -298,6 +303,7 @@ export const useReviewStore = create<ReviewStore>()(
           }
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          console.error('Store: Exception during review creation:', error);
           set({
             isSubmitting: false,
             submitError: errorMessage

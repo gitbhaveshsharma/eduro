@@ -41,7 +41,23 @@ export function getRedirectFromUrl(searchParams?: URLSearchParams | string): str
     // Only allow relative URLs or same origin
     if (redirect.startsWith('/') && !redirect.startsWith('//')) {
       // Fix common typos in redirect URLs
-      return redirect.replace('/onbording', '/onboarding')
+      const cleanRedirect = redirect.replace('/onbording', '/onboarding')
+      
+      // Allow review pages and other safe paths
+      const safePatterns = [
+        /^\/dashboard/,
+        /^\/onboarding/,
+        /^\/profile/,
+        /^\/coaching-reviews/,
+        /^\/network/,
+        /^\/feed/,
+        /^\/settings/
+      ]
+      
+      const isSafePath = safePatterns.some(pattern => pattern.test(cleanRedirect))
+      if (isSafePath) {
+        return cleanRedirect
+      }
     }
   }
   
@@ -197,4 +213,59 @@ export function shouldRedirectFromCurrentPage(
   }
   
   return { shouldRedirect: false }
+}
+
+/**
+ * Create auth redirect URL for specific actions on review pages
+ * @param currentPath Current page path
+ * @param action Action user was trying to perform
+ * @returns Login URL with proper redirect back to current page
+ */
+export function createAuthRedirectUrl(
+  currentPath: string, 
+  action?: string
+): string {
+  const loginUrl = new URL('/login', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
+  
+  // Always redirect back to the current page after login
+  loginUrl.searchParams.set('redirect', currentPath)
+  
+  if (action) {
+    loginUrl.searchParams.set('action', action)
+  }
+  
+  return loginUrl.href
+}
+
+/**
+ * Check if the current route is a public route that allows unauthenticated access
+ * @param pathname Current pathname
+ * @returns Whether the route is public
+ */
+export function isPublicRoute(pathname: string): boolean {
+  const publicRoutes = [
+    '/',
+    '/login',
+    '/signup',
+    '/auth/callback',
+    '/api/auth/callback',
+    '/api/health',
+    '/favicon.ico'
+  ]
+
+  const publicPatterns = [
+    /^\/_next\//,
+    /^\/api\/auth\//,
+    /^\/static\//,
+    /^\/images\//,
+    /^\/coaching-reviews/, // Review pages are public for viewing
+  ]
+
+  // Check exact matches
+  if (publicRoutes.includes(pathname)) {
+    return true
+  }
+
+  // Check pattern matches
+  return publicPatterns.some(pattern => pattern.test(pathname))
 }

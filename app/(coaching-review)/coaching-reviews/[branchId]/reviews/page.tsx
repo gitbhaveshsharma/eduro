@@ -19,10 +19,7 @@ interface PageProps {
 export default async function BranchReviewsPage({ params }: PageProps) {
     const supabase = await createServerClient();
 
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Get branch details
+    // Get branch details (no need to get user on server side for this public route)
     const { data: branch } = await supabase
         .from('coaching_branches')
         .select(`
@@ -43,7 +40,6 @@ export default async function BranchReviewsPage({ params }: PageProps) {
             branchId={params.branchId}
             branchName={branch.name}
             centerName={(branch.coaching_centers as any)?.name}
-            currentUserId={user?.id}
         />
     );
 }

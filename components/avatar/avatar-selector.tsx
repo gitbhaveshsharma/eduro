@@ -192,7 +192,7 @@ export function AvatarSelector({
       )}
 
       {/* Avatar grid with modern scrollbar */}
-      <div className="max-h-[500px] overflow-y-auto modern-scrollbar rounded-lg border p-4 bg-muted/20">
+      <div className="max-h-[500px] overflow-y-auto scrollbar-modern rounded-lg border p-4 bg-muted/20">
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {avatarOptions[activeTab]?.map((option) => (
             <AvatarOptionCard

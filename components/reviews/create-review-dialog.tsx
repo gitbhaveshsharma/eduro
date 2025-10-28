@@ -8,7 +8,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogBody, DialogFooter, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,6 +29,9 @@ interface CreateReviewDialogProps {
     branchName?: string;
     existingReview?: ReviewWithDetails;
     onSuccess?: () => void;
+    // Provide current user's profile and role so the dialog can use them
+    userProfile?: any;
+    userRole?: string;
 }
 
 interface RatingInputProps {
@@ -80,7 +83,9 @@ export function CreateReviewDialog({
     branchId,
     branchName,
     existingReview,
-    onSuccess
+    onSuccess,
+    userProfile,
+    userRole
 }: CreateReviewDialogProps) {
     const isEditing = !!existingReview;
 
@@ -173,9 +178,21 @@ export function CreateReviewDialog({
                 }
             } else {
                 // Create new review
+                // Derive reviewer_user_type from provided userRole or profile
+                const mapRoleToReviewerType = (role?: string) => {
+                    if (!role) return 'STUDENT';
+                    const r = role.toUpperCase();
+                    // Map common short codes to more descriptive types used by API
+                    if (r === 'S' || r === 'STUDENT') return 'STUDENT';
+                    if (r === 'T' || r === 'TEACHER') return 'TEACHER';
+                    if (r === 'C' || r === 'COACH' || r === 'COACHING') return 'COACH';
+                    if (r === 'A' || r === 'ADMIN') return 'ADMIN';
+                    return 'STUDENT';
+                };
+
                 const createData: CreateReviewInput = {
                     coaching_branch_id: branchId,
-                    reviewer_user_type: 'STUDENT', // You might want to get this from user profile
+                    reviewer_user_type: mapRoleToReviewerType(userRole || (userProfile as any)?.role) as any,
                     title: formData.title,
                     comment: formData.comment || undefined,
                     overall_rating: formData.overall_rating as any,
@@ -217,7 +234,7 @@ export function CreateReviewDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>
                         {isEditing ? 'Edit Your Review' : 'Write a Review'}
@@ -230,118 +247,134 @@ export function CreateReviewDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Overall Rating */}
-                    <RatingInput
-                        label="Overall Rating"
-                        value={formData.overall_rating}
-                        onChange={(value) => setFormData({ ...formData, overall_rating: value })}
-                        required
-                    />
-                    {errors.overall_rating && (
-                        <p className="text-sm text-destructive">{errors.overall_rating}</p>
-                    )}
-
-                    {/* Title */}
-                    <div className="space-y-2">
-                        <Label htmlFor="title">
-                            Review Title <span className="text-destructive">*</span>
-                        </Label>
-                        <Input
-                            id="title"
-                            placeholder="Sum up your experience"
-                            value={formData.title}
-                            onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                            className={errors.title ? 'border-destructive' : ''}
-                        />
-                        {errors.title && (
-                            <p className="text-sm text-destructive">{errors.title}</p>
-                        )}
-                    </div>
-
-                    {/* Comment */}
-                    <div className="space-y-2">
-                        <Label htmlFor="comment">
-                            Your Review {['1', '2'].includes(formData.overall_rating) && <span className="text-destructive">*</span>}
-                        </Label>
-                        <Textarea
-                            id="comment"
-                            placeholder="Share details of your experience..."
-                            rows={5}
-                            value={formData.comment}
-                            onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
-                            className={errors.comment ? 'border-destructive' : ''}
-                        />
-                        {errors.comment && (
-                            <p className="text-sm text-destructive">{errors.comment}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                            {formData.comment.length}/2000 characters
-                        </p>
-                    </div>
-
-                    {/* Category Ratings */}
-                    <div className="space-y-4 border-t pt-4">
-                        <h4 className="font-semibold text-sm">Category Ratings (Optional)</h4>
-
-                        <div className="grid sm:grid-cols-2 gap-4">
+                <DialogBody>
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Overall Rating */}
+                        <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
                             <RatingInput
-                                label="Teaching Quality"
-                                value={formData.teaching_quality}
-                                onChange={(value) => setFormData({ ...formData, teaching_quality: value })}
+                                label="Overall Rating *"
+                                value={formData.overall_rating}
+                                onChange={(value) => setFormData({ ...formData, overall_rating: value })}
+                                required
                             />
-
-                            <RatingInput
-                                label="Infrastructure"
-                                value={formData.infrastructure}
-                                onChange={(value) => setFormData({ ...formData, infrastructure: value })}
-                            />
-
-                            <RatingInput
-                                label="Staff Support"
-                                value={formData.staff_support}
-                                onChange={(value) => setFormData({ ...formData, staff_support: value })}
-                            />
-
-                            <RatingInput
-                                label="Value for Money"
-                                value={formData.value_for_money}
-                                onChange={(value) => setFormData({ ...formData, value_for_money: value })}
-                            />
+                            {errors.overall_rating && (
+                                <p className="text-sm text-destructive mt-2">{errors.overall_rating}</p>
+                            )}
                         </div>
-                    </div>
 
-                    {/* Anonymous Option */}
-                    {!isEditing && (
-                        <div className="flex items-center justify-between border-t pt-4">
-                            <div className="space-y-0.5">
-                                <Label>Post Anonymously</Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Your identity will not be revealed
-                                </p>
+                        {/* Title */}
+                        <div className="space-y-2">
+                            <Label htmlFor="title" className="text-base font-medium">
+                                Review Title *
+                            </Label>
+                            <Input
+                                id="title"
+                                placeholder="Sum up your experience"
+                                value={formData.title}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                className={cn(
+                                    'w-full',
+                                    errors.title ? 'border-destructive' : ''
+                                )}
+                            />
+                            {errors.title && (
+                                <p className="text-sm text-destructive">{errors.title}</p>
+                            )}
+                        </div>
+
+                        {/* Comment */}
+                        <div className="space-y-2">
+                            <Label htmlFor="comment" className="text-base font-medium">
+                                Your Review {['1', '2'].includes(formData.overall_rating) && <span className="text-destructive">*</span>}
+                            </Label>
+                            <Textarea
+                                id="comment"
+                                placeholder="Share details of your experience..."
+                                rows={5}
+                                value={formData.comment}
+                                onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+                                className={cn(
+                                    'resize-none',
+                                    errors.comment ? 'border-destructive' : ''
+                                )}
+                            />
+                            {errors.comment && (
+                                <p className="text-sm text-destructive">{errors.comment}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground text-right">
+                                {formData.comment.length}/2000 characters
+                            </p>
+                        </div>
+
+                        {/* Category Ratings */}
+                        <div className="space-y-4 border-t border-gray-200 dark:border-gray-700 pt-4">
+                            <h4 className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                                Category Ratings (Optional)
+                            </h4>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <RatingInput
+                                    label="Teaching Quality"
+                                    value={formData.teaching_quality}
+                                    onChange={(value) => setFormData({ ...formData, teaching_quality: value })}
+                                />
+
+                                <RatingInput
+                                    label="Infrastructure"
+                                    value={formData.infrastructure}
+                                    onChange={(value) => setFormData({ ...formData, infrastructure: value })}
+                                />
+
+                                <RatingInput
+                                    label="Staff Support"
+                                    value={formData.staff_support}
+                                    onChange={(value) => setFormData({ ...formData, staff_support: value })}
+                                />
+
+                                <RatingInput
+                                    label="Value for Money"
+                                    value={formData.value_for_money}
+                                    onChange={(value) => setFormData({ ...formData, value_for_money: value })}
+                                />
                             </div>
-                            <Switch
-                                checked={formData.is_anonymous}
-                                onCheckedChange={(checked) => setFormData({ ...formData, is_anonymous: checked })}
-                            />
                         </div>
-                    )}
 
-                    <DialogFooter className="gap-2">
-                        <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => onOpenChange(false)}
-                            disabled={loading}
-                        >
-                            Cancel
-                        </Button>
-                        <Button type="submit" disabled={loading}>
-                            {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                            {isEditing ? 'Update Review' : 'Submit Review'}
-                        </Button>
-                    </DialogFooter>
-                </form>
+                        {/* Anonymous Option */}
+                        {!isEditing && (
+                            <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-700 pt-4">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base font-medium">Post Anonymously</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Your identity will not be revealed
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={formData.is_anonymous}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, is_anonymous: checked })}
+                                />
+                            </div>
+                        )}
+                    </form>
+                </DialogBody>
+
+                <DialogFooter className="gap-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => onOpenChange(false)}
+                        disabled={loading}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="submit"
+                        disabled={loading}
+                        onClick={handleSubmit}
+                    >
+                        {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        {isEditing ? 'Update Review' : 'Submit Review'}
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
