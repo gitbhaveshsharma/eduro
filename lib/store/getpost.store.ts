@@ -14,6 +14,7 @@ import React from 'react';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { enableMapSet } from 'immer';
 import { GetPostService } from '../service/getpost.service';
 import type {
   GetPostsParams,
@@ -167,6 +168,10 @@ function generateCacheKey(params: GetPostsParams): string {
 }
 
 // Create the store
+
+// Enable Map and Set support for Immer when using immer middleware in Zustand
+enableMapSet();
+
 export const useGetPostStore = create<GetPostStore>()(
   subscribeWithSelector(
     immer((set, get) => ({

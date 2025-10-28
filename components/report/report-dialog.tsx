@@ -102,8 +102,8 @@ export function ReportDialog({
               Report Submitted Successfully
             </h3>
             <p className="text-sm text-muted-foreground max-w-sm">
-              Thank you for reporting this {getTargetTypeDisplay()}.  
-              Our moderation team will review it soon.  
+              Thank you for reporting this {getTargetTypeDisplay()}.
+              Our moderation team will review it soon.
               If the issue is confirmed, you may not see this content again.
             </p>
             <Button
@@ -138,7 +138,7 @@ export function ReportDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+        <div className="overflow-y-auto flex-1 px-5 py-4 space-y-5 scrollbar-modern">
           {/* Category selection */}
           <div>
             <Label className="text-sm font-medium">What’s the issue?</Label>

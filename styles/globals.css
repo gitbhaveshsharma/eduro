@@ -348,3 +348,208 @@
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
+
+/* 🎨 Modern Scrollbar Styles - Sleek & Professional */
+@layer components {
+  /* Modern thin scrollbar for dialogs and containers */
+  .scrollbar-modern {
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.708 0.003 247.858) transparent;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 3px;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: oklch(0.708 0.003 247.858 / 0.3);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.708 0.003 247.858 / 0.6);
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+
+  .scrollbar-modern::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark mode scrollbar */
+  .dark .scrollbar-modern {
+    scrollbar-color: oklch(0.556 0.003 247.858) transparent;
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-thumb {
+    background: oklch(0.556 0.003 247.858 / 0.4);
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.556 0.003 247.858 / 0.7);
+  }
+
+  .dark .scrollbar-modern::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+
+  /* Invisible scrollbar that appears on hover - for premium feel */
+  .scrollbar-ghost {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+    transition: scrollbar-color 0.3s ease;
+  }
+
+  .scrollbar-ghost:hover {
+    scrollbar-color: oklch(0.708 0.003 247.858 / 0.4) transparent;
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+  }
+
+  .scrollbar-ghost:hover::-webkit-scrollbar-thumb {
+    background: oklch(0.708 0.003 247.858 / 0.3);
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.708 0.003 247.858 / 0.5);
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+
+  .scrollbar-ghost::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark mode ghost scrollbar */
+  .dark .scrollbar-ghost:hover {
+    scrollbar-color: oklch(0.556 0.003 247.858 / 0.5) transparent;
+  }
+
+  .dark .scrollbar-ghost:hover::-webkit-scrollbar-thumb {
+    background: oklch(0.556 0.003 247.858 / 0.4);
+  }
+
+  .dark .scrollbar-ghost::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.556 0.003 247.858 / 0.6);
+  }
+
+  .dark .scrollbar-ghost::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+
+  /* Accent scrollbar for special areas */
+  .scrollbar-accent {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-brand-primary) transparent;
+  }
+
+  .scrollbar-accent::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-accent::-webkit-scrollbar-track {
+    background: oklch(0.976 0.003 247.858);
+    border-radius: 3px;
+  }
+
+  .scrollbar-accent::-webkit-scrollbar-thumb {
+    background: var(--color-brand-primary);
+    border-radius: 3px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-accent::-webkit-scrollbar-thumb:hover {
+    background: var(--color-brand-secondary);
+  }
+
+  .scrollbar-accent::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-highlight);
+  }
+
+  .scrollbar-accent::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark mode accent scrollbar */
+  .dark .scrollbar-accent::-webkit-scrollbar-track {
+    background: oklch(0.269 0.003 247.858);
+  }
+
+  /* Ultra-thin scrollbar for compact spaces */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.708 0.003 247.858 / 0.2) transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 2px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.708 0.003 247.858 / 0.2);
+    border-radius: 2px;
+    transition: background-color 0.2s ease;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.708 0.003 247.858 / 0.4);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* Dark mode thin scrollbar */
+  .dark .scrollbar-thin {
+    scrollbar-color: oklch(0.556 0.003 247.858 / 0.3) transparent;
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: oklch(0.556 0.003 247.858 / 0.3);
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.556 0.003 247.858 / 0.5);
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb:active {
+    background: var(--color-brand-primary);
+  }
+}

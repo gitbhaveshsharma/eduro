@@ -1,4 +1,9 @@
 import { ProfileAPI } from '@/lib/profile';
+// This page uses server-side cookies (via Supabase server client). Next.js
+// may attempt to statically prerender app routes during build; when a page
+// accesses `cookies()` it becomes dynamic. Declare the page as dynamic so
+// Next will render it at request-time and the cookies API is available.
+export const dynamic = 'force-dynamic';
 import NetworkPageClient from '@/components/network/network-page-client';
 
 // Server component: fetch initial profiles on the server so the first page

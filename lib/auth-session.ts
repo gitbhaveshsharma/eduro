@@ -231,12 +231,12 @@ export class AuthSessionManager {
       }
 
       if (error) {
-        console.error('[AUTH-SESSION] Token refresh failed:', error.message)
+        // console.error('[AUTH-SESSION] Token refresh failed:', error.message)
 
         if (error.message?.includes('refresh_token_not_found') ||
             error.message?.includes('Invalid refresh token')) {
           await this.signOut()
-        }
+        } 
 
         return false
       }

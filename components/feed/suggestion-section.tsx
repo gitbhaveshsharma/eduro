@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { LocationReviewsCardCompact } from "../reviews";
 
 interface SuggestionSectionProps {
     className?: string;
@@ -134,42 +135,15 @@ export function SuggestionSection({ className = "" }: SuggestionSectionProps) {
 
     return (
         <div className={`space-y-6 ${className}`}>
-            {/* Trending Topics */}
-            <Card>
-                <CardHeader className="pb-3">
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-orange-500" />
-                        Trending Topics
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                    {trendingTopics.map((topic, index) => (
-                        <div key={topic.tag} className="flex items-center justify-between hover:bg-gray-50 p-2 rounded-lg cursor-pointer transition-colors">
-                            <div className="flex items-center space-x-3">
-                                <div className="flex items-center justify-center w-6 h-6 bg-gray-100 rounded text-xs font-medium text-gray-600">
-                                    {index + 1}
-                                </div>
-                                <div>
-                                    <div className="flex items-center space-x-1">
-                                        <Hash className="h-3 w-3 text-gray-400" />
-                                        <span className="font-medium text-sm">{topic.tag}</span>
-                                    </div>
-                                    <div className="text-xs text-gray-500">
-                                        {topic.count.toLocaleString()} posts
-                                    </div>
-                                </div>
-                            </div>
-                            <Badge variant="outline" className="text-xs text-green-600 border-green-200">
-                                {topic.trend}
-                            </Badge>
-                        </div>
-                    ))}
-                    <Button variant="ghost" size="sm" className="w-full text-blue-600 hover:text-blue-700">
-                        View all topics
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
-                </CardContent>
-            </Card>
+            {/* cochin Location Reviews */}
+            <LocationReviewsCardCompact
+                key="suggestion-section"
+                sortOption={false}
+                commentPreviewLength={100}
+                title="Coaching Reviews"
+                className="h-fit"
+            />
+
 
             {/* Suggested Users */}
             {visibleSuggestedUsers.length > 0 && (

@@ -204,8 +204,8 @@ export function AvatarManager({ profile, onAvatarUpdate, className, size, showOn
                   </div>
                 </div>
 
-                {/* Content area with custom scrollbar */}
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                {/* Content area with modern scrollbar */}
+                <div className="flex-1 overflow-y-auto scrollbar-modern">
                   {activeTab === 'select' && (
                     <div className="p-4 sm:p-6">
                       <AvatarSelector
@@ -439,7 +439,7 @@ export function AvatarChangeButton({
                   </div>
                 </div>
 
-                <div className="flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex-1 overflow-y-auto scrollbar-modern">
                   {activeTab === 'select' && (
                     <div className="p-4 sm:p-6">
                       <AvatarSelector
