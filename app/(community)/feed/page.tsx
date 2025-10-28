@@ -65,11 +65,11 @@ export default function FeedPage() {
                             compact={false}
                         />
 
-                        {/* Feed Section
+                        {/* Feed Section */}
                         <FeedSection
                             sortType={sortType}
                             searchQuery={searchQuery}
-                        /> */}
+                        />
                     </div>
 
                     {/* Right Sidebar - Suggestions (Hidden on mobile/tablet) */}
