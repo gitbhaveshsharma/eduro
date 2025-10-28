@@ -410,38 +410,28 @@ export const usePostReactionStore = create<PostReactionStore>()(
 
       subscribeToTarget: (targetType: 'POST' | 'COMMENT', targetId: string) => {
         const cacheKey = getCacheKey(targetType, targetId);
-        const state = get();
-
-        // Prevent duplicate subscriptions
-        if (state.activeSubscriptions[cacheKey]) {
-          console.log(`[PostReactionStore] Already subscribed to ${cacheKey}`);
-          return;
-        }
-
-        console.log(`[PostReactionStore] 📡 Subscribing to ${cacheKey} via global broadcast`);
-
-        // Subscribe via GlobalReactionBroadcastService
-        const unsubscribe = GlobalReactionBroadcastService.subscribe(
-          targetType,
-          targetId,
-          (payload) => {
-            // Handle real-time updates
-            get().handleReactionUpdate(payload);
+        
+        set(draft => {
+          if (draft.activeSubscriptions[cacheKey]) {
+            console.log(`[PostReactionStore] Already subscribed to ${cacheKey}`);
+            return;
           }
-        );
 
-        // Store unsubscribe function
-        set((draft) => {
+          console.log(`[PostReactionStore] 📡 Subscribing to ${cacheKey} via global broadcast`);
+
+          const unsubscribe = GlobalReactionBroadcastService.subscribe(
+            targetType,
+            targetId,
+            (payload) => {
+              get().handleReactionUpdate(payload);
+            }
+          );
+
           draft.activeSubscriptions[cacheKey] = unsubscribe;
           draft.connectionStatus = 'connected';
           draft.lastConnectionCheck = Date.now();
-        });
-
-        // Add to batch loading queue
-        set((draft) => {
           draft.pendingBatchLoad.add(cacheKey);
-          
-          // Set up batch processing timer if not already set
+
           if (!draft.batchLoadTimer) {
             draft.batchLoadTimer = setTimeout(() => {
               get().processBatchLoad();
@@ -452,17 +442,15 @@ export const usePostReactionStore = create<PostReactionStore>()(
 
       unsubscribeFromTarget: (targetType: 'POST' | 'COMMENT', targetId: string) => {
         const cacheKey = getCacheKey(targetType, targetId);
-        const state = get();
         
-        const unsubscribe = state.activeSubscriptions[cacheKey];
-        if (unsubscribe) {
-          console.log(`[PostReactionStore] 📴 Unsubscribing from ${cacheKey}`);
-          unsubscribe();
-          
-          set((draft) => {
+        set((draft) => {
+          const unsubscribe = draft.activeSubscriptions[cacheKey];
+          if (unsubscribe) {
+            console.log(`[PostReactionStore] 📴 Unsubscribing from ${cacheKey}`);
+            unsubscribe();
             delete draft.activeSubscriptions[cacheKey];
-          });
-        }
+          }
+        });
       },
 
       unsubscribeAll: () => {
