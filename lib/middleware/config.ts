@@ -154,6 +154,24 @@ const routeProtections = {
     },
     logRequests: true
   },
+  '/network/*': {
+    securityLevel: SecurityLevel.AUTHENTICATED,
+    rateLimiting: {
+      requests: 100,
+      window: RateLimitWindow.MINUTE
+    },
+    logRequests: true
+  },
+  '/coaching-reviews': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  '/coaching-reviews/*': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
   // Admin routes - require admin role
   '/admin/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
