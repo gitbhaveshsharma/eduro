@@ -70,6 +70,20 @@ export function ConditionalLayout({
         setNavigationItems(filteredItems);
     }, [config.platform, config.device]);
 
+    // ✅ Get platform-specific loading message
+    const getLoadingMessage = () => {
+        switch (platform) {
+            case 'lms':
+                return "Loading LMS...";
+            case 'community':
+                return "Loading community feed...";
+            // case 'mobile':
+            //     return "Loading app...";
+            default:
+                return "Loading...";
+        }
+    };
+
     const shouldShowHeader = LayoutUtils.shouldShowHeader(config);
     const shouldShowBottomNav = LayoutUtils.shouldShowBottomNav(config);
 
@@ -78,7 +92,7 @@ export function ConditionalLayout({
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="flex flex-col items-center space-y-4">
-                    <LoadingSpinner message="Loading community feed..." size="lg" />
+                    <LoadingSpinner message={getLoadingMessage()} size="lg" />
                 </div>
             </div>
         );
