@@ -74,24 +74,22 @@ export class CoachingService {
         .from('coaching_center_details')
         .select(`
           id,
-          name,
-          slug,
-          description,
-          established_year,
-          logo_url,
-          cover_url,
-          category,
-          subjects,
-          target_audience,
-          phone,
-          email,
-          website,
-          is_verified,
-          is_featured,
-          created_at,
-          updated_at,
-          total_branches,
-          active_branches
+    name,
+    slug,
+    description,
+    established_year,
+    logo_url,
+    cover_url,
+    category,
+    subjects,
+    target_audience,
+    phone,
+    email,
+    website,
+    is_verified,
+    is_featured,
+    created_at,
+    updated_at    
         `)
         .eq('id', centerId)
         .eq('status', 'ACTIVE')
@@ -134,9 +132,7 @@ export class CoachingService {
           is_verified,
           is_featured,
           created_at,
-          updated_at,
-          total_branches,
-          active_branches
+          updated_at
         `)
         .eq('slug', slug)
         .eq('status', 'ACTIVE')
@@ -310,9 +306,7 @@ export class CoachingService {
           is_verified,
           is_featured,
           created_at,
-          updated_at,
-          total_branches,
-          active_branches
+          updated_at
         `, { count: 'exact' })
         .eq('status', 'ACTIVE')
         .eq('is_verified', true);

@@ -317,13 +317,27 @@ export const useCoachingStore = create<CoachingStore>()(
         },
 
         loadCoachingCenterBySlug: async (slug: string) => {
+          set((state) => {
+            state.currentCoachingCenterLoading = true;
+            state.currentCoachingCenterError = null;
+          });
+
           const result = await CoachingService.getCoachingCenterBySlug(slug);
           
-          if (result.success && result.data) {
-            // Cache the result
-            get().cacheCoachingCenter(result.data);
-            return;
-          }
+          set((state) => {
+            state.currentCoachingCenterLoading = false;
+            if (result.success && result.data) {
+              // Cache the result
+              state.coachingCenterCache.set(result.data.id, result.data);
+              state.coachingCenterCacheErrors.delete(result.data.id);
+              // Set as current center (convert PublicCoachingCenter to CoachingCenter)
+              state.currentCoachingCenter = result.data as unknown as CoachingCenter;
+              state.currentCoachingCenterError = null;
+            } else {
+              state.currentCoachingCenterError = result.error || 'Coaching center not found';
+              state.currentCoachingCenter = null;
+            }
+          });
         },
 
         setCurrentCoachingCenter: (center: CoachingCenter | null) => {
