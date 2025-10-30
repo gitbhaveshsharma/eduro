@@ -11,10 +11,15 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Profile, ProfileUpdate, USER_ROLES } from '@/lib/schema/profile.types';
-import { ProfileValidationUtils, ProfileDisplayUtils } from '@/lib/utils/profile.utils';
+import { Profile, ProfileUpdate } from '@/lib/schema/profile.types';
+import { ProfileDisplayUtils } from '@/lib/utils/profile.utils';
 import { useProfileStore } from '@/lib/store/profile.store';
 import { showSuccessToast, showErrorToast, showWarningToast } from '@/lib/toast';
+import {
+    profileFormSchema,
+    validateUsernameFormat,
+    PROFILE_VALIDATION_LIMITS
+} from '@/lib/validations/profile.validation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,35 +48,6 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-
-// Validation schema
-const profileFormSchema = z.object({
-    full_name: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long').nullable().optional(),
-    username: z.string()
-        .min(3, 'Username must be at least 3 characters')
-        .max(20, 'Username must be no more than 20 characters')
-        .regex(/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores')
-        .nullable()
-        .optional(),
-    bio: z.string().max(500, 'Bio is too long').nullable().optional(),
-    phone: z.string()
-        .regex(/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format')
-        .nullable()
-        .optional()
-        .or(z.literal('')),
-    timezone: z.string().optional(),
-    language_preference: z.string().optional(),
-
-    // Role-specific fields for Teachers/Coaches
-    expertise_areas: z.array(z.string()).nullable().optional(),
-    years_of_experience: z.number().min(0).max(100).nullable().optional(),
-    hourly_rate: z.number().min(0).max(10000).nullable().optional(),
-
-    // Role-specific fields for Students
-    grade_level: z.string().nullable().optional(),
-    subjects_of_interest: z.array(z.string()).nullable().optional(),
-    learning_goals: z.string().max(1000).nullable().optional(),
-});
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -124,9 +100,10 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
             return;
         }
 
-        const validation = ProfileValidationUtils.validateUsername(username);
+        const validation = validateUsernameFormat(username);
         if (!validation.valid) {
             setUsernameAvailable(false);
+            showWarningToast(validation.error || 'Invalid username format');
             return;
         }
 
@@ -295,7 +272,7 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                             <p className="text-sm text-destructive">{errors.bio.message}</p>
                         )}
                         <p className="text-xs text-muted-foreground">
-                            {watch('bio')?.length || 0} / 500 characters
+                            {watch('bio')?.length || 0} / {PROFILE_VALIDATION_LIMITS.BIO_MAX} characters
                         </p>
                     </div>
                 </CardContent>
@@ -477,7 +454,7 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                                 <p className="text-sm text-destructive">{errors.learning_goals.message}</p>
                             )}
                             <p className="text-xs text-muted-foreground">
-                                {watch('learning_goals')?.length || 0} / 1000 characters
+                                {watch('learning_goals')?.length || 0} / {PROFILE_VALIDATION_LIMITS.LEARNING_GOALS_MAX} characters
                             </p>
                         </div>
                     </CardContent>

@@ -7,12 +7,21 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { useAddressStore } from '@/lib/store/address.store';
-import { AddressValidationUtils } from '@/lib/utils/address.utils';
 import type { AddressCreate, AddressUpdate, AddressType } from '@/lib/schema/address.types';
 import { INDIAN_STATES } from '@/lib/schema/address.types';
 import { useCurrentProfile } from '@/lib/profile';
 import type { UserRole } from '@/lib/schema/profile.types';
+import {
+    addressFormSchema,
+    validatePinCodeFormat,
+    validateGoogleMapsUrl,
+    ADDRESS_VALIDATION_LIMITS
+} from '@/lib/validations/address.validation';
+import { showSuccessToast, showErrorToast, showWarningToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,8 +34,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, MapPin, Navigation } from 'lucide-react';
+import { Loader2, MapPin, Navigation, Save, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+
+type AddressFormValues = z.infer<typeof addressFormSchema>;
 
 interface AddressFormProps {
     addressId?: string; // If provided, edit mode; otherwise, create mode
@@ -159,7 +170,7 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         }
 
         // Validate PIN code
-        const pinValidation = AddressValidationUtils.validatePinCode(formData.pin_code);
+        const pinValidation = validatePinCodeFormat(formData.pin_code);
         if (!pinValidation.valid) {
             setError(pinValidation.error || 'Invalid PIN code');
             return false;
@@ -167,21 +178,15 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
 
         // Validate coordinates if provided
         if (formData.latitude !== undefined && formData.longitude !== undefined) {
-            const coordValidation = AddressValidationUtils.validateCoordinates(
-                formData.latitude,
-                formData.longitude
-            );
-            if (!coordValidation.valid) {
-                setError(coordValidation.error || 'Invalid coordinates');
+            if (formData.latitude !== null && formData.longitude === null) {
+                setError('Both latitude and longitude must be provided together');
                 return false;
             }
         }
 
         // Validate Google Maps URL if provided
         if (formData.google_maps_url) {
-            const urlValidation = AddressValidationUtils.validateGoogleMapsUrl(
-                formData.google_maps_url
-            );
+            const urlValidation = validateGoogleMapsUrl(formData.google_maps_url);
             if (!urlValidation.valid) {
                 setError(urlValidation.error || 'Invalid Google Maps URL');
                 return false;
