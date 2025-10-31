@@ -182,18 +182,6 @@ export function AddressCard({
                             </Badge>
                         )}
                     </div>
-
-                    {/* Completion Progress */}
-                    {showCompletion && !compact && completionPercentage < 100 && (
-                        <div className="pt-3 space-y-2">
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-muted-foreground">Profile Completion</span>
-                                <span className="font-medium">{completionPercentage}%</span>
-                            </div>
-                            <Progress value={completionPercentage} className="h-1.5" />
-                        </div>
-                    )}
-
                     {/* Footer Actions */}
                     {!compact && (
                         <div className="flex items-center gap-2 pt-3 border-t">

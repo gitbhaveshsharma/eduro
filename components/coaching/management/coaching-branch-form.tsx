@@ -11,19 +11,22 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Loader2, AlertCircle, Search, X, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, Search, X, CheckCircle2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { coachingBranchFormSchema, COACHING_VALIDATION_LIMITS } from "@/lib/validations/coaching.validation";
 import { CoachingBranch } from "@/lib/schema/coaching.types";
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
 import { useCoachingStore } from "@/lib/coaching";
 import { ProfileAPI } from "@/lib/profile";
 import type { PublicProfile } from "@/lib/schema/profile.types";
+import { AddressManager } from "@/components/address/address-manager";
+import type { Address } from "@/lib/schema/address.types";
 
 type CoachingBranchFormData = z.infer<typeof coachingBranchFormSchema>;
 
@@ -47,6 +50,8 @@ export function CoachingBranchForm({
     const [searchingManager, setSearchingManager] = useState(false);
     const [selectedManager, setSelectedManager] = useState<PublicProfile | null>(null);
     const [managerError, setManagerError] = useState<string | null>(null);
+    const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
+    const [showAddressManager, setShowAddressManager] = useState(false);
     const { createCoachingBranch, updateCoachingBranch } = useCoachingStore();
 
     const isEditMode = !!initialData?.id;
@@ -334,6 +339,108 @@ export function CoachingBranchForm({
                             </p>
                         </div>
                     </div>
+                )}
+            </div>
+
+            {/* Branch Location/Address */}
+            <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold">Branch Location</h3>
+                    {selectedAddress && !showAddressManager && (
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowAddressManager(true)}
+                        >
+                            <MapPin className="h-4 w-4 mr-2" />
+                            Change Address
+                        </Button>
+                    )}
+                </div>
+                {!showAddressManager && selectedAddress && (
+                    <Card className="border-primary">
+                        <CardHeader>
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <CardTitle className="text-base">Selected Branch Address</CardTitle>
+                                    <CardDescription>{selectedAddress.address_type}</CardDescription>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setSelectedAddress(null)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                            {selectedAddress.label && (
+                                <p className="font-medium">{selectedAddress.label}</p>
+                            )}
+                            {selectedAddress.address_line_1 && (
+                                <p className="text-muted-foreground">{selectedAddress.address_line_1}</p>
+                            )}
+                            {selectedAddress.address_line_2 && (
+                                <p className="text-muted-foreground">{selectedAddress.address_line_2}</p>
+                            )}
+                            <p className="text-muted-foreground">
+                                {[selectedAddress.city, selectedAddress.district, selectedAddress.state, selectedAddress.pin_code]
+                                    .filter(Boolean)
+                                    .join(', ')}
+                            </p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {!showAddressManager && !selectedAddress && (
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowAddressManager(true)}
+                        className="w-full"
+                    >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Add or Select Branch Address
+                    </Button>
+                )}
+
+                {showAddressManager && (
+                    <Card>
+                        <CardHeader>
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <CardTitle>Manage Branch Address</CardTitle>
+                                    <CardDescription>
+                                        Select an existing address or create a new one for this branch
+                                    </CardDescription>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setShowAddressManager(false)}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </CardHeader>
+                        <CardContent>
+                            <AddressManager
+                                onAddressSelect={(address) => {
+                                    setSelectedAddress(address);
+                                    setShowAddressManager(false);
+                                    showSuccessToast("Address selected for branch");
+                                }}
+                                showAddButton={true}
+                                allowEdit={true}
+                                allowDelete={true}
+                                allowSetPrimary={false}
+                            />
+                        </CardContent>
+                    </Card>
                 )}
             </div>
 

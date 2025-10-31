@@ -15,6 +15,7 @@ import type { AddressCreate, AddressUpdate, AddressType } from '@/lib/schema/add
 import { INDIAN_STATES } from '@/lib/schema/address.types';
 import { useCurrentProfile } from '@/lib/profile';
 import type { UserRole } from '@/lib/schema/profile.types';
+import { usePinCode } from '@/hooks/use-pincode';
 import {
     addressFormSchema,
     validatePinCodeFormat,
@@ -89,6 +90,18 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [extractingCoords, setExtractingCoords] = useState(false);
+    const [gettingLocation, setGettingLocation] = useState(false);
+
+    // PIN code hook for validation and data fetching
+    const {
+        isLoading: pinCodeLoading,
+        data: pinCodeData,
+        error: pinCodeError,
+        isValid: pinCodeValid,
+        fetchPinCodeData,
+        validatePinCode: validatePinCodeFormat,
+        reset: resetPinCode
+    } = usePinCode();
 
     // Get available address types based on user role
     const availableAddressTypes = getAvailableAddressTypes(userRole);
@@ -108,6 +121,43 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
             loadExistingAddress();
         }
     }, [addressId]);
+
+    // Fetch PIN code data when PIN code changes
+    useEffect(() => {
+        const pinCode = formData.pin_code?.trim();
+
+        if (!pinCode) {
+            resetPinCode();
+            return;
+        }
+
+        if (pinCode.length !== 6) {
+            resetPinCode();
+            return;
+        }
+
+        if (!validatePinCodeFormat(pinCode)) {
+            resetPinCode();
+            return;
+        }
+
+        const timeoutId = setTimeout(() => {
+            fetchPinCodeData(pinCode);
+        }, 800); // 800ms debounce
+
+        return () => clearTimeout(timeoutId);
+    }, [formData.pin_code, fetchPinCodeData, validatePinCodeFormat, resetPinCode]);
+
+    // Auto-fill state and district when PIN code data is fetched
+    useEffect(() => {
+        if (pinCodeValid && pinCodeData) {
+            setFormData((prev) => ({
+                ...prev,
+                state: pinCodeData.state,
+                district: pinCodeData.district,
+            }));
+        }
+    }, [pinCodeValid, pinCodeData]);
 
     const loadExistingAddress = async () => {
         if (!addressId) return;
@@ -162,6 +212,50 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         setExtractingCoords(false);
     };
 
+    const handleGetCurrentLocation = () => {
+        if (!navigator.geolocation) {
+            showErrorToast('Geolocation is not supported by your browser');
+            return;
+        }
+
+        setGettingLocation(true);
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                setFormData((prev) => ({
+                    ...prev,
+                    latitude: position.coords.latitude,
+                    longitude: position.coords.longitude,
+                }));
+                setGettingLocation(false);
+                showSuccessToast('Location retrieved successfully!');
+            },
+            (error) => {
+                setGettingLocation(false);
+                let errorMessage = 'Failed to get your location';
+
+                switch (error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = 'Location permission denied. Please enable location access in your browser.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = 'Location information unavailable';
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = 'Location request timed out';
+                        break;
+                }
+
+                showErrorToast(errorMessage);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0
+            }
+        );
+    };
+
     const validateForm = (): boolean => {
         // Required fields
         if (!formData.state || !formData.district || !formData.pin_code) {
@@ -169,10 +263,9 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
             return false;
         }
 
-        // Validate PIN code
-        const pinValidation = validatePinCodeFormat(formData.pin_code);
-        if (!pinValidation.valid) {
-            setError(pinValidation.error || 'Invalid PIN code');
+        // Validate PIN code format
+        if (!validatePinCodeFormat(formData.pin_code)) {
+            setError('Please enter a valid 6-digit PIN code');
             return false;
         }
 

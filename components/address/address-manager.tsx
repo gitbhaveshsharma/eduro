@@ -22,6 +22,15 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogBody,
+    DialogFooter,
+} from '@/components/ui/dialog';
+import {
     Home,
     Building,
     Plus,
@@ -110,6 +119,7 @@ export function AddressManager({
 
     const handleAddressCreated = () => {
         setShowAddForm(false);
+        loadCurrentUserAddresses(); // Refresh the list
         toast({
             title: 'Address added',
             description: 'Your new address has been successfully added.',
@@ -118,6 +128,7 @@ export function AddressManager({
 
     const handleAddressUpdated = () => {
         setEditingAddressId(null);
+        loadCurrentUserAddresses(); // Refresh the list
         toast({
             title: 'Address updated',
             description: 'Your address has been successfully updated.',
@@ -168,78 +179,82 @@ export function AddressManager({
                 )}
             </div>
 
-            {/* Add Address Form */}
-            {showAddForm && (
-                <Card className="border-primary">
-                    <CardHeader>
-                        <CardTitle>Add New Address</CardTitle>
-                        <CardDescription>
+            {/* Add Address Dialog */}
+            <Dialog open={showAddForm} onOpenChange={setShowAddForm}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Add New Address</DialogTitle>
+                        <DialogDescription>
                             Fill in the details below to add a new address
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogBody>
                         <AddressForm
                             onSuccess={handleAddressCreated}
                             onCancel={() => setShowAddForm(false)}
                         />
-                    </CardContent>
-                </Card>
-            )}
+                    </DialogBody>
 
-            {/* Edit Address Form */}
-            {editingAddressId && (
-                <Card className="border-primary">
-                    <CardHeader>
-                        <CardTitle>Edit Address</CardTitle>
-                        <CardDescription>
+                    {/* DialogFooter is intentionally left empty because the form contains its own actions. */}
+                    <DialogFooter />
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Address Dialog */}
+            <Dialog open={!!editingAddressId} onOpenChange={(open) => !open && setEditingAddressId(null)}>
+                <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Edit Address</DialogTitle>
+                        <DialogDescription>
                             Update your address details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <DialogBody>
                         <AddressForm
-                            addressId={editingAddressId}
+                            addressId={editingAddressId || undefined}
                             onSuccess={handleAddressUpdated}
                             onCancel={() => setEditingAddressId(null)}
                         />
-                    </CardContent>
-                </Card>
-            )}
+                    </DialogBody>
+
+                    {/* DialogFooter is intentionally left empty because the form contains its own actions. */}
+                    <DialogFooter />
+                </DialogContent>
+            </Dialog>
 
             {/* Address List */}
-            {!showAddForm && !editingAddressId && (
-                <>
-                    {currentUserAddresses.length === 0 ? (
-                        <Card>
-                            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                                <MapPin className="h-16 w-16 text-muted-foreground opacity-50 mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">No addresses yet</h3>
-                                <p className="text-sm text-muted-foreground mb-4">
-                                    Add your first address to get started
-                                </p>
-                                {showAddButton && (
-                                    <Button onClick={() => setShowAddForm(true)}>
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Your First Address
-                                    </Button>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="grid gap-4 md:grid-cols-2">
-                            {currentUserAddresses.map((address) => (
-                                <AddressCard
-                                    key={address.id}
-                                    address={address}
-                                    onEdit={allowEdit ? () => setEditingAddressId(address.id) : undefined}
-                                    onDelete={allowDelete ? () => handleDelete(address.id) : undefined}
-                                    onSetPrimary={allowSetPrimary && !address.is_primary ? () => handleSetPrimary(address.id) : undefined}
-                                    onSelect={onAddressSelect ? () => onAddressSelect(address) : undefined}
-                                    showActions={allowEdit || allowDelete || allowSetPrimary}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </>
+            {currentUserAddresses.length === 0 ? (
+                <Card>
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                        <MapPin className="h-16 w-16 text-muted-foreground opacity-50 mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">No addresses yet</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                            Add your first address to get started
+                        </p>
+                        {showAddButton && (
+                            <Button onClick={() => setShowAddForm(true)}>
+                                <Plus className="h-4 w-4 mr-2" />
+                                Add Your First Address
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+            ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                    {currentUserAddresses.map((address) => (
+                        <AddressCard
+                            key={address.id}
+                            address={address}
+                            onEdit={allowEdit ? () => setEditingAddressId(address.id) : undefined}
+                            onDelete={allowDelete ? () => handleDelete(address.id) : undefined}
+                            onSetPrimary={allowSetPrimary && !address.is_primary ? () => handleSetPrimary(address.id) : undefined}
+                            onSelect={onAddressSelect ? () => onAddressSelect(address) : undefined}
+                            showActions={allowEdit || allowDelete || allowSetPrimary}
+                        />
+                    ))}
+                </div>
             )}
 
             {/* Max Addresses Warning */}
