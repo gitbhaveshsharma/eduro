@@ -21,7 +21,8 @@ import {
     Mail,
     MessageSquare,
     Phone,
-    Globe
+    Globe,
+    RotateCcw
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -112,211 +113,237 @@ export function ProfileSettings({ profile, onSuccess, className = '' }: ProfileS
 
     return (
         <div className={`space-y-6 ${className}`}>
-            {/* Notification Preferences */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Bell className="h-5 w-5" />
-                        Notification Preferences
-                    </CardTitle>
-                    <CardDescription>
-                        Manage how you receive notifications
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    {/* Email Notifications */}
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-start space-x-3">
-                            <Mail className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <Label htmlFor="email-notifications" className="text-base cursor-pointer">
-                                    Email Notifications
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Receive notifications via email
-                                </p>
+            {/* Notification Preferences & Preferences in one row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Notification Preferences */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Bell className="h-5 w-5" />
+                            Notification Preferences
+                        </CardTitle>
+                        <CardDescription>
+                            Manage how you receive notifications
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Email Notifications */}
+                        <div className="flex items-center justify-between space-x-2">
+                            <div className="flex items-start space-x-3">
+                                <Mail className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                                <div className="space-y-1">
+                                    <Label htmlFor="email-notifications" className="text-base cursor-pointer">
+                                        Email Notifications
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Receive notifications via email
+                                    </p>
+                                </div>
                             </div>
+                            <Switch
+                                id="email-notifications"
+                                checked={emailNotifications}
+                                onCheckedChange={setEmailNotifications}
+                            />
                         </div>
-                        <Switch
-                            id="email-notifications"
-                            checked={emailNotifications}
-                            onCheckedChange={setEmailNotifications}
-                        />
-                    </div>
 
-                    <Separator />
+                        <Separator />
 
-                    {/* Push Notifications */}
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-start space-x-3">
-                            <Bell className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <Label htmlFor="push-notifications" className="text-base cursor-pointer">
-                                    Push Notifications
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Receive push notifications in your browser
-                                </p>
+                        {/* Push Notifications */}
+                        <div className="flex items-center justify-between space-x-2">
+                            <div className="flex items-start space-x-3">
+                                <Bell className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                                <div className="space-y-1">
+                                    <Label htmlFor="push-notifications" className="text-base cursor-pointer">
+                                        Push Notifications
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Receive push notifications in your browser
+                                    </p>
+                                </div>
                             </div>
+                            <Switch
+                                id="push-notifications"
+                                checked={pushNotifications}
+                                onCheckedChange={setPushNotifications}
+                            />
                         </div>
-                        <Switch
-                            id="push-notifications"
-                            checked={pushNotifications}
-                            onCheckedChange={setPushNotifications}
-                        />
-                    </div>
 
-                    <Separator />
+                        <Separator />
 
-                    {/* Chat Notifications */}
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-start space-x-3">
-                            <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <Label htmlFor="chat-notifications" className="text-base cursor-pointer">
-                                    Chat Notifications
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Get notified about new chat messages
-                                </p>
+                        {/* Chat Notifications */}
+                        <div className="flex items-center justify-between space-x-2">
+                            <div className="flex items-start space-x-3">
+                                <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                                <div className="space-y-1">
+                                    <Label htmlFor="chat-notifications" className="text-base cursor-pointer">
+                                        Chat Notifications
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Get notified about new chat messages
+                                    </p>
+                                </div>
                             </div>
+                            <Switch
+                                id="chat-notifications"
+                                checked={chatNotifications}
+                                onCheckedChange={setChatNotifications}
+                            />
                         </div>
-                        <Switch
-                            id="chat-notifications"
-                            checked={chatNotifications}
-                            onCheckedChange={setChatNotifications}
-                        />
-                    </div>
 
-                    <Separator />
+                        <Separator />
 
-                    {/* WhatsApp Notifications */}
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-start space-x-3">
-                            <Phone className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <Label htmlFor="whatsapp-notifications" className="text-base cursor-pointer">
-                                    WhatsApp Notifications
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Receive important updates via WhatsApp
-                                </p>
+                        {/* WhatsApp Notifications */}
+                        <div className="flex items-center justify-between space-x-2">
+                            <div className="flex items-start space-x-3">
+                                <Phone className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                                <div className="space-y-1">
+                                    <Label htmlFor="whatsapp-notifications" className="text-base cursor-pointer">
+                                        WhatsApp Notifications
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Receive important updates via WhatsApp
+                                    </p>
+                                </div>
                             </div>
+                            <Switch
+                                id="whatsapp-notifications"
+                                checked={whatsappNotifications}
+                                onCheckedChange={setWhatsappNotifications}
+                            />
                         </div>
-                        <Switch
-                            id="whatsapp-notifications"
-                            checked={whatsappNotifications}
-                            onCheckedChange={setWhatsappNotifications}
-                        />
-                    </div>
 
-                    <Separator />
+                        <Separator />
 
-                    {/* SMS Notifications */}
-                    <div className="flex items-center justify-between space-x-2">
-                        <div className="flex items-start space-x-3">
-                            <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
-                            <div className="space-y-1">
-                                <Label htmlFor="sms-notifications" className="text-base cursor-pointer">
-                                    SMS Notifications
-                                </Label>
-                                <p className="text-sm text-muted-foreground">
-                                    Get SMS for critical notifications
-                                </p>
+                        {/* SMS Notifications */}
+                        <div className="flex items-center justify-between space-x-2">
+                            <div className="flex items-start space-x-3">
+                                <MessageSquare className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                                <div className="space-y-1">
+                                    <Label htmlFor="sms-notifications" className="text-base cursor-pointer">
+                                        SMS Notifications
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Get SMS for critical notifications
+                                    </p>
+                                </div>
                             </div>
+                            <Switch
+                                id="sms-notifications"
+                                checked={smsNotifications}
+                                onCheckedChange={setSmsNotifications}
+                            />
                         </div>
-                        <Switch
-                            id="sms-notifications"
-                            checked={smsNotifications}
-                            onCheckedChange={setSmsNotifications}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
 
-            {/* Preferences */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Globe className="h-5 w-5" />
-                        Preferences
-                    </CardTitle>
-                    <CardDescription>
-                        Customize your experience
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Language Preference */}
-                    <div className="space-y-2">
-                        <Label htmlFor="language">Language</Label>
-                        <Select value={languagePreference} onValueChange={setLanguagePreference}>
-                            <SelectTrigger id="language">
-                                <SelectValue placeholder="Select language" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="en">English</SelectItem>
-                                <SelectItem value="hi">हिन्दी (Hindi)</SelectItem>
-                                <SelectItem value="bn">বাংলা (Bengali)</SelectItem>
-                                <SelectItem value="te">తెలుగు (Telugu)</SelectItem>
-                                <SelectItem value="mr">मराठी (Marathi)</SelectItem>
-                                <SelectItem value="ta">தமிழ் (Tamil)</SelectItem>
-                                <SelectItem value="gu">ગુજરાતી (Gujarati)</SelectItem>
-                                <SelectItem value="kn">ಕನ್ನಡ (Kannada)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Choose your preferred language for the interface
-                        </p>
-                    </div>
+                {/* Preferences */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Globe className="h-5 w-5" />
+                            Preferences
+                        </CardTitle>
+                        <CardDescription>
+                            Customize your experience
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        {/* Language Preference */}
+                        <div className="space-y-3">
+                            <Label htmlFor="language">Language Preference</Label>
+                            <Select value={languagePreference} onValueChange={setLanguagePreference}>
+                                <SelectTrigger id="language">
+                                    <SelectValue placeholder="Select language" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="en">English</SelectItem>
+                                    <SelectItem value="hi">हिन्दी (Hindi)</SelectItem>
+                                    <SelectItem value="bn">বাংলা (Bengali)</SelectItem>
+                                    <SelectItem value="te">తెలుగు (Telugu)</SelectItem>
+                                    <SelectItem value="mr">मराठी (Marathi)</SelectItem>
+                                    <SelectItem value="ta">தமிழ் (Tamil)</SelectItem>
+                                    <SelectItem value="gu">ગુજરાતી (Gujarati)</SelectItem>
+                                    <SelectItem value="kn">ಕನ್ನಡ (Kannada)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Choose your preferred language for the interface
+                            </p>
+                        </div>
 
-                    {/* Timezone */}
-                    <div className="space-y-2">
-                        <Label htmlFor="timezone">Timezone</Label>
-                        <Select value={timezone} onValueChange={setTimezone}>
-                            <SelectTrigger id="timezone">
-                                <SelectValue placeholder="Select timezone" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
-                                <SelectItem value="Asia/Kolkata">IST (Indian Standard Time)</SelectItem>
-                                <SelectItem value="America/New_York">EST (Eastern Standard Time)</SelectItem>
-                                <SelectItem value="America/Los_Angeles">PST (Pacific Standard Time)</SelectItem>
-                                <SelectItem value="Europe/London">GMT (Greenwich Mean Time)</SelectItem>
-                                <SelectItem value="Asia/Dubai">GST (Gulf Standard Time)</SelectItem>
-                                <SelectItem value="Asia/Singapore">SGT (Singapore Time)</SelectItem>
-                                <SelectItem value="Asia/Tokyo">JST (Japan Standard Time)</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Set your timezone for accurate timestamps
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
+                        <Separator />
+
+                        {/* Timezone */}
+                        <div className="space-y-3">
+                            <Label htmlFor="timezone">Timezone</Label>
+                            <Select value={timezone} onValueChange={setTimezone}>
+                                <SelectTrigger id="timezone">
+                                    <SelectValue placeholder="Select timezone" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="UTC">UTC (Coordinated Universal Time)</SelectItem>
+                                    <SelectItem value="Asia/Kolkata">IST (Indian Standard Time)</SelectItem>
+                                    <SelectItem value="America/New_York">EST (Eastern Standard Time)</SelectItem>
+                                    <SelectItem value="America/Los_Angeles">PST (Pacific Standard Time)</SelectItem>
+                                    <SelectItem value="Europe/London">GMT (Greenwich Mean Time)</SelectItem>
+                                    <SelectItem value="Asia/Dubai">GST (Gulf Standard Time)</SelectItem>
+                                    <SelectItem value="Asia/Singapore">SGT (Singapore Time)</SelectItem>
+                                    <SelectItem value="Asia/Tokyo">JST (Japan Standard Time)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Set your timezone for accurate timestamps
+                            </p>
+                        </div>
+
+                        {/* Additional preferences can be added here */}
+                        <div className="space-y-3">
+                            <Label htmlFor="theme">Theme Preference</Label>
+                            <Select defaultValue="system">
+                                <SelectTrigger id="theme">
+                                    <SelectValue placeholder="Select theme" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="light">Light</SelectItem>
+                                    <SelectItem value="dark">Dark</SelectItem>
+                                    <SelectItem value="system">System</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Choose your preferred theme appearance
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex items-center justify-end gap-4 pt-4 border-t">
                 <Button
                     type="button"
                     variant="outline"
                     onClick={handleReset}
                     disabled={!hasChanges || isSaving}
+                    className="flex items-center gap-2"
                 >
-                    Reset
+                    <RotateCcw className="h-4 w-4" />
+                    Reset Changes
                 </Button>
                 <Button
                     type="button"
                     onClick={handleSave}
                     disabled={!hasChanges || isSaving}
+                    className="flex items-center gap-2"
                 >
                     {isSaving ? (
                         <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                             Saving...
                         </>
                     ) : (
                         <>
-                            <Save className="mr-2 h-4 w-4" />
+                            <Save className="h-4 w-4" />
                             Save Settings
                         </>
                     )}

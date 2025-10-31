@@ -5,7 +5,7 @@
  */
 
 export { CoachingManager } from './coaching-manager';
-export { CoachingCenterForm } from './coaching-center-form';
+export { CoachingCenterUpdateForm } from './coaching-center-update-form';
 export { CoachingCenterCard } from './coaching-center-card';
 export { CoachingCenterDashboard } from './coaching-center-dashboard';
 export { CoachingBranchForm } from './coaching-branch-form';

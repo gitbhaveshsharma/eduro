@@ -16,9 +16,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
+    DialogBody,
+    DialogFooter,
 } from "@/components/ui/dialog";
 import {
     Loader2,
@@ -33,11 +35,13 @@ import { showSuccessToast, showErrorToast } from "@/lib/toast";
 interface CoachingBranchManagerProps {
     coachingCenterId: string;
     coachingCenterName: string;
+    centerOwnerId: string; // Owner of the coaching center (default branch manager)
 }
 
 export function CoachingBranchManager({
     coachingCenterId,
     coachingCenterName,
+    centerOwnerId,
 }: CoachingBranchManagerProps) {
     const [branches, setBranches] = useState<PublicCoachingBranch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,7 +49,7 @@ export function CoachingBranchManager({
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [editingBranch, setEditingBranch] = useState<PublicCoachingBranch | null>(null);
 
-    const { loadBranches, deleteCoachingBranch } = useCoachingStore();
+    const { loadBranchesByCenter, deleteCoachingBranch } = useCoachingStore();
 
     // Load branches on mount
     useEffect(() => {
@@ -55,9 +59,15 @@ export function CoachingBranchManager({
     const loadBranchesData = async () => {
         setIsLoading(true);
         try {
-            const result = await loadBranches(coachingCenterId);
-            if (result) {
+            const result = await loadBranchesByCenter(coachingCenterId, true);
+            // loadBranchesByCenter returns an array (possibly empty)
+            if (result && Array.isArray(result)) {
                 setBranches(result);
+            } else if (Array.isArray(result)) {
+                setBranches(result);
+            } else {
+                // In case the store changes to return void, try reading from cache
+                setBranches([]);
             }
         } catch (error) {
             console.error("Error loading branches:", error);
@@ -180,7 +190,10 @@ export function CoachingBranchManager({
 
             {/* Create/Edit Dialog */}
             <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                {/* Match the review dialog pattern: keep max width but avoid forcing an outer overflow
+                    on DialogContent which creates a second scrollbar. Let the form/dialog body
+                    manage its own scrolling if needed (same approach as create-review-dialog). */}
+                <DialogContent className="max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editingBranch ? "Edit Branch" : "Create New Branch"}
@@ -191,12 +204,19 @@ export function CoachingBranchManager({
                                 : "Add a new branch location for your coaching center"}
                         </DialogDescription>
                     </DialogHeader>
-                    <CoachingBranchForm
-                        coachingCenterId={coachingCenterId}
-                        initialData={editingBranch || undefined}
-                        onSuccess={handleFormSuccess}
-                        onCancel={handleFormCancel}
-                    />
+
+                    <DialogBody>
+                        <CoachingBranchForm
+                            coachingCenterId={coachingCenterId}
+                            centerOwnerId={centerOwnerId}
+                            initialData={editingBranch || undefined}
+                            onSuccess={handleFormSuccess}
+                            onCancel={handleFormCancel}
+                        />
+                    </DialogBody>                    {/* DialogFooter is intentionally left empty because the form contains its own actions.
+                        If you prefer footer-level actions (Cancel/Save) outside the form, we can move them
+                        here and wire them to the form via refs or callbacks. */}
+                    <DialogFooter />
                 </DialogContent>
             </Dialog>
         </div>

@@ -26,7 +26,7 @@ function TabsList({
     <TabsPrimitive.List
       data-slot="tabs-list"
       className={cn(
-        'bg-muted text-muted-foreground inline-flex h-9 w-fit items-center justify-center rounded-lg p-[3px]',
+        'bg-white p-1 rounded-lg shadow-sm border border-[#E5E7EB]',
         className,
       )}
       {...props}
@@ -42,7 +42,10 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "data-[state=active]:bg-background dark:data-[state=active]:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring dark:data-[state=active]:border-input dark:data-[state=active]:bg-input/30 text-foreground dark:text-muted-foreground inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:ring-[3px] focus-visible:outline-1 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:shadow-sm [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200",
+        "data-[state=active]:bg-[#1D4ED8] data-[state=active]:text-white data-[state=active]:shadow-sm",
+        "text-[#6B7280] hover:text-[#111827]",
+        "disabled:pointer-events-none disabled:opacity-50",
         className,
       )}
       {...props}
@@ -57,10 +60,53 @@ function TabsContent({
   return (
     <TabsPrimitive.Content
       data-slot="tabs-content"
-      className={cn('flex-1 outline-none', className)}
+      className={cn(
+        'outline-none',
+        'data-[state=inactive]:animate-tabs-out data-[state=active]:animate-tabs-in',
+        className
+      )}
       {...props}
     />
   )
 }
 
-export { Tabs, TabsList, TabsTrigger, TabsContent }
+// Enhanced wrapper for smooth content transitions
+const TabsContentWrapper = React.forwardRef<
+  React.ElementRef<typeof TabsPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TabsPrimitive.Content> & {
+    containerClass?: string
+  }
+>(({ className, containerClass, children, ...props }, ref) => {
+  const dataState = (props as any)['data-state']
+  return (
+    <TabsPrimitive.Content
+      ref={ref}
+      className={cn(
+        'outline-none',
+        className
+      )}
+      {...props}
+    >
+      <div className={cn(
+        'transition-all duration-300 ease-in-out',
+        'data-[state=active]:opacity-100 data-[state=active]:translate-x-0',
+        'data-[state=inactive]:absolute data-[state=inactive]:inset-0 data-[state=inactive]:opacity-0 data-[state=inactive]:translate-x-4 data-[state=inactive]:pointer-events-none',
+        containerClass
+      )} data-state={dataState}>
+        {children}
+      </div>
+    </TabsPrimitive.Content>
+  )
+})
+TabsContentWrapper.displayName = 'TabsContentWrapper'
+
+// Alternative: Custom Tabs with smooth transitions
+const AnimatedTabs = {
+  Root: Tabs,
+  List: TabsList,
+  Trigger: TabsTrigger,
+  Content: TabsContent,
+  ContentWrapper: TabsContentWrapper,
+}
+
+export { Tabs, TabsList, TabsTrigger, TabsContent, TabsContentWrapper, AnimatedTabs }

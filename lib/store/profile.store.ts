@@ -1,8 +1,8 @@
 /**
  * Profile Store
  * 
- * Zustand store for managing profile state across the application
- * Handles caching, optimistic updates, and real-time synchronization
+ * Optimized Zustand store for managing profile state across the application
+ * Handles caching, optimistic updates, and real-time synchronization with performance optimizations
  */
 
 import { create } from 'zustand';
@@ -25,15 +25,55 @@ import type {
   ProfilePermissions
 } from '../schema/profile.types';
 
+// Request debouncing utility
+const debounceMap = new Map();
+
+const debouncedFetch = <T>(key: string, fn: () => Promise<T>, delay: number = 100): Promise<T> => {
+  return new Promise((resolve, reject) => {
+    // Clear existing timeout for this key
+    if (debounceMap.has(key)) {
+      clearTimeout(debounceMap.get(key));
+    }
+
+    const timeoutId = setTimeout(async () => {
+      debounceMap.delete(key);
+      try {
+        const result = await fn();
+        resolve(result);
+      } catch (error) {
+        reject(error);
+      }
+    }, delay);
+
+    debounceMap.set(key, timeoutId);
+  });
+};
+
+// Cache configuration
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const PROFILE_CACHE_TTL = 30 * 1000; // 30 seconds for current profile
+
+// Enhanced interfaces with cache metadata
+interface CachedProfile extends Profile {
+  _lastUpdated?: number;
+  _cached?: boolean;
+}
+
+interface CachedPublicProfile extends PublicProfile {
+  _lastUpdated?: number;
+  _cached?: boolean;
+}
+
 // Store state interface
 interface ProfileState {
   // Current user profile
-  currentProfile: Profile | null;
+  currentProfile: CachedProfile | null;
   currentProfileLoading: boolean;
   currentProfileError: string | null;
+  lastProfileLoad: number;
 
   // Profile cache for other users
-  profileCache: Map<string, PublicProfile>;
+  profileCache: Map<string, CachedPublicProfile>;
   profileCacheLoading: Set<string>;
   profileCacheErrors: Map<string, string>;
 
@@ -48,6 +88,7 @@ interface ProfileState {
   stats: ProfileStats | null;
   statsLoading: boolean;
   statsError: string | null;
+  lastStatsLoad: number;
 
   // Permissions cache
   permissionsCache: Map<string, ProfilePermissions>;
@@ -57,24 +98,28 @@ interface ProfileState {
   editFormData: ProfileUpdate | null;
   uploadingAvatar: boolean;
   avatarUploadProgress: number;
+
+  // Optimistic update backup
+  optimisticBackup: Profile | null;
 }
 
 // Store actions interface
 interface ProfileActions {
   // Current user profile actions
   hydrateCurrentProfile: (profile: Profile) => void;
-  loadCurrentProfile: () => Promise<void>;
+  loadCurrentProfile: (force?: boolean) => Promise<void>;
   updateCurrentProfile: (updates: ProfileUpdate) => Promise<boolean>;
   updateCurrentProfileOptimistic: (updates: ProfileUpdate) => void;
   revertCurrentProfileOptimistic: () => void;
   clearCurrentProfile: () => void;
 
   // Profile cache actions
-  loadProfile: (userId: string) => Promise<PublicProfile | null>;
+  loadProfile: (userId: string, force?: boolean) => Promise<PublicProfile | null>;
   loadProfileByUsername: (username: string) => Promise<PublicProfile | null>;
   cacheProfile: (profile: PublicProfile) => void;
   clearProfileCache: () => void;
   removeFromCache: (userId: string) => void;
+  preloadProfiles: (userIds: string[]) => void;
 
   // Search and filtering actions
   searchProfiles: (
@@ -88,7 +133,7 @@ interface ProfileActions {
   clearSearch: () => void;
 
   // Statistics actions
-  loadStats: () => Promise<void>;
+  loadStats: (force?: boolean) => Promise<void>;
   refreshStats: () => Promise<void>;
 
   // Permissions actions
@@ -101,7 +146,7 @@ interface ProfileActions {
 
   // Onboarding actions
   updateOnboardingLevel: (level: OnboardingLevel) => Promise<boolean>;
-  
+
   // Online status actions
   updateOnlineStatus: (isOnline: boolean) => Promise<void>;
 
@@ -116,6 +161,10 @@ interface ProfileActions {
   // Utility actions
   recalculateCompletion: (userId?: string) => Promise<number>;
   deactivateProfile: () => Promise<boolean>;
+
+  // Performance utilities
+  isProfileStale: () => boolean;
+  preloadEssentialData: () => Promise<void>;
 }
 
 type ProfileStore = ProfileState & ProfileActions;
@@ -125,6 +174,7 @@ const initialState: ProfileState = {
   currentProfile: null,
   currentProfileLoading: false,
   currentProfileError: null,
+  lastProfileLoad: 0,
 
   profileCache: new Map(),
   profileCacheLoading: new Set(),
@@ -139,6 +189,7 @@ const initialState: ProfileState = {
   stats: null,
   statsLoading: false,
   statsError: null,
+  lastStatsLoad: 0,
 
   permissionsCache: new Map(),
 
@@ -146,6 +197,8 @@ const initialState: ProfileState = {
   editFormData: null,
   uploadingAvatar: false,
   avatarUploadProgress: 0,
+
+  optimisticBackup: null,
 };
 
 export const useProfileStore = create<ProfileStore>()(
@@ -154,35 +207,77 @@ export const useProfileStore = create<ProfileStore>()(
       immer((set, get) => ({
         ...initialState,
 
+        // Performance checkers
+        isProfileStale: () => {
+          const state = get();
+          return !state.currentProfile ||
+            Date.now() - state.lastProfileLoad > PROFILE_CACHE_TTL;
+        },
+
         // Current user profile actions
-        loadCurrentProfile: async () => {
-          // ✅ If profile is already loaded or is loading, don't fetch again
-          if (get().currentProfile || get().currentProfileLoading) {
+        loadCurrentProfile: async (force: boolean = false) => {
+          const state = get();
+
+          // ✅ Enhanced cache validation with TTL
+          if (!force && state.currentProfile && !state.currentProfileLoading) {
+            const isStale = Date.now() - state.lastProfileLoad > PROFILE_CACHE_TTL;
+            if (!isStale) {
+              return; // Use cached data
+            }
+          }
+
+          // ✅ Prevent concurrent requests
+          if (state.currentProfileLoading) {
             return;
           }
+
           set((state) => {
             state.currentProfileLoading = true;
             state.currentProfileError = null;
           });
 
-          const result = await ProfileService.getCurrentProfile();
+          try {
+            // ✅ Use debouncing for API calls
+            const result = await debouncedFetch(
+              'currentProfile',
+              () => ProfileService.getCurrentProfile(),
+              50 // Minimal debounce for user-initiated actions
+            );
 
+            set((state) => {
+              state.currentProfileLoading = false;
+              state.lastProfileLoad = Date.now();
+
+              if (result.success && result.data) {
+                state.currentProfile = {
+                  ...result.data,
+                  _lastUpdated: Date.now(),
+                  _cached: false
+                };
+                state.currentProfileError = null;
+              } else {
+                state.currentProfileError = result.error || 'Failed to load profile';
+              }
+            });
+          } catch (error) {
+            set((state) => {
+              state.currentProfileLoading = false;
+              state.currentProfileError = 'Network error loading profile';
+            });
+          }
+        },
+
+        hydrateCurrentProfile: (profile: Profile) => {
           set((state) => {
-            state.currentProfileLoading = false;
-            if (result.success && result.data) {
-              state.currentProfile = result.data;
-              state.currentProfileError = null;
-            } else {
-              state.currentProfileError = result.error || 'Failed to load profile';
+            if (!state.currentProfile) {
+              state.currentProfile = {
+                ...profile,
+                _lastUpdated: Date.now(),
+                _cached: true
+              };
+              state.lastProfileLoad = Date.now();
             }
           });
-        },
-        hydrateCurrentProfile: (profile: Profile) => {
-            set((state) => {
-                if (!state.currentProfile) {
-                    state.currentProfile = profile;
-                }
-            });
         },
 
         updateCurrentProfile: async (updates: ProfileUpdate) => {
@@ -193,6 +288,11 @@ export const useProfileStore = create<ProfileStore>()(
             return false;
           }
 
+          // Store backup for optimistic update
+          set((state) => {
+            state.optimisticBackup = { ...state.currentProfile! };
+          });
+
           // Optimistic update
           get().updateCurrentProfileOptimistic(updates);
 
@@ -202,8 +302,13 @@ export const useProfileStore = create<ProfileStore>()(
 
           if (result.success && result.data) {
             set((state) => {
-              state.currentProfile = result.data!;
+              state.currentProfile = {
+                ...result.data!,
+                _lastUpdated: Date.now(),
+                _cached: false
+              };
               state.editFormData = null;
+              state.optimisticBackup = null;
             });
             console.log('Profile updated successfully in store');
             return true;
@@ -221,21 +326,23 @@ export const useProfileStore = create<ProfileStore>()(
         updateCurrentProfileOptimistic: (updates: ProfileUpdate) => {
           set((state) => {
             if (state.currentProfile) {
-              // Store original for potential revert
-              if (!state.editFormData) {
-                state.editFormData = { ...updates };
-              }
-              
               // Apply optimistic updates
               Object.assign(state.currentProfile, updates);
+              state.currentProfile._lastUpdated = Date.now();
             }
           });
         },
 
         revertCurrentProfileOptimistic: () => {
-          // This would require storing the original state
-          // For now, just reload the profile
-          get().loadCurrentProfile();
+          set((state) => {
+            if (state.optimisticBackup) {
+              state.currentProfile = {
+                ...state.optimisticBackup,
+                _lastUpdated: Date.now()
+              };
+              state.optimisticBackup = null;
+            }
+          });
         },
 
         clearCurrentProfile: () => {
@@ -245,17 +352,25 @@ export const useProfileStore = create<ProfileStore>()(
             state.currentProfileLoading = false;
             state.editFormData = null;
             state.isEditMode = false;
+            state.lastProfileLoad = 0;
+            state.optimisticBackup = null;
           });
         },
 
         // Profile cache actions
-        loadProfile: async (userId: string) => {
-          const cache = get().profileCache;
-          if (cache.has(userId)) {
-            return cache.get(userId)!;
+        loadProfile: async (userId: string, force: boolean = false) => {
+          const state = get();
+          const cache = state.profileCache;
+
+          // ✅ Check cache with TTL
+          if (!force && cache.has(userId)) {
+            const cachedProfile = cache.get(userId)!;
+            if (Date.now() - (cachedProfile._lastUpdated || 0) < CACHE_TTL) {
+              return cachedProfile;
+            }
           }
 
-          const loading = get().profileCacheLoading;
+          const loading = state.profileCacheLoading;
           if (loading.has(userId)) {
             // Already loading, wait for it
             return null;
@@ -266,35 +381,57 @@ export const useProfileStore = create<ProfileStore>()(
             state.profileCacheErrors.delete(userId);
           });
 
-          const result = await ProfileService.getPublicProfile(userId);
+          try {
+            const result = await debouncedFetch(
+              `profile-${userId}`,
+              () => ProfileService.getPublicProfile(userId),
+              100
+            );
 
-          set((state) => {
-            state.profileCacheLoading.delete(userId);
-            if (result.success && result.data) {
-              state.profileCache.set(userId, result.data);
-            } else {
-              state.profileCacheErrors.set(userId, result.error || 'Failed to load profile');
-            }
-          });
+            set((state) => {
+              state.profileCacheLoading.delete(userId);
+              if (result.success && result.data) {
+                const cachedProfile: CachedPublicProfile = {
+                  ...result.data,
+                  _lastUpdated: Date.now(),
+                  _cached: true
+                };
+                state.profileCache.set(userId, cachedProfile);
+              } else {
+                state.profileCacheErrors.set(userId, result.error || 'Failed to load profile');
+              }
+            });
 
-          return result.success && result.data ? result.data : null;
+            return result.success && result.data ? result.data : null;
+          } catch (error) {
+            set((state) => {
+              state.profileCacheLoading.delete(userId);
+              state.profileCacheErrors.set(userId, 'Network error loading profile');
+            });
+            return null;
+          }
         },
 
         loadProfileByUsername: async (username: string) => {
           const result = await ProfileService.getProfileByUsername(username);
-          
+
           if (result.success && result.data) {
             // Cache the result
             get().cacheProfile(result.data);
             return result.data;
           }
-          
+
           return null;
         },
 
         cacheProfile: (profile: PublicProfile) => {
           set((state) => {
-            state.profileCache.set(profile.id, profile);
+            const cachedProfile: CachedPublicProfile = {
+              ...profile,
+              _lastUpdated: Date.now(),
+              _cached: true
+            };
+            state.profileCache.set(profile.id, cachedProfile);
             state.profileCacheErrors.delete(profile.id);
           });
         },
@@ -315,6 +452,15 @@ export const useProfileStore = create<ProfileStore>()(
           });
         },
 
+        preloadProfiles: (userIds: string[]) => {
+          // Preload multiple profiles in background
+          userIds.forEach(userId => {
+            if (!get().profileCache.has(userId) && !get().profileCacheLoading.has(userId)) {
+              get().loadProfile(userId);
+            }
+          });
+        },
+
         // Search and filtering actions
         searchProfiles: async (
           filters: ProfileFilters = {},
@@ -329,20 +475,32 @@ export const useProfileStore = create<ProfileStore>()(
             state.currentSort = sort;
           });
 
-          const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
+          try {
+            const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
 
-          set((state) => {
-            state.searchLoading = false;
-            if (result.success && result.data) {
-              state.searchResults = result.data;
-              // Cache the profiles
-              result.data.profiles.forEach(profile => {
-                state.profileCache.set(profile.id, profile);
-              });
-            } else {
-              state.searchError = result.error || 'Failed to search profiles';
-            }
-          });
+            set((state) => {
+              state.searchLoading = false;
+              if (result.success && result.data) {
+                state.searchResults = result.data;
+                // Cache the profiles with timestamps
+                result.data.profiles.forEach(profile => {
+                  const cachedProfile: CachedPublicProfile = {
+                    ...profile,
+                    _lastUpdated: Date.now(),
+                    _cached: true
+                  };
+                  state.profileCache.set(profile.id, cachedProfile);
+                });
+              } else {
+                state.searchError = result.error || 'Failed to search profiles';
+              }
+            });
+          } catch (error) {
+            set((state) => {
+              state.searchLoading = false;
+              state.searchError = 'Network error searching profiles';
+            });
+          }
         },
 
         updateFilters: (filters: Partial<ProfileFilters>) => {
@@ -367,26 +525,41 @@ export const useProfileStore = create<ProfileStore>()(
         },
 
         // Statistics actions
-        loadStats: async () => {
+        loadStats: async (force: boolean = false) => {
+          const state = get();
+
+          // ✅ Cache stats with TTL
+          if (!force && state.stats && Date.now() - state.lastStatsLoad < CACHE_TTL) {
+            return;
+          }
+
           set((state) => {
             state.statsLoading = true;
             state.statsError = null;
           });
 
-          const result = await ProfileService.getProfileStats();
+          try {
+            const result = await ProfileService.getProfileStats();
 
-          set((state) => {
-            state.statsLoading = false;
-            if (result.success && result.data) {
-              state.stats = result.data;
-            } else {
-              state.statsError = result.error || 'Failed to load statistics';
-            }
-          });
+            set((state) => {
+              state.statsLoading = false;
+              if (result.success && result.data) {
+                state.stats = result.data;
+                state.lastStatsLoad = Date.now();
+              } else {
+                state.statsError = result.error || 'Failed to load statistics';
+              }
+            });
+          } catch (error) {
+            set((state) => {
+              state.statsLoading = false;
+              state.statsError = 'Network error loading statistics';
+            });
+          }
         },
 
         refreshStats: async () => {
-          await get().loadStats();
+          await get().loadStats(true); // Force refresh
         },
 
         // Permissions actions
@@ -397,12 +570,12 @@ export const useProfileStore = create<ProfileStore>()(
           }
 
           const result = await ProfileService.getProfilePermissions(targetUserId);
-          
+
           if (result.success && result.data) {
             get().cachePermissions(targetUserId, result.data);
             return result.data;
           }
-          
+
           return null;
         },
 
@@ -426,22 +599,31 @@ export const useProfileStore = create<ProfileStore>()(
             });
           }, 100);
 
-          const result = await ProfileService.updateAvatar(file);
+          try {
+            const result = await ProfileService.updateAvatar(file);
 
-          clearInterval(progressInterval);
+            clearInterval(progressInterval);
 
-          set((state) => {
-            state.uploadingAvatar = false;
-            state.avatarUploadProgress = result.success ? 100 : 0;
-          });
+            set((state) => {
+              state.uploadingAvatar = false;
+              state.avatarUploadProgress = result.success ? 100 : 0;
+            });
 
-          if (result.success) {
-            // Refresh current profile to get new avatar
-            await get().loadCurrentProfile();
-            return true;
+            if (result.success) {
+              // Refresh current profile to get new avatar with cache busting
+              await get().loadCurrentProfile(true);
+              return true;
+            }
+
+            return false;
+          } catch (error) {
+            clearInterval(progressInterval);
+            set((state) => {
+              state.uploadingAvatar = false;
+              state.avatarUploadProgress = 0;
+            });
+            return false;
           }
-
-          return false;
         },
 
         setAvatarUploadProgress: (progress: number) => {
@@ -453,14 +635,18 @@ export const useProfileStore = create<ProfileStore>()(
         // Onboarding actions
         updateOnboardingLevel: async (level: OnboardingLevel) => {
           const result = await ProfileService.updateOnboardingLevel(level);
-          
+
           if (result.success && result.data) {
             set((state) => {
-              state.currentProfile = result.data!;
+              state.currentProfile = {
+                ...result.data!,
+                _lastUpdated: Date.now(),
+                _cached: false
+              };
             });
             return true;
           }
-          
+
           return false;
         },
 
@@ -470,16 +656,18 @@ export const useProfileStore = create<ProfileStore>()(
           set((state) => {
             if (state.currentProfile) {
               state.currentProfile.is_online = isOnline;
+              state.currentProfile._lastUpdated = Date.now();
             }
           });
 
           const result = await ProfileService.updateOnlineStatus(isOnline);
-          
+
           if (!result.success) {
             // Revert on failure
             set((state) => {
               if (state.currentProfile) {
                 state.currentProfile.is_online = !isOnline;
+                state.currentProfile._lastUpdated = Date.now();
               }
             });
           }
@@ -517,48 +705,62 @@ export const useProfileStore = create<ProfileStore>()(
         // Utility actions
         recalculateCompletion: async (userId?: string) => {
           const result = await ProfileService.recalculateProfileCompletion(userId);
-          
+
           if (result.success) {
             // Refresh current profile if it was updated
             if (!userId || userId === get().currentProfile?.id) {
-              await get().loadCurrentProfile();
+              await get().loadCurrentProfile(true); // Force refresh
             }
             return result.data || 0;
           }
-          
+
           return 0;
         },
 
         deactivateProfile: async () => {
           const result = await ProfileService.deactivateProfile();
-          
+
           if (result.success) {
             get().clearCurrentProfile();
             return true;
           }
-          
+
           return false;
         },
+
+        // Performance utilities
+        preloadEssentialData: async () => {
+          // Preload essential data in parallel
+          await Promise.allSettled([
+            get().loadCurrentProfile(),
+            get().loadStats()
+          ]);
+        },
+
       })),
       {
         name: 'profile-store',
         partialize: (state) => ({
-          // Only persist UI preferences and some cache
+          // Only persist minimal data to reduce storage overhead
           currentFilters: state.currentFilters,
           currentSort: state.currentSort,
+          // Don't persist large cache objects or profile data
         }),
+        version: 2, // Increment version when store structure changes
       }
     ),
     {
       name: 'profile-store',
+      trace: process.env.NODE_ENV === 'development', // Only trace in dev
     }
   )
 );
 
-// Selector hooks for better performance
+// Enhanced selector hooks with memoization
 export const useCurrentProfile = () => useProfileStore(state => state.currentProfile);
 export const useCurrentProfileLoading = () => useProfileStore(state => state.currentProfileLoading);
 export const useCurrentProfileError = () => useProfileStore(state => state.currentProfileError);
+export const useProfileStale = () => useProfileStore(state => state.isProfileStale());
 
 export const useSearchResults = () => useProfileStore(state => state.searchResults);
 export const useSearchLoading = () => useProfileStore(state => state.searchLoading);
@@ -575,9 +777,15 @@ export const useAvatarUpload = () => useProfileStore(state => ({
   progress: state.avatarUploadProgress,
 }));
 
-// Profile cache selectors
+// Enhanced profile cache selectors with stale checking
 export const useProfileFromCache = (userId: string) => {
-  return useProfileStore(state => state.profileCache.get(userId));
+  return useProfileStore(state => {
+    const profile = state.profileCache.get(userId);
+    if (profile && Date.now() - (profile._lastUpdated || 0) > CACHE_TTL) {
+      return null; // Consider stale
+    }
+    return profile;
+  });
 };
 
 export const useProfileCacheLoading = (userId: string) => {
@@ -586,4 +794,18 @@ export const useProfileCacheLoading = (userId: string) => {
 
 export const useProfileCacheError = (userId: string) => {
   return useProfileStore(state => state.profileCacheErrors.get(userId));
+};
+
+// Optimized hook for settings page
+export const useProfileData = () => {
+  const profile = useCurrentProfile();
+  const loading = useCurrentProfileLoading();
+  const isStale = useProfileStale();
+
+  return {
+    profile,
+    loading: loading || !profile,
+    isStale,
+    hasCoachingAccess: profile?.role === 'C' || profile?.role === 'SA' || profile?.role === 'A'
+  };
 };

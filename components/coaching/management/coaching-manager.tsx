@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCurrentProfile } from '@/lib/profile';
 import {
     useMyCoachingCenters,
@@ -25,11 +25,10 @@ import {
     Plus,
     Building2,
     AlertCircle,
-    Users,
     BarChart3,
     Settings
 } from 'lucide-react';
-import { CoachingCenterForm } from './coaching-center-form';
+import { CoachingCenterUpdateForm } from './coaching-center-update-form';
 import { CoachingCenterCard } from './coaching-center-card';
 import { CoachingCenterDashboard } from './coaching-center-dashboard';
 import { showWarningToast } from '@/lib/toast';
@@ -48,48 +47,63 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
     const {
         loadMyCoachingCenters,
         setCreateMode,
-        loadCoachingCenter
     } = useCoachingStore();
 
     const [activeTab, setActiveTab] = useState<string>('centers');
     const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
+    const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
     // Check if user has coach role
     const isCoach = profile?.role === 'C' || profile?.role === 'SA' || profile?.role === 'A';
 
-    // Load coaching centers on mount
-    useEffect(() => {
-        if (isCoach && !loading && !myCoachingCenters) {
-            loadMyCoachingCenters();
+    // Memoized load function to prevent recreating on every render
+    const loadCenters = useCallback(async () => {
+        if (isCoach && !loading && !hasAttemptedLoad) {
+            console.log('[CoachingManager] Loading coaching centers...');
+            await loadMyCoachingCenters();
+            setHasAttemptedLoad(true);
         }
-    }, [isCoach]);
+    }, [isCoach, loading, hasAttemptedLoad, loadMyCoachingCenters]);
 
-    // Handle create new center
-    const handleCreateNew = () => {
+    // Load coaching centers only once when component mounts and user is coach
+    useEffect(() => {
+        loadCenters();
+    }, [loadCenters]);
+
+    // Reset attempted load when profile changes (user logs in/out)
+    useEffect(() => {
+        setHasAttemptedLoad(false);
+    }, [profile?.id]);
+
+    // Memoized event handlers to prevent unnecessary re-renders
+    const handleCreateNew = useCallback(() => {
         if (!isCoach) {
             showWarningToast('Only coaches can create coaching centers');
             return;
         }
         setCreateMode(true);
         setSelectedCenterId(null);
-    };
+    }, [isCoach, setCreateMode]);
 
-    // Handle cancel create
-    const handleCancelCreate = () => {
+    const handleCancelCreate = useCallback(() => {
         setCreateMode(false);
-    };
+    }, [setCreateMode]);
 
-    // Handle create success
-    const handleCreateSuccess = () => {
+    const handleCreateSuccess = useCallback(() => {
         setCreateMode(false);
-        loadMyCoachingCenters();
-    };
+        setHasAttemptedLoad(false); // Reset to trigger reload
+        loadCenters();
+    }, [setCreateMode, loadCenters]);
 
-    // Handle view dashboard
-    const handleViewDashboard = (centerId: string) => {
+    const handleViewDashboard = useCallback((centerId: string) => {
         setSelectedCenterId(centerId);
         setActiveTab('dashboard');
-    };
+    }, []);
+
+    const handleRetryLoad = useCallback(() => {
+        setHasAttemptedLoad(false);
+        loadCenters();
+    }, [loadCenters]);
 
     // Not a coach
     if (!isCoach) {
@@ -109,7 +123,7 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
     }
 
     // Loading state
-    if (loading && !myCoachingCenters) {
+    if (loading && !myCoachingCenters && !error) {
         return (
             <Card className={className}>
                 <CardContent className="flex items-center justify-center py-12">
@@ -134,7 +148,7 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                         </AlertDescription>
                     </Alert>
                     <div className="mt-4 text-center">
-                        <Button onClick={() => loadMyCoachingCenters()}>
+                        <Button onClick={handleRetryLoad}>
                             Try Again
                         </Button>
                     </div>
@@ -143,7 +157,8 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
         );
     }
 
-    // Create mode
+    // Create mode - Note: Center creation is not available via the update-only form
+    // This needs a separate create flow or the update form needs to support creation
     if (isCreateMode) {
         return (
             <div className={`space-y-6 ${className}`}>
@@ -155,10 +170,23 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <CoachingCenterForm
-                            onSuccess={handleCreateSuccess}
-                            onCancel={handleCancelCreate}
-                        />
+                        <Alert>
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
+                                <div className="flex items-start gap-2">
+                                    <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                                    <AlertDescription>
+                                        Center creation flow needs to be implemented. The update form is
+                                        designed for editing existing centers only. Please select an existing
+                                        center to edit its details.
+                                    </AlertDescription>
+                                </div>
+                                <div className="mt-4 md:mt-0">
+                                    <Button variant="outline" size="sm" onClick={handleCancelCreate}>
+                                        Back to centers
+                                    </Button>
+                                </div>
+                            </div>
+                        </Alert>
                     </CardContent>
                 </Card>
             </div>
@@ -225,6 +253,10 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                                             key={center.id}
                                             center={center}
                                             onViewDashboard={() => handleViewDashboard(center.id)}
+                                            onEditSuccess={() => {
+                                                setHasAttemptedLoad(false);
+                                                loadCenters();
+                                            }}
                                         />
                                     ))}
                                 </div>

@@ -36,7 +36,7 @@ import type {
 } from '../schema/coaching.types';
 
 export class CoachingService {
-  
+
   // ============================================================
   // COACHING CENTER OPERATIONS
   // ============================================================
@@ -58,9 +58,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -101,9 +101,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -144,9 +144,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -157,16 +157,31 @@ export class CoachingService {
   static async getMyCoachingCenters(): Promise<CoachingOperationResult<CoachingCenter[]>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
+      console.log('[CoachingService] getMyCoachingCenters - Auth check:', {
+        hasUser: !!user,
+        userId: user?.id,
+        authError: authError?.message
+      });
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
 
-      return await supabase
+      // Query for centers where user is EITHER owner OR manager
+      const result = await supabase
         .from('coaching_centers')
         .select('*')
-        .eq('owner_id', user.id)
+        .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
+
+      console.log('[CoachingService] getMyCoachingCenters - Query result:', {
+        success: !result.error,
+        count: result.data?.length,
+        error: result.error?.message
+      });
+
+      return result;
     });
   }
 
@@ -176,7 +191,7 @@ export class CoachingService {
   static async getManagedCoachingCenters(): Promise<CoachingOperationResult<CoachingCenter[]>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -201,7 +216,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -229,7 +244,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -253,7 +268,7 @@ export class CoachingService {
   static async deleteCoachingCenter(centerId: string): Promise<CoachingOperationResult<void>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -270,9 +285,9 @@ export class CoachingService {
 
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -368,9 +383,9 @@ export class CoachingService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -399,9 +414,9 @@ export class CoachingService {
 
       return { success: true, data: centerWithBranches };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -459,9 +474,9 @@ export class CoachingService {
 
       return { success: true, data: dashboard };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -487,9 +502,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -498,7 +513,7 @@ export class CoachingService {
    * Get branches by coaching center
    */
   static async getBranchesByCenter(
-    centerId: string, 
+    centerId: string,
     activeOnly: boolean = true
   ): Promise<CoachingOperationResult<PublicCoachingBranch[]>> {
     try {
@@ -532,9 +547,9 @@ export class CoachingService {
 
       return { success: true, data: data || [] };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -551,7 +566,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -591,7 +606,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -614,7 +629,7 @@ export class CoachingService {
   static async deleteCoachingBranch(branchId: string): Promise<CoachingOperationResult<void>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -630,9 +645,9 @@ export class CoachingService {
 
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -681,9 +696,9 @@ export class CoachingService {
 
       return { success: true, data: stats };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -702,9 +717,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -719,10 +734,10 @@ export class CoachingService {
   static async getCoachingCenterPermissions(centerId: string): Promise<CoachingOperationResult<CoachingCenterPermissions>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           data: {
             can_view: true, // Public can view
             can_edit: false,
@@ -764,9 +779,9 @@ export class CoachingService {
 
       return { success: true, data: permissions };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -777,10 +792,10 @@ export class CoachingService {
   static async getCoachingBranchPermissions(branchId: string): Promise<CoachingOperationResult<CoachingBranchPermissions>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           data: {
             can_view: true,
             can_edit: false,
@@ -828,9 +843,9 @@ export class CoachingService {
 
       return { success: true, data: permissions };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -845,7 +860,7 @@ export class CoachingService {
   static async uploadCoachingLogo(centerId: string, file: File): Promise<CoachingOperationResult<string>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -869,16 +884,16 @@ export class CoachingService {
 
       // Update center with new logo URL
       const updateResult = await this.updateCoachingCenter(centerId, { logo_url: publicUrl });
-      
+
       if (!updateResult.success) {
         return { success: false, error: updateResult.error };
       }
 
       return { success: true, data: publicUrl };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -889,7 +904,7 @@ export class CoachingService {
   static async uploadCoachingCover(centerId: string, file: File): Promise<CoachingOperationResult<string>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -913,16 +928,16 @@ export class CoachingService {
 
       // Update center with new cover URL
       const updateResult = await this.updateCoachingCenter(centerId, { cover_url: publicUrl });
-      
+
       if (!updateResult.success) {
         return { success: false, error: updateResult.error };
       }
 
       return { success: true, data: publicUrl };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -964,9 +979,9 @@ export class CoachingService {
       const isAvailable = !data;
       return { success: true, data: isAvailable };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -995,9 +1010,9 @@ export class CoachingService {
 
       return { success: true, data: data || [] };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1161,10 +1176,10 @@ export class CoachingService {
    */
   private static validateCoachingBranchUpdate(updates: CoachingBranchUpdate): CoachingOperationResult<void> {
     // Use similar validation logic as creation, but make all fields optional
-    const tempData = { 
-      name: 'temp', 
-      coaching_center_id: 'temp-id', 
-      ...updates 
+    const tempData = {
+      name: 'temp',
+      coaching_center_id: 'temp-id',
+      ...updates
     };
     return this.validateCoachingBranchData(tempData as CoachingBranchCreate);
   }

@@ -31,16 +31,20 @@ import { showSuccessToast, showErrorToast } from "@/lib/toast";
 type CoachingCenterFormData = z.infer<typeof coachingCenterFormSchema>;
 
 /**
- * CoachingCenterForm - Update Only
+ * CoachingCenterUpdateForm - Update Only
  * 
  * This form is used ONLY for updating existing coaching centers.
  * Creating new coaching centers is not allowed through this form.
  * Users must use the appropriate flow to create coaching centers.
+ * 
+ * This form is reusable and can be used in settings or management pages.
  */
-interface CoachingCenterFormProps {
-    // initialData is REQUIRED - must include existing coaching center data
-    initialData: Partial<CoachingCenterFormData> & {
-        id: string; // ID is required for updates
+interface CoachingCenterUpdateFormProps {
+    // initialData may be undefined when the parent hasn't loaded the center yet.
+    // The form is primarily for updating existing centers, but we must guard
+    // against missing data to avoid runtime crashes.
+    initialData?: Partial<CoachingCenterFormData> & {
+        id?: string; // optional here to avoid runtime access errors
         logo_url?: string | null;
         cover_url?: string | null;
     };
@@ -49,21 +53,33 @@ interface CoachingCenterFormProps {
     isLoading?: boolean;
 }
 
-export function CoachingCenterForm({
+export function CoachingCenterUpdateForm({
     initialData,
     onSubmit,
     onCancel,
     isLoading = false,
-}: CoachingCenterFormProps) {
-    // Validate that we have a coaching center to update
-    if (!initialData.id) {
+}: CoachingCenterUpdateFormProps) {
+    // Validate that we have a coaching center to update. This form is update-only.
+    // If the parent opened this form for "create" flows (no initialData), show
+    // a helpful informational alert and a button to go back/close the form.
+    if (!initialData || !initialData.id) {
         return (
-            <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                    This form can only be used to update existing coaching centers.
-                    Please select a coaching center to edit.
-                </AlertDescription>
+            <Alert>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
+                    <div className="flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                        <AlertDescription>
+                            This form is for editing an existing coaching center only.
+                            It cannot be used to create a new center. Please select a coaching center
+                            from the list to edit its details.
+                        </AlertDescription>
+                    </div>
+                    <div className="mt-4 md:mt-0">
+                        <Button variant="outline" size="sm" onClick={onCancel}>
+                            Back to centers
+                        </Button>
+                    </div>
+                </div>
             </Alert>
         );
     }

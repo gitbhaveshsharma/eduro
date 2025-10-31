@@ -155,314 +155,345 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
         showWarningToast('Changes discarded');
     };
 
-    // Handle role warning
-    const handleRoleWarning = () => {
-        showWarningToast('To update your role, please contact our support team', {
-            duration: 5000
-        });
-    };
-
     const isTeacherOrCoach = profile.role === 'T' || profile.role === 'C';
     const isStudent = profile.role === 'S';
 
     return (
         <form onSubmit={handleSubmit(onSubmit)} className={`space-y-6 ${className}`}>
-            {/* Basic Information */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <User className="h-5 w-5" />
-                        Basic Information
-                    </CardTitle>
-                    <CardDescription>
-                        Update your basic profile information
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Full Name */}
-                    <div className="space-y-2">
-                        <Label htmlFor="full_name">Full Name</Label>
-                        <Input
-                            id="full_name"
-                            {...register('full_name')}
-                            placeholder="Enter your full name"
-                            className={errors.full_name ? 'border-destructive' : ''}
-                        />
-                        {errors.full_name && (
-                            <p className="text-sm text-destructive">{errors.full_name.message}</p>
-                        )}
-                    </div>
-
-                    {/* Username */}
-                    <div className="space-y-2">
-                        <Label htmlFor="username">Username</Label>
-                        <div className="relative">
+            {/* Basic Information & Contact Information in one row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Basic Information */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <User className="h-5 w-5" />
+                            Basic Information
+                        </CardTitle>
+                        <CardDescription>
+                            Update your basic profile information
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Full Name */}
+                        <div className="space-y-2">
+                            <Label htmlFor="full_name">Full Name</Label>
                             <Input
-                                id="username"
-                                {...register('username')}
-                                placeholder="Choose a unique username"
-                                className={errors.username ? 'border-destructive' : ''}
-                                onBlur={(e) => checkUsername(e.target.value)}
+                                id="full_name"
+                                {...register('full_name')}
+                                placeholder="Enter your full name"
+                                className={errors.full_name ? 'border-destructive' : ''}
                             />
-                            {checkingUsername && (
-                                <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
-                            )}
-                            {!checkingUsername && usernameAvailable === true && watchedUsername !== profile.username && (
-                                <span className="absolute right-3 top-3 text-xs text-green-600">Available ✓</span>
-                            )}
-                            {!checkingUsername && usernameAvailable === false && (
-                                <span className="absolute right-3 top-3 text-xs text-destructive">Taken ✗</span>
+                            {errors.full_name && (
+                                <p className="text-sm text-destructive">{errors.full_name.message}</p>
                             )}
                         </div>
-                        {errors.username && (
-                            <p className="text-sm text-destructive">{errors.username.message}</p>
-                        )}
-                    </div>
 
-                    {/* Role - Non-editable */}
-                    <div className="space-y-2">
-                        <Label htmlFor="role" className="flex items-center gap-2">
-                            Role
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Lock className="h-3 w-3 text-muted-foreground cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p className="max-w-xs">
-                                            You cannot edit your role directly. Contact support team to update your role.
-                                        </p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </Label>
-                        <div className="relative">
+                        {/* Username */}
+                        <div className="space-y-2">
+                            <Label htmlFor="username">Username</Label>
+                            <div className="relative">
+                                <Input
+                                    id="username"
+                                    {...register('username')}
+                                    placeholder="Choose a unique username"
+                                    className={errors.username ? 'border-destructive' : ''}
+                                    onBlur={(e) => checkUsername(e.target.value)}
+                                />
+                                {checkingUsername && (
+                                    <Loader2 className="absolute right-3 top-3 h-4 w-4 animate-spin text-muted-foreground" />
+                                )}
+                                {!checkingUsername && usernameAvailable === true && watchedUsername !== profile.username && (
+                                    <span className="absolute right-3 top-3 text-xs text-green-600">Available ✓</span>
+                                )}
+                                {!checkingUsername && usernameAvailable === false && (
+                                    <span className="absolute right-3 top-3 text-xs text-destructive">Taken ✗</span>
+                                )}
+                            </div>
+                            {errors.username && (
+                                <p className="text-sm text-destructive">{errors.username.message}</p>
+                            )}
+                        </div>
+
+                        {/* Role - Non-editable */}
+                        <div className="space-y-2">
+                            <Label htmlFor="role" className="flex items-center gap-2">
+                                Role
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Lock className="h-3 w-3 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p className="max-w-xs">
+                                                You cannot edit your role directly. Contact support team to update your role.
+                                            </p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </Label>
+                            <div className="relative">
+                                <Input
+                                    id="role"
+                                    value={ProfileDisplayUtils.getRoleDisplayName(profile.role)}
+                                    disabled
+                                    className="bg-muted cursor-not-allowed"
+                                />
+                                <Badge
+                                    variant="secondary"
+                                    className="absolute right-3 top-2.5"
+                                >
+                                    Non-editable
+                                </Badge>
+                            </div>
+                            <Alert>
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertDescription className="ml-2 text-sm">
+                                    To update your role, please contact our support team at support@eduro.com
+                                </AlertDescription>
+                            </Alert>
+                        </div>
+
+                        {/* Bio */}
+                        <div className="space-y-2">
+                            <Label htmlFor="bio">Bio</Label>
+                            <Textarea
+                                id="bio"
+                                {...register('bio')}
+                                placeholder="Tell us about yourself"
+                                rows={4}
+                                className={errors.bio ? 'border-destructive' : ''}
+                            />
+                            {errors.bio && (
+                                <p className="text-sm text-destructive">{errors.bio.message}</p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                                {watch('bio')?.length || 0} / {PROFILE_VALIDATION_LIMITS.BIO_MAX} characters
+                            </p>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Contact Information */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Phone className="h-5 w-5" />
+                            Contact Information
+                        </CardTitle>
+                        <CardDescription>
+                            Update your contact details
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        {/* Email - Non-editable */}
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="flex items-center gap-2">
+                                Email
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Email cannot be changed for security reasons</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            </Label>
                             <Input
-                                id="role"
-                                value={ProfileDisplayUtils.getRoleDisplayName(profile.role)}
+                                id="email"
+                                type="email"
+                                value={profile.email || ''}
                                 disabled
                                 className="bg-muted cursor-not-allowed"
                             />
-                            <Badge
-                                variant="secondary"
-                                className="absolute right-3 top-2.5"
-                            >
-                                Non-editable
-                            </Badge>
                         </div>
-                        <Alert>
-                            <AlertTriangle className="h-4 w-4" />
-                            <AlertDescription className="ml-2 text-sm">
-                                To update your role, please contact our support team at support@eduro.com
-                            </AlertDescription>
-                        </Alert>
-                    </div>
 
-                    {/* Bio */}
-                    <div className="space-y-2">
-                        <Label htmlFor="bio">Bio</Label>
-                        <Textarea
-                            id="bio"
-                            {...register('bio')}
-                            placeholder="Tell us about yourself"
-                            rows={4}
-                            className={errors.bio ? 'border-destructive' : ''}
-                        />
-                        {errors.bio && (
-                            <p className="text-sm text-destructive">{errors.bio.message}</p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                            {watch('bio')?.length || 0} / {PROFILE_VALIDATION_LIMITS.BIO_MAX} characters
-                        </p>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Contact Information */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Phone className="h-5 w-5" />
-                        Contact Information
-                    </CardTitle>
-                    <CardDescription>
-                        Update your contact details
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Email - Non-editable */}
-                    <div className="space-y-2">
-                        <Label htmlFor="email" className="flex items-center gap-2">
-                            Email
-                            <TooltipProvider>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Info className="h-3 w-3 text-muted-foreground cursor-help" />
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Email cannot be changed for security reasons</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        </Label>
-                        <Input
-                            id="email"
-                            type="email"
-                            value={profile.email || ''}
-                            disabled
-                            className="bg-muted cursor-not-allowed"
-                        />
-                    </div>
-
-                    {/* Phone */}
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
-                        <Input
-                            id="phone"
-                            {...register('phone')}
-                            type="tel"
-                            placeholder="+1234567890"
-                            className={errors.phone ? 'border-destructive' : ''}
-                        />
-                        {errors.phone && (
-                            <p className="text-sm text-destructive">{errors.phone.message}</p>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Teacher/Coach Specific Fields */}
-            {isTeacherOrCoach && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Briefcase className="h-5 w-5" />
-                            Professional Information
-                        </CardTitle>
-                        <CardDescription>
-                            Update your professional details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Years of Experience */}
+                        {/* Phone */}
                         <div className="space-y-2">
-                            <Label htmlFor="years_of_experience">Years of Experience</Label>
+                            <Label htmlFor="phone">Phone Number</Label>
                             <Input
-                                id="years_of_experience"
-                                type="number"
-                                {...register('years_of_experience', { valueAsNumber: true })}
-                                min="0"
-                                max="100"
-                                placeholder="0"
-                                className={errors.years_of_experience ? 'border-destructive' : ''}
+                                id="phone"
+                                {...register('phone')}
+                                type="tel"
+                                placeholder="+1234567890"
+                                className={errors.phone ? 'border-destructive' : ''}
                             />
-                            {errors.years_of_experience && (
-                                <p className="text-sm text-destructive">{errors.years_of_experience.message}</p>
+                            {errors.phone && (
+                                <p className="text-sm text-destructive">{errors.phone.message}</p>
                             )}
                         </div>
 
-                        {/* Hourly Rate */}
+                        {/* Timezone */}
                         <div className="space-y-2">
-                            <Label htmlFor="hourly_rate">Hourly Rate (₹)</Label>
+                            <Label htmlFor="timezone">Timezone</Label>
                             <Input
-                                id="hourly_rate"
-                                type="number"
-                                {...register('hourly_rate', { valueAsNumber: true })}
-                                min="0"
-                                max="10000"
-                                placeholder="0"
-                                className={errors.hourly_rate ? 'border-destructive' : ''}
+                                id="timezone"
+                                {...register('timezone')}
+                                placeholder="e.g., Asia/Kolkata"
+                                className={errors.timezone ? 'border-destructive' : ''}
                             />
-                            {errors.hourly_rate && (
-                                <p className="text-sm text-destructive">{errors.hourly_rate.message}</p>
+                            {errors.timezone && (
+                                <p className="text-sm text-destructive">{errors.timezone.message}</p>
                             )}
                         </div>
 
-                        {/* Expertise Areas */}
+                        {/* Language Preference */}
                         <div className="space-y-2">
-                            <Label>Expertise Areas</Label>
+                            <Label htmlFor="language_preference">Language Preference</Label>
                             <Input
-                                placeholder="Enter comma-separated areas (e.g., Math, Physics, Chemistry)"
-                                value={watchedExpertiseInput?.join(', ') || ''}
-                                onChange={(e) => {
-                                    const areas = e.target.value.split(',').map(a => a.trim()).filter(a => a);
-                                    setValue('expertise_areas', areas, { shouldDirty: true });
-                                }}
+                                id="language_preference"
+                                {...register('language_preference')}
+                                placeholder="e.g., English, Hindi"
+                                className={errors.language_preference ? 'border-destructive' : ''}
                             />
-                            <p className="text-xs text-muted-foreground">
-                                Separate multiple areas with commas
-                            </p>
+                            {errors.language_preference && (
+                                <p className="text-sm text-destructive">{errors.language_preference.message}</p>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
-            )}
+            </div>
 
-            {/* Student Specific Fields */}
-            {isStudent && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <GraduationCap className="h-5 w-5" />
-                            Academic Information
-                        </CardTitle>
-                        <CardDescription>
-                            Update your academic details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Grade Level */}
-                        <div className="space-y-2">
-                            <Label htmlFor="grade_level">Grade Level</Label>
-                            <Input
-                                id="grade_level"
-                                {...register('grade_level')}
-                                placeholder="e.g., 10th Grade, Class 12"
-                                className={errors.grade_level ? 'border-destructive' : ''}
-                            />
-                            {errors.grade_level && (
-                                <p className="text-sm text-destructive">{errors.grade_level.message}</p>
-                            )}
-                        </div>
+            {/* Role-specific sections - Full width on mobile, could be side by side on larger screens if both exist */}
+            {(isTeacherOrCoach || isStudent) && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Teacher/Coach Specific Fields */}
+                    {isTeacherOrCoach && (
+                        <Card className="lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Briefcase className="h-5 w-5" />
+                                    Professional Information
+                                </CardTitle>
+                                <CardDescription>
+                                    Update your professional details
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {/* Years of Experience */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="years_of_experience">Years of Experience</Label>
+                                        <Input
+                                            id="years_of_experience"
+                                            type="number"
+                                            {...register('years_of_experience', { valueAsNumber: true })}
+                                            min="0"
+                                            max="100"
+                                            placeholder="0"
+                                            className={errors.years_of_experience ? 'border-destructive' : ''}
+                                        />
+                                        {errors.years_of_experience && (
+                                            <p className="text-sm text-destructive">{errors.years_of_experience.message}</p>
+                                        )}
+                                    </div>
 
-                        {/* Subjects of Interest */}
-                        <div className="space-y-2">
-                            <Label>Subjects of Interest</Label>
-                            <Input
-                                placeholder="Enter comma-separated subjects (e.g., Math, Science, English)"
-                                value={watchedSubjectsInput?.join(', ') || ''}
-                                onChange={(e) => {
-                                    const subjects = e.target.value.split(',').map(s => s.trim()).filter(s => s);
-                                    setValue('subjects_of_interest', subjects, { shouldDirty: true });
-                                }}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                                Separate multiple subjects with commas
-                            </p>
-                        </div>
+                                    {/* Hourly Rate */}
+                                    <div className="space-y-2">
+                                        <Label htmlFor="hourly_rate">Hourly Rate (₹)</Label>
+                                        <Input
+                                            id="hourly_rate"
+                                            type="number"
+                                            {...register('hourly_rate', { valueAsNumber: true })}
+                                            min="0"
+                                            max="10000"
+                                            placeholder="0"
+                                            className={errors.hourly_rate ? 'border-destructive' : ''}
+                                        />
+                                        {errors.hourly_rate && (
+                                            <p className="text-sm text-destructive">{errors.hourly_rate.message}</p>
+                                        )}
+                                    </div>
+                                </div>
 
-                        {/* Learning Goals */}
-                        <div className="space-y-2">
-                            <Label htmlFor="learning_goals">Learning Goals</Label>
-                            <Textarea
-                                id="learning_goals"
-                                {...register('learning_goals')}
-                                placeholder="Describe what you want to achieve"
-                                rows={4}
-                                className={errors.learning_goals ? 'border-destructive' : ''}
-                            />
-                            {errors.learning_goals && (
-                                <p className="text-sm text-destructive">{errors.learning_goals.message}</p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                                {watch('learning_goals')?.length || 0} / {PROFILE_VALIDATION_LIMITS.LEARNING_GOALS_MAX} characters
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
+                                {/* Expertise Areas */}
+                                <div className="space-y-2">
+                                    <Label>Expertise Areas</Label>
+                                    <Input
+                                        placeholder="Enter comma-separated areas (e.g., Math, Physics, Chemistry)"
+                                        value={watchedExpertiseInput?.join(', ') || ''}
+                                        onChange={(e) => {
+                                            const areas = e.target.value.split(',').map(a => a.trim()).filter(a => a);
+                                            setValue('expertise_areas', areas, { shouldDirty: true });
+                                        }}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Separate multiple areas with commas
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Student Specific Fields */}
+                    {isStudent && (
+                        <Card className="lg:col-span-2">
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <GraduationCap className="h-5 w-5" />
+                                    Academic Information
+                                </CardTitle>
+                                <CardDescription>
+                                    Update your academic details
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {/* Grade Level */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="grade_level">Grade Level</Label>
+                                    <Input
+                                        id="grade_level"
+                                        {...register('grade_level')}
+                                        placeholder="e.g., 10th Grade, Class 12"
+                                        className={errors.grade_level ? 'border-destructive' : ''}
+                                    />
+                                    {errors.grade_level && (
+                                        <p className="text-sm text-destructive">{errors.grade_level.message}</p>
+                                    )}
+                                </div>
+
+                                {/* Subjects of Interest */}
+                                <div className="space-y-2">
+                                    <Label>Subjects of Interest</Label>
+                                    <Input
+                                        placeholder="Enter comma-separated subjects (e.g., Math, Science, English)"
+                                        value={watchedSubjectsInput?.join(', ') || ''}
+                                        onChange={(e) => {
+                                            const subjects = e.target.value.split(',').map(s => s.trim()).filter(s => s);
+                                            setValue('subjects_of_interest', subjects, { shouldDirty: true });
+                                        }}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Separate multiple subjects with commas
+                                    </p>
+                                </div>
+
+                                {/* Learning Goals */}
+                                <div className="space-y-2">
+                                    <Label htmlFor="learning_goals">Learning Goals</Label>
+                                    <Textarea
+                                        id="learning_goals"
+                                        {...register('learning_goals')}
+                                        placeholder="Describe what you want to achieve"
+                                        rows={4}
+                                        className={errors.learning_goals ? 'border-destructive' : ''}
+                                    />
+                                    {errors.learning_goals && (
+                                        <p className="text-sm text-destructive">{errors.learning_goals.message}</p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                        {watch('learning_goals')?.length || 0} / {PROFILE_VALIDATION_LIMITS.LEARNING_GOALS_MAX} characters
+                                    </p>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-4">
+            <div className="flex items-center justify-end gap-4 pt-4 border-t">
                 <Button
                     type="button"
                     variant="outline"

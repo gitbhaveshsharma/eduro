@@ -8,15 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import {
     Building2,
-    MapPin,
-    Users,
-    Calendar,
     Edit,
-    Plus,
     Phone,
     Mail,
     Globe,
-    TrendingUp,
 } from "lucide-react";
 import { CoachingAPI } from "@/lib/coaching";
 import { showErrorToast } from "@/lib/toast";
@@ -24,26 +19,65 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CoachingBranchManager } from "./coaching-branch-manager";
 
 interface CoachingCenterDashboardProps {
-    center: CoachingCenter;
-    onEdit: () => void;
+    // Accept either a full center object or just its id. Some callers pass only
+    // an id (e.g. from a selected list) while others may pass the full object.
+    center?: CoachingCenter;
+    centerId?: string | null;
+    onEdit?: () => void;
     onCreateBranch?: () => void;
-}export function CoachingCenterDashboard({
-    center,
+}
+
+export function CoachingCenterDashboard({
+    center: centerProp,
+    centerId,
     onEdit,
     onCreateBranch,
 }: CoachingCenterDashboardProps) {
+    // Local center state: prefer the passed object, otherwise load by id
+    const [localCenter, setLocalCenter] = useState<CoachingCenter | null>(
+        centerProp || null
+    );
+
     const [branches, setBranches] = useState<PublicCoachingBranch[]>([]);
     const [isLoadingBranches, setIsLoadingBranches] = useState(true);
 
-    // Load branches
+    // Keep localCenter in sync with prop
     useEffect(() => {
-        loadBranches();
-    }, [center.id]);
+        if (centerProp) setLocalCenter(centerProp);
+    }, [centerProp]);
+
+    // Load center if we only received an id
+    useEffect(() => {
+        const idToLoad = localCenter?.id || centerId;
+        if (!localCenter && idToLoad) {
+            // load center details
+            (async () => {
+                try {
+                    const res = await CoachingAPI.getCenter(idToLoad!);
+                    if (res.success && res.data) {
+                        setLocalCenter(res.data);
+                    } else {
+                        showErrorToast(res.error || "Failed to load center details");
+                    }
+                } catch (err) {
+                    console.error('Error loading center:', err);
+                    showErrorToast('Failed to load center details');
+                }
+            })();
+        }
+        // only run when centerId or localCenter.id changes
+    }, [centerId, localCenter?.id]);
 
     const loadBranches = async () => {
         setIsLoadingBranches(true);
         try {
-            const result = await CoachingAPI.getBranchesByCenter(center.id);
+            const centerIdentifier = localCenter?.id || centerId;
+            if (!centerIdentifier) {
+                setBranches([]);
+                return;
+            }
+
+            const result = await CoachingAPI.getBranchesByCenter(centerIdentifier);
             if (result.success && result.data) {
                 setBranches(result.data);
             } else {
@@ -57,8 +91,28 @@ interface CoachingCenterDashboardProps {
         }
     };
 
+    // Trigger branch load when we have a center id
+    useEffect(() => {
+        const idToLoad = localCenter?.id || centerId;
+        if (idToLoad) {
+            loadBranches();
+        }
+    }, [localCenter?.id, centerId]);
+
     const activeBranches = branches.filter((b) => b.is_active).length;
     const mainBranch = branches.find((b) => b.is_main_branch);
+
+    // If we don't have a center yet, show a placeholder
+    if (!localCenter) {
+        return (
+            <div className="py-12">
+                <Skeleton className="h-6 w-1/3 mb-4" />
+                <Skeleton className="h-48 w-full rounded-lg" />
+            </div>
+        );
+    }
+
+    const center = localCenter as CoachingCenter;
 
     return (
         <div className="space-y-6">
@@ -105,10 +159,12 @@ interface CoachingCenterDashboardProps {
                         </div>
                     </div>
                 </div>
-                <Button onClick={onEdit}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Center
-                </Button>
+                {onEdit && (
+                    <Button onClick={onEdit}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Edit Center
+                    </Button>
+                )}
             </div>
 
             {/* Cover Image */}
@@ -235,6 +291,7 @@ interface CoachingCenterDashboardProps {
                     <CoachingBranchManager
                         coachingCenterId={center.id}
                         coachingCenterName={center.name}
+                        centerOwnerId={center.owner_id}
                     />
                 </TabsContent>                {/* Contact Tab */}
                 <TabsContent value="contact" className="space-y-4">
