@@ -1,14 +1,13 @@
-/**
- * Coaching Centers Discovery Page
- * 
- * Main page for browsing and searching coaching centers
- * Accessible at: /coaching
- */
-
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useCoachingStore, CoachingFilterUtils, type CoachingCenterFilters, type PublicCoachingCenter, COACHING_CATEGORIES, CoachingDisplayUtils } from '@/lib/coaching';
+import { useEffect, useMemo, useCallback, useRef, useState } from 'react';
+import {
+    useCoachingStore,
+    CoachingFilterUtils,
+    type CoachingCenterFilters,
+    type PublicCoachingCenter,
+    CoachingDisplayUtils
+} from '@/lib/coaching';
 import { CoachingCenterGrid } from '@/components/coaching/public/coaching-center-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,63 +26,73 @@ export default function CoachingCentersPage() {
     const [featuredOnly, setFeaturedOnly] = useState(false);
     const [showFilters, setShowFilters] = useState(false);
 
-    useEffect(() => {
-        // Initial load
-        loadCoachingCenters();
-    }, []);
+    // Stable refs to prevent recreating debounce timers
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
-        // Debounced search
-        const timer = setTimeout(() => {
-            loadCoachingCenters();
-        }, 300);
+    const centers = centerSearchResults?.centers || [];
+    const perPage = centerSearchResults?.per_page || 12;
 
-        return () => clearTimeout(timer);
+    const hasActiveFilters = useMemo(
+        () => !!searchQuery || selectedCategories.length > 0 || verifiedOnly || featuredOnly,
+        [searchQuery, selectedCategories.length, verifiedOnly, featuredOnly]
+    );
+
+    const categoryGroups = useMemo(
+        () => CoachingFilterUtils.getCategoriesByGroup(),
+        []
+    );
+
+    const buildFilters = useCallback((): CoachingCenterFilters => {
+        const filters: CoachingCenterFilters = {};
+        if (searchQuery.trim()) filters.search_query = searchQuery.trim();
+        if (selectedCategories.length > 0) filters.category = selectedCategories as any;
+        if (verifiedOnly) filters.is_verified = true;
+        if (featuredOnly) filters.is_featured = true;
+        return filters;
     }, [searchQuery, selectedCategories, verifiedOnly, featuredOnly]);
 
-    const loadCoachingCenters = async () => {
-        const filters: CoachingCenterFilters = {};
+    const triggerSearch = useCallback(async () => {
+        const filters = buildFilters();
+        await searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, 1, perPage);
+    }, [buildFilters, searchCoachingCenters, perPage]);
 
-        if (searchQuery.trim()) {
-            filters.search_query = searchQuery.trim();
-        }
+    // Initial load
+    useEffect(() => {
+        triggerSearch();
+    }, [triggerSearch]);
 
-        if (selectedCategories.length > 0) {
-            filters.category = selectedCategories as any;
-        }
+    // Debounced search when any filter changes
+    useEffect(() => {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+            triggerSearch();
+        }, 300);
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+        };
+    }, [searchQuery, selectedCategories, verifiedOnly, featuredOnly, triggerSearch]);
 
-        if (verifiedOnly) {
-            filters.is_verified = true;
-        }
-
-        if (featuredOnly) {
-            filters.is_featured = true;
-        }
-
-        await searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, 1, 12);
-    };
-
-    const handleCategoryToggle = (category: string) => {
+    const handleCategoryToggle = useCallback((category: string) => {
         setSelectedCategories(prev =>
-            prev.includes(category)
-                ? prev.filter(c => c !== category)
-                : [...prev, category]
+            prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
         );
-    };
+    }, []);
 
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setSearchQuery('');
         setSelectedCategories([]);
         setVerifiedOnly(false);
         setFeaturedOnly(false);
-    };
+    }, []);
 
-    const hasActiveFilters = searchQuery || selectedCategories.length > 0 || verifiedOnly || featuredOnly;
-    const categoryGroups = CoachingFilterUtils.getCategoriesByGroup();
-    const centers = centerSearchResults?.centers || [];
+    const loadMore = useCallback(() => {
+        const nextPage = Math.floor(centers.length / perPage) + 1;
+        const filters = buildFilters();
+        searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, nextPage, perPage);
+    }, [centers.length, perPage, buildFilters, searchCoachingCenters]);
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
             <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8">
                 {/* Header */}
                 <div className="space-y-4">
@@ -97,7 +106,7 @@ export default function CoachingCentersPage() {
                     {/* Search Bar */}
                     <div className="flex gap-2">
                         <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search coaching centers..."
                                 value={searchQuery}
@@ -106,9 +115,9 @@ export default function CoachingCentersPage() {
                             />
                         </div>
                         <Button
-                            variant={showFilters ? "default" : "outline"}
+                            variant={showFilters ? 'default' : 'outline'}
                             size="icon"
-                            onClick={() => setShowFilters(!showFilters)}
+                            onClick={() => setShowFilters((v) => !v)}
                         >
                             <SlidersHorizontal className="h-4 w-4" />
                         </Button>
@@ -119,7 +128,7 @@ export default function CoachingCentersPage() {
                         <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm text-muted-foreground">Active filters:</span>
 
-                            {selectedCategories.map(category => (
+                            {selectedCategories.map((category) => (
                                 <Badge key={category} variant="secondary" className="gap-1">
                                     {CoachingDisplayUtils.getCategoryDisplayName(category as any)}
                                     <button
@@ -155,18 +164,14 @@ export default function CoachingCentersPage() {
                                 </Badge>
                             )}
 
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={clearFilters}
-                            >
+                            <Button variant="ghost" size="sm" onClick={clearFilters}>
                                 Clear all
                             </Button>
                         </div>
                     )}
                 </div>
 
-                {/* Filters Panel */}
+                {/* Filters Panel (Inline; swap to Drawer pattern if needed) */}
                 {showFilters && (
                     <Card>
                         <CardHeader>
@@ -181,7 +186,7 @@ export default function CoachingCentersPage() {
                                         <Checkbox
                                             id="verified"
                                             checked={verifiedOnly}
-                                            onCheckedChange={(checked) => setVerifiedOnly(checked as boolean)}
+                                            onCheckedChange={(checked) => setVerifiedOnly(!!checked)}
                                         />
                                         <Label htmlFor="verified" className="cursor-pointer">
                                             Verified coaching centers only
@@ -192,7 +197,7 @@ export default function CoachingCentersPage() {
                                         <Checkbox
                                             id="featured"
                                             checked={featuredOnly}
-                                            onCheckedChange={(checked) => setFeaturedOnly(checked as boolean)}
+                                            onCheckedChange={(checked) => setFeaturedOnly(!!checked)}
                                         />
                                         <Label htmlFor="featured" className="cursor-pointer">
                                             Featured coaching centers only
@@ -214,7 +219,7 @@ export default function CoachingCentersPage() {
                                                 {categories.map((categoryMeta) => (
                                                     <Badge
                                                         key={categoryMeta.category}
-                                                        variant={selectedCategories.includes(categoryMeta.category) ? "default" : "outline"}
+                                                        variant={selectedCategories.includes(categoryMeta.category) ? 'default' : 'outline'}
                                                         className="cursor-pointer"
                                                         onClick={() => handleCategoryToggle(categoryMeta.category)}
                                                     >
@@ -239,33 +244,21 @@ export default function CoachingCentersPage() {
                     </div>
                 )}
 
-                {/* Results Grid */}
+                {/* Results Grid (swap to virtualized grid if list gets very large) */}
                 <CoachingCenterGrid
                     centers={centers}
                     loading={centerSearchLoading}
                     emptyMessage={
                         hasActiveFilters
-                            ? "No coaching centers match your filters. Try adjusting your search criteria."
-                            : "No coaching centers available at the moment."
+                            ? 'No coaching centers match your filters. Try adjusting your search criteria.'
+                            : 'No coaching centers available at the moment.'
                     }
                 />
 
                 {/* Load More */}
                 {centerSearchResults?.has_more && (
                     <div className="flex justify-center pt-4">
-                        <Button
-                            variant="outline"
-                            onClick={() => {
-                                const nextPage = Math.floor(centers.length / (centerSearchResults.per_page || 12)) + 1;
-                                const filters: CoachingCenterFilters = {};
-                                if (searchQuery) filters.search_query = searchQuery;
-                                if (selectedCategories.length > 0) filters.category = selectedCategories as any;
-                                if (verifiedOnly) filters.is_verified = true;
-                                if (featuredOnly) filters.is_featured = true;
-
-                                searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, nextPage, 12);
-                            }}
-                        >
+                        <Button variant="outline" onClick={loadMore}>
                             Load More
                         </Button>
                     </div>

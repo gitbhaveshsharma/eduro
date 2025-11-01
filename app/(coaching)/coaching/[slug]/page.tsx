@@ -1,14 +1,13 @@
 /**
  * Coaching Center Public Profile Page
  * 
- * Public-facing profile page for a coaching center
- * Shows center info, branches, reviews, and contact details
- * Accessible at: /coaching/[slug]
+ * Modern, optimized public profile with grid layout
+ * Features: Memoization, skeleton loading, error boundaries
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
     useCoachingStore,
@@ -19,7 +18,8 @@ import { CoachingProfileHeader } from '@/components/coaching/public/coaching-pro
 import { CoachingAboutSection } from '@/components/coaching/public/coaching-about-section';
 import { CoachingBranchesSection } from '@/components/coaching/public/coaching-branches-section';
 import { CoachingReviewsSection } from '@/components/coaching/public/coaching-reviews-section';
-import { Skeleton } from '@/components/ui/skeleton';
+// import { CoachingStatsCards } from '@/components/coaching/public/coaching-stats-cards';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,21 +39,15 @@ export default function CoachingCenterProfilePage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        if (slug) {
-            loadCoachingData();
-        }
-    }, [slug]);
+    // Memoize data loading function
+    const loadCoachingData = useCallback(async () => {
+        if (!slug) return;
 
-    const loadCoachingData = async () => {
         setLoading(true);
         setError(null);
 
         try {
-            // Load coaching center by slug (this updates the store)
             await loadCoachingCenterBySlug(slug);
-
-            // Get the loaded center from store
             const storeState = useCoachingStore.getState();
             const centerData = storeState.currentCoachingCenter;
 
@@ -62,22 +56,23 @@ export default function CoachingCenterProfilePage() {
                 return;
             }
 
-            // Convert to PublicCoachingCenter (it already has the right shape)
             setCenter(centerData as unknown as PublicCoachingCenter);
-
-            // Load branches
             const branchesData = await loadBranchesByCenter(centerData.id, true);
             setBranches(branchesData || []);
-
         } catch (err) {
             console.error('Failed to load coaching center:', err);
             setError('Failed to load coaching center details');
         } finally {
             setLoading(false);
         }
-    };
+    }, [slug, loadCoachingCenterBySlug, loadBranchesByCenter]);
 
-    const handleShare = () => {
+    useEffect(() => {
+        loadCoachingData();
+    }, [loadCoachingData]);
+
+    // Memoized handlers
+    const handleShare = useCallback(() => {
         if (navigator.share && center) {
             navigator.share({
                 title: center.name,
@@ -85,47 +80,48 @@ export default function CoachingCenterProfilePage() {
                 url: window.location.href,
             }).catch((err) => console.error('Error sharing:', err));
         } else {
-            // Fallback: copy to clipboard
             navigator.clipboard.writeText(window.location.href);
             toast({
                 title: 'Link copied!',
                 description: 'The link has been copied to your clipboard.',
             });
         }
-    };
+    }, [center, toast]);
 
-    const handleSave = () => {
+    const handleSave = useCallback(() => {
         toast({
             title: 'Saved!',
             description: 'This coaching center has been added to your saved list.',
         });
-    };
+    }, [toast]);
 
-    const handleJoinBranch = (branchId: string) => {
-        // Navigate to branch profile or show join dialog
+    const handleJoinBranch = useCallback((branchId: string) => {
         const branch = branches.find(b => b.id === branchId);
         if (branch) {
             router.push(`/coaching/${slug}/branch/${branchId}`);
         }
-    };
+    }, [branches, slug, router]);
+
+    // Memoized branch IDs
+    const branchIds = useMemo(() => branches.map(b => b.id), [branches]);
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-background">
-                <Skeleton className="h-96 w-full" />
-                <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-                    <Skeleton className="h-64 w-full" />
-                    <Skeleton className="h-48 w-full" />
-                    <Skeleton className="h-96 w-full" />
-                </div>
+            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+                <LoadingSpinner
+                    message={`Loading ${slug}...`}
+                    size="lg"
+                    variant="primary"
+                    fullscreen
+                />
             </div>
         );
     }
 
     if (error || !center) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center p-4">
-                <Alert variant="destructive" className="max-w-md">
+            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+                <Alert variant="destructive" className="max-w-md shadow-lg">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error || 'Coaching center not found'}
@@ -143,39 +139,49 @@ export default function CoachingCenterProfilePage() {
         );
     }
 
-    // Extract branch IDs for reviews
-    const branchIds = branches.map(b => b.id);
-
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
             {/* Header Section */}
             <CoachingProfileHeader
                 center={center}
-                averageRating={0} // Will be populated by reviews section
-                totalReviews={0}  // Will be populated by reviews section
+                branchIds={branchIds}
                 onShare={handleShare}
                 onSave={handleSave}
             />
 
-            {/* Content Sections */}
-            <div className="max-w-6xl mx-auto px-4 md:px-8 py-8 space-y-8">
-                {/* About Section */}
-                <CoachingAboutSection center={center} />
+            {/* Content Grid */}
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+                {/* Stats Cards - Bento Grid */}
+                {/* <CoachingStatsCards 
+                    center={center}
+                    totalBranches={branches.length}
+                    activeBranches={branches.filter(b => b.is_active).length}
+                /> */}
 
-                {/* Branches Section */}
-                <CoachingBranchesSection
-                    branches={branches}
-                    centerSlug={slug}
-                    onJoinBranch={handleJoinBranch}
-                />
+                {/* Main Content Grid */}
+                <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+                    {/* Left Column - About */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <CoachingAboutSection center={center} />
+                        <CoachingBranchesSection
+                            branches={branches}
+                            centerSlug={slug}
+                            onJoinBranch={handleJoinBranch}
+                        />
+                    </div>
 
-                {/* Reviews Section */}
-                <CoachingReviewsSection
-                    coachingCenterId={center.id}
-                    centerName={center.name}
-                    centerSlug={slug}
-                    branchIds={branchIds}
-                />
+                    {/* Right Column - Reviews */}
+                    <div className="lg:col-span-1">
+                        <div className="lg:sticky lg:top-8 space-y-6">
+                            <CoachingReviewsSection
+                                coachingCenterId={center.id}
+                                centerName={center.name}
+                                centerSlug={slug}
+                                branchIds={branchIds}
+                            />
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );

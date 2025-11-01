@@ -318,10 +318,10 @@ export const REVIEW_CONSTANTS = {
   DEFAULT_RADIUS_KM: 10,
   MAX_RADIUS_KM: 500,
   
-  // Cache settings
+  // Cache settings (optimized for performance)
   REVIEW_CACHE_TTL: 5 * 60 * 1000, // 5 minutes
-  RATING_SUMMARY_CACHE_TTL: 10 * 60 * 1000, // 10 minutes
-  SEARCH_CACHE_TTL: 2 * 60 * 1000, // 2 minutes
+  RATING_SUMMARY_CACHE_TTL: 30 * 60 * 1000, // 30 minutes (rating summaries change infrequently)
+  SEARCH_CACHE_TTL: 5 * 60 * 1000, // 5 minutes (increased from 2 minutes)
   
   // Materialized view refresh interval
   MV_REFRESH_INTERVAL: 60 * 60 * 1000, // 1 hour
