@@ -296,24 +296,6 @@ export function ProfileSettings({ profile, onSuccess, className = '' }: ProfileS
                                 Set your timezone for accurate timestamps
                             </p>
                         </div>
-
-                        {/* Additional preferences can be added here */}
-                        <div className="space-y-3">
-                            <Label htmlFor="theme">Theme Preference</Label>
-                            <Select defaultValue="system">
-                                <SelectTrigger id="theme">
-                                    <SelectValue placeholder="Select theme" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="light">Light</SelectItem>
-                                    <SelectItem value="dark">Dark</SelectItem>
-                                    <SelectItem value="system">System</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-muted-foreground">
-                                Choose your preferred theme appearance
-                            </p>
-                        </div>
                     </CardContent>
                 </Card>
             </div>

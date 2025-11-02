@@ -7,18 +7,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAddressStore } from '@/lib/store/address.store';
 import type { AddressCreate, AddressUpdate, AddressType } from '@/lib/schema/address.types';
-import { INDIAN_STATES } from '@/lib/schema/address.types';
 import { useCurrentProfile } from '@/lib/profile';
 import type { UserRole } from '@/lib/schema/profile.types';
 import { usePinCode } from '@/hooks/use-pincode';
 import {
     addressFormSchema,
-    validatePinCodeFormat,
     validateGoogleMapsUrl,
     ADDRESS_VALIDATION_LIMITS
 } from '@/lib/validations/address.validation';
@@ -49,22 +45,18 @@ interface AddressFormProps {
 
 const ALL_ADDRESS_TYPES: { value: AddressType; label: string; allowedRoles: UserRole[] }[] = [
     { value: 'HOME', label: 'Home', allowedRoles: ['SA', 'A', 'S', 'T', 'C'] },
-    { value: 'HOSTEL', label: 'Hostel', allowedRoles: ['SA', 'A', 'S'] }, // Only students
-    { value: 'SCHOOL', label: 'School', allowedRoles: ['SA', 'A', 'S'] }, // Only students
-    { value: 'COLLEGE', label: 'College', allowedRoles: ['SA', 'A', 'S'] }, // Only students
-    { value: 'WORK', label: 'Work', allowedRoles: ['SA', 'A', 'T', 'C'] }, // Teachers & Coaches
-    { value: 'OFFICE', label: 'Office', allowedRoles: ['SA', 'A', 'T', 'C'] }, // Teachers & Coaches
-    { value: 'COACHING', label: 'Coaching Center', allowedRoles: ['SA', 'A', 'C'] }, // Only coaches/admins
-    { value: 'BRANCH', label: 'Branch Office', allowedRoles: ['SA', 'A', 'C'] }, // Only coaches/admins
+    { value: 'HOSTEL', label: 'Hostel', allowedRoles: ['SA', 'A', 'S'] },
+    { value: 'SCHOOL', label: 'School', allowedRoles: ['SA', 'A', 'S'] },
+    { value: 'COLLEGE', label: 'College', allowedRoles: ['SA', 'A', 'S'] },
+    { value: 'WORK', label: 'Work', allowedRoles: ['SA', 'A', 'T', 'C'] },
+    { value: 'OFFICE', label: 'Office', allowedRoles: ['SA', 'A', 'T', 'C'] },
+    { value: 'COACHING', label: 'Coaching Center', allowedRoles: ['SA', 'A', 'C'] },
+    { value: 'BRANCH', label: 'Branch Office', allowedRoles: ['SA', 'A', 'C'] },
     { value: 'OTHER', label: 'Other', allowedRoles: ['SA', 'A', 'S', 'T', 'C'] },
 ];
 
-/**
- * Filter address types based on user role
- */
 const getAvailableAddressTypes = (userRole?: UserRole): { value: AddressType; label: string }[] => {
     if (!userRole) {
-        // If no role, return basic types
         return [
             { value: 'HOME', label: 'Home' },
             { value: 'OTHER', label: 'Other' },
@@ -103,10 +95,9 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         reset: resetPinCode
     } = usePinCode();
 
-    // Get available address types based on user role
     const availableAddressTypes = getAvailableAddressTypes(userRole);
 
-    // Form state
+    // Form state with proper validation
     const [formData, setFormData] = useState<Partial<AddressCreate>>({
         address_type: 'HOME',
         country: 'India',
@@ -114,6 +105,9 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         is_active: true,
         ...defaultValues,
     });
+
+    // Form validation state
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     // Load existing address if editing
     useEffect(() => {
@@ -128,22 +122,25 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
 
         if (!pinCode) {
             resetPinCode();
+            setFormData(prev => ({ ...prev, state: '', district: '' }));
             return;
         }
 
         if (pinCode.length !== 6) {
             resetPinCode();
+            setFormData(prev => ({ ...prev, state: '', district: '' }));
             return;
         }
 
         if (!validatePinCodeFormat(pinCode)) {
             resetPinCode();
+            setFormData(prev => ({ ...prev, state: '', district: '' }));
             return;
         }
 
         const timeoutId = setTimeout(() => {
             fetchPinCodeData(pinCode);
-        }, 800); // 800ms debounce
+        }, 800);
 
         return () => clearTimeout(timeoutId);
     }, [formData.pin_code, fetchPinCodeData, validatePinCodeFormat, resetPinCode]);
@@ -156,6 +153,13 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                 state: pinCodeData.state,
                 district: pinCodeData.district,
             }));
+            // Clear validation errors for state and district
+            setValidationErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors.state;
+                delete newErrors.district;
+                return newErrors;
+            });
         }
     }, [pinCodeValid, pinCodeData]);
 
@@ -163,36 +167,122 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         if (!addressId) return;
 
         setLoading(true);
-        const address = await loadAddress(addressId);
-        if (address) {
-            setFormData({
-                address_type: address.address_type,
-                label: address.label || undefined,
-                state: address.state,
-                district: address.district,
-                pin_code: address.pin_code,
-                country: address.country,
-                address_line_1: address.address_line_1 || undefined,
-                address_line_2: address.address_line_2 || undefined,
-                city: address.city || undefined,
-                sub_district: address.sub_district || undefined,
-                village_town: address.village_town || undefined,
-                latitude: address.latitude || undefined,
-                longitude: address.longitude || undefined,
-                google_maps_url: address.google_maps_url || undefined,
-                google_place_id: address.google_place_id || undefined,
-                google_plus_code: address.google_plus_code || undefined,
-                postal_address: address.postal_address || undefined,
-                delivery_instructions: address.delivery_instructions || undefined,
-                is_primary: address.is_primary,
-                is_active: address.is_active,
-            });
+        try {
+            const address = await loadAddress(addressId);
+            if (address) {
+                setFormData({
+                    address_type: address.address_type,
+                    label: address.label || undefined,
+                    state: address.state,
+                    district: address.district,
+                    pin_code: address.pin_code,
+                    country: address.country,
+                    address_line_1: address.address_line_1 || undefined,
+                    address_line_2: address.address_line_2 || undefined,
+                    city: address.city || undefined,
+                    sub_district: address.sub_district || undefined,
+                    village_town: address.village_town || undefined,
+                    latitude: address.latitude || undefined,
+                    longitude: address.longitude || undefined,
+                    google_maps_url: address.google_maps_url || undefined,
+                    google_place_id: address.google_place_id || undefined,
+                    google_plus_code: address.google_plus_code || undefined,
+                    postal_address: address.postal_address || undefined,
+                    delivery_instructions: address.delivery_instructions || undefined,
+                    is_primary: address.is_primary,
+                    is_active: address.is_active,
+                });
+            }
+        } catch (error) {
+            setError('Failed to load address');
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
+    };
+
+    const validateField = (field: string, value: any): string | null => {
+        switch (field) {
+            case 'pin_code':
+                if (!value) return 'PIN code is required';
+                if (value.length !== 6) return 'PIN code must be 6 digits';
+                if (!/^\d+$/.test(value)) return 'PIN code must contain only numbers';
+                return null;
+
+            case 'state':
+                if (!value) return 'State is required';
+                if (value.length < 2) return 'State name is too short';
+                return null;
+
+            case 'district':
+                if (!value) return 'District is required';
+                if (value.length < 2) return 'District name is too short';
+                return null;
+
+            case 'address_line_1':
+                if (value && value.length > ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX) {
+                    return `Address line 1 must be less than ${ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX} characters`;
+                }
+                return null;
+
+            case 'address_line_2':
+                if (value && value.length > ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX) {
+                    return `Address line 2 must be less than ${ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX} characters`;
+                }
+                return null;
+
+            case 'city':
+                if (value && value.length > ADDRESS_VALIDATION_LIMITS.CITY_MAX) {
+                    return `City must be less than ${ADDRESS_VALIDATION_LIMITS.CITY_MAX} characters`;
+                }
+                return null;
+
+            case 'label':
+                if (value && value.length > ADDRESS_VALIDATION_LIMITS.LABEL_MAX) {
+                    return `Label must be less than ${ADDRESS_VALIDATION_LIMITS.LABEL_MAX} characters`;
+                }
+                return null;
+
+            case 'google_maps_url':
+                if (value) {
+                    const urlValidation = validateGoogleMapsUrl(value);
+                    if (!urlValidation.valid) return urlValidation.error || 'Invalid Google Maps URL';
+                }
+                return null;
+
+            case 'latitude':
+                if (value !== undefined && value !== null) {
+                    if (value < -90 || value > 90) return 'Latitude must be between -90 and 90';
+                    if (formData.longitude === undefined || formData.longitude === null) {
+                        return 'Longitude must be provided with latitude';
+                    }
+                }
+                return null;
+
+            case 'longitude':
+                if (value !== undefined && value !== null) {
+                    if (value < -180 || value > 180) return 'Longitude must be between -180 and 180';
+                    if (formData.latitude === undefined || formData.latitude === null) {
+                        return 'Latitude must be provided with longitude';
+                    }
+                }
+                return null;
+
+            default:
+                return null;
+        }
     };
 
     const handleInputChange = (field: string, value: any) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
+
+        // Validate the field
+        const error = validateField(field, value);
+        setValidationErrors(prev => ({
+            ...prev,
+            [field]: error || ''
+        }));
+
+        // Clear general error when user starts typing
         setError(null);
     };
 
@@ -200,16 +290,24 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
         if (!formData.google_maps_url) return;
 
         setExtractingCoords(true);
-        const coords = extractCoordinatesFromMapsUrl(formData.google_maps_url);
+        try {
+            const coords = extractCoordinatesFromMapsUrl(formData.google_maps_url);
 
-        if (coords) {
-            setFormData((prev) => ({
-                ...prev,
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-            }));
+            if (coords) {
+                setFormData((prev) => ({
+                    ...prev,
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                }));
+                showSuccessToast('Coordinates extracted successfully!');
+            } else {
+                showErrorToast('Could not extract coordinates from the URL');
+            }
+        } catch (error) {
+            showErrorToast('Failed to extract coordinates');
+        } finally {
+            setExtractingCoords(false);
         }
-        setExtractingCoords(false);
     };
 
     const handleGetCurrentLocation = () => {
@@ -257,33 +355,38 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
     };
 
     const validateForm = (): boolean => {
-        // Required fields
+        const errors: Record<string, string> = {};
+
+        // Validate all fields
+        const fieldsToValidate = [
+            'pin_code', 'state', 'district', 'address_line_1', 'address_line_2',
+            'city', 'label', 'google_maps_url', 'latitude', 'longitude'
+        ];
+
+        fieldsToValidate.forEach(field => {
+            const error = validateField(field, formData[field as keyof typeof formData]);
+            if (error) {
+                errors[field] = error;
+            }
+        });
+
+        // Special validation for coordinates
+        if ((formData.latitude !== undefined && formData.latitude !== null) !==
+            (formData.longitude !== undefined && formData.longitude !== null)) {
+            errors.coordinates = 'Both latitude and longitude must be provided together';
+        }
+
+        setValidationErrors(errors);
+
+        if (Object.keys(errors).length > 0) {
+            setError('Please fix the validation errors above');
+            return false;
+        }
+
+        // Required fields validation
         if (!formData.state || !formData.district || !formData.pin_code) {
             setError('Please fill in all required fields (State, District, PIN Code)');
             return false;
-        }
-
-        // Validate PIN code format
-        if (!validatePinCodeFormat(formData.pin_code)) {
-            setError('Please enter a valid 6-digit PIN code');
-            return false;
-        }
-
-        // Validate coordinates if provided
-        if (formData.latitude !== undefined && formData.longitude !== undefined) {
-            if (formData.latitude !== null && formData.longitude === null) {
-                setError('Both latitude and longitude must be provided together');
-                return false;
-            }
-        }
-
-        // Validate Google Maps URL if provided
-        if (formData.google_maps_url) {
-            const urlValidation = validateGoogleMapsUrl(formData.google_maps_url);
-            if (!urlValidation.valid) {
-                setError(urlValidation.error || 'Invalid Google Maps URL');
-                return false;
-            }
         }
 
         return true;
@@ -303,14 +406,13 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
             let success: boolean;
 
             if (addressId) {
-                // Update existing address
                 success = await updateAddress(addressId, formData as AddressUpdate);
             } else {
-                // Create new address
                 success = await createAddress(formData as AddressCreate);
             }
 
             if (success) {
+                showSuccessToast(addressId ? 'Address updated successfully!' : 'Address created successfully!');
                 onSuccess?.();
             } else {
                 setError('Failed to save address. Please try again.');
@@ -365,8 +467,11 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                         placeholder="e.g., My Home, Main Office"
                         value={formData.label || ''}
                         onChange={(e) => handleInputChange('label', e.target.value)}
-                        maxLength={100}
+                        maxLength={ADDRESS_VALIDATION_LIMITS.LABEL_MAX}
                     />
+                    {validationErrors.label && (
+                        <p className="text-xs text-destructive">{validationErrors.label}</p>
+                    )}
                 </div>
             </div>
 
@@ -379,8 +484,11 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                         placeholder="House/Building number, Street name"
                         value={formData.address_line_1 || ''}
                         onChange={(e) => handleInputChange('address_line_1', e.target.value)}
-                        maxLength={200}
+                        maxLength={ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX}
                     />
+                    {validationErrors.address_line_1 && (
+                        <p className="text-xs text-destructive">{validationErrors.address_line_1}</p>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -390,8 +498,11 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                         placeholder="Landmark, Area"
                         value={formData.address_line_2 || ''}
                         onChange={(e) => handleInputChange('address_line_2', e.target.value)}
-                        maxLength={200}
+                        maxLength={ADDRESS_VALIDATION_LIMITS.ADDRESS_LINE_MAX}
                     />
+                    {validationErrors.address_line_2 && (
+                        <p className="text-xs text-destructive">{validationErrors.address_line_2}</p>
+                    )}
                 </div>
             </div>
 
@@ -404,7 +515,11 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                         placeholder="City or Town name"
                         value={formData.city || ''}
                         onChange={(e) => handleInputChange('city', e.target.value)}
+                        maxLength={ADDRESS_VALIDATION_LIMITS.CITY_MAX}
                     />
+                    {validationErrors.city && (
+                        <p className="text-xs text-destructive">{validationErrors.city}</p>
+                    )}
                 </div>
 
                 <div className="space-y-2">
@@ -414,72 +529,78 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                         placeholder="Village or Town"
                         value={formData.village_town || ''}
                         onChange={(e) => handleInputChange('village_town', e.target.value)}
+                        maxLength={ADDRESS_VALIDATION_LIMITS.VILLAGE_TOWN_MAX}
                     />
                 </div>
             </div>
 
-            {/* District and Sub-district */}
-            <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="district">
-                        District <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                        id="district"
-                        placeholder="District name"
-                        value={formData.district || ''}
-                        onChange={(e) => handleInputChange('district', e.target.value)}
-                        required
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="sub_district">Sub-district/Tehsil/Taluka</Label>
-                    <Input
-                        id="sub_district"
-                        placeholder="Sub-district"
-                        value={formData.sub_district || ''}
-                        onChange={(e) => handleInputChange('sub_district', e.target.value)}
-                    />
-                </div>
-            </div>
-
-            {/* State and PIN Code */}
-            <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                    <Label htmlFor="state">
-                        State <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                        value={formData.state}
-                        onValueChange={(value) => handleInputChange('state', value)}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select state" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {INDIAN_STATES.map((state) => (
-                                <SelectItem key={state.code} value={state.name}>
-                                    {state.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
+            {/* PIN Code - Now drives State and District */}
+            <div className="space-y-4">
                 <div className="space-y-2">
                     <Label htmlFor="pin_code">
                         PIN Code <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                        id="pin_code"
-                        placeholder="6-digit PIN code"
-                        value={formData.pin_code || ''}
-                        onChange={(e) => handleInputChange('pin_code', e.target.value)}
-                        maxLength={6}
-                        pattern="[0-9]{6}"
-                        required
-                    />
+                    <div className="flex gap-2">
+                        <Input
+                            id="pin_code"
+                            placeholder="6-digit PIN code"
+                            value={formData.pin_code || ''}
+                            onChange={(e) => handleInputChange('pin_code', e.target.value.replace(/\D/g, ''))}
+                            maxLength={6}
+                            pattern="[0-9]{6}"
+                            required
+                            className="flex-1"
+                        />
+                        {pinCodeLoading && (
+                            <Loader2 className="h-4 w-4 animate-spin mt-2" />
+                        )}
+                    </div>
+                    {validationErrors.pin_code && (
+                        <p className="text-xs text-destructive">{validationErrors.pin_code}</p>
+                    )}
+                    {pinCodeError && (
+                        <p className="text-xs text-destructive">{pinCodeError}</p>
+                    )}
+                    {pinCodeValid && pinCodeData && (
+                        <p className="text-xs text-green-600">
+                            ✓ Found: {pinCodeData.district}, {pinCodeData.state}
+                        </p>
+                    )}
+                </div>
+
+                {/* State and District - Auto-filled and read-only */}
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                        <Label htmlFor="state">
+                            State <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="state"
+                            placeholder="Enter PIN code to auto-fill state"
+                            value={formData.state || ''}
+                            readOnly
+                            className="bg-muted"
+                        />
+                        {validationErrors.state && (
+                            <p className="text-xs text-destructive">{validationErrors.state}</p>
+                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="district">
+                            District <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                            id="district"
+                            placeholder="Enter PIN code to auto-fill district"
+                            value={formData.district || ''}
+                            readOnly
+                            className="bg-muted"
+                        />
+                        {validationErrors.district && (
+                            <p className="text-xs text-destructive">{validationErrors.district}</p>
+                        )}
+                    </div>
                 </div>
             </div>
 
@@ -513,6 +634,9 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                             )}
                         </Button>
                     </div>
+                    {validationErrors.google_maps_url && (
+                        <p className="text-xs text-destructive">{validationErrors.google_maps_url}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
                         Paste a Google Maps link to automatically extract coordinates
                     </p>
@@ -529,6 +653,9 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                             value={formData.latitude || ''}
                             onChange={(e) => handleInputChange('latitude', e.target.value ? parseFloat(e.target.value) : undefined)}
                         />
+                        {validationErrors.latitude && (
+                            <p className="text-xs text-destructive">{validationErrors.latitude}</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -541,19 +668,40 @@ export function AddressForm({ addressId, onSuccess, onCancel, defaultValues }: A
                             value={formData.longitude || ''}
                             onChange={(e) => handleInputChange('longitude', e.target.value ? parseFloat(e.target.value) : undefined)}
                         />
+                        {validationErrors.longitude && (
+                            <p className="text-xs text-destructive">{validationErrors.longitude}</p>
+                        )}
                     </div>
                 </div>
+                {validationErrors.coordinates && (
+                    <p className="text-xs text-destructive">{validationErrors.coordinates}</p>
+                )}
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGetCurrentLocation}
+                    disabled={gettingLocation}
+                >
+                    {gettingLocation ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                        <Navigation className="h-4 w-4 mr-2" />
+                    )}
+                    Use Current Location
+                </Button>
             </div>
 
-            {/* Delivery Instructions */}
+            {/* Address Instructions */}
             <div className="space-y-2">
-                <Label htmlFor="delivery_instructions">Delivery Instructions</Label>
+                <Label htmlFor="address_instructions">Address Instructions</Label>
                 <Textarea
                     id="delivery_instructions"
-                    placeholder="Any specific instructions for delivery (landmarks, gate numbers, etc.)"
+                    placeholder="Any specific instructions for locating you (landmarks, gate numbers, etc.)"
                     value={formData.delivery_instructions || ''}
                     onChange={(e) => handleInputChange('delivery_instructions', e.target.value)}
-                    maxLength={500}
+                    maxLength={ADDRESS_VALIDATION_LIMITS.DELIVERY_INSTRUCTIONS_MAX}
                     rows={3}
                 />
             </div>

@@ -24,22 +24,63 @@ export class AuthHandler {
       const isAuthenticated = request.headers.get('x-user-authenticated')
       const userId = request.headers.get('x-user-id')
       const email = request.headers.get('x-user-email')
-      
+      const roleHeader = request.headers.get('x-user-role')
+
       if (isAuthenticated === 'true' && userId) {
         console.log('[AUTH] User authenticated via Supabase middleware:', userId)
-        
+
+        // Use role from header (set by supabase-middleware) or fetch from database as fallback
+        let userRole: UserRole = UserRole.STUDENT // Default fallback
+
+        if (roleHeader && Object.values(UserRole).includes(roleHeader as UserRole)) {
+          userRole = roleHeader as UserRole
+          console.log('[AUTH] Using user role from header:', userRole)
+        } else {
+          // Fallback: Fetch user role from database if not in header
+          console.warn('[AUTH] Role not in header, fetching from database...')
+          try {
+            const supabaseUrl = this.supabaseUrl
+            const supabaseAnonKey = this.supabaseAnonKey
+
+            const profileUrl = `${supabaseUrl}/rest/v1/profiles?id=eq.${userId}&select=role`
+            const response = await fetch(profileUrl, {
+              method: 'GET',
+              headers: {
+                'apikey': supabaseAnonKey,
+                'Authorization': `Bearer ${supabaseAnonKey}`,
+                'Content-Type': 'application/json',
+              },
+            })
+
+            if (response.ok) {
+              const profiles = await response.json()
+              if (profiles && profiles.length > 0 && profiles[0].role) {
+                userRole = profiles[0].role as UserRole
+                console.log('[AUTH] Fetched user role from database:', userRole)
+              } else {
+                console.warn('[AUTH] No profile found for user, using default role:', UserRole.STUDENT)
+              }
+            } else {
+              console.error('[AUTH] Failed to fetch user profile:', response.status, response.statusText)
+            }
+          } catch (profileError) {
+            console.error('[AUTH] Error fetching user profile:', profileError)
+            // Continue with default role
+          }
+        }
+
         return {
           id: userId,
           email: email || undefined,
           phone: undefined,
-          role: UserRole.STUDENT,
-          permissions: this.getRolePermissions(UserRole.STUDENT),
+          role: userRole,
+          permissions: this.getRolePermissions(userRole),
           isOnline: false,
           lastActivity: new Date(),
           sessionId: userId
         }
       }
-      
+
       console.log('[AUTH] No authenticated user found in headers')
       return null
     } catch (error) {
@@ -104,13 +145,13 @@ export class AuthHandler {
     // Try to get session ID from various sources
     const authHeader = request.headers.get('authorization')
     const sessionCookie = request.cookies.get('sb-' + this.supabaseUrl.split('//')[1].split('.')[0] + '-auth-token') ||
-                         request.cookies.get('supabase-auth-token') ||
-                         request.cookies.get('sb-auth-token')
-    
+      request.cookies.get('supabase-auth-token') ||
+      request.cookies.get('sb-auth-token')
+
     if (authHeader && authHeader.startsWith('Bearer ')) {
       return authHeader.substring(7)
     }
-    
+
     if (sessionCookie) {
       try {
         // Try parsing as JSON first (Supabase's format)
@@ -135,7 +176,7 @@ export class AuthHandler {
 
     const now = new Date()
     const sessionExpiry = new Date(user.lastActivity.getTime() + sessionTimeout * 1000)
-    
+
     return now > sessionExpiry
   }
 
@@ -149,7 +190,7 @@ export class AuthHandler {
 
     const now = new Date()
     const refreshTime = new Date(user.lastActivity.getTime() + refreshThreshold * 1000)
-    
+
     return now > refreshTime
   }
 
@@ -158,7 +199,7 @@ export class AuthHandler {
    */
   static validateApiKey(request: NextRequest, validKeys: string[]): boolean {
     const apiKey = request.headers.get('x-api-key') || request.headers.get('authorization')?.replace('Bearer ', '')
-    
+
     if (!apiKey) {
       return false
     }
@@ -177,9 +218,9 @@ export class AuthHandler {
    * Validate CSRF token from request
    */
   static validateCSRFToken(request: NextRequest, expectedToken: string): boolean {
-    const token = request.headers.get('x-csrf-token') || 
-                  request.headers.get('csrf-token') ||
-                  request.nextUrl.searchParams.get('csrf_token')
+    const token = request.headers.get('x-csrf-token') ||
+      request.headers.get('csrf-token') ||
+      request.nextUrl.searchParams.get('csrf_token')
 
     if (!token) {
       return false
@@ -227,7 +268,7 @@ export class AuthHandler {
   static getRedirectUrl(request: NextRequest, defaultRedirect: string = '/login'): string {
     const pathname = request.nextUrl.pathname
     const searchParams = request.nextUrl.searchParams.toString()
-    
+
     // Don't redirect API routes
     if (pathname.startsWith('/api/')) {
       return defaultRedirect
@@ -242,7 +283,7 @@ export class AuthHandler {
     const returnUrl = pathname + (searchParams ? `?${searchParams}` : '')
     const redirectUrl = new URL(defaultRedirect, request.nextUrl.origin)
     redirectUrl.searchParams.set('redirect', returnUrl)
-    
+
     return redirectUrl.href // Use href instead of toString()
   }
 
@@ -375,8 +416,8 @@ export class RoleHierarchy {
     }
 
     // Teachers and coaches can manage students
-    if ((managerRole === UserRole.TEACHER || managerRole === UserRole.COACH) && 
-        targetRole === UserRole.STUDENT) {
+    if ((managerRole === UserRole.TEACHER || managerRole === UserRole.COACH) &&
+      targetRole === UserRole.STUDENT) {
       return true
     }
 
@@ -420,7 +461,7 @@ export class SessionManager {
    */
   static cleanupExpiredSessions(sessionTimeout: number): void {
     const now = new Date()
-    
+
     for (const [sessionId, user] of this.activeSessions.entries()) {
       if (user.lastActivity) {
         const expiryTime = new Date(user.lastActivity.getTime() + sessionTimeout * 1000)
@@ -436,13 +477,13 @@ export class SessionManager {
    */
   static getUserSessions(userId: string): string[] {
     const sessions: string[] = []
-    
+
     for (const [sessionId, user] of this.activeSessions.entries()) {
       if (user.id === userId) {
         sessions.push(sessionId)
       }
     }
-    
+
     return sessions
   }
 

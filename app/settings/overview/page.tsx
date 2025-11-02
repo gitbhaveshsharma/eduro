@@ -1,10 +1,16 @@
+/**
+ * Settings Overview Page
+ * 
+ * Central hub for all settings with search and category navigation
+ */
+
 "use client";
-import { SettingsOverview } from '@/components/settings/settings-overview';
+
 import { useCurrentProfile, useCurrentProfileLoading } from '@/lib/profile';
+import { SettingsOverview } from '@/components/settings';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
-export default function SettingsPage() {
-
+export default function SettingsOverviewPage() {
     const profile = useCurrentProfile();
     const loading = useCurrentProfileLoading();
 
@@ -13,7 +19,8 @@ export default function SettingsPage() {
         return (
             <div className="min-h-screen flex items-center justify-center">
                 <LoadingSpinner
-                    message="loading settings..."
+                    title="Settings"
+                    message="Loading settings..."
                     size="lg"
                     variant="primary"
                 />

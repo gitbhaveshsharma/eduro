@@ -173,6 +173,21 @@ const routeProtections = {
     rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
     logRequests: true
   },
+
+  // settings coaching center routes
+  '/settings/coaching-center': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.ADMIN, UserRole.COACH, UserRole.SUPER_ADMIN],
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  '/settings/coaching-center/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.ADMIN, UserRole.COACH, UserRole.SUPER_ADMIN],
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+
   // coaching routes
   '/coaching-reviews': {
     securityLevel: SecurityLevel.PUBLIC,

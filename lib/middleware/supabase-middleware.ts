@@ -33,12 +33,12 @@ export function createSupabaseMiddleware() {
             cookiesToSet.forEach(({ name, value, options }) =>
               request.cookies.set(name, value)
             )
-            
+
             // Create fresh response with new cookies
             supabaseResponse = NextResponse.next({
               request,
             })
-            
+
             // Set cookies on the response
             cookiesToSet.forEach(({ name, value, options }) =>
               supabaseResponse.cookies.set(name, value, options)
@@ -63,11 +63,31 @@ export function createSupabaseMiddleware() {
         userId: user.id,
         email: user.email,
       })
-      
-      // CRITICAL: Set custom header so auth-utils can detect authenticated user
+
+      // Fetch user role from profiles table
+      let userRole = 'S' // Default to Student
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+
+        if (!profileError && profile?.role) {
+          userRole = profile.role
+          console.log('[SUPABASE MIDDLEWARE] User role:', userRole)
+        } else {
+          console.warn('[SUPABASE MIDDLEWARE] Could not fetch user role, using default:', userRole)
+        }
+      } catch (profileError) {
+        console.error('[SUPABASE MIDDLEWARE] Error fetching user role:', profileError)
+      }
+
+      // CRITICAL: Set custom headers so auth-utils can detect authenticated user
       // This bridges the gap between Supabase auth and the existing auth system
       supabaseResponse.headers.set('x-user-authenticated', 'true')
       supabaseResponse.headers.set('x-user-id', user.id)
+      supabaseResponse.headers.set('x-user-role', userRole)
       if (user.email) {
         supabaseResponse.headers.set('x-user-email', user.email)
       }

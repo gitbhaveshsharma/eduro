@@ -48,6 +48,7 @@ import {
     TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { AddressCard, AddressManager } from '../address';
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>;
 
@@ -245,9 +246,9 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                                     Non-editable
                                 </Badge>
                             </div>
-                            <Alert>
-                                <AlertTriangle className="h-4 w-4" />
-                                <AlertDescription className="ml-2 text-sm">
+                            <Alert className="bg-red-50 border-red-200  text-red-600">
+                                <AlertTriangle className="h-4 w-4 " />
+                                <AlertDescription className="ml-2 text-sm text-red-800">
                                     To update your role, please contact our support team at support@eduro.com
                                 </AlertDescription>
                             </Alert>
@@ -323,33 +324,15 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                                 <p className="text-sm text-destructive">{errors.phone.message}</p>
                             )}
                         </div>
-
-                        {/* Timezone */}
+                        {/* Address management */}
                         <div className="space-y-2">
-                            <Label htmlFor="timezone">Timezone</Label>
-                            <Input
-                                id="timezone"
-                                {...register('timezone')}
-                                placeholder="e.g., Asia/Kolkata"
-                                className={errors.timezone ? 'border-destructive' : ''}
+                            <AddressManager
+                                showAddButton={true}
+                                allowEdit={true}
+                                allowDelete={true}
+                                allowSetPrimary={true}
+                                maxAddresses={5}
                             />
-                            {errors.timezone && (
-                                <p className="text-sm text-destructive">{errors.timezone.message}</p>
-                            )}
-                        </div>
-
-                        {/* Language Preference */}
-                        <div className="space-y-2">
-                            <Label htmlFor="language_preference">Language Preference</Label>
-                            <Input
-                                id="language_preference"
-                                {...register('language_preference')}
-                                placeholder="e.g., English, Hindi"
-                                className={errors.language_preference ? 'border-destructive' : ''}
-                            />
-                            {errors.language_preference && (
-                                <p className="text-sm text-destructive">{errors.language_preference.message}</p>
-                            )}
                         </div>
                     </CardContent>
                 </Card>

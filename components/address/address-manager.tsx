@@ -165,7 +165,7 @@ export function AddressManager({
             {/* Header */}
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold">My Addresses</h2>
+                    <h2 className="text-lg font-semibold">My Addresses</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         Manage your saved addresses
                         {maxAddresses && ` (${currentUserAddresses.length}/${maxAddresses})`}
@@ -242,7 +242,7 @@ export function AddressManager({
                     </CardContent>
                 </Card>
             ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-4 mordern-scrollbar">
                     {currentUserAddresses.map((address) => (
                         <AddressCard
                             key={address.id}

@@ -7,31 +7,28 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useCurrentProfile } from '@/lib/profile';
 import {
     useMyCoachingCenters,
     useMyCoachingCentersLoading,
     useMyCoachingCentersError,
     useCoachingStore,
-    useCreateMode
 } from '@/lib/coaching';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
-    Loader2,
-    Plus,
     Building2,
     AlertCircle,
-    BarChart3,
+    Network,
     Settings
 } from 'lucide-react';
 import { CoachingCenterUpdateForm } from './coaching-center-update-form';
-import { CoachingCenterCard } from './coaching-center-card';
-import { CoachingCenterDashboard } from './coaching-center-dashboard';
-import { showWarningToast } from '@/lib/toast';
+import { CoachingBranchManager } from './coaching-branch-manager';
+import { showWarningToast, showSuccessToast, showErrorToast } from '@/lib/toast';
+import { ComponentLoadingSpinner } from '@/components/ui/loading-spinner';
 
 interface CoachingManagerProps {
     className?: string;
@@ -42,19 +39,26 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
     const myCoachingCenters = useMyCoachingCenters();
     const loading = useMyCoachingCentersLoading();
     const error = useMyCoachingCentersError();
-    const isCreateMode = useCreateMode();
 
     const {
         loadMyCoachingCenters,
-        setCreateMode,
+        updateCoachingCenter,
+        uploadLogo,
+        uploadCover,
+        loadCoachingCenter,
     } = useCoachingStore();
 
+    const [updatingIds, setUpdatingIds] = useState<Record<string, boolean>>({});
     const [activeTab, setActiveTab] = useState<string>('centers');
     const [selectedCenterId, setSelectedCenterId] = useState<string | null>(null);
     const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+    const [isLoadingBranchData, setIsLoadingBranchData] = useState(false);
 
-    // Check if user has coach role
-    const isCoach = profile?.role === 'C' || profile?.role === 'SA' || profile?.role === 'A';
+    // Check if user has coach role (memoized)
+    const isCoach = useMemo(() =>
+        profile?.role === 'C' || profile?.role === 'SA' || profile?.role === 'A',
+        [profile?.role]
+    );
 
     // Memoized load function to prevent recreating on every render
     const loadCenters = useCallback(async () => {
@@ -75,32 +79,93 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
         setHasAttemptedLoad(false);
     }, [profile?.id]);
 
+    // Selector to get selected center from coaching store (memoized)
+    const selectedCenter = useCoachingStore(
+        useCallback((state) => {
+            if (!selectedCenterId) return null;
+            const cached = state.coachingCenterCache.get(selectedCenterId);
+            if (cached) return cached as any;
+            if (state.currentCoachingCenter && state.currentCoachingCenter.id === selectedCenterId)
+                return state.currentCoachingCenter;
+            const my = state.myCoachingCenters.find((c) => c.id === selectedCenterId);
+            return my || null;
+        }, [selectedCenterId])
+    );
+
     // Memoized event handlers to prevent unnecessary re-renders
-    const handleCreateNew = useCallback(() => {
-        if (!isCoach) {
-            showWarningToast('Only coaches can create coaching centers');
-            return;
+    const handleManageBranches = useCallback(async (centerId: string) => {
+        setIsLoadingBranchData(true);
+        try {
+            await loadCoachingCenter(centerId);
+            setSelectedCenterId(centerId);
+            setActiveTab('branches');
+        } catch (e) {
+            console.error('Failed to load center for branches', e);
+            showErrorToast('Failed to load coaching center details');
+        } finally {
+            setIsLoadingBranchData(false);
         }
-        setCreateMode(true);
-        setSelectedCenterId(null);
-    }, [isCoach, setCreateMode]);
-
-    const handleCancelCreate = useCallback(() => {
-        setCreateMode(false);
-    }, [setCreateMode]);
-
-    const handleCreateSuccess = useCallback(() => {
-        setCreateMode(false);
-        setHasAttemptedLoad(false); // Reset to trigger reload
-        loadCenters();
-    }, [setCreateMode, loadCenters]);
-
-    const handleViewDashboard = useCallback((centerId: string) => {
-        setSelectedCenterId(centerId);
-        setActiveTab('dashboard');
-    }, []);
+    }, [loadCoachingCenter]);
 
     const handleRetryLoad = useCallback(() => {
+        setHasAttemptedLoad(false);
+        loadCenters();
+    }, [loadCenters]);
+
+    // When user switches to the Branches tab, automatically select a center
+    useEffect(() => {
+        if (activeTab !== 'branches') return;
+
+        // If a center is already selected, ensure it's loaded
+        if (selectedCenterId) {
+            setIsLoadingBranchData(true);
+            loadCoachingCenter(selectedCenterId)
+                .catch((e) => console.error('Failed to ensure center loaded:', e))
+                .finally(() => setIsLoadingBranchData(false));
+            return;
+        }
+
+        // No selected center yet — pick the first available center for immediate display
+        if (myCoachingCenters && myCoachingCenters.length > 0) {
+            const firstId = myCoachingCenters[0].id;
+            handleManageBranches(firstId);
+        }
+    }, [activeTab, selectedCenterId, myCoachingCenters, loadCoachingCenter, handleManageBranches]);
+
+    // Memoized update handler factory
+    const createUpdateHandler = useCallback((centerId: string) => {
+        return async (data: any, files: { logo?: File; cover?: File }) => {
+            setUpdatingIds((s) => ({ ...s, [centerId]: true }));
+            try {
+                const updated = await updateCoachingCenter(centerId, data);
+                if (!updated) {
+                    showErrorToast('Failed to update coaching center');
+                    return;
+                }
+
+                if (files.logo) {
+                    const ok = await uploadLogo(centerId, files.logo);
+                    if (!ok) showWarningToast('Logo upload failed');
+                }
+                if (files.cover) {
+                    const ok = await uploadCover(centerId, files.cover);
+                    if (!ok) showWarningToast('Cover upload failed');
+                }
+
+                showSuccessToast('Coaching center updated successfully');
+                setHasAttemptedLoad(false);
+                await loadCenters();
+            } catch (err) {
+                console.error('Error updating center:', err);
+                showErrorToast(err instanceof Error ? err.message : 'Failed to update');
+            } finally {
+                setUpdatingIds((s) => ({ ...s, [centerId]: false }));
+            }
+        };
+    }, [updateCoachingCenter, uploadLogo, uploadCover, loadCenters]);
+
+    // Memoized cancel handler
+    const handleCancel = useCallback(() => {
         setHasAttemptedLoad(false);
         loadCenters();
     }, [loadCenters]);
@@ -122,15 +187,12 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
         );
     }
 
-    // Loading state
+    // Loading state - Show while initially loading
     if (loading && !myCoachingCenters && !error) {
         return (
             <Card className={className}>
-                <CardContent className="flex items-center justify-center py-12">
-                    <div className="text-center space-y-3">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-                        <p className="text-sm text-muted-foreground">Loading coaching centers...</p>
-                    </div>
+                <CardContent className="py-12">
+                    <ComponentLoadingSpinner component="coaching centers" size="lg" />
                 </CardContent>
             </Card>
         );
@@ -157,42 +219,6 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
         );
     }
 
-    // Create mode - Note: Center creation is not available via the update-only form
-    // This needs a separate create flow or the update form needs to support creation
-    if (isCreateMode) {
-        return (
-            <div className={`space-y-6 ${className}`}>
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Create New Coaching Center</CardTitle>
-                        <CardDescription>
-                            Set up your coaching center with all the necessary details
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Alert>
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between w-full">
-                                <div className="flex items-start gap-2">
-                                    <AlertCircle className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                                    <AlertDescription>
-                                        Center creation flow needs to be implemented. The update form is
-                                        designed for editing existing centers only. Please select an existing
-                                        center to edit its details.
-                                    </AlertDescription>
-                                </div>
-                                <div className="mt-4 md:mt-0">
-                                    <Button variant="outline" size="sm" onClick={handleCancelCreate}>
-                                        Back to centers
-                                    </Button>
-                                </div>
-                            </div>
-                        </Alert>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
-
     // Main interface
     return (
         <div className={`space-y-6 ${className}`}>
@@ -204,10 +230,6 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                         Manage your coaching centers and branches
                     </p>
                 </div>
-                <Button onClick={handleCreateNew} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Create New Center
-                </Button>
             </div>
 
             {/* Tabs */}
@@ -219,9 +241,9 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                                 <Building2 className="h-4 w-4" />
                                 <span className="hidden sm:inline">My Centers</span>
                             </TabsTrigger>
-                            <TabsTrigger value="dashboard" className="flex items-center gap-2">
-                                <BarChart3 className="h-4 w-4" />
-                                <span className="hidden sm:inline">Dashboard</span>
+                            <TabsTrigger value="branches" className="flex items-center gap-2">
+                                <Network className="h-4 w-4" />
+                                <span className="hidden sm:inline">Branches</span>
                             </TabsTrigger>
                             <TabsTrigger value="settings" className="flex items-center gap-2">
                                 <Settings className="h-4 w-4" />
@@ -234,45 +256,84 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
                     <Tabs value={activeTab} className="w-full">
                         {/* My Centers Tab */}
                         <TabsContent value="centers" className="space-y-4">
-                            {!myCoachingCenters || myCoachingCenters.length === 0 ? (
+                            {loading ? (
+                                <div className="py-12">
+                                    <ComponentLoadingSpinner component="coaching centers" size="sm" />
+                                </div>
+                            ) : !myCoachingCenters || myCoachingCenters.length === 0 ? (
                                 <div className="text-center py-12">
                                     <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">No Coaching Centers</h3>
                                     <p className="text-sm text-muted-foreground mb-4">
-                                        You haven't created any coaching centers yet.
+                                        You don't have any coaching centers assigned to you.
                                     </p>
-                                    <Button onClick={handleCreateNew} className="gap-2">
-                                        <Plus className="h-4 w-4" />
-                                        Create Your First Center
-                                    </Button>
                                 </div>
                             ) : (
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                <div className="grid gap-6">
                                     {myCoachingCenters.map((center) => (
-                                        <CoachingCenterCard
-                                            key={center.id}
-                                            center={center}
-                                            onViewDashboard={() => handleViewDashboard(center.id)}
-                                            onEditSuccess={() => {
-                                                setHasAttemptedLoad(false);
-                                                loadCenters();
-                                            }}
-                                        />
+                                        <div key={center.id} className="space-y-3">
+                                            {/* <div className="flex justify-end">
+                                                <Button
+                                                    size="sm"
+                                                    variant="default"
+                                                    onClick={() => handleManageBranches(center.id)}
+                                                    disabled={isLoadingBranchData}
+                                                >
+                                                    {isLoadingBranchData ? (
+                                                        <>
+                                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                            Loading...
+                                                        </>
+                                                    ) : (
+                                                        'Manage Branches'
+                                                    )}
+                                                </Button>
+                                            </div> */}
+
+                                            <CoachingCenterUpdateForm
+                                                initialData={center}
+                                                onSubmit={createUpdateHandler(center.id)}
+                                                onCancel={handleCancel}
+                                                isLoading={!!updatingIds[center.id]}
+                                            />
+                                        </div>
                                     ))}
                                 </div>
                             )}
                         </TabsContent>
 
-                        {/* Dashboard Tab */}
-                        <TabsContent value="dashboard" className="space-y-4">
-                            {selectedCenterId ? (
-                                <CoachingCenterDashboard centerId={selectedCenterId} />
+                        {/* Branches Tab */}
+                        <TabsContent value="branches" className="space-y-4">
+                            {isLoadingBranchData ? (
+                                <div className="py-12">
+                                    <ComponentLoadingSpinner component="branch data" size="sm" />
+                                </div>
+                            ) : selectedCenterId ? (
+                                selectedCenter ? (
+                                    <CoachingBranchManager
+                                        coachingCenterId={selectedCenterId}
+                                        coachingCenterName={selectedCenter.name || 'Selected Center'}
+                                        centerOwnerId={(selectedCenter as any).owner_id || profile?.id || ''}
+                                    />
+                                ) : (
+                                    <div className="py-12">
+                                        <ComponentLoadingSpinner component="center details" size="sm" />
+                                    </div>
+                                )
+                            ) : !myCoachingCenters || myCoachingCenters.length === 0 ? (
+                                <div className="text-center py-12">
+                                    <Network className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">No Centers Available</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        You need to have at least one coaching center to manage branches
+                                    </p>
+                                </div>
                             ) : (
                                 <div className="text-center py-12">
-                                    <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <Network className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                     <h3 className="text-lg font-semibold mb-2">Select a Center</h3>
                                     <p className="text-sm text-muted-foreground">
-                                        Select a coaching center from "My Centers" tab to view its dashboard
+                                        Select a coaching center from "My Centers" tab to manage its branches
                                     </p>
                                 </div>
                             )}
@@ -280,13 +341,19 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
 
                         {/* Settings Tab */}
                         <TabsContent value="settings" className="space-y-4">
-                            <div className="text-center py-12">
-                                <Settings className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                                <h3 className="text-lg font-semibold mb-2">Settings</h3>
-                                <p className="text-sm text-muted-foreground">
-                                    Global coaching center settings coming soon...
-                                </p>
-                            </div>
+                            {loading ? (
+                                <div className="py-12">
+                                    <ComponentLoadingSpinner component="settings" size="lg" />
+                                </div>
+                            ) : (
+                                <div className="text-center py-12">
+                                    <Settings className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                                    <h3 className="text-lg font-semibold mb-2">Settings</h3>
+                                    <p className="text-sm text-muted-foreground">
+                                        Global coaching center settings coming soon...
+                                    </p>
+                                </div>
+                            )}
                         </TabsContent>
                     </Tabs>
                 </CardContent>

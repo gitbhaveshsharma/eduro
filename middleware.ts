@@ -4,25 +4,25 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  MiddlewareContext, 
-  RequestContext, 
-  SecurityEvent, 
-  SecurityEventType 
+import {
+  MiddlewareContext,
+  RequestContext,
+  SecurityEvent,
+  SecurityEventType
 } from './lib/middleware/types'
 import middlewareConfig from './lib/middleware/config'
 import { AuthHandler } from './lib/middleware/auth-utils'
 import { RouteProtector } from './lib/middleware/route-protection'
-import { 
-  IPUtils, 
-  UserAgentAnalyzer, 
+import {
+  IPUtils,
+  UserAgentAnalyzer,
   SecurityUtils,
-  SecurityEventTracker 
+  SecurityEventTracker
 } from './lib/middleware/security-utils'
-import { 
-  Logger, 
-  MetricsCollector, 
-  PerformanceMonitor 
+import {
+  Logger,
+  MetricsCollector,
+  PerformanceMonitor
 } from './lib/middleware/monitoring'
 import { createSupabaseMiddleware } from './lib/middleware/supabase-middleware'
 
@@ -31,26 +31,26 @@ import { createSupabaseMiddleware } from './lib/middleware/supabase-middleware'
  */
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now()
-  
+
   // Initialize logging and monitoring
   Logger.configure(middlewareConfig.logging)
   MetricsCollector.configure(middlewareConfig.monitoring)
 
   // Generate request ID for tracking
   const requestId = SecurityUtils.generateRequestId()
-  
+
   try {
     // FIRST: Handle Supabase session refresh (CRITICAL - must be first!)
     console.log('[MIDDLEWARE] Step 1: Refreshing Supabase session...')
     const supabaseMiddleware = createSupabaseMiddleware()
     let response = await supabaseMiddleware(request)
     console.log('[MIDDLEWARE] Step 1 complete: Session refreshed')
-    
+
     // CRITICAL: Create enriched request with auth headers from Supabase middleware
     // This allows AuthHandler to read the user info set by Supabase middleware
-    const authHeaders = ['x-user-authenticated', 'x-user-id', 'x-user-email']
+    const authHeaders = ['x-user-authenticated', 'x-user-id', 'x-user-email', 'x-user-role']
     const enrichedHeaders = new Headers(request.headers)
-    
+
     authHeaders.forEach(headerName => {
       const headerValue = response.headers.get(headerName)
       if (headerValue) {
@@ -58,7 +58,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
         console.log(`[MIDDLEWARE] Copied header: ${headerName} = ${headerValue}`)
       }
     })
-    
+
     // Create new request with enriched headers
     const enrichedRequest = new NextRequest(request.url, {
       method: request.method,
@@ -69,10 +69,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       // @ts-ignore - ip is not in the type definition but is valid
       ip: request.ip,
     })
-    
+
     // Build request context
     const requestContext = await buildRequestContext(enrichedRequest, requestId)
-    
+
     // Log incoming request if enabled
     if (middlewareConfig.logging.logRequests) {
       Logger.logRequest(enrichedRequest)
@@ -85,7 +85,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // Extract and validate user if authenticated (using enriched request with auth headers)
     const user = await AuthHandler.validateUser(enrichedRequest)
-    
+
     // Build full middleware context
     const context: MiddlewareContext = {
       request: enrichedRequest,
@@ -104,15 +104,15 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // Apply route protection
     const protectionResult = await RouteProtector.protect(context)
-    
+
     if (!protectionResult.shouldContinue) {
       const finalResponse = protectionResult.response || response
-      
+
       // Log failed request
       const duration = Date.now() - startTime
       Logger.logResponse(enrichedRequest, finalResponse, duration, context)
       MetricsCollector.recordRequest(enrichedRequest, finalResponse, duration)
-      
+
       return finalResponse
     }
 
@@ -120,12 +120,12 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 
     // Apply additional security measures
     applyCORSHeaders(response, middlewareConfig.security.cors, enrichedRequest)
-    
+
     // Add security and tracking headers
     response.headers.set('X-Request-ID', requestId)
     response.headers.set('X-Content-Type-Options', 'nosniff')
     response.headers.set('X-Frame-Options', 'DENY')
-    
+
     // Track session if user is authenticated
     if (user && user.sessionId) {
       // In a real implementation, you might want to update last activity
@@ -179,10 +179,10 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
 async function buildRequestContext(request: NextRequest, requestId: string): Promise<RequestContext> {
   const ip = IPUtils.getRealIP(request)
   const userAgent = request.headers.get('user-agent') || ''
-  
+
   // Get geo-location info (in production, use a real service)
   const geoInfo = await SecurityUtils.getGeoLocation(ip)
-  
+
   return {
     ip,
     userAgent,
@@ -213,13 +213,13 @@ function applySecurityHeaders(response: NextResponse, headers: any): void {
  */
 function handleCORSPreflight(request: NextRequest, response: NextResponse): NextResponse {
   const corsConfig = middlewareConfig.security.cors
-  
+
   // Set CORS headers for preflight
   response.headers.set('Access-Control-Allow-Origin', getOriginHeader(request, corsConfig.origin))
   response.headers.set('Access-Control-Allow-Methods', corsConfig.methods?.join(', ') || 'GET, POST, PUT, DELETE, OPTIONS')
   response.headers.set('Access-Control-Allow-Headers', corsConfig.allowedHeaders?.join(', ') || 'Content-Type, Authorization')
   response.headers.set('Access-Control-Max-Age', (corsConfig.maxAge || 86400).toString())
-  
+
   if (corsConfig.credentials) {
     response.headers.set('Access-Control-Allow-Credentials', 'true')
   }
@@ -232,13 +232,13 @@ function handleCORSPreflight(request: NextRequest, response: NextResponse): Next
  */
 function applyCORSHeaders(response: NextResponse, corsConfig: any, request: NextRequest): void {
   const origin = getOriginHeader(request, corsConfig.origin)
-  
+
   response.headers.set('Access-Control-Allow-Origin', origin)
-  
+
   if (corsConfig.credentials) {
     response.headers.set('Access-Control-Allow-Credentials', 'true')
   }
-  
+
   if (corsConfig.exposedHeaders && corsConfig.exposedHeaders.length > 0) {
     response.headers.set('Access-Control-Expose-Headers', corsConfig.exposedHeaders.join(', '))
   }
@@ -251,15 +251,15 @@ function getOriginHeader(request: NextRequest, allowedOrigins: string | string[]
   if (allowedOrigins === true) {
     return '*'
   }
-  
+
   if (allowedOrigins === false) {
     return 'null'
   }
-  
+
   if (typeof allowedOrigins === 'string') {
     return allowedOrigins
   }
-  
+
   if (Array.isArray(allowedOrigins)) {
     const requestOrigin = request.headers.get('origin')
     if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
@@ -267,7 +267,7 @@ function getOriginHeader(request: NextRequest, allowedOrigins: string | string[]
     }
     return allowedOrigins[0] || '*'
   }
-  
+
   return '*'
 }
 

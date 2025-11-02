@@ -27,8 +27,6 @@ interface ProfileManagerProps {
 export function ProfileManager({ className = '' }: ProfileManagerProps) {
     const currentProfile = useCurrentProfile();
     const { loadCurrentProfile, currentProfileLoading, currentProfileError } = useProfileStore();
-    const isEditMode = useEditMode();
-    const { setEditMode } = useProfileStore();
 
     const [activeTab, setActiveTab] = useState<string>('profile');
     const [isSaving, setIsSaving] = useState(false);
@@ -128,9 +126,9 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
         <div className={`space-y-6 ${className}`}>
             {/* Profile completion warning */}
             {currentProfile.profile_completion_percentage < 70 && (
-                <Alert>
+                <Alert className="bg-yellow-50 border-yellow-200  text-yellow-600">
                     <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="ml-2">
+                    <AlertDescription className="ml-2  text-yellow-600">
                         Your profile is {currentProfile.profile_completion_percentage}% complete.
                         Complete your profile to unlock all features and improve your visibility.
                     </AlertDescription>

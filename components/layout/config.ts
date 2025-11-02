@@ -15,9 +15,13 @@ import {
     Filter,
     UserPlus,
     Heart,
-    TrendingUp
+    TrendingUp,
+    Menu,
+    X,
+    Building2,
+    UserCog
 } from "lucide-react";
-import type { NavigationItem, PlatformType, DeviceType, LayoutConfig } from "./types";
+import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
 /**
  * Navigation items configuration for different platforms
@@ -166,6 +170,258 @@ export const NETWORK_NAV_ITEMS: NavigationItem[] = [
 ];
 
 /**
+ * ============================================================================
+ * HEADER ITEMS CONFIGURATION (Page-based, not platform-based)
+ * ============================================================================
+ */
+
+/**
+ * Feed page header items
+ */
+export const FEED_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'lms',
+        label: 'LMS',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['feed']
+        }
+    },
+    {
+        id: 'network',
+        label: 'Network',
+        icon: Users,
+        action: {
+            type: 'navigate',
+            href: '/network'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['feed']
+        }
+    },
+    {
+        id: 'profile',
+        label: 'Profile',
+        icon: User,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['feed']
+        }
+    }
+];
+
+/**
+ * Network page header items
+ */
+export const NETWORK_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['network']
+        }
+    },
+    {
+        id: 'role-filter',
+        label: 'Role',
+        icon: Users,
+        action: {
+            type: 'dropdown'
+        },
+        showOn: {
+            devices: ['mobile', 'tablet', 'desktop'],
+            pages: ['network']
+        }
+    },
+    {
+        id: 'sort-filter',
+        label: 'Sort',
+        icon: Filter,
+        action: {
+            type: 'dropdown'
+        },
+        showOn: {
+            devices: ['mobile', 'tablet', 'desktop'],
+            pages: ['network']
+        }
+    }
+];
+
+/**
+ * Dashboard (LMS) header items
+ */
+export const DASHBOARD_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['dashboard']
+        }
+    },
+    {
+        id: 'courses',
+        label: 'Courses',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/courses'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['dashboard']
+        }
+    },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        action: {
+            type: 'navigate',
+            href: '/assignments'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['dashboard']
+        }
+    },
+    {
+        id: 'calendar',
+        label: 'Calendar',
+        icon: Calendar,
+        action: {
+            type: 'navigate',
+            href: '/calendar'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['dashboard']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['dashboard']
+        }
+    },
+    {
+        id: 'analytics',
+        label: 'Analytics',
+        icon: BarChart3,
+        action: {
+            type: 'navigate',
+            href: '/analytics'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['dashboard']
+        }
+    }
+];
+
+/**
+ * Settings page header items
+ */
+export const SETTINGS_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'back',
+        label: 'Back',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['settings']
+        }
+    }
+];
+
+/**
+ * Profile page header items
+ */
+export const PROFILE_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'edit',
+        label: 'Edit Profile',
+        icon: Settings,
+        action: {
+            type: 'navigate',
+            href: '/settings/profile'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['profile']
+        }
+    }
+];
+
+/**
+ * ============================================================================
+ * SIDEBAR ITEMS CONFIGURATION (Role-based access control)
+ * ============================================================================
+ */
+
+/**
+ * Settings page sidebar items with role-based access
+ */
+export const SETTINGS_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'overview',
+        label: 'Overview',
+        icon: Settings,
+        href: '/settings',
+        description: 'View all available settings',
+        // No roles specified = visible to all
+    },
+    {
+        id: 'profile',
+        label: 'Profile',
+        icon: UserCog,
+        href: '/settings/profiles',
+        description: 'Manage your personal information and preferences',
+        // No roles specified = visible to all
+    },
+    {
+        id: 'coaching-center',
+        label: 'Coaching Center',
+        icon: Building2,
+        href: '/settings/coaching-center',
+        description: 'Manage your coaching centers and courses',
+        roles: ['C', 'A', 'SA'], // Only visible to Coaches, Admins, and Super Admins
+    }
+];
+
+/**
  * Utility functions for layout configuration
  */
 export class LayoutUtils {
@@ -259,6 +515,104 @@ export class LayoutUtils {
      */
     static shouldShowHeader(config: LayoutConfig): boolean {
         return config.showHeader;
+    }
+
+    /**
+     * Get header items for a specific page
+     */
+    static getHeaderItemsForPage(page: PageType): HeaderItem[] {
+        switch (page) {
+            case 'feed':
+                return FEED_HEADER_ITEMS;
+            case 'network':
+                return NETWORK_HEADER_ITEMS;
+            case 'dashboard':
+                return DASHBOARD_HEADER_ITEMS;
+            case 'settings':
+                return SETTINGS_HEADER_ITEMS;
+            case 'profile':
+                return PROFILE_HEADER_ITEMS;
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Filter header items based on current context
+     */
+    static filterHeaderItems(
+        items: HeaderItem[],
+        page: PageType,
+        device: DeviceType,
+        platform?: PlatformType
+    ): HeaderItem[] {
+        return items.filter(item => {
+            // Check device match
+            if (item.showOn?.devices && !item.showOn.devices.includes(device)) {
+                return false;
+            }
+
+            // Check page match
+            if (item.showOn?.pages && !item.showOn.pages.includes(page)) {
+                return false;
+            }
+
+            // Check platform match
+            if (item.showOn?.platforms && platform && !item.showOn.platforms.includes(platform)) {
+                return false;
+            }
+
+            return true;
+        });
+    }
+
+    /**
+     * Generate default sidebar config based on device and page
+     */
+    static getDefaultSidebarConfig(device: DeviceType, page?: PageType) {
+        // Sidebar is disabled by default, can be enabled per page
+        return {
+            enabled: false,
+            defaultOpen: device === 'desktop',
+            position: 'left' as const,
+            width: '280px',
+            collapsible: true,
+            overlay: device !== 'desktop'
+        };
+    }
+
+    /**
+     * Get sidebar items for a specific page
+     */
+    static getSidebarItemsForPage(page: PageType): SidebarItem[] {
+        switch (page) {
+            case 'settings':
+                return SETTINGS_SIDEBAR_ITEMS;
+            default:
+                return [];
+        }
+    }
+
+    /**
+     * Filter sidebar items based on user role
+     */
+    static filterSidebarItemsByRole(
+        items: SidebarItem[],
+        userRole?: 'S' | 'T' | 'C' | 'A' | 'SA'
+    ): SidebarItem[] {
+        if (!userRole) {
+            // If no role provided, only show items without role restrictions
+            return items.filter(item => !item.roles || item.roles.length === 0);
+        }
+
+        return items.filter(item => {
+            // If no roles specified, visible to all
+            if (!item.roles || item.roles.length === 0) {
+                return true;
+            }
+            // Check if user's role is in the allowed roles
+            return item.roles.includes(userRole);
+        });
     }
 }
 
