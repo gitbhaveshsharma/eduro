@@ -25,7 +25,6 @@ import { Separator } from '@/components/ui/separator';
 import { searchSettings } from './search-service';
 import { SETTINGS_CATEGORIES } from './settings-data';
 import type { SettingsSearchResult, UserRole } from './types';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SettingsSearchProps {
     userRole?: UserRole;
@@ -142,7 +141,7 @@ export function SettingsSearch({
                     'animate-in fade-in slide-in-from-top-2 duration-200'
                 )}>
                     <CardContent className="p-0">
-                        <ScrollArea className="max-h-[70vh]">
+                        <div className="max-h-[70vh] overflow-y-auto overscroll-contain scrollbar-modern">
                             {hasResults ? (
                                 <div className="py-2">
                                     {/* Group by Category */}
@@ -245,7 +244,7 @@ export function SettingsSearch({
                                     </p>
                                 </div>
                             )}
-                        </ScrollArea>
+                        </div>
                     </CardContent>
                 </Card>
             )}
