@@ -37,8 +37,8 @@ export default function CoachingCentersPage() {
     // If user doesn't have coaching access, show access denied
     if (!hasCoachingAccess) {
         return (
-            <div className="min-h-screen flex items-center justify-center p-8">
-                <div className="w-full max-w-4xl mx-auto">
+            <div className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-primary/5 to-secondary/5">
+                <div className="w-full max-w-6xl mx-auto">
                     <div className="space-y-6">
                         <div className="space-y-2 text-center">
                             <h1 className="text-3xl font-bold tracking-tight">Coaching Center Management</h1>

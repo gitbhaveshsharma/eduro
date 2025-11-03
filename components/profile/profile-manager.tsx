@@ -7,7 +7,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useCurrentProfile, useProfileStore, useEditMode } from '@/lib/store/profile.store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -37,6 +37,53 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
             loadCurrentProfile();
         }
     });
+
+    // Handle URL hash -> switch tabs and scroll to anchor when appropriate
+    useEffect(() => {
+        const settingsAnchors = new Set([
+            'notifications',
+            'email',
+            'contact',
+            'location',
+            'certifications',
+            'tags',
+            'social-links',
+            'language',
+            'timezone',
+        ]);
+
+        const handleHash = () => {
+            if (typeof window === 'undefined') return;
+            const hash = window.location.hash || '';
+            if (!hash) return;
+            const id = hash.replace('#', '');
+
+            if (settingsAnchors.has(id)) {
+                // Open Settings tab, then scroll to anchor
+                setActiveTab('settings');
+                // Delay scroll to allow tab content to render
+                setTimeout(() => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 60);
+                return;
+            }
+
+            // Map other top-level ids to tabs (optional)
+            if (id === 'profile') setActiveTab('profile');
+            if (id === 'social') setActiveTab('social');
+            if (id === 'stats') setActiveTab('stats');
+        };
+
+        // Run once on mount
+        handleHash();
+
+        // Also listen for subsequent hash changes
+        window.addEventListener('hashchange', handleHash);
+        return () => window.removeEventListener('hashchange', handleHash);
+    }, []);
 
     // Handle refresh
     const handleRefresh = async () => {

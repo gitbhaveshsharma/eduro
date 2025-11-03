@@ -22,8 +22,8 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 md:p-8">
-            <div className="w-full max-w-5xl mx-auto">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
+            <div className="w-full max-w-6xl mx-auto">
                 <div className="space-y-6">
                     {/* Header */}
                     <div className="space-y-2 text-center md:text-left">

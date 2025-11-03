@@ -116,7 +116,7 @@ export function ProfileSettings({ profile, onSuccess, className = '' }: ProfileS
             {/* Notification Preferences & Preferences in one row */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Notification Preferences */}
-                <Card>
+                <Card id="notifications">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Bell className="h-5 w-5" />
@@ -128,7 +128,7 @@ export function ProfileSettings({ profile, onSuccess, className = '' }: ProfileS
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {/* Email Notifications */}
-                        <div className="flex items-center justify-between space-x-2">
+                        <div id="email" className="flex items-center justify-between space-x-2">
                             <div className="flex items-start space-x-3">
                                 <Mail className="h-5 w-5 mt-0.5 text-muted-foreground" />
                                 <div className="space-y-1">

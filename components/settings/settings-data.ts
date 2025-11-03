@@ -130,6 +130,19 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
         priority: 'medium',
     },
 
+    // Social Links (new)
+    {
+        id: 'social-links',
+        name: 'Social Links',
+        description:
+            'Add or manage your social and professional links — e.g. personal/site, LinkedIn, GitHub, Twitter/X.',
+        category: 'profile',
+        icon: Globe,
+        href: '/settings/profiles#social',
+        keywords: ['website', 'linkedin', 'github', 'twitter', 'x', 'social', 'profiles'],
+        priority: 'medium',
+    },
+
     // Coaching Center Settings (Coach/Admin only)
     {
         id: 'coaching-center-management',
@@ -218,7 +231,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
         description: 'General account settings and preferences',
         category: 'account',
         icon: Settings,
-        href: '/settings/account',
+        href: '/settings/profiles',
         keywords: ['general', 'basic', 'configuration'],
         priority: 'high',
     },
@@ -250,7 +263,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
         description: 'Control how and when you receive notifications',
         category: 'notifications',
         icon: Bell,
-        href: '/settings/notifications',
+        href: '/settings/profiles#notifications',
         keywords: ['alerts', 'push', 'email notifications', 'reminders'],
         priority: 'high',
     },
@@ -260,7 +273,7 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
         description: 'Manage email notification settings',
         category: 'notifications',
         icon: Mail,
-        href: '/settings/notifications#email',
+        href: '/settings/profiles#email',
         keywords: ['digest', 'newsletter', 'email alerts'],
         priority: 'medium',
     },
@@ -331,16 +344,6 @@ export const SETTINGS_ITEMS: SettingsItem[] = [
         keywords: ['credentials', 'qualifications', 'certificates', 'achievements'],
         priority: 'low',
         roles: ['T', 'C'],
-    },
-    {
-        id: 'tags',
-        name: 'Tags & Interests',
-        description: 'Manage your subject tags, interests, and expertise areas',
-        category: 'profile',
-        icon: Tag,
-        href: '/settings/profiles#tags',
-        keywords: ['subjects', 'topics', 'expertise', 'skills', 'interests'],
-        priority: 'low',
     },
 ];
 
