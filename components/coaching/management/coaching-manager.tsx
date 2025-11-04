@@ -79,6 +79,8 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
         setHasAttemptedLoad(false);
     }, [profile?.id]);
 
+
+
     // Selector to get selected center from coaching store (memoized)
     const selectedCenter = useCoachingStore(
         useCallback((state) => {
@@ -106,6 +108,81 @@ export function CoachingManager({ className = '' }: CoachingManagerProps) {
             setIsLoadingBranchData(false);
         }
     }, [loadCoachingCenter]);
+
+    // Handle URL hash -> switch tabs and scroll to anchor when appropriate
+    useEffect(() => {
+        const settingsAnchors = new Set([
+            'courses',
+            'students',
+            'staff',
+        ]);
+
+        const centersAnchors = new Set([
+            'centers',
+            'my-centers',
+            'coaching-centers',
+        ]);
+
+        const branchesAnchors = new Set([
+            'branches',
+        ]);
+
+        const handleHash = () => {
+            if (typeof window === 'undefined') return;
+            const hash = window.location.hash || '';
+            if (!hash) return;
+            const id = hash.replace('#', '');
+
+            // If the id matches one of the explicit settings anchors -> open settings and scroll
+            if (settingsAnchors.has(id)) {
+                setActiveTab('settings');
+                setTimeout(() => {
+                    const el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 60);
+                return;
+            }
+
+            // If the id matches centers anchors -> open centers tab and scroll
+            if (centersAnchors.has(id)) {
+                setActiveTab('centers');
+                setTimeout(() => {
+                    const el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 60);
+                return;
+            }
+
+            // If branches anchor requested, open branches tab
+            if (branchesAnchors.has(id)) {
+                setActiveTab('branches');
+                setTimeout(() => {
+                    const el = document.getElementById(id);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 60);
+                return;
+            }
+
+            // If the id looks like a coaching center id (exists in myCoachingCenters), open branches for that center
+            if (myCoachingCenters && myCoachingCenters.length > 0) {
+                const matched = myCoachingCenters.find((c) => c.id === id);
+                if (matched) {
+                    // Load and open branches for this center
+                    setActiveTab('branches');
+                    // Use the existing handler which will load center and set selection
+                    handleManageBranches(id).catch((e) => console.error('Failed to load center from hash:', e));
+                    return;
+                }
+            }
+        };
+
+        // Run once on mount
+        handleHash();
+
+        // Also listen for subsequent hash changes
+        window.addEventListener('hashchange', handleHash);
+        return () => window.removeEventListener('hashchange', handleHash);
+    }, [myCoachingCenters, handleManageBranches]);
 
     const handleRetryLoad = useCallback(() => {
         setHasAttemptedLoad(false);

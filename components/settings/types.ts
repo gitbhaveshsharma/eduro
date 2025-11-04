@@ -15,6 +15,7 @@ export type SettingsCategory =
     | 'privacy'
     | 'notifications'
     | 'coaching'
+    | 'branches'
     | 'schedule'
     | 'preferences'
     | 'security';

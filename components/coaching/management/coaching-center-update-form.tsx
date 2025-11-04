@@ -32,21 +32,9 @@ import type { Address } from "@/lib/schema/address.types";
 
 type CoachingCenterFormData = z.infer<typeof coachingCenterFormSchema>;
 
-/**
- * CoachingCenterUpdateForm - Update Only
- * 
- * This form is used ONLY for updating existing coaching centers.
- * Creating new coaching centers is not allowed through this form.
- * Users must use the appropriate flow to create coaching centers.
- * 
- * This form is reusable and can be used in settings or management pages.
- */
 interface CoachingCenterUpdateFormProps {
-    // initialData may be undefined when the parent hasn't loaded the center yet.
-    // The form is primarily for updating existing centers, but we must guard
-    // against missing data to avoid runtime crashes.
     initialData?: Partial<CoachingCenterFormData> & {
-        id?: string; // optional here to avoid runtime access errors
+        id?: string;
         logo_url?: string | null;
         cover_url?: string | null;
     };
@@ -61,9 +49,6 @@ export function CoachingCenterUpdateForm({
     onCancel,
     isLoading = false,
 }: CoachingCenterUpdateFormProps) {
-    // Validate that we have a coaching center to update. This form is update-only.
-    // If the parent opened this form for "create" flows (no initialData), show
-    // a helpful informational alert and a button to go back/close the form.
     if (!initialData || !initialData.id) {
         return (
             <Alert>
@@ -85,6 +70,7 @@ export function CoachingCenterUpdateForm({
             </Alert>
         );
     }
+
     const [subjects, setSubjects] = useState<string[]>(initialData?.subjects || []);
     const [targetAudience, setTargetAudience] = useState<string[]>(
         initialData?.target_audience || []
@@ -107,7 +93,10 @@ export function CoachingCenterUpdateForm({
         handleSubmit,
         setValue,
         watch,
-        formState: { errors },
+        formState: { errors, isDirty, touchedFields },
+        trigger,
+        setError,
+        clearErrors,
     } = useForm<CoachingCenterFormData>({
         resolver: zodResolver(coachingCenterFormSchema),
         defaultValues: {
@@ -120,17 +109,40 @@ export function CoachingCenterUpdateForm({
             website: initialData?.website || "",
             status: initialData?.status || "DRAFT",
         },
+        mode: "onChange",
     });
 
     const description = watch("description");
+    const phoneValue = watch("phone");
+
+    // Phone number formatting and validation
+    const formatPhoneNumber = (value: string): string => {
+        const cleaned = value.replace(/[^\d+]/g, '');
+        if (cleaned.startsWith('+')) {
+            return cleaned;
+        }
+        if (cleaned.length <= 12) {
+            return cleaned;
+        }
+        return cleaned.slice(0, 12);
+    };
+
+    const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formattedValue = formatPhoneNumber(e.target.value);
+        setValue("phone", formattedValue, { shouldValidate: true });
+    };
+
+    const handlePhoneBlur = () => {
+        trigger("phone");
+    };
 
     // Update form when subjects or target audience changes
     useEffect(() => {
-        setValue("subjects", subjects.length > 0 ? subjects : null);
+        setValue("subjects", subjects.length > 0 ? subjects : null, { shouldValidate: true });
     }, [subjects, setValue]);
 
     useEffect(() => {
-        setValue("target_audience", targetAudience.length > 0 ? targetAudience : null);
+        setValue("target_audience", targetAudience.length > 0 ? targetAudience : null, { shouldValidate: true });
     }, [targetAudience, setValue]);
 
     // Handle logo file selection
@@ -218,6 +230,12 @@ export function CoachingCenterUpdateForm({
     // Handle form submission
     const handleFormSubmit = async (data: CoachingCenterFormData) => {
         try {
+            const isValid = await trigger();
+            if (!isValid) {
+                showErrorToast("Please fix the validation errors before submitting");
+                return;
+            }
+
             const files: { logo?: File; cover?: File } = {};
             if (logoFile) files.logo = logoFile;
             if (coverFile) files.cover = coverFile;
@@ -234,427 +252,494 @@ export function CoachingCenterUpdateForm({
             {/* Logo and Cover Images */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Logo Upload */}
-                <div className="space-y-2">
-                    <Label htmlFor="logo">Logo</Label>
-                    <div className="flex flex-col gap-2">
-                        {logoPreview ? (
-                            <div className="relative w-full h-32 border-2 border-dashed rounded-lg overflow-hidden">
-                                <img
-                                    src={logoPreview}
-                                    alt="Logo preview"
-                                    className="w-full h-full object-cover"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="icon"
-                                    className="absolute top-2 right-2"
-                                    onClick={() => {
-                                        setLogoFile(null);
-                                        setLogoPreview(null);
-                                    }}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Center Logo</CardTitle>
+                        <CardDescription>Upload your coaching center logo (Max 5MB)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col gap-2">
+                            {logoPreview ? (
+                                <div className="relative w-full h-32 border-2 border-dashed rounded-lg overflow-hidden">
+                                    <img
+                                        src={logoPreview}
+                                        alt="Logo preview"
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute top-2 right-2"
+                                        onClick={() => {
+                                            setLogoFile(null);
+                                            setLogoPreview(null);
+                                        }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <label
+                                    htmlFor="logo-upload"
+                                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
                                 >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ) : (
-                            <label
-                                htmlFor="logo-upload"
-                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                            >
-                                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                                <span className="text-sm text-muted-foreground">Upload Logo</span>
-                                <span className="text-xs text-muted-foreground">(Max 5MB)</span>
-                            </label>
-                        )}
-                        <Input
-                            id="logo-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleLogoChange}
-                        />
-                    </div>
-                </div>
+                                    <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                    <span className="text-sm text-muted-foreground">Upload Logo</span>
+                                </label>
+                            )}
+                            <Input
+                                id="logo-upload"
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleLogoChange}
+                            />
+                        </div>
+                    </CardContent>
+                </Card>
 
                 {/* Cover Upload */}
-                <div className="space-y-2">
-                    <Label htmlFor="cover">Cover Image</Label>
-                    <div className="flex flex-col gap-2">
-                        {coverPreview ? (
-                            <div className="relative w-full h-32 border-2 border-dashed rounded-lg overflow-hidden">
-                                <img
-                                    src={coverPreview}
-                                    alt="Cover preview"
-                                    className="w-full h-full object-cover"
-                                />
-                                <Button
-                                    type="button"
-                                    variant="destructive"
-                                    size="icon"
-                                    className="absolute top-2 right-2"
-                                    onClick={() => {
-                                        setCoverFile(null);
-                                        setCoverPreview(null);
-                                    }}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Cover Image</CardTitle>
+                        <CardDescription>Upload your cover image (Max 10MB)</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex flex-col gap-2">
+                            {coverPreview ? (
+                                <div className="relative w-full h-32 border-2 border-dashed rounded-lg overflow-hidden">
+                                    <img
+                                        src={coverPreview}
+                                        alt="Cover preview"
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        size="icon"
+                                        className="absolute top-2 right-2"
+                                        onClick={() => {
+                                            setCoverFile(null);
+                                            setCoverPreview(null);
+                                        }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <label
+                                    htmlFor="cover-upload"
+                                    className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
                                 >
-                                    <X className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ) : (
-                            <label
-                                htmlFor="cover-upload"
-                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                            >
-                                <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
-                                <span className="text-sm text-muted-foreground">Upload Cover</span>
-                                <span className="text-xs text-muted-foreground">(Max 10MB)</span>
-                            </label>
-                        )}
-                        <Input
-                            id="cover-upload"
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={handleCoverChange}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Basic Information */}
-            <div className="space-y-4">
-                <div>
-                    <Label htmlFor="name">
-                        Center Name <span className="text-destructive">*</span>
-                    </Label>
-                    <Input
-                        id="name"
-                        {...register("name")}
-                        placeholder="Enter coaching center name"
-                        maxLength={COACHING_VALIDATION_LIMITS.NAME_MAX}
-                    />
-                    {errors.name && (
-                        <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-                    )}
-                </div>
-
-                <div>
-                    <Label htmlFor="category">
-                        Category <span className="text-destructive">*</span>
-                    </Label>
-                    <Select
-                        onValueChange={(value) => setValue("category", value as CoachingCategory)}
-                        defaultValue={initialData?.category}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {Object.entries(COACHING_CATEGORY_METADATA).map(([value, meta]) => (
-                                <SelectItem key={value} value={value}>
-                                    {meta.label}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    {errors.category && (
-                        <p className="text-sm text-destructive mt-1">{errors.category.message}</p>
-                    )}
-                </div>
-
-                <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                        id="description"
-                        {...register("description")}
-                        placeholder="Describe your coaching center"
-                        rows={4}
-                        maxLength={COACHING_VALIDATION_LIMITS.DESCRIPTION_MAX}
-                    />
-                    <div className="flex justify-between mt-1">
-                        <div>
-                            {errors.description && (
-                                <p className="text-sm text-destructive">{errors.description.message}</p>
+                                    <ImageIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                                    <span className="text-sm text-muted-foreground">Upload Cover</span>
+                                </label>
                             )}
+                            <Input
+                                id="cover-upload"
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleCoverChange}
+                            />
                         </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Basic Information & Center Location - Two Column Grid (half / half on large screens) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Basic Information - 1/2 width */}
+                <div className="lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Basic Information</CardTitle>
+                            <CardDescription>Enter the basic details about your coaching center</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid gap-6">
+                                {/* Left Column */}
+                                <div className="space-y-4">
+                                    <div>
+                                        <Label htmlFor="name">
+                                            Center Name <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Input
+                                            id="name"
+                                            {...register("name")}
+                                            placeholder="Enter coaching center name"
+                                            maxLength={COACHING_VALIDATION_LIMITS.NAME_MAX}
+                                        />
+                                        {errors.name && (
+                                            <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="category">
+                                            Category <span className="text-destructive">*</span>
+                                        </Label>
+                                        <Select
+                                            onValueChange={(value) => setValue("category", value as CoachingCategory, { shouldValidate: true })}
+                                            defaultValue={initialData?.category}
+                                        >
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select category" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {Object.entries(COACHING_CATEGORY_METADATA).map(([value, meta]) => (
+                                                    <SelectItem key={value} value={value}>
+                                                        {meta.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        {errors.category && (
+                                            <p className="text-sm text-destructive mt-1">{errors.category.message}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <Label htmlFor="established_year">Established Year</Label>
+                                        <Input
+                                            id="established_year"
+                                            type="number"
+                                            {...register("established_year", {
+                                                setValueAs: (v) => (v === "" ? undefined : parseInt(v)),
+                                            })}
+                                            placeholder="e.g., 2010"
+                                            min={COACHING_VALIDATION_LIMITS.ESTABLISHED_YEAR_MIN}
+                                            max={COACHING_VALIDATION_LIMITS.ESTABLISHED_YEAR_MAX}
+                                        />
+                                        {errors.established_year && (
+                                            <p className="text-sm text-destructive mt-1">
+                                                {errors.established_year.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <Label htmlFor="description">Description</Label>
+                                            <Textarea
+                                                id="description"
+                                                {...register("description")}
+                                                placeholder="Describe your coaching center"
+                                                rows={4}
+                                                maxLength={COACHING_VALIDATION_LIMITS.DESCRIPTION_MAX}
+                                            />
+                                            <div className="flex justify-between mt-1">
+                                                <div>
+                                                    {errors.description && (
+                                                        <p className="text-sm text-destructive">{errors.description.message}</p>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {description?.length || 0} / {COACHING_VALIDATION_LIMITS.DESCRIPTION_MAX}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Center Location - 1/2 width */}
+                <div className="lg:col-span-1">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Center Location</CardTitle>
+                            <CardDescription>
+                                Select or add the physical location of your coaching center
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {!showAddressManager && selectedAddress && (
+                                    <div className="space-y-3">
+                                        <div className="p-3 border rounded-lg bg-muted/50">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div>
+                                                    <p className="font-medium text-sm">Selected Address</p>
+                                                    <p className="text-xs text-muted-foreground">{selectedAddress.address_type}</p>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setSelectedAddress(null)}
+                                                >
+                                                    <X className="h-3 w-3" />
+                                                </Button>
+                                            </div>
+                                            <div className="space-y-1 text-xs">
+                                                {selectedAddress.label && (
+                                                    <p className="font-medium">{selectedAddress.label}</p>
+                                                )}
+                                                {selectedAddress.address_line_1 && (
+                                                    <p className="text-muted-foreground">{selectedAddress.address_line_1}</p>
+                                                )}
+                                                {selectedAddress.address_line_2 && (
+                                                    <p className="text-muted-foreground">{selectedAddress.address_line_2}</p>
+                                                )}
+                                                <p className="text-muted-foreground">
+                                                    {[selectedAddress.city, selectedAddress.district, selectedAddress.state, selectedAddress.pin_code]
+                                                        .filter(Boolean)
+                                                        .join(', ')}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setShowAddressManager(true)}
+                                            className="w-full"
+                                        >
+                                            <MapPin className="h-4 w-4 mr-2" />
+                                            Change Address
+                                        </Button>
+                                    </div>
+                                )}
+
+                                {!showAddressManager && !selectedAddress && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => setShowAddressManager(true)}
+                                        className="w-full h-24 border-2 border-dashed"
+                                    >
+                                        <div className="flex flex-col items-center">
+                                            <MapPin className="h-6 w-6 text-muted-foreground mb-2" />
+                                            <span className="text-sm text-muted-foreground">Add Center Address</span>
+                                        </div>
+                                    </Button>
+                                )}
+
+                                {showAddressManager && (
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between">
+                                            <h4 className="text-sm font-medium">Select Address</h4>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => setShowAddressManager(false)}
+                                            >
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <div className="max-h-60 overflow-y-auto scrollbar-modern">
+                                            <AddressManager
+                                                onAddressSelect={(address) => {
+                                                    setSelectedAddress(address);
+                                                    setShowAddressManager(false);
+                                                    showSuccessToast("Address selected for coaching center");
+                                                }}
+                                                showAddButton={true}
+                                                allowEdit={true}
+                                                allowDelete={true}
+                                                allowSetPrimary={false}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Subjects and Target Audience - Two Column Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Subjects Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Subjects</CardTitle>
+                        <CardDescription>
+                            Add subjects offered at your center
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex gap-2">
+                            <Input
+                                value={subjectInput}
+                                onChange={(e) => setSubjectInput(e.target.value)}
+                                placeholder="Add subject"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        addSubject();
+                                    }
+                                }}
+                            />
+                            <Button type="button" onClick={addSubject} size="icon">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        {subjects.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {subjects.map((subject) => (
+                                    <Badge key={subject} variant="secondary" className="gap-1">
+                                        {subject}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeSubject(subject)}
+                                            className="ml-1 hover:text-destructive"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                         <p className="text-xs text-muted-foreground">
-                            {description?.length || 0} / {COACHING_VALIDATION_LIMITS.DESCRIPTION_MAX}
+                            {subjects.length} / {COACHING_VALIDATION_LIMITS.SUBJECTS_MAX} subjects
                         </p>
-                    </div>
-                </div>
+                    </CardContent>
+                </Card>
 
-                <div>
-                    <Label htmlFor="established_year">Established Year</Label>
-                    <Input
-                        id="established_year"
-                        type="number"
-                        {...register("established_year", {
-                            setValueAs: (v) => (v === "" ? undefined : parseInt(v)),
-                        })}
-                        placeholder="e.g., 2010"
-                        min={COACHING_VALIDATION_LIMITS.ESTABLISHED_YEAR_MIN}
-                        max={COACHING_VALIDATION_LIMITS.ESTABLISHED_YEAR_MAX}
-                    />
-                    {errors.established_year && (
-                        <p className="text-sm text-destructive mt-1">
-                            {errors.established_year.message}
+                {/* Target Audience Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-base">Target Audience</CardTitle>
+                        <CardDescription>
+                            Specify who your coaching center serves
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex gap-2">
+                            <Input
+                                value={audienceInput}
+                                onChange={(e) => setAudienceInput(e.target.value)}
+                                placeholder="Add target audience"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                        e.preventDefault();
+                                        addAudience();
+                                    }
+                                }}
+                            />
+                            <Button type="button" onClick={addAudience} size="icon">
+                                <Plus className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        {targetAudience.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {targetAudience.map((audience) => (
+                                    <Badge key={audience} variant="secondary" className="gap-1">
+                                        {audience}
+                                        <button
+                                            type="button"
+                                            onClick={() => removeAudience(audience)}
+                                            className="ml-1 hover:text-destructive"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                            {targetAudience.length} / {COACHING_VALIDATION_LIMITS.TARGET_AUDIENCE_MAX} audiences
                         </p>
-                    )}
-                </div>
-            </div>
-
-            {/* Subjects */}
-            <div className="space-y-2">
-                <Label>Subjects</Label>
-                <div className="flex gap-2">
-                    <Input
-                        value={subjectInput}
-                        onChange={(e) => setSubjectInput(e.target.value)}
-                        placeholder="Add subject"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                addSubject();
-                            }
-                        }}
-                    />
-                    <Button type="button" onClick={addSubject} size="icon">
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </div>
-                {subjects.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {subjects.map((subject) => (
-                            <Badge key={subject} variant="secondary" className="gap-1">
-                                {subject}
-                                <button
-                                    type="button"
-                                    onClick={() => removeSubject(subject)}
-                                    className="ml-1 hover:text-destructive"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                    {subjects.length} / {COACHING_VALIDATION_LIMITS.SUBJECTS_MAX} subjects
-                </p>
-            </div>
-
-            {/* Target Audience */}
-            <div className="space-y-2">
-                <Label>Target Audience</Label>
-                <div className="flex gap-2">
-                    <Input
-                        value={audienceInput}
-                        onChange={(e) => setAudienceInput(e.target.value)}
-                        placeholder="Add target audience"
-                        onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                addAudience();
-                            }
-                        }}
-                    />
-                    <Button type="button" onClick={addAudience} size="icon">
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </div>
-                {targetAudience.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                        {targetAudience.map((audience) => (
-                            <Badge key={audience} variant="secondary" className="gap-1">
-                                {audience}
-                                <button
-                                    type="button"
-                                    onClick={() => removeAudience(audience)}
-                                    className="ml-1 hover:text-destructive"
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
-                        ))}
-                    </div>
-                )}
-                <p className="text-xs text-muted-foreground">
-                    {targetAudience.length} / {COACHING_VALIDATION_LIMITS.TARGET_AUDIENCE_MAX} audiences
-                </p>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Contact Information */}
-            <div className="space-y-4">
-                <div>
-                    <Label htmlFor="phone">Phone</Label>
-                    <Input
-                        id="phone"
-                        {...register("phone")}
-                        placeholder="+1234567890"
-                        type="tel"
-                    />
-                    {errors.phone && (
-                        <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
-                    )}
-                </div>
-
-                <div>
-                    <Label htmlFor="email">Email</Label>
-                    <Input
-                        id="email"
-                        {...register("email")}
-                        placeholder="contact@example.com"
-                        type="email"
-                    />
-                    {errors.email && (
-                        <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
-                    )}
-                </div>
-
-                <div>
-                    <Label htmlFor="website">Website</Label>
-                    <Input
-                        id="website"
-                        {...register("website")}
-                        placeholder="https://example.com"
-                        type="url"
-                    />
-                    {errors.website && (
-                        <p className="text-sm text-destructive mt-1">{errors.website.message}</p>
-                    )}
-                </div>
-            </div>
-
-            {/* Center Location/Address */}
-            <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Center Location</h3>
-                    {selectedAddress && !showAddressManager && (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowAddressManager(true)}
-                        >
-                            <MapPin className="h-4 w-4 mr-2" />
-                            Change Address
-                        </Button>
-                    )}
-                </div>
-                {!showAddressManager && selectedAddress && (
-                    <Card className="border-primary">
-                        <CardHeader>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <CardTitle className="text-base">Selected Center Address</CardTitle>
-                                    <CardDescription>{selectedAddress.address_type}</CardDescription>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setSelectedAddress(null)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+            <Card>
+                <CardHeader>
+                    <CardTitle>Contact Information</CardTitle>
+                    <CardDescription>How students can reach your center</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left Column */}
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="phone">Phone</Label>
+                                <Input
+                                    id="phone"
+                                    {...register("phone")}
+                                    placeholder="+1234567890 or 1234567890"
+                                    type="tel"
+                                    onChange={handlePhoneChange}
+                                    onBlur={handlePhoneBlur}
+                                    maxLength={15}
+                                />
+                                {errors.phone && (
+                                    <p className="text-sm text-destructive mt-1">{errors.phone.message}</p>
+                                )}
+                                {phoneValue && !errors.phone && (
+                                    <p className="text-xs text-green-600 mt-1">✓ Valid phone number format</p>
+                                )}
                             </div>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            {selectedAddress.label && (
-                                <p className="font-medium">{selectedAddress.label}</p>
-                            )}
-                            {selectedAddress.address_line_1 && (
-                                <p className="text-muted-foreground">{selectedAddress.address_line_1}</p>
-                            )}
-                            {selectedAddress.address_line_2 && (
-                                <p className="text-muted-foreground">{selectedAddress.address_line_2}</p>
-                            )}
-                            <p className="text-muted-foreground">
-                                {[selectedAddress.city, selectedAddress.district, selectedAddress.state, selectedAddress.pin_code]
-                                    .filter(Boolean)
-                                    .join(', ')}
-                            </p>
-                        </CardContent>
-                    </Card>
-                )}
 
-                {!showAddressManager && !selectedAddress && (
-                    <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setShowAddressManager(true)}
-                        className="w-full"
-                    >
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Add or Select Center Address
-                    </Button>
-                )}
-
-                {showAddressManager && (
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-start justify-between">
-                                <div>
-                                    <CardTitle>Manage Center Address</CardTitle>
-                                    <CardDescription>
-                                        Select an existing address or create a new one for this coaching center
-                                    </CardDescription>
-                                </div>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => setShowAddressManager(false)}
-                                >
-                                    <X className="h-4 w-4" />
-                                </Button>
+                            <div>
+                                <Label htmlFor="email">Email</Label>
+                                <Input
+                                    id="email"
+                                    {...register("email")}
+                                    placeholder="contact@example.com"
+                                    type="email"
+                                />
+                                {errors.email && (
+                                    <p className="text-sm text-destructive mt-1">{errors.email.message}</p>
+                                )}
                             </div>
-                        </CardHeader>
-                        <CardContent>
-                            <AddressManager
-                                onAddressSelect={(address) => {
-                                    setSelectedAddress(address);
-                                    setShowAddressManager(false);
-                                    showSuccessToast("Address selected for coaching center");
-                                }}
-                                showAddButton={true}
-                                allowEdit={true}
-                                allowDelete={true}
-                                allowSetPrimary={false}
-                            />
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+                        </div>
 
-            {/* Status */}
-            <div>
-                <Label htmlFor="status">Status</Label>
-                <Select
-                    onValueChange={(value) => setValue("status", value as CoachingStatus)}
-                    defaultValue={initialData?.status || "DRAFT"}
-                >
-                    <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="DRAFT">Draft</SelectItem>
-                        <SelectItem value="ACTIVE">Active</SelectItem>
-                        <SelectItem value="INACTIVE">Inactive</SelectItem>
-                    </SelectContent>
-                </Select>
-                {errors.status && (
-                    <p className="text-sm text-destructive mt-1">{errors.status.message}</p>
-                )}
-            </div>
+                        {/* Right Column */}
+                        <div className="space-y-4">
+                            <div>
+                                <Label htmlFor="website">Website</Label>
+                                <Input
+                                    id="website"
+                                    {...register("website")}
+                                    placeholder="https://example.com"
+                                    type="url"
+                                />
+                                {errors.website && (
+                                    <p className="text-sm text-destructive mt-1">{errors.website.message}</p>
+                                )}
+                            </div>
+
+                            <div>
+                                <Label htmlFor="status">Status</Label>
+                                <Select
+                                    onValueChange={(value) => setValue("status", value as CoachingStatus, { shouldValidate: true })}
+                                    defaultValue={initialData?.status || "DRAFT"}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select status" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="DRAFT">Draft</SelectItem>
+                                        <SelectItem value="ACTIVE">Active</SelectItem>
+                                        <SelectItem value="INACTIVE">Inactive</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                {errors.status && (
+                                    <p className="text-sm text-destructive mt-1">{errors.status.message}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Form Actions */}
             <div className="flex gap-3 justify-end pt-4 border-t">
                 <Button type="button" variant="outline" onClick={onCancel} disabled={isLoading}>
                     Cancel
                 </Button>
-                <Button type="submit" disabled={isLoading}>
+                <Button
+                    type="submit"
+                    disabled={isLoading || Object.keys(errors).length > 0}
+                >
                     {isLoading ? (
                         <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

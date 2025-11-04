@@ -43,13 +43,19 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
         const settingsAnchors = new Set([
             'notifications',
             'email',
-            'contact',
-            'location',
             'certifications',
             'tags',
-            'social-links',
             'language',
             'timezone',
+        ]);
+        // profile anchors
+        const profileAnchors = new Set([
+            'username',
+            'bio',
+            'avatar',
+            'cover',
+            'contact',
+            'location',
         ]);
 
         const handleHash = () => {
@@ -70,9 +76,19 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
                 }, 60);
                 return;
             }
+            if (profileAnchors.has(id)) {
+                // Open Profile tab, then scroll to anchor
+                setActiveTab('profile');
+                // Delay scroll to allow tab content to render
+                setTimeout(() => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                }, 60);
+                return;
+            }
 
-            // Map other top-level ids to tabs (optional)
-            if (id === 'profile') setActiveTab('profile');
             if (id === 'social') setActiveTab('social');
             if (id === 'stats') setActiveTab('stats');
         };
