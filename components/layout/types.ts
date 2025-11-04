@@ -6,7 +6,7 @@
 export type PlatformType = 'community' | 'lms';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 export type ViewType = 'webview' | 'browser';
-export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings';
+export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings' | 'coaching' | 'courses' | 'course-detail' | 'assignments' | 'grades' | 'messages' | 'notifications' | 'admin';
 
 /**
  * Header item action configuration

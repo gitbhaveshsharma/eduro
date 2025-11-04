@@ -367,6 +367,38 @@ export const SETTINGS_HEADER_ITEMS: HeaderItem[] = [
 ];
 
 /**
+ * Coaching page header items
+ */
+export const COACHING_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'back',
+        label: 'Back',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['coaching']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['coaching']
+        }
+    }
+];
+
+/**
  * Profile page header items
  */
 export const PROFILE_HEADER_ITEMS: HeaderItem[] = [
