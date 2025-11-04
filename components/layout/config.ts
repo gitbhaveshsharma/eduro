@@ -44,6 +44,14 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
         devices: ['mobile', 'tablet', 'desktop']
     },
     {
+        id: 'coaching',
+        label: 'Coaching',
+        icon: Building2,
+        href: '/coaching',
+        platforms: ['community'],
+        devices: ['mobile', 'tablet', 'desktop']
+    },
+    {
         id: 'network',
         label: 'Network',
         icon: Users,
@@ -59,14 +67,6 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
     //     platforms: ['community'],
     //     devices: ['mobile', 'tablet', 'desktop']
     // },
-    {
-        id: 'profile',
-        label: 'Profile',
-        icon: User,
-        href: '/dashboard',
-        platforms: ['community'],
-        devices: ['mobile', 'tablet',]
-    }
 ];
 
 export const LMS_NAV_ITEMS: NavigationItem[] = [
@@ -175,93 +175,49 @@ export const NETWORK_NAV_ITEMS: NavigationItem[] = [
  * ============================================================================
  */
 
-/**
- * Feed page header items
- */
-export const FEED_HEADER_ITEMS: HeaderItem[] = [
-    {
-        id: 'lms',
-        label: 'LMS',
-        icon: BookOpen,
-        action: {
-            type: 'navigate',
-            href: '/dashboard'
-        },
-        showOn: {
-            devices: ['desktop', 'tablet'],
-            pages: ['feed']
-        }
-    },
-    {
-        id: 'network',
-        label: 'Network',
-        icon: Users,
-        action: {
-            type: 'navigate',
-            href: '/network'
-        },
-        showOn: {
-            devices: ['desktop', 'tablet'],
-            pages: ['feed']
-        }
-    },
-    {
-        id: 'profile',
-        label: 'Profile',
-        icon: User,
-        action: {
-            type: 'navigate',
-            href: '/dashboard'
-        },
-        showOn: {
-            devices: ['desktop', 'tablet'],
-            pages: ['feed']
-        }
-    }
-];
 
-/**
- * Network page header items
- */
-export const NETWORK_HEADER_ITEMS: HeaderItem[] = [
-    {
-        id: 'feed',
-        label: 'Feed',
-        icon: Home,
-        action: {
-            type: 'navigate',
-            href: '/feed'
-        },
-        showOn: {
-            devices: ['desktop'],
-            pages: ['network']
-        }
-    },
-    {
-        id: 'role-filter',
-        label: 'Role',
-        icon: Users,
-        action: {
-            type: 'dropdown'
-        },
-        showOn: {
-            devices: ['mobile', 'tablet', 'desktop'],
-            pages: ['network']
-        }
-    },
-    {
-        id: 'sort-filter',
-        label: 'Sort',
-        icon: Filter,
-        action: {
-            type: 'dropdown'
-        },
-        showOn: {
-            devices: ['mobile', 'tablet', 'desktop'],
-            pages: ['network']
-        }
-    }
-];
+// /**
+//  * Network page header items
+//  */
+// export const NETWORK_HEADER_ITEMS: HeaderItem[] = [
+//     {
+//         id: 'feed',
+//         label: 'Feed',
+//         icon: Home,
+//         action: {
+//             type: 'navigate',
+//             href: '/feed'
+//         },
+//         showOn: {
+//             devices: ['desktop'],
+//             pages: ['network']
+//         }
+//     },
+//     {
+//         id: 'role-filter',
+//         label: 'Role',
+//         icon: Users,
+//         action: {
+//             type: 'dropdown'
+//         },
+//         showOn: {
+//             devices: ['mobile', 'tablet', 'desktop'],
+//             pages: ['network']
+//         }
+//     },
+//     {
+//         id: 'sort-filter',
+//         label: 'Sort',
+//         icon: Filter,
+//         action: {
+//             type: 'dropdown'
+//         },
+//         showOn: {
+//             devices: ['mobile', 'tablet', 'desktop'],
+//             pages: ['network']
+//         }
+//     }
+// ];
 
 /**
  * Dashboard (LMS) header items
@@ -372,7 +328,7 @@ export const SETTINGS_HEADER_ITEMS: HeaderItem[] = [
 export const COACHING_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'back',
-        label: 'Back',
+        label: 'Home',
         icon: Home,
         action: {
             type: 'navigate',
@@ -554,10 +510,12 @@ export class LayoutUtils {
      */
     static getHeaderItemsForPage(page: PageType): HeaderItem[] {
         switch (page) {
-            case 'feed':
-                return FEED_HEADER_ITEMS;
-            case 'network':
-                return NETWORK_HEADER_ITEMS;
+            // case 'feed':
+            //     return FEED_HEADER_ITEMS;
+            // case 'network':
+            //     return NETWORK_HEADER_ITEMS;
+            case 'coaching':
+                return COACHING_HEADER_ITEMS;
             case 'dashboard':
                 return DASHBOARD_HEADER_ITEMS;
             case 'settings':

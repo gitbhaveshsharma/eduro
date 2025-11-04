@@ -194,6 +194,11 @@ const routeProtections = {
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
     logRequests: true
   },
+  '/coaching': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
   '/coaching-reviews/*': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
