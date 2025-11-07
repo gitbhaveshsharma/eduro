@@ -27,6 +27,7 @@ import { ProfileAPI } from "@/lib/profile";
 import type { PublicProfile } from "@/lib/schema/profile.types";
 import { AddressManager } from "@/components/address/address-manager";
 import type { Address } from "@/lib/schema/address.types";
+import { useAddressStore } from "@/lib/store/address.store";
 
 type CoachingBranchFormData = z.infer<typeof coachingBranchFormSchema>;
 
@@ -49,12 +50,55 @@ export function CoachingBranchForm({
     const [managerUsername, setManagerUsername] = useState("");
     const [searchingManager, setSearchingManager] = useState(false);
     const [selectedManager, setSelectedManager] = useState<PublicProfile | null>(null);
+    const [searchResults, setSearchResults] = useState<PublicProfile[]>([]);
+    const [showSearchResults, setShowSearchResults] = useState(false);
     const [managerError, setManagerError] = useState<string | null>(null);
     const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
     const [showAddressManager, setShowAddressManager] = useState(false);
+    const [loadingAddress, setLoadingAddress] = useState(false);
     const { createCoachingBranch, updateCoachingBranch } = useCoachingStore();
+    const { linkAddressToEntity, getAddressByEntity, unlinkAddressFromEntity } = useAddressStore();
 
     const isEditMode = !!initialData?.id;
+
+    // Load existing linked address when in edit mode
+    useEffect(() => {
+        const loadBranchAddress = async () => {
+            if (isEditMode && initialData?.id && !selectedAddress) {
+                setLoadingAddress(true);
+                try {
+                    const address = await getAddressByEntity('branch', initialData.id);
+                    if (address) {
+                        setSelectedAddress(address);
+                    }
+                } catch (error) {
+                    console.error("Failed to load branch address:", error);
+                } finally {
+                    setLoadingAddress(false);
+                }
+            }
+        };
+
+        loadBranchAddress();
+    }, [isEditMode, initialData?.id, getAddressByEntity, selectedAddress]);
+
+    // Load manager info when editing
+    useEffect(() => {
+        const loadManagerInfo = async () => {
+            if (isEditMode && initialData?.manager_id && !selectedManager) {
+                try {
+                    const profile = await ProfileAPI.getProfileById(initialData.manager_id);
+                    if (profile) {
+                        setSelectedManager(profile);
+                    }
+                } catch (error) {
+                    console.error("Failed to load manager info:", error);
+                }
+            }
+        };
+
+        loadManagerInfo();
+    }, [isEditMode, initialData?.manager_id, selectedManager]);
 
     const {
         register,
@@ -87,6 +131,8 @@ export function CoachingBranchForm({
 
         setSearchingManager(true);
         setManagerError(null);
+        setSearchResults([]);
+        setShowSearchResults(false);
 
         try {
             const profile = await ProfileAPI.getProfileByUsername(managerUsername.trim());
@@ -95,24 +141,37 @@ export function CoachingBranchForm({
                 // Check if user has appropriate role (Coach, Teacher, Admin)
                 if (!['C', 'T', 'A', 'SA'].includes(profile.role || '')) {
                     setManagerError("User must have Coach, Teacher, or Admin role");
-                    setSelectedManager(null);
+                    setSearchResults([]);
+                    setShowSearchResults(false);
                     return;
                 }
 
-                setSelectedManager(profile);
+                setSearchResults([profile]);
+                setShowSearchResults(true);
                 setManagerError(null);
-                showSuccessToast(`Manager found: ${profile.full_name || profile.username}`);
             } else {
                 setManagerError("User not found");
-                setSelectedManager(null);
+                setSearchResults([]);
+                setShowSearchResults(false);
             }
         } catch (error) {
             console.error("Error searching manager:", error);
             setManagerError("Failed to search user");
-            setSelectedManager(null);
+            setSearchResults([]);
+            setShowSearchResults(false);
         } finally {
             setSearchingManager(false);
         }
+    };
+
+    // Select manager from search results
+    const handleSelectManager = (profile: PublicProfile) => {
+        setSelectedManager(profile);
+        setShowSearchResults(false);
+        setSearchResults([]);
+        setManagerUsername("");
+        setManagerError(null);
+        showSuccessToast(`Manager selected: ${profile.full_name || profile.username}`);
     };
 
     // Clear selected manager
@@ -120,6 +179,26 @@ export function CoachingBranchForm({
         setSelectedManager(null);
         setManagerUsername("");
         setManagerError(null);
+        setSearchResults([]);
+        setShowSearchResults(false);
+    };
+
+    // Handle address unlinking
+    const handleUnlinkAddress = async () => {
+        if (!selectedAddress) return;
+
+        try {
+            const unlinked = await unlinkAddressFromEntity(selectedAddress.id);
+            if (unlinked) {
+                setSelectedAddress(null);
+                showSuccessToast("Address unlinked from branch successfully!");
+            } else {
+                showErrorToast("Failed to unlink address");
+            }
+        } catch (error) {
+            console.error('Failed to unlink address:', error);
+            showErrorToast("Failed to unlink address");
+        }
     };
 
     // Handle form submission
@@ -145,6 +224,18 @@ export function CoachingBranchForm({
                 const result = await updateCoachingBranch(initialData.id, updateData);
 
                 if (result) {
+                    // Link address to branch if selected
+                    if (selectedAddress) {
+                        const addressLinked = await linkAddressToEntity(
+                            selectedAddress.id,
+                            'branch',
+                            initialData.id
+                        );
+                        if (!addressLinked) {
+                            showErrorToast("Branch updated but failed to link address");
+                        }
+                    }
+
                     showSuccessToast("Branch updated successfully!");
                     onSuccess?.();
                 } else {
@@ -163,9 +254,21 @@ export function CoachingBranchForm({
                     manager_id: managerId, // Default to center owner or selected manager
                 };
 
-                const result = await createCoachingBranch(branchData);
+                const createdBranch = await createCoachingBranch(branchData);
 
-                if (result) {
+                if (createdBranch) {
+                    // Link address to branch if selected
+                    if (selectedAddress) {
+                        const addressLinked = await linkAddressToEntity(
+                            selectedAddress.id,
+                            'branch',
+                            createdBranch.id
+                        );
+                        if (!addressLinked) {
+                            showErrorToast("Branch created but failed to link address");
+                        }
+                    }
+
                     showSuccessToast("Branch created successfully!");
                     onSuccess?.();
                 } else {
@@ -298,6 +401,51 @@ export function CoachingBranchForm({
                         {managerError && (
                             <p className="text-sm text-destructive">{managerError}</p>
                         )}
+
+                        {/* Search Results */}
+                        {showSearchResults && searchResults.length > 0 && (
+                            <Card className="border-primary">
+                                <CardHeader>
+                                    <CardTitle className="text-sm">Search Results</CardTitle>
+                                    <CardDescription>Click to select as branch manager</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-2">
+                                    {searchResults.map((profile) => (
+                                        <div
+                                            key={profile.id}
+                                            className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                                            onClick={() => handleSelectManager(profile)}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <div className="space-y-1">
+                                                    <p className="font-medium">
+                                                        {profile.full_name || "N/A"}
+                                                    </p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        @{profile.username}
+                                                    </p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Role: {profile.role === 'C' ? 'Coach' :
+                                                            profile.role === 'T' ? 'Teacher' :
+                                                                profile.role === 'A' ? 'Admin' :
+                                                                    profile.role === 'SA' ? 'Super Admin' :
+                                                                        profile.role}
+                                                    </p>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    size="sm"
+                                                    variant="ghost"
+                                                >
+                                                    Select
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <p className="text-xs text-muted-foreground">
                             Leave blank to use the center owner as the default manager
                         </p>
@@ -346,7 +494,7 @@ export function CoachingBranchForm({
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h3 className="text-sm font-semibold">Branch Location</h3>
-                    {selectedAddress && !showAddressManager && (
+                    {selectedAddress && !showAddressManager && !loadingAddress && (
                         <Button
                             type="button"
                             variant="outline"
@@ -358,7 +506,19 @@ export function CoachingBranchForm({
                         </Button>
                     )}
                 </div>
-                {!showAddressManager && selectedAddress && (
+
+                {/* Loading State */}
+                {loadingAddress && (
+                    <Card>
+                        <CardContent className="flex items-center justify-center py-6">
+                            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Loading address...</span>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Show selected address */}
+                {!loadingAddress && !showAddressManager && selectedAddress && (
                     <Card className="border-primary">
                         <CardHeader>
                             <div className="flex items-start justify-between">
@@ -370,7 +530,7 @@ export function CoachingBranchForm({
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => setSelectedAddress(null)}
+                                    onClick={handleUnlinkAddress}
                                 >
                                     <X className="h-4 w-4" />
                                 </Button>
@@ -395,7 +555,8 @@ export function CoachingBranchForm({
                     </Card>
                 )}
 
-                {!showAddressManager && !selectedAddress && (
+                {/* Show "Add Address" button when no address */}
+                {!loadingAddress && !showAddressManager && !selectedAddress && (
                     <Button
                         type="button"
                         variant="outline"
@@ -407,7 +568,8 @@ export function CoachingBranchForm({
                     </Button>
                 )}
 
-                {showAddressManager && (
+                {/* Show address manager/selector */}
+                {!loadingAddress && showAddressManager && (
                     <Card>
                         <CardHeader>
                             <div className="flex items-start justify-between">
@@ -432,7 +594,7 @@ export function CoachingBranchForm({
                                 onAddressSelect={(address) => {
                                     setSelectedAddress(address);
                                     setShowAddressManager(false);
-                                    showSuccessToast("Address selected for branch");
+                                    showSuccessToast("Address selected for branch . Please remember to click 'Create Branch' or 'Update Branch' to apply changes.");
                                 }}
                                 showAddButton={true}
                                 allowEdit={true}

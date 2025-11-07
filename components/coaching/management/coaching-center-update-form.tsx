@@ -29,6 +29,7 @@ import {
 import { showSuccessToast, showErrorToast } from "@/lib/toast";
 import { AddressManager } from "@/components/address/address-manager";
 import type { Address } from "@/lib/schema/address.types";
+import { useAddressStore } from "@/lib/store/address.store";
 
 type CoachingCenterFormData = z.infer<typeof coachingCenterFormSchema>;
 
@@ -87,6 +88,8 @@ export function CoachingCenterUpdateForm({
     );
     const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
     const [showAddressManager, setShowAddressManager] = useState(false);
+    const [loadingAddress, setLoadingAddress] = useState(false);
+    const { linkAddressToEntity, getAddressByEntity, unlinkAddressFromEntity } = useAddressStore();
 
     const {
         register,
@@ -144,6 +147,25 @@ export function CoachingCenterUpdateForm({
     useEffect(() => {
         setValue("target_audience", targetAudience.length > 0 ? targetAudience : null, { shouldValidate: true });
     }, [targetAudience, setValue]);
+
+    // Load linked address when editing
+    useEffect(() => {
+        if (initialData?.id && !selectedAddress && !loadingAddress) {
+            setLoadingAddress(true);
+            getAddressByEntity('coaching', initialData.id)
+                .then((address) => {
+                    if (address) {
+                        setSelectedAddress(address);
+                    }
+                })
+                .catch((error) => {
+                    console.error('Failed to load linked address:', error);
+                })
+                .finally(() => {
+                    setLoadingAddress(false);
+                });
+        }
+    }, [initialData?.id, selectedAddress, loadingAddress, getAddressByEntity]);
 
     // Handle logo file selection
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -227,6 +249,24 @@ export function CoachingCenterUpdateForm({
         setTargetAudience(targetAudience.filter((a) => a !== audience));
     };
 
+    // Handle address unlinking
+    const handleUnlinkAddress = async () => {
+        if (!selectedAddress) return;
+
+        try {
+            const unlinked = await unlinkAddressFromEntity(selectedAddress.id);
+            if (unlinked) {
+                setSelectedAddress(null);
+                showSuccessToast("Address unlinked from coaching center successfully!");
+            } else {
+                showErrorToast("Failed to unlink address");
+            }
+        } catch (error) {
+            console.error('Failed to unlink address:', error);
+            showErrorToast("Failed to unlink address");
+        }
+    };
+
     // Handle form submission
     const handleFormSubmit = async (data: CoachingCenterFormData) => {
         try {
@@ -241,6 +281,20 @@ export function CoachingCenterUpdateForm({
             if (coverFile) files.cover = coverFile;
 
             await onSubmit(data, files);
+
+            // Link address to coaching center if selected
+            if (selectedAddress && initialData?.id) {
+                const addressLinked = await linkAddressToEntity(
+                    selectedAddress.id,
+                    'coaching',
+                    initialData.id
+                );
+                if (!addressLinked) {
+                    showErrorToast("Center updated but failed to link address");
+                } else {
+                    showSuccessToast("Address linked to coaching center successfully!");
+                }
+            }
         } catch (error) {
             console.error("Form submission error:", error);
             showErrorToast("Failed to submit form");
@@ -457,7 +511,15 @@ export function CoachingCenterUpdateForm({
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {!showAddressManager && selectedAddress && (
+                                {/* Loading State */}
+                                {loadingAddress && (
+                                    <div className="flex items-center justify-center py-8">
+                                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                                        <span className="ml-2 text-sm text-muted-foreground">Loading address...</span>
+                                    </div>
+                                )}
+
+                                {!loadingAddress && !showAddressManager && selectedAddress && (
                                     <div className="space-y-3">
                                         <div className="p-3 border rounded-lg bg-muted/50">
                                             <div className="flex items-start justify-between mb-2">
@@ -469,7 +531,7 @@ export function CoachingCenterUpdateForm({
                                                     type="button"
                                                     variant="ghost"
                                                     size="sm"
-                                                    onClick={() => setSelectedAddress(null)}
+                                                    onClick={handleUnlinkAddress}
                                                 >
                                                     <X className="h-3 w-3" />
                                                 </Button>
@@ -504,7 +566,7 @@ export function CoachingCenterUpdateForm({
                                     </div>
                                 )}
 
-                                {!showAddressManager && !selectedAddress && (
+                                {!loadingAddress && !showAddressManager && !selectedAddress && (
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -518,7 +580,7 @@ export function CoachingCenterUpdateForm({
                                     </Button>
                                 )}
 
-                                {showAddressManager && (
+                                {!loadingAddress && showAddressManager && (
                                     <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <h4 className="text-sm font-medium">Select Address</h4>
@@ -536,7 +598,7 @@ export function CoachingCenterUpdateForm({
                                                 onAddressSelect={(address) => {
                                                     setSelectedAddress(address);
                                                     setShowAddressManager(false);
-                                                    showSuccessToast("Address selected for coaching center");
+                                                    showSuccessToast("Address selected for coaching center. Please remember to click 'Update Center' to apply changes.");
                                                 }}
                                                 showAddButton={true}
                                                 allowEdit={true}

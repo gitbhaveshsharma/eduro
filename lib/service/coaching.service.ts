@@ -515,7 +515,7 @@ export class CoachingService {
   static async getBranchesByCenter(
     centerId: string,
     activeOnly: boolean = true
-  ): Promise<CoachingOperationResult<PublicCoachingBranch[]>> {
+  ): Promise<CoachingOperationResult<CoachingBranch[]>> {
     try {
       let query = supabase
         .from('coaching_branches')
@@ -524,10 +524,12 @@ export class CoachingService {
           coaching_center_id,
           name,
           description,
+          manager_id,
           phone,
           email,
           is_main_branch,
           is_active,
+          metadata,
           created_at,
           updated_at
         `)

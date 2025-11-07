@@ -65,7 +65,7 @@ interface CoachingState {
   coachingBranchCacheErrors: Map<string, string>;
 
   // Branches by center cache
-  branchesByCenter: Map<string, PublicCoachingBranch[]>;
+  branchesByCenter: Map<string, CoachingBranch[]>;
   branchesByCenterLoading: Set<string>;
   branchesByCenterErrors: Map<string, string>;
 
@@ -140,11 +140,11 @@ interface CoachingActions {
 
   // Branch actions
   loadCoachingBranch: (branchId: string) => Promise<CoachingBranch | null>;
-  loadBranchesByCenter: (centerId: string, activeOnly?: boolean) => Promise<PublicCoachingBranch[]>;
-  createCoachingBranch: (branchData: CoachingBranchCreate) => Promise<boolean>;
+  loadBranchesByCenter: (centerId: string, activeOnly?: boolean) => Promise<CoachingBranch[]>;
+  createCoachingBranch: (branchData: CoachingBranchCreate) => Promise<CoachingBranch | null>;
   updateCoachingBranch: (branchId: string, updates: CoachingBranchUpdate) => Promise<boolean>;
   deleteCoachingBranch: (branchId: string) => Promise<boolean>;
-  cacheBranchesByCenter: (centerId: string, branches: PublicCoachingBranch[]) => void;
+  cacheBranchesByCenter: (centerId: string, branches: CoachingBranch[]) => void;
   clearBranchCache: () => void;
 
   // Search and filtering actions for centers
@@ -628,10 +628,10 @@ export const useCoachingStore = create<CoachingStore>()(
               await get().loadCoachingCenterDashboard(centerId);
             }
 
-            return true;
+            return result.data;
           }
 
-          return false;
+          return null;
         },
 
         updateCoachingBranch: async (branchId: string, updates: CoachingBranchUpdate) => {
@@ -679,7 +679,7 @@ export const useCoachingStore = create<CoachingStore>()(
           return false;
         },
 
-        cacheBranchesByCenter: (centerId: string, branches: PublicCoachingBranch[]) => {
+        cacheBranchesByCenter: (centerId: string, branches: CoachingBranch[]) => {
           set((state) => {
             state.branchesByCenter.set(`${centerId}-true`, branches.filter(b => b.is_active));
             state.branchesByCenter.set(`${centerId}-false`, branches);

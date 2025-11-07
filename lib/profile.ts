@@ -113,6 +113,14 @@ export class ProfileAPI {
   }
 
   /**
+   * Get profile by ID
+   */
+  static async getProfileById(userId: string) {
+    const store = useProfileStore.getState();
+    return await store.loadProfile(userId);
+  }
+
+  /**
    * Get profile by username
    */
   static async getProfileByUsername(username: string) {

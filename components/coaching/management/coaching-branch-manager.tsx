@@ -43,11 +43,11 @@ export function CoachingBranchManager({
     coachingCenterName,
     centerOwnerId,
 }: CoachingBranchManagerProps) {
-    const [branches, setBranches] = useState<PublicCoachingBranch[]>([]);
+    const [branches, setBranches] = useState<CoachingBranch[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDeleting, setIsDeleting] = useState(false);
     const [showCreateDialog, setShowCreateDialog] = useState(false);
-    const [editingBranch, setEditingBranch] = useState<PublicCoachingBranch | null>(null);
+    const [editingBranch, setEditingBranch] = useState<CoachingBranch | null>(null);
 
     const { loadBranchesByCenter, deleteCoachingBranch } = useCoachingStore();
 
@@ -84,7 +84,7 @@ export function CoachingBranchManager({
     };
 
     // Handle edit branch
-    const handleEditBranch = (branch: PublicCoachingBranch) => {
+    const handleEditBranch = (branch: CoachingBranch) => {
         setEditingBranch(branch);
         setShowCreateDialog(true);
     };
@@ -174,7 +174,7 @@ export function CoachingBranchManager({
                         </AlertDescription>
                     </Alert>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="">
                         {branches.map((branch) => (
                             <CoachingBranchCard
                                 key={branch.id}
