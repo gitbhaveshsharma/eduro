@@ -22,7 +22,7 @@ const alertVariants = cva(
         destructive:
           'bg-destructive/10 border-destructive/20 text-destructive [&>[data-slot=alert-icon]]:text-destructive', // Changed to text-destructive
         warning:
-          'alert-warning border text-warning [&>[data-slot=alert-icon]]:text-warning',
+          'bg-yellow-50 border-yellow-200 text-yellow-600 [&>[data-slot=alert-icon]]:text-yellow-600',
         success:
           'bg-success/10 border-success/20 text-success [&>[data-slot=alert-icon]]:text-success', // Changed to text-success
         info:
@@ -52,7 +52,7 @@ const iconVariants = cva('size-4 shrink-0', {
     variant: {
       default: 'text-muted-foreground',
       destructive: 'text-destructive',
-      warning: 'text-warning',
+      warning: 'text-yellow-600',
       success: 'text-success',
       info: 'text-blue-600',
     },
@@ -134,7 +134,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
             className={cn(
               'size-4 rounded flex items-center justify-center transition-colors hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
               variant === 'destructive' && 'hover:bg-destructive/20',
-              variant === 'warning' && 'hover:bg-warning/20',
+              variant === 'warning' && 'hover:bg-yellow-100',
               variant === 'success' && 'hover:bg-success/20',
               variant === 'info' && 'hover:bg-blue-100'
             )}

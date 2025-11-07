@@ -165,7 +165,7 @@ export function CoachingBranchManager({
             ) : (
                 /* Branches Grid */
                 <>
-                    <Alert variant="warning" className="mb-4">
+                    <Alert variant="info" className="mb-4">
                         <AlertTitle>Branch Overview</AlertTitle>
                         <AlertDescription>
                             You have {branches.length} {branches.length === 1 ? "branch" : "branches"}.
