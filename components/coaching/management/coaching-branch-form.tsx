@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Loader2, AlertCircle, Search, X, CheckCircle2, MapPin } from "lucide-react";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -183,6 +184,46 @@ export function CoachingBranchForm({
         setShowSearchResults(false);
     };
 
+    const [showConfirmRemoveManager, setShowConfirmRemoveManager] = useState(false);
+    const [isRemovingManager, setIsRemovingManager] = useState(false);
+
+    // Called when user confirms removal in modal
+    const handleConfirmRemoveManager = async () => {
+        // If not editing an existing branch, just clear selection locally
+        if (!isEditMode || !initialData?.id) {
+            handleClearManager();
+            setShowConfirmRemoveManager(false);
+            return;
+        }
+
+        setIsRemovingManager(true);
+
+        try {
+            // Reset manager to center owner (business rule) by assigning centerOwnerId
+            const updateData = {
+                manager_id: centerOwnerId,
+            } as Partial<import("@/lib/schema/coaching.types").CoachingBranch>;
+
+            const result = await updateCoachingBranch(initialData.id, updateData as any);
+
+            if (result) {
+                // Clear selected manager in UI
+                setSelectedManager(null);
+                showSuccessToast("Manager removed and reverted to center owner");
+                // Optionally notify parent to refresh list
+                onSuccess?.();
+            } else {
+                showErrorToast("Failed to remove manager");
+            }
+        } catch (error) {
+            console.error("Failed to remove manager:", error);
+            showErrorToast(error instanceof Error ? error.message : "Failed to remove manager");
+        } finally {
+            setIsRemovingManager(false);
+            setShowConfirmRemoveManager(false);
+        }
+    };
+
     // Handle address unlinking
     const handleUnlinkAddress = async () => {
         if (!selectedAddress) return;
@@ -304,6 +345,22 @@ export function CoachingBranchForm({
                 </p>
             </div>
 
+            {/* Confirm remove manager dialog (reusable) */}
+            <ConfirmDialog
+                open={showConfirmRemoveManager}
+                onOpenChange={setShowConfirmRemoveManager}
+                title={`Remove manager from ${initialData?.name || 'this branch'}?`}
+                description={
+                    <>
+                        Are you sure you want to remove <strong>{selectedManager?.full_name || selectedManager?.username}</strong> as the manager for <strong>{initialData?.name || 'this branch'}</strong>? This will revert the branch manager to the coaching center owner.
+                    </>
+                }
+                confirmLabel={isRemovingManager ? "Removing..." : "Remove Manager"}
+                cancelLabel="Cancel"
+                intent="danger"
+                onConfirm={handleConfirmRemoveManager}
+            />
+
             {/* Description */}
             <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
@@ -359,7 +416,7 @@ export function CoachingBranchForm({
 
             {/* Branch Manager */}
             <div className="space-y-4">
-                <h3 className="text-sm font-semibold">Branch Manager (Optional)</h3>
+                <h3 className="text-sm font-semibold">Branch Manager</h3>
                 <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -368,100 +425,102 @@ export function CoachingBranchForm({
                     </AlertDescription>
                 </Alert>
 
-                {!selectedManager ? (
-                    <div className="space-y-2">
-                        <Label htmlFor="manager_username">Search Manager by Username</Label>
-                        <div className="flex gap-2">
-                            <Input
-                                id="manager_username"
-                                value={managerUsername}
-                                onChange={(e) => setManagerUsername(e.target.value)}
-                                placeholder="Enter username (e.g., john_doe)"
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                        e.preventDefault();
-                                        handleSearchManager();
-                                    }
-                                }}
-                                disabled={searchingManager}
-                            />
-                            <Button
-                                type="button"
-                                onClick={handleSearchManager}
-                                disabled={searchingManager || !managerUsername.trim()}
-                                variant="outline"
-                            >
-                                {searchingManager ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Search className="h-4 w-4" />
-                                )}
-                            </Button>
-                        </div>
-                        {managerError && (
-                            <p className="text-sm text-destructive">{managerError}</p>
-                        )}
-
-                        {/* Search Results */}
-                        {showSearchResults && searchResults.length > 0 && (
-                            <Card className="border-primary">
-                                <CardHeader>
-                                    <CardTitle className="text-sm">Search Results</CardTitle>
-                                    <CardDescription>Click to select as branch manager</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                    {searchResults.map((profile) => (
-                                        <div
-                                            key={profile.id}
-                                            className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                                            onClick={() => handleSelectManager(profile)}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-1">
-                                                    <p className="font-medium">
-                                                        {profile.full_name || "N/A"}
-                                                    </p>
-                                                    <p className="text-sm text-muted-foreground">
-                                                        @{profile.username}
-                                                    </p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        Role: {profile.role === 'C' ? 'Coach' :
-                                                            profile.role === 'T' ? 'Teacher' :
-                                                                profile.role === 'A' ? 'Admin' :
-                                                                    profile.role === 'SA' ? 'Super Admin' :
-                                                                        profile.role}
-                                                    </p>
-                                                </div>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="ghost"
-                                                >
-                                                    Select
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </CardContent>
-                            </Card>
-                        )}
-
-                        <p className="text-xs text-muted-foreground">
-                            Leave blank to use the center owner as the default manager
-                        </p>
+                {/* Always show manager search input */}
+                <div className="space-y-2">
+                    <Label htmlFor="manager_username">Search Manager by Username</Label>
+                    <div className="flex gap-2">
+                        <Input
+                            id="manager_username"
+                            value={managerUsername}
+                            onChange={(e) => setManagerUsername(e.target.value)}
+                            placeholder="Enter username (e.g., john_doe)"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleSearchManager();
+                                }
+                            }}
+                            disabled={searchingManager}
+                        />
+                        <Button
+                            type="button"
+                            onClick={handleSearchManager}
+                            disabled={searchingManager || !managerUsername.trim()}
+                            variant="outline"
+                        >
+                            {searchingManager ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Search className="h-4 w-4" />
+                            )}
+                        </Button>
                     </div>
-                ) : (
+                    {managerError && (
+                        <p className="text-sm text-destructive">{managerError}</p>
+                    )}
+
+                    {/* Search Results */}
+                    {showSearchResults && searchResults.length > 0 && (
+                        <Card className="border-primary">
+                            <CardHeader>
+                                <CardTitle className="text-sm">Search Results</CardTitle>
+                                <CardDescription>Click to select as branch manager</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {searchResults.map((profile) => (
+                                    <div
+                                        key={profile.id}
+                                        className="p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+                                        onClick={() => handleSelectManager(profile)}
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="space-y-1">
+                                                <p className="font-medium">
+                                                    {profile.full_name || "N/A"}
+                                                </p>
+                                                <p className="text-sm text-muted-foreground">
+                                                    @{profile.username}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Role: {profile.role === 'C' ? 'Coach' :
+                                                        profile.role === 'T' ? 'Teacher' :
+                                                            profile.role === 'A' ? 'Admin' :
+                                                                profile.role === 'SA' ? 'Super Admin' :
+                                                                    profile.role}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                            >
+                                                Select
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    <p className="text-xs text-muted-foreground">
+                        Leave blank to use the center owner as the default manager
+                    </p>
+                </div>
+
+                {/* Show selected manager info */}
+                {selectedManager && (
                     <div className="p-4 border rounded-lg bg-muted/50 space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <CheckCircle2 className="h-5 w-5 text-green-500" />
-                                <span className="font-medium">Manager Selected</span>
+                                <span className="font-medium">Currently Selected Manager</span>
                             </div>
                             <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
-                                onClick={handleClearManager}
+                                onClick={() => setShowConfirmRemoveManager(true)}
                             >
                                 <X className="h-4 w-4" />
                             </Button>
@@ -486,6 +545,9 @@ export function CoachingBranchForm({
                                 </span>
                             </p>
                         </div>
+                        <p className="text-xs text-muted-foreground">
+                            You can search for a different manager above to change the assignment
+                        </p>
                     </div>
                 )}
             </div>
@@ -594,7 +656,7 @@ export function CoachingBranchForm({
                                 onAddressSelect={(address) => {
                                     setSelectedAddress(address);
                                     setShowAddressManager(false);
-                                    showSuccessToast("Address selected for branch . Please remember to click 'Create Branch' or 'Update Branch' to apply changes.");
+                                    showSuccessToast("Address selected for branch. Please remember to click 'Create Branch' or 'Update Branch' to apply changes.");
                                 }}
                                 showAddButton={true}
                                 allowEdit={true}

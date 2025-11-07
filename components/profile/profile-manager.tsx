@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Loader2, User, Settings, Link as LinkIcon, BarChart3, AlertCircle } from 'lucide-react';
-import { showSuccessToast, showErrorToast, showWarningToast } from '@/lib/toast';
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import { ProfileForm } from './profile-form';
 import { ProfileSettings } from './profile-settings';
 import { ProfileSocialLinks } from './profile-social-links';
@@ -134,7 +134,6 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
             <Card className={className}>
                 <CardContent className="py-12">
                     <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
                         <AlertDescription className="ml-2">
                             {currentProfileError}
                         </AlertDescription>
@@ -189,9 +188,8 @@ export function ProfileManager({ className = '' }: ProfileManagerProps) {
         <div className={`space-y-6 ${className}`}>
             {/* Profile completion warning */}
             {currentProfile.profile_completion_percentage < 70 && (
-                <Alert className="bg-yellow-50 border-yellow-200  text-yellow-600">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription className="ml-2  text-yellow-600">
+                <Alert variant="warning">
+                    <AlertDescription>
                         Your profile is {currentProfile.profile_completion_percentage}% complete.
                         Complete your profile to unlock all features and improve your visibility.
                     </AlertDescription>

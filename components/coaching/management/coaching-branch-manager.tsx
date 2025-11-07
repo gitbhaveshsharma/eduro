@@ -12,7 +12,7 @@ import { useCoachingStore } from "@/lib/coaching";
 import { CoachingBranch, PublicCoachingBranch } from "@/lib/schema/coaching.types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
     Dialog,
     DialogContent,
@@ -165,15 +165,14 @@ export function CoachingBranchManager({
             ) : (
                 /* Branches Grid */
                 <>
-                    <Alert>
-                        <AlertCircle className="h-4 w-4" />
+                    <Alert variant="warning" className="mb-4">
+                        <AlertTitle>Branch Overview</AlertTitle>
                         <AlertDescription>
                             You have {branches.length} {branches.length === 1 ? "branch" : "branches"}.
-                            {branches.filter(b => b.is_active).length} active,
-                            {branches.filter(b => !b.is_active).length} inactive.
+                            {" "}{branches.filter(b => b.is_active).length} active,
+                            {" "}{branches.filter(b => !b.is_active).length} inactive.
                         </AlertDescription>
                     </Alert>
-
                     <div className="">
                         {branches.map((branch) => (
                             <CoachingBranchCard

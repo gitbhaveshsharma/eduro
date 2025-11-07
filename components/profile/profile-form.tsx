@@ -246,8 +246,9 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                                     Non-editable
                                 </Badge>
                             </div>
-                            <Alert className="bg-red-50 border-red-200  text-red-600">
-                                <AlertTriangle className="h-4 w-4 " />
+                            <Alert
+                                variant="destructive"
+                            >
                                 <AlertDescription className="ml-2 text-sm text-red-800">
                                     To update your role, please contact our support team at support@eduro.com
                                 </AlertDescription>

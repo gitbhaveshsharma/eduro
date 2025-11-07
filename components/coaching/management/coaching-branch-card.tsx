@@ -102,7 +102,7 @@ export function CoachingBranchCard({
     }, [branch.id, getAddressByEntity]);
 
     return (
-        <Card className="overflow-hidden hover:shadow-lg transition-all duration-200 border border-gray-200 p-0">
+        <Card className="overflow-hidden border border-gray-200 p-0">
             <CardContent className="p-6">
                 {/* Header Section */}
                 <div className="space-y-3 mb-6">
