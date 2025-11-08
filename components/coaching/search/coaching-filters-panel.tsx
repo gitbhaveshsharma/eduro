@@ -1,19 +1,18 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { MapPin, Star, Calendar, CheckCircle2, X, Search, Filter } from 'lucide-react';
+import { MapPin, Star, Calendar, X, Search, Filter } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { CoachingDisplayUtils, CoachingFilterUtils } from '@/lib/utils/coaching.utils';
-import type { CoachingCenterFilters, CoachingCategory } from '@/lib/schema/coaching.types';
+import { CoachingFilterUtils } from '@/lib/utils/coaching.utils';
+import type { CoachingCenterFilters } from '@/lib/schema/coaching.types';
 
 interface CoachingFiltersPanelProps {
     filters: CoachingCenterFilters;
@@ -49,19 +48,7 @@ export function CoachingFiltersPanel({
         }
     }, [isOpen]);
 
-    const categoryGroups = useMemo(
-        () => CoachingFilterUtils.getCategoriesByGroup(),
-        []
-    );
-
     // Filter handlers
-    const handleCategorySelect = useCallback((category: CoachingCategory) => {
-        onFiltersChange({
-            ...filters,
-            category: filters.category === category ? null : category
-        });
-    }, [filters, onFiltersChange]);
-
     const handleLocationUpdate = useCallback(() => {
         const newFilters = { ...filters };
 
@@ -116,16 +103,6 @@ export function CoachingFiltersPanel({
         });
     }, [filters, onFiltersChange]);
 
-    const handleVerifiedToggle = useCallback((checked: boolean) => {
-        const newFilters = { ...filters };
-        if (checked) {
-            newFilters.is_verified = true;
-        } else {
-            delete newFilters.is_verified;
-        }
-        onFiltersChange(newFilters);
-    }, [filters, onFiltersChange]);
-
     const handleDaysAgoChange = useCallback((value: string) => {
         const days = parseInt(value);
         const newFilters = { ...filters };
@@ -169,11 +146,9 @@ export function CoachingFiltersPanel({
     // Active filters count for badge
     const activeFiltersCount = useMemo(() => {
         let count = 0;
-        if (filters.category) count++;
         if (filters.city || filters.state || filters.district || (filters.latitude && filters.longitude)) count++;
         if (filters.min_rating && filters.min_rating > 1) count++;
         if (filters.max_rating && filters.max_rating < 5) count++;
-        if (filters.is_verified) count++;
         if (filters.days_ago) count++;
         if (filters.subjects && filters.subjects.length > 0) count++;
         return count;
@@ -194,16 +169,19 @@ export function CoachingFiltersPanel({
 
             {/* Filters Panel */}
             <Card className={cn(
-                "border-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60",
-                "fixed lg:sticky top-0 right-0 z-50 h-screen lg:h-auto w-full max-w-sm lg:max-w-none",
+                "border-2 ",
+                // Mobile: Fixed, full height, slides from left
+                "fixed lg:sticky top-0 left-0 z-50 h-screen lg:h-[85vh] w-full max-w-sm lg:max-w-none",
+                // Smooth animations for mobile
                 "transform transition-transform duration-300 ease-in-out lg:transform-none",
                 "shadow-xl lg:shadow-md",
+                // Mobile slide animation - from left instead of right
                 isOpen
                     ? "translate-x-0"
-                    : "translate-x-full lg:translate-x-0",
+                    : "-translate-x-full lg:translate-x-0",
                 className
             )}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 sticky top-0 bg-background z-10 border-b">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 sticky top-0 z-10 border-b ">
                     <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
                             <Filter className="h-5 w-5 text-primary" />
@@ -237,72 +215,8 @@ export function CoachingFiltersPanel({
                     </div>
                 </CardHeader>
 
-                <ScrollArea className="h-[calc(100vh-5rem)] lg:h-auto lg:max-h-96">
-                    <CardContent className="space-y-6 pt-6 pb-8">
-                        {/* Quick Filters */}
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
-                                <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                Quick Filters
-                            </Label>
-
-                            <div className="flex items-center space-x-3 p-3 rounded-lg border bg-card hover:bg-accent/5 transition-colors">
-                                <Checkbox
-                                    id="verified"
-                                    checked={filters.is_verified === true}
-                                    onCheckedChange={handleVerifiedToggle}
-                                    className="data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                                />
-                                <Label
-                                    htmlFor="verified"
-                                    className="text-sm cursor-pointer font-medium flex items-center gap-2"
-                                >
-                                    <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                    Verified Centers Only
-                                </Label>
-                            </div>
-                        </div>
-
-                        <Separator className="bg-border/50" />
-
-                        {/* Category Filter */}
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold text-foreground">Categories</Label>
-                            <div className="space-y-4">
-                                {Object.entries(categoryGroups).map(([groupName, categories]) => (
-                                    <div key={groupName} className="space-y-3">
-                                        <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                                            {groupName.replace(/_/g, ' ')}
-                                        </h4>
-                                        <div className="flex flex-wrap gap-2">
-                                            {categories.map((categoryMeta) => {
-                                                const isSelected = filters.category === categoryMeta.category;
-                                                return (
-                                                    <Badge
-                                                        key={categoryMeta.category}
-                                                        variant={isSelected ? 'default' : 'outline'}
-                                                        className={cn(
-                                                            "cursor-pointer transition-all duration-200 px-3 py-2 text-sm",
-                                                            "hover:shadow-md hover:scale-105 active:scale-95",
-                                                            isSelected
-                                                                ? "bg-primary text-primary-foreground shadow-md scale-105"
-                                                                : "hover:bg-accent hover:text-accent-foreground"
-                                                        )}
-                                                        onClick={() => handleCategorySelect(categoryMeta.category as CoachingCategory)}
-                                                    >
-                                                        <span className="mr-2">{categoryMeta.icon}</span>
-                                                        {categoryMeta.label}
-                                                    </Badge>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <Separator className="bg-border/50" />
-
+                <ScrollArea className="h-[calc(100vh-5rem)] lg:h-[calc(85vh-5rem)] overflow-auto">
+                    <CardContent className="space-y-6 p-4">
                         {/* Location Filter */}
                         <div className="space-y-4">
                             <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
@@ -338,11 +252,11 @@ export function CoachingFiltersPanel({
                                 />
 
                                 <Button
-                                    variant="outline"
+                                    variant="default"
                                     onClick={handleNearMe}
-                                    className="w-full border-blue-200 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                    className="w-full border-blue-200 hover:bg-blue-50 transition-colors"
                                 >
-                                    <MapPin className="h-4 w-4 mr-2 text-blue-600" />
+                                    <MapPin className="h-4 w-4 mr-2" />
                                     Search near me
                                 </Button>
 
@@ -377,21 +291,20 @@ export function CoachingFiltersPanel({
                                 />
 
                                 <div className="flex items-center justify-between text-sm font-medium">
-                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border">
+                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
                                         {filters.min_rating || 1} <Star className="h-3 w-3 fill-yellow-500" />
                                     </span>
                                     <span className="text-muted-foreground mx-2">to</span>
-                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border">
+                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
                                         {filters.max_rating || 5} <Star className="h-3 w-3 fill-yellow-500" />
                                     </span>
                                 </div>
                             </div>
                         </div>
 
-                        <Separator className="bg-border/50" />
-
-                        {/* Time Filter */}
-                        <div className="space-y-4">
+                        {/* Time Filter - Hidden on mobile */}
+                        <div className="hidden lg:block space-y-4">
+                            <Separator className="bg-border/50" />
                             <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
                                 <Calendar className="h-5 w-5 text-purple-600" />
                                 Recently Added
@@ -452,7 +365,7 @@ export function CoachingFiltersPanel({
                                             <Badge
                                                 key={subject}
                                                 variant="secondary"
-                                                className="gap-2 px-3 py-1.5 text-sm transition-all hover:shadow-md group"
+                                                className="gap-2 px-3 py-1.5 text-sm transition-all hover:shadow-md group hover:bg-muted"
                                             >
                                                 {subject}
                                                 <button

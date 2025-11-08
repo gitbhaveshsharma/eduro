@@ -50,6 +50,14 @@ export function UniversalHeader({
     // Local search state
     const [searchQuery, setSearchQuery] = useState(searchConfig?.value || '');
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    const [searchReady, setSearchReady] = useState(false);
+    const [itemsReady, setItemsReady] = useState(true); // Default to true for desktop
+
+    // Device detection
+    const isMobile = config.device === 'mobile';
+    const isTablet = config.device === 'tablet';
+    const isDesktop = config.device === 'desktop';
+    const isMobileOrTablet = isMobile || isTablet;
 
     // Sync external search value
     useEffect(() => {
@@ -58,9 +66,31 @@ export function UniversalHeader({
         }
     }, [searchConfig?.value]);
 
+    // Add small delay before showing search to prevent flash
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setSearchReady(true);
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
+
+    // Add delay only for mobile/tablet to prevent flashing default items
+    useEffect(() => {
+        if (isMobileOrTablet) {
+            setItemsReady(false);
+            const timer = setTimeout(() => {
+                setItemsReady(true);
+            }, 100);
+            return () => clearTimeout(timer);
+        } else {
+            // Desktop: show items immediately
+            setItemsReady(true);
+        }
+    }, [isMobileOrTablet]);
+
     // Get header items - use custom items or generate from page config
     const headerItems = customItems || (
-        config.page
+        config.page && itemsReady
             ? LayoutUtils.filterHeaderItems(
                 LayoutUtils.getHeaderItemsForPage(config.page),
                 config.page,
@@ -126,16 +156,15 @@ export function UniversalHeader({
 
     // Determine if we should show search
     const showSearch = searchConfig?.enabled !== false;
-    const searchPlaceholder = searchConfig?.placeholder || 'Search...';
+    // Use a page-specific placeholder for coaching page, otherwise respect searchConfig or fallback
+    const defaultPlaceholder = searchConfig?.placeholder || 'Search...';
+    const searchPlaceholder = config.page === 'coaching'
+        ? 'Search by name, subject, location...'
+        : defaultPlaceholder;
 
     // Check if we're on settings or coaching page for custom search
     const isSettingsPage = config.page === 'settings';
     const isCoachingPage = config.page === 'coaching';
-
-    // Responsive behavior
-    const isMobile = config.device === 'mobile';
-    const isTablet = config.device === 'tablet';
-    const isDesktop = config.device === 'desktop';
 
     return (
         <header className={cn(
@@ -143,7 +172,7 @@ export function UniversalHeader({
             className
         )}>
             {/* Expanded Search Bar (Mobile/Tablet) */}
-            {showSearch && isSearchExpanded && !isDesktop && (
+            {showSearch && searchReady && isSearchExpanded && !isDesktop && (
                 <div className="bg-white border-b border-gray-200 px-4 py-3">
                     {isSettingsPage ? (
                         // Settings-specific search for mobile/tablet
@@ -160,7 +189,7 @@ export function UniversalHeader({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSearchToggle}
-                                className="h-10 w-10 p-0 shrink-0"
+                                className="h-10 w-10 p-0 shrink-0 rounded-full"
                             >
                                 <X className="h-5 w-5" />
                             </Button>
@@ -179,7 +208,7 @@ export function UniversalHeader({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSearchToggle}
-                                className="h-10 w-10 p-0 shrink-0"
+                                className="h-10 w-10 p-0 shrink-0 rounded-full"
                             >
                                 <X className="h-5 w-5" />
                             </Button>
@@ -203,7 +232,7 @@ export function UniversalHeader({
                                 variant="ghost"
                                 size="sm"
                                 onClick={handleSearchToggle}
-                                className="h-10 w-10 p-0 shrink-0"
+                                className="h-10 w-10 p-0 shrink-0 rounded-full"
                             >
                                 <X className="h-5 w-5" />
                             </Button>
@@ -240,10 +269,10 @@ export function UniversalHeader({
                             </Button>
                         )}
 
-                        {/* Title/Logo */}
+                        {/* Title/Logo - Now visible on all screen sizes */}
                         {title && (
-                            <div className="hidden md:flex items-center gap-2 min-w-0">
-                                <h1 className="text-lg font-semibold text-gray-900 truncate">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate">
                                     {title}
                                 </h1>
                             </div>
@@ -251,7 +280,7 @@ export function UniversalHeader({
                     </div>
 
                     {/* Center - Desktop Search Bar */}
-                    {showSearch && isDesktop && (
+                    {showSearch && searchReady && isDesktop && (
                         <div className="flex-1 max-w-xl">
                             {isSettingsPage ? (
                                 // Settings-specific search
@@ -293,7 +322,7 @@ export function UniversalHeader({
                                 className="h-10 w-10 p-0 hover:bg-gray-100 rounded-full"
                                 aria-label={isSearchExpanded ? 'Close search' : 'Open search'}
                             >
-                                {isSearchExpanded ? <X className="h-5 w-5" /> : <Search className="h-5 w-5" />}
+                                {isSearchExpanded ? null : <Search className="h-5 w-5" />}
                             </Button>
                         )}
 

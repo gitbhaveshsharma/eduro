@@ -72,10 +72,10 @@ export function CoachingCenterCard({
 
     return (
         <Link href={centerUrl}>
-            <Card className="group overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 h-full">
+            <Card className="group overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 h-full p-0">
                 <CardContent className="p-0">
                     {/* Cover Image / Header */}
-                    <div className="relative h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                    <div className=" h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
                         <span className="text-4xl">{categoryInfo.icon}</span>
 
                         {/* Badges */}

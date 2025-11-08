@@ -139,12 +139,12 @@ export default function CoachingCentersPage() {
                     {/* Filters Panel - Desktop: Sidebar, Mobile: Collapsible */}
                     {showFiltersPanel && (
                         <aside className="lg:col-span-3">
-                            <div className="sticky top-20">
+                            <div className="sticky top-24 h-[85vh]"> {/* Increased top spacing and fixed height */}
                                 <CoachingFiltersPanel
                                     filters={currentCenterFilters}
                                     onFiltersChange={handleFiltersChange}
                                     onClose={closeFiltersPanel}
-                                    className="lg:max-h-[calc(100vh-8rem)]"
+                                    className="h-full" /* Make panel take full height */
                                 />
                             </div>
                         </aside>
