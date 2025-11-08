@@ -1,268 +1,195 @@
 'use client';
 
-import { useEffect, useMemo, useCallback, useRef, useState } from 'react';
-import {
-    useCoachingStore,
-    CoachingFilterUtils,
-    type CoachingCenterFilters,
-    type PublicCoachingCenter,
-    CoachingDisplayUtils
-} from '@/lib/coaching';
+import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useCoachingStore } from '@/lib/store/coaching.store';
+import { useCoachingFilterPanel } from '@/components/coaching/search/coaching-filter-panel-context';
+import type {
+    CoachingCenterFilters,
+    CoachingCenterSortBy,
+    PublicCoachingCenter
+} from '@/lib/schema/coaching.types';
 import { CoachingCenterGrid } from '@/components/coaching/public/coaching-center-card';
+import { CoachingFiltersPanel } from '@/components/coaching/search/coaching-filters-panel';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Loader2 } from 'lucide-react';
 
+/**
+ * Coaching Centers Search Page
+ * 
+ * Main page for searching and discovering coaching centers
+ * Features:
+ * - Integrated search in Universal Header (via CoachingSearch component with Filters button)
+ * - Advanced filtering with CoachingFiltersPanel
+ * - Infinite scroll support
+ * - Result caching via Zustand store
+ * - Responsive design
+ */
 export default function CoachingCentersPage() {
-    const { searchCoachingCenters, centerSearchResults, centerSearchLoading } = useCoachingStore();
+    // Store hooks
+    const {
+        searchCoachingCenters,
+        centerSearchResults,
+        centerSearchLoading,
+        currentCenterFilters,
+        currentCenterSortBy,
+        updateCenterFilters,
+        updateCenterSortBy
+    } = useCoachingStore();
 
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [verifiedOnly, setVerifiedOnly] = useState(false);
-    const [featuredOnly, setFeaturedOnly] = useState(false);
-    const [showFilters, setShowFilters] = useState(false);
+    // Filter panel context (controlled by Universal Header)
+    const { isOpen: showFiltersPanel, close: closeFiltersPanel } = useCoachingFilterPanel();
 
-    // Stable refs to prevent recreating debounce timers
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Local UI state
+    const [currentPage, setCurrentPage] = useState(1);
 
-    const centers = centerSearchResults?.centers || [];
-    const perPage = centerSearchResults?.per_page || 12;
+    // Constants
+    const perPage = 20;
 
-    const hasActiveFilters = useMemo(
-        () => !!searchQuery || selectedCategories.length > 0 || verifiedOnly || featuredOnly,
-        [searchQuery, selectedCategories.length, verifiedOnly, featuredOnly]
-    );
+    // Get results from store
+    const searchItems = centerSearchResults?.results || [];
+    const totalCount = centerSearchResults?.total_count || 0;
+    const hasMore = centerSearchResults?.has_more || false;
 
-    const categoryGroups = useMemo(
-        () => CoachingFilterUtils.getCategoriesByGroup(),
-        []
-    );
+    // Convert CoachingCenterSearchItem to PublicCoachingCenter for the grid
+    const results = useMemo((): PublicCoachingCenter[] => {
+        return searchItems.map((item): PublicCoachingCenter => ({
+            id: item.center_id,
+            name: item.center_name,
+            slug: item.center_slug,
+            description: null, // Not included in search results
+            established_year: null,
+            logo_url: item.center_logo_url,
+            cover_url: null,
+            category: item.center_category,
+            subjects: item.center_subjects,
+            target_audience: null,
+            phone: null,
+            email: null,
+            website: null,
+            is_verified: item.center_is_verified,
+            is_featured: false, // Not included in search results
+            created_at: '',
+            updated_at: '',
+            // Additional data from search
+            total_branches: 1,
+            active_branches: 1
+        }));
+    }, [searchItems]);
 
-    const buildFilters = useCallback((): CoachingCenterFilters => {
-        const filters: CoachingCenterFilters = {};
-        if (searchQuery.trim()) filters.search_query = searchQuery.trim();
-        if (selectedCategories.length > 0) filters.category = selectedCategories as any;
-        if (verifiedOnly) filters.is_verified = true;
-        if (featuredOnly) filters.is_featured = true;
-        return filters;
-    }, [searchQuery, selectedCategories, verifiedOnly, featuredOnly]);
-
-    const triggerSearch = useCallback(async () => {
-        const filters = buildFilters();
-        await searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, 1, perPage);
-    }, [buildFilters, searchCoachingCenters, perPage]);
-
-    // Initial load
+    // Initial load - only once on mount
     useEffect(() => {
-        triggerSearch();
-    }, [triggerSearch]);
+        // If we don't have cached results, do initial search
+        if (!centerSearchResults) {
+            searchCoachingCenters(currentCenterFilters, currentCenterSortBy, 1, perPage);
+        }
+    }, []); // Empty deps - run only on mount
 
-    // Debounced search when any filter changes
-    useEffect(() => {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-            triggerSearch();
-        }, 300);
-        return () => {
-            if (debounceRef.current) clearTimeout(debounceRef.current);
-        };
-    }, [searchQuery, selectedCategories, verifiedOnly, featuredOnly, triggerSearch]);
+    // Handle filter changes (debouncing is handled in CoachingSearchHeader)
+    const handleFiltersChange = useCallback((newFilters: CoachingCenterFilters) => {
+        updateCenterFilters(newFilters);
+        setCurrentPage(1); // Reset to first page
+        searchCoachingCenters(newFilters, currentCenterSortBy, 1, perPage);
+    }, [currentCenterSortBy, perPage, searchCoachingCenters, updateCenterFilters]);
 
-    const handleCategoryToggle = useCallback((category: string) => {
-        setSelectedCategories(prev =>
-            prev.includes(category) ? prev.filter(c => c !== category) : [...prev, category]
-        );
-    }, []);
+    // Handle sort change
+    const handleSortChange = useCallback((newSortBy: CoachingCenterSortBy) => {
+        updateCenterSortBy(newSortBy);
+        setCurrentPage(1); // Reset to first page
+        searchCoachingCenters(currentCenterFilters, newSortBy, 1, perPage);
+    }, [currentCenterFilters, perPage, searchCoachingCenters, updateCenterSortBy]);
 
-    const clearFilters = useCallback(() => {
-        setSearchQuery('');
-        setSelectedCategories([]);
-        setVerifiedOnly(false);
-        setFeaturedOnly(false);
-    }, []);
-
-    const loadMore = useCallback(() => {
-        const nextPage = Math.floor(centers.length / perPage) + 1;
-        const filters = buildFilters();
-        searchCoachingCenters(filters, { field: 'is_featured', direction: 'desc' }, nextPage, perPage);
-    }, [centers.length, perPage, buildFilters, searchCoachingCenters]);
+    // Handle load more
+    const handleLoadMore = useCallback(() => {
+        const nextPage = currentPage + 1;
+        setCurrentPage(nextPage);
+        searchCoachingCenters(currentCenterFilters, currentCenterSortBy, nextPage, perPage);
+    }, [currentPage, currentCenterFilters, currentCenterSortBy, perPage, searchCoachingCenters]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-8">
-                {/* Header */}
+        <div className="min-h-screen bg-gradient-to-b from-background to-muted/10">
+            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
+                {/* Header Section */}
                 <div className="space-y-4">
                     <div>
                         <h1 className="text-4xl font-bold tracking-tight">Coaching Centers</h1>
                         <p className="text-muted-foreground mt-2">
-                            Discover and compare coaching centers near you
+                            Discover and compare coaching centers with our advanced search
                         </p>
                     </div>
-
-                    {/* Search Bar */}
-                    <div className="flex gap-2">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search coaching centers..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10"
-                            />
-                        </div>
-                        <Button
-                            variant={showFilters ? 'default' : 'outline'}
-                            size="icon"
-                            onClick={() => setShowFilters((v) => !v)}
-                        >
-                            <SlidersHorizontal className="h-4 w-4" />
-                        </Button>
-                    </div>
-
-                    {/* Active Filters */}
-                    {hasActiveFilters && (
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm text-muted-foreground">Active filters:</span>
-
-                            {selectedCategories.map((category) => (
-                                <Badge key={category} variant="secondary" className="gap-1">
-                                    {CoachingDisplayUtils.getCategoryDisplayName(category as any)}
-                                    <button
-                                        onClick={() => handleCategoryToggle(category)}
-                                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            ))}
-
-                            {verifiedOnly && (
-                                <Badge variant="secondary" className="gap-1">
-                                    Verified Only
-                                    <button
-                                        onClick={() => setVerifiedOnly(false)}
-                                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            )}
-
-                            {featuredOnly && (
-                                <Badge variant="secondary" className="gap-1">
-                                    Featured Only
-                                    <button
-                                        onClick={() => setFeaturedOnly(false)}
-                                        className="hover:bg-muted-foreground/20 rounded-full p-0.5"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
-                            )}
-
-                            <Button variant="ghost" size="sm" onClick={clearFilters}>
-                                Clear all
-                            </Button>
-                        </div>
-                    )}
                 </div>
-
-                {/* Filters Panel (Inline; swap to Drawer pattern if needed) */}
-                {showFilters && (
-                    <Card>
-                        <CardHeader>
-                            <CardTitle>Filters</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Quick Filters */}
-                            <div className="space-y-3">
-                                <Label className="text-base font-semibold">Quick Filters</Label>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id="verified"
-                                            checked={verifiedOnly}
-                                            onCheckedChange={(checked) => setVerifiedOnly(!!checked)}
-                                        />
-                                        <Label htmlFor="verified" className="cursor-pointer">
-                                            Verified coaching centers only
-                                        </Label>
-                                    </div>
-
-                                    <div className="flex items-center space-x-2">
-                                        <Checkbox
-                                            id="featured"
-                                            checked={featuredOnly}
-                                            onCheckedChange={(checked) => setFeaturedOnly(!!checked)}
-                                        />
-                                        <Label htmlFor="featured" className="cursor-pointer">
-                                            Featured coaching centers only
-                                        </Label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Category Filters */}
-                            <div className="space-y-3">
-                                <Label className="text-base font-semibold">Categories</Label>
-                                <div className="space-y-4">
-                                    {Object.entries(categoryGroups).map(([groupName, categories]) => (
-                                        <div key={groupName} className="space-y-2">
-                                            <h4 className="text-sm font-medium text-muted-foreground">
-                                                {groupName.replace(/_/g, ' ')}
-                                            </h4>
-                                            <div className="flex flex-wrap gap-2">
-                                                {categories.map((categoryMeta) => (
-                                                    <Badge
-                                                        key={categoryMeta.category}
-                                                        variant={selectedCategories.includes(categoryMeta.category) ? 'default' : 'outline'}
-                                                        className="cursor-pointer"
-                                                        onClick={() => handleCategoryToggle(categoryMeta.category)}
-                                                    >
-                                                        {categoryMeta.icon} {categoryMeta.label}
-                                                    </Badge>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
 
                 {/* Results Count */}
                 {!centerSearchLoading && centerSearchResults && (
                     <div className="flex items-center justify-between">
                         <p className="text-sm text-muted-foreground">
-                            Found {centerSearchResults.total_count} coaching {centerSearchResults.total_count === 1 ? 'center' : 'centers'}
+                            {totalCount === 0 ? (
+                                'No coaching centers found'
+                            ) : (
+                                <>
+                                    Found <span className="font-semibold text-foreground">{totalCount}</span>{' '}
+                                    coaching {totalCount === 1 ? 'center' : 'centers'}
+                                </>
+                            )}
                         </p>
                     </div>
                 )}
 
-                {/* Results Grid (swap to virtualized grid if list gets very large) */}
-                <CoachingCenterGrid
-                    centers={centers}
-                    loading={centerSearchLoading}
-                    emptyMessage={
-                        hasActiveFilters
-                            ? 'No coaching centers match your filters. Try adjusting your search criteria.'
-                            : 'No coaching centers available at the moment.'
-                    }
-                />
+                {/* Main Content Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Filters Panel - Desktop: Sidebar, Mobile: Collapsible */}
+                    {showFiltersPanel && (
+                        <aside className="lg:col-span-3">
+                            <div className="sticky top-20">
+                                <CoachingFiltersPanel
+                                    filters={currentCenterFilters}
+                                    onFiltersChange={handleFiltersChange}
+                                    onClose={closeFiltersPanel}
+                                    className="lg:max-h-[calc(100vh-8rem)]"
+                                />
+                            </div>
+                        </aside>
+                    )}
 
-                {/* Load More */}
-                {centerSearchResults?.has_more && (
-                    <div className="flex justify-center pt-4">
-                        <Button variant="outline" onClick={loadMore}>
-                            Load More
-                        </Button>
-                    </div>
-                )}
+                    {/* Results Grid */}
+                    <main className={showFiltersPanel ? 'lg:col-span-9' : 'lg:col-span-12'}>
+                        <CoachingCenterGrid
+                            centers={results}
+                            searchItems={searchItems}
+                            loading={centerSearchLoading && results.length === 0}
+                            emptyMessage="No coaching centers match your filters. Try adjusting your search criteria."
+                        />
+
+                        {/* Load More Button */}
+                        {hasMore && !centerSearchLoading && (
+                            <div className="flex justify-center pt-8">
+                                <Button
+                                    variant="outline"
+                                    size="lg"
+                                    onClick={handleLoadMore}
+                                    disabled={centerSearchLoading}
+                                    className="min-w-[200px]"
+                                >
+                                    {centerSearchLoading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Loading...
+                                        </>
+                                    ) : (
+                                        'Load More'
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Loading Indicator for Load More */}
+                        {centerSearchLoading && results.length > 0 && (
+                            <div className="flex justify-center items-center py-8">
+                                <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
+                                <span className="ml-2 text-sm text-muted-foreground">Loading more results...</span>
+                            </div>
+                        )}
+                    </main>
+                </div>
             </div>
         </div>
     );

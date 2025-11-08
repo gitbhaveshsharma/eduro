@@ -264,6 +264,130 @@ export const coachingBranchFormSchema = z.object({
 });
 
 /**
+ * Coaching center search filters validation schema
+ * Aligned with search_coaching_centers_v2 RPC function parameters
+ */
+export const coachingCenterSearchFiltersSchema = z.object({
+    // Search query
+    search_query: z.string().max(200).nullable().optional(),
+
+    // Category filter
+    category: coachingCategorySchema.nullable().optional(),
+
+    // Subjects filter (array of subject names)
+    subjects: z.array(z.string().max(50)).max(50).nullable().optional(),
+
+    // Branch and center filters
+    branch_id: z.string().uuid().nullable().optional(),
+    center_id: z.string().uuid().nullable().optional(),
+
+    // Location filters
+    state: z.string().max(100).nullable().optional(),
+    district: z.string().max(100).nullable().optional(),
+    city: z.string().max(100).nullable().optional(),
+    village_town: z.string().max(100).nullable().optional(),
+
+    // Geographic coordinates (for distance-based search)
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
+    radius_meters: z.number().int().positive().max(100000).nullable().optional(), // Max 100km
+
+    // Rating filters
+    min_rating: z.number().int().min(1).max(5).nullable().optional(),
+    max_rating: z.number().int().min(1).max(5).nullable().optional(),
+
+    // Verification filter
+    is_verified: z.boolean().nullable().optional(),
+
+    // Time-based filter (created in last N days)
+    days_ago: z.number().int().positive().max(365).nullable().optional(),
+}).refine(
+    (data) => {
+        // If radius is provided, lat/lng must also be provided
+        if (data.radius_meters && (!data.latitude || !data.longitude)) {
+            return false;
+        }
+        return true;
+    },
+    {
+        message: 'Latitude and longitude are required when radius_meters is provided',
+        path: ['radius_meters']
+    }
+).refine(
+    (data) => {
+        // min_rating should be less than or equal to max_rating
+        if (data.min_rating && data.max_rating && data.min_rating > data.max_rating) {
+            return false;
+        }
+        return true;
+    },
+    {
+        message: 'min_rating must be less than or equal to max_rating',
+        path: ['min_rating']
+    }
+);
+
+/**
+ * Coaching center search sort validation schema
+ */
+export const coachingCenterSearchSortSchema = z.enum(['recent', 'rating_high', 'rating_low', 'distance'], {
+    errorMap: () => ({ message: 'Invalid sort option' })
+});
+
+/**
+ * Coaching center search parameters schema
+ * Complete schema for search_coaching_centers_v2 RPC call
+ */
+export const coachingCenterSearchSchema = z.object({
+    // Filters
+    search_query: z.string().max(200).nullable().optional(),
+    category: coachingCategorySchema.nullable().optional(),
+    subjects: z.array(z.string().max(50)).max(50).nullable().optional(),
+    branch_id: z.string().uuid().nullable().optional(),
+    center_id: z.string().uuid().nullable().optional(),
+    state: z.string().max(100).nullable().optional(),
+    district: z.string().max(100).nullable().optional(),
+    city: z.string().max(100).nullable().optional(),
+    village_town: z.string().max(100).nullable().optional(),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
+    radius_meters: z.number().int().positive().max(100000).nullable().optional(),
+    min_rating: z.number().int().min(1).max(5).nullable().optional(),
+    max_rating: z.number().int().min(1).max(5).nullable().optional(),
+    is_verified: z.boolean().nullable().optional(),
+    days_ago: z.number().int().positive().max(365).nullable().optional(),
+
+    // Sorting
+    sort_by: coachingCenterSearchSortSchema.default('recent'),
+
+    // Pagination
+    limit_count: z.number().int().positive().max(100).default(20),
+    offset_count: z.number().int().nonnegative().default(0),
+}).refine(
+    (data) => {
+        if (data.radius_meters && (!data.latitude || !data.longitude)) {
+            return false;
+        }
+        return true;
+    },
+    {
+        message: 'Latitude and longitude are required when radius_meters is provided',
+        path: ['radius_meters']
+    }
+).refine(
+    (data) => {
+        if (data.min_rating && data.max_rating && data.min_rating > data.max_rating) {
+            return false;
+        }
+        return true;
+    },
+    {
+        message: 'min_rating must be less than or equal to max_rating',
+        path: ['min_rating']
+    }
+);
+
+/**
  * Utility functions
  */
 export const validateSlugFormat = (slug: string): { valid: boolean; error?: string } => {

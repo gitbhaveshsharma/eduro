@@ -16,6 +16,7 @@ import {
     CoachingDisplayUtils,
     CoachingUrlUtils
 } from '@/lib/coaching';
+import type { CoachingCenterSearchItem } from '@/lib/schema/coaching.types';
 import {
     Star,
     MapPin,
@@ -28,12 +29,14 @@ import Link from 'next/link';
 
 interface CoachingCenterCardProps {
     center: PublicCoachingCenter;
+    searchItem?: CoachingCenterSearchItem; // Additional search data
     averageRating?: number;
     totalReviews?: number;
 }
 
 export function CoachingCenterCard({
     center,
+    searchItem,
     averageRating = 0,
     totalReviews = 0
 }: CoachingCenterCardProps) {
@@ -45,6 +48,27 @@ export function CoachingCenterCard({
 
     const logoUrl = CoachingUrlUtils.getLogoUrl(center, 80);
     const centerUrl = `/coaching/${center.slug || center.id}`;
+
+    // Use search result data if available, otherwise use center data
+    const displayRating = searchItem?.avg_rating ? parseFloat(searchItem.avg_rating.toString()) : averageRating;
+    const displayReviewCount = searchItem?.total_reviews || totalReviews;
+
+    // Location data (from branch address if available)
+    const locationParts = [
+        searchItem?.location_city,
+        searchItem?.location_district,
+        searchItem?.location_state
+    ].filter(Boolean);
+    const locationText = locationParts.length > 0 ? locationParts.join(', ') : null;
+
+    // Distance (when searching by location)
+    const distanceText = searchItem?.distance_meters
+        ? `${(searchItem.distance_meters / 1000).toFixed(1)} km away`
+        : null;
+
+    // Check if this center has a branch (branch_id is not null AND has location data)
+    const hasBranch = searchItem?.branch_id !== null && searchItem?.branch_id !== undefined;
+    const hasLocationData = locationText !== null;
 
     return (
         <Link href={centerUrl}>
@@ -96,15 +120,28 @@ export function CoachingCenterCard({
                         )}
 
                         {/* Rating */}
-                        {totalReviews > 0 && (
+                        {displayReviewCount > 0 && (
                             <div className="flex items-center gap-2 text-sm">
                                 <div className="flex items-center gap-1">
                                     <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                                    <span className="font-medium">{averageRating.toFixed(1)}</span>
+                                    <span className="font-medium">{displayRating.toFixed(1)}</span>
                                 </div>
                                 <span className="text-muted-foreground">
-                                    ({totalReviews} {totalReviews === 1 ? 'review' : 'reviews'})
+                                    ({displayReviewCount} {displayReviewCount === 1 ? 'review' : 'reviews'})
                                 </span>
+                            </div>
+                        )}
+
+                        {/* Location */}
+                        {locationText && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <MapPin className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{locationText}</span>
+                                {distanceText && (
+                                    <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full whitespace-nowrap">
+                                        {distanceText}
+                                    </span>
+                                )}
                             </div>
                         )}
 
@@ -127,11 +164,11 @@ export function CoachingCenterCard({
                         {/* Footer */}
                         <div className="flex items-center justify-between pt-2 border-t text-sm">
                             <div className="flex items-center gap-1 text-muted-foreground">
-                                <MapPin className="h-3.5 w-3.5" />
-                                {center.total_branches ? (
-                                    <span>{center.total_branches} {center.total_branches === 1 ? 'branch' : 'branches'}</span>
+                                <Building2 className="h-3.5 w-3.5" />
+                                {hasBranch ? (
+                                    <span>Has branch location</span>
                                 ) : (
-                                    <span>No branches</span>
+                                    <span>No branch locations</span>
                                 )}
                             </div>
 
@@ -149,12 +186,14 @@ export function CoachingCenterCard({
 
 interface CoachingCenterGridProps {
     centers: PublicCoachingCenter[];
+    searchItems?: CoachingCenterSearchItem[]; // Optional search result data
     loading?: boolean;
     emptyMessage?: string;
 }
 
 export function CoachingCenterGrid({
     centers,
+    searchItems,
     loading = false,
     emptyMessage = 'No coaching centers found'
 }: CoachingCenterGridProps) {
@@ -191,15 +230,21 @@ export function CoachingCenterGrid({
 
     return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {centers.map((center) => (
-                <CoachingCenterCard
-                    key={center.id}
-                    center={center}
-                    // TODO: Load ratings from review store
-                    averageRating={0}
-                    totalReviews={0}
-                />
-            ))}
+            {centers.map((center, index) => {
+                // Find matching search item by center_id
+                const searchItem = searchItems?.find(item => item.center_id === center.id);
+
+                return (
+                    <CoachingCenterCard
+                        key={center.id}
+                        center={center}
+                        searchItem={searchItem}
+                        // Use search data if available
+                        averageRating={searchItem ? parseFloat(searchItem.avg_rating.toString()) : 0}
+                        totalReviews={searchItem?.total_reviews || 0}
+                    />
+                );
+            })}
         </div>
     );
 }

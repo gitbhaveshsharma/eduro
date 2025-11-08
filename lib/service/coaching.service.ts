@@ -293,99 +293,78 @@ export class CoachingService {
   }
 
   /**
-   * Search coaching centers with filters and pagination
+   * Search coaching centers using the optimized RPC function
+   * Uses search_coaching_centers_v2 with comprehensive filtering and sorting
+   * 
+   * @param filters - Search filters (location, category, rating, etc.)
+   * @param sortBy - Sort order ('recent', 'rating_high', 'rating_low', 'distance')
+   * @param page - Page number (1-based)
+   * @param perPage - Results per page (default: 20, max: 100)
+   * @returns Search results with pagination info
    */
   static async searchCoachingCenters(
     filters: CoachingCenterFilters = {},
-    sort: CoachingCenterSort = { field: 'created_at', direction: 'desc' },
+    sortBy: 'recent' | 'rating_high' | 'rating_low' | 'distance' = 'recent',
     page: number = 1,
     perPage: number = 20
   ): Promise<CoachingOperationResult<CoachingCenterSearchResult>> {
     try {
-      let query = supabase
-        .from('coaching_center_details')
-        .select(`
-          id,
-          name,
-          slug,
-          description,
-          established_year,
-          logo_url,
-          cover_url,
-          category,
-          subjects,
-          target_audience,
-          phone,
-          email,
-          website,
-          is_verified,
-          is_featured,
-          created_at,
-          updated_at
-        `, { count: 'exact' })
-        .eq('status', 'ACTIVE')
-        .eq('is_verified', true);
+      // Validate pagination
+      if (page < 1) page = 1;
+      if (perPage < 1 || perPage > 100) perPage = 20;
 
-      // Apply filters
-      if (filters.category) {
-        if (Array.isArray(filters.category)) {
-          query = query.in('category', filters.category);
-        } else {
-          query = query.eq('category', filters.category);
-        }
-      }
+      // Calculate offset
+      const offset = (page - 1) * perPage;
 
-      if (filters.is_featured !== undefined) {
-        query = query.eq('is_featured', filters.is_featured);
-      }
-
-      if (filters.subjects && filters.subjects.length > 0) {
-        query = query.overlaps('subjects', filters.subjects);
-      }
-
-      if (filters.target_audience && filters.target_audience.length > 0) {
-        query = query.overlaps('target_audience', filters.target_audience);
-      }
-
-      if (filters.established_year_from) {
-        query = query.gte('established_year', filters.established_year_from);
-      }
-
-      if (filters.established_year_to) {
-        query = query.lte('established_year', filters.established_year_to);
-      }
-
-      if (filters.search_query) {
-        query = query.or(`name.ilike.%${filters.search_query}%,description.ilike.%${filters.search_query}%`);
-      }
-
-      // Apply sorting
-      query = query.order(sort.field, { ascending: sort.direction === 'asc' });
-
-      // Apply pagination
-      const from = (page - 1) * perPage;
-      const to = from + perPage - 1;
-      query = query.range(from, to);
-
-      const { data, error, count } = await query;
+      // Call the RPC function
+      const { data, error } = await supabase.rpc('search_coaching_centers_v2', {
+        p_search_query: filters.search_query || null,
+        p_category: filters.category || null,
+        p_subjects: filters.subjects || null,
+        p_branch_id: filters.branch_id || null,
+        p_center_id: filters.center_id || null,
+        p_state: filters.state || null,
+        p_district: filters.district || null,
+        p_city: filters.city || null,
+        p_village_town: filters.village_town || null,
+        p_latitude: filters.latitude || null,
+        p_longitude: filters.longitude || null,
+        p_radius_meters: filters.radius_meters || null,
+        p_min_rating: filters.min_rating || 1,
+        p_max_rating: filters.max_rating || 5,
+        p_is_verified: filters.is_verified || null,
+        p_days_ago: filters.days_ago || null,
+        p_sort_by: sortBy,
+        p_limit_count: perPage,
+        p_offset_count: offset,
+      });
 
       if (error) {
-        return { success: false, error: error.message };
+        console.error('Search coaching centers RPC error:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to search coaching centers'
+        };
       }
 
+      // Extract total count from first result
+      const totalCount = data && data.length > 0 ? data[0].total_count : 0;
+
+      // Build search result
       const result: CoachingCenterSearchResult = {
-        centers: data || [],
-        total_count: count || 0,
+        results: data || [],
+        total_count: totalCount,
         page,
         per_page: perPage,
-        has_more: (count || 0) > page * perPage
+        has_more: totalCount > page * perPage,
       };
 
       return { success: true, data: result };
     } catch (error) {
+      console.error('Search coaching centers error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       };
     }
   }
@@ -980,37 +959,6 @@ export class CoachingService {
 
       const isAvailable = !data;
       return { success: true, data: isAvailable };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  /**
-   * Search coaching centers using database function
-   */
-  static async searchCoachingCentersWithFunction(
-    searchQuery?: string,
-    category?: CoachingCategory,
-    limitCount: number = 20,
-    offsetCount: number = 0
-  ): Promise<CoachingOperationResult<PublicCoachingCenter[]>> {
-    try {
-      const { data, error } = await supabase
-        .rpc('search_coaching_centers', {
-          search_query: searchQuery || null,
-          category_filter: category || null,
-          limit_count: limitCount,
-          offset_count: offsetCount
-        });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data || [] };
     } catch (error) {
       return {
         success: false,

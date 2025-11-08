@@ -18,6 +18,7 @@ import { useCurrentProfile } from '@/lib/profile';
 import { LayoutUtils } from "@/components/layout/config";
 import type { HeaderProps, HeaderItem } from "@/components/layout/types";
 import { SettingsSearch } from "@/components/settings";
+import { CoachingSearch } from "@/components/coaching/search/coaching-search";
 
 /**
  * UniversalHeader Component
@@ -127,8 +128,9 @@ export function UniversalHeader({
     const showSearch = searchConfig?.enabled !== false;
     const searchPlaceholder = searchConfig?.placeholder || 'Search...';
 
-    // Check if we're on settings page for custom search
+    // Check if we're on settings or coaching page for custom search
     const isSettingsPage = config.page === 'settings';
+    const isCoachingPage = config.page === 'coaching';
 
     // Responsive behavior
     const isMobile = config.device === 'mobile';
@@ -149,6 +151,25 @@ export function UniversalHeader({
                             <div className="flex-1">
                                 <SettingsSearch
                                     userRole={profile?.role as any}
+                                    placeholder={searchPlaceholder}
+                                    className="w-full"
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleSearchToggle}
+                                className="h-10 w-10 p-0 shrink-0"
+                            >
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                    ) : isCoachingPage ? (
+                        // Coaching-specific search for mobile/tablet
+                        <div className="flex items-center gap-2">
+                            <div className="flex-1">
+                                <CoachingSearch
                                     placeholder={searchPlaceholder}
                                     className="w-full"
                                 />
@@ -236,6 +257,12 @@ export function UniversalHeader({
                                 // Settings-specific search
                                 <SettingsSearch
                                     userRole={profile?.role as any}
+                                    placeholder={searchPlaceholder}
+                                    className="w-full"
+                                />
+                            ) : isCoachingPage ? (
+                                // Coaching-specific search
+                                <CoachingSearch
                                     placeholder={searchPlaceholder}
                                     className="w-full"
                                 />

@@ -6,7 +6,7 @@
  */
 
 // Enums from database
-export type CoachingCategory = 
+export type CoachingCategory =
   // Academic & School Level
   | 'SCHOOL_COACHING'
   | 'COLLEGE_TUITION'
@@ -47,39 +47,39 @@ export type CoachingStatus = 'DRAFT' | 'ACTIVE' | 'INACTIVE';
 export interface CoachingCenter {
   // Primary identification
   id: string; // UUID
-  
+
   // Basic information
   name: string;
   slug: string | null;
   description: string | null;
   established_year: number | null;
-  
+
   // Media
   logo_url: string | null;
   cover_url: string | null;
-  
+
   // Category and services
   category: CoachingCategory;
   subjects: string[] | null;
   target_audience: string[] | null;
-  
+
   // Management
   owner_id: string; // References auth.users(id)
   manager_id: string | null; // References auth.users(id)
   status: CoachingStatus;
-  
+
   // Contact information
   phone: string | null;
   email: string | null;
   website: string | null;
-  
+
   // Flags
   is_verified: boolean;
   is_featured: boolean;
-  
+
   // Extensible data
   metadata: Record<string, any> | null;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -89,28 +89,28 @@ export interface CoachingCenter {
 export interface CoachingBranch {
   // Primary identification
   id: string; // UUID
-  
+
   // Association
   coaching_center_id: string; // References coaching_centers(id)
-  
+
   // Basic information
   name: string;
   description: string | null;
-  
+
   // Management
   manager_id: string | null; // References auth.users(id)
-  
+
   // Contact information
   phone: string | null;
   email: string | null;
-  
+
   // Branch configuration
   is_main_branch: boolean;
   is_active: boolean;
-  
+
   // Extensible data
   metadata: Record<string, any> | null;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -216,19 +216,40 @@ export interface CoachingBranchCreate {
   metadata?: Record<string, any> | null;
 }
 
-// Coaching center filter options for searching/listing
+/**
+ * Coaching center filters for searching
+ * Aligned with search_coaching_centers_v2 RPC function
+ */
 export interface CoachingCenterFilters {
-  category?: CoachingCategory | CoachingCategory[];
-  status?: CoachingStatus | CoachingStatus[];
-  is_verified?: boolean;
-  is_featured?: boolean;
-  subjects?: string[];
-  target_audience?: string[];
-  established_year_from?: number;
-  established_year_to?: number;
-  search_query?: string; // For searching by name, description
-  owner_id?: string; // Filter by owner
-  manager_id?: string; // Filter by manager
+  // Search parameters
+  search_query?: string | null;
+
+  // Category and subject filters
+  category?: CoachingCategory | null;
+  subjects?: string[] | null;
+
+  // Location filters
+  branch_id?: string | null;
+  center_id?: string | null;
+  state?: string | null;
+  district?: string | null;
+  city?: string | null;
+  village_town?: string | null;
+
+  // Geographic filters (for distance-based search)
+  latitude?: number | null;
+  longitude?: number | null;
+  radius_meters?: number | null;
+
+  // Rating filters
+  min_rating?: number | null;
+  max_rating?: number | null;
+
+  // Status filters
+  is_verified?: boolean | null;
+
+  // Time filters
+  days_ago?: number | null;
 }
 
 // Coaching branch filter options
@@ -240,18 +261,27 @@ export interface CoachingBranchFilters {
   search_query?: string;
 }
 
+/**
+ * Sort options for coaching centers (aligned with RPC function)
+ */
+export type CoachingCenterSortBy =
+  | 'recent'        // Sort by creation date (newest first)
+  | 'rating_high'   // Sort by rating (highest first)
+  | 'rating_low'    // Sort by rating (lowest first)
+  | 'distance';     // Sort by distance (only when lat/lng provided)
+
 // Sort options for coaching centers
-export type CoachingCenterSortField = 
-  | 'created_at' 
-  | 'updated_at' 
+export type CoachingCenterSortField =
+  | 'created_at'
+  | 'updated_at'
   | 'name'
   | 'established_year'
   | 'is_featured';
 
 // Sort options for coaching branches
-export type CoachingBranchSortField = 
-  | 'created_at' 
-  | 'updated_at' 
+export type CoachingBranchSortField =
+  | 'created_at'
+  | 'updated_at'
   | 'name'
   | 'is_main_branch';
 
@@ -267,9 +297,33 @@ export interface CoachingBranchSort {
   direction: SortDirection;
 }
 
-// Search result interfaces
+/**
+ * Individual coaching center search result from RPC
+ * Maps to the RETURNS TABLE structure in search_coaching_centers_v2
+ */
+export interface CoachingCenterSearchItem {
+  center_id: string;
+  center_slug: string;
+  branch_id: string;
+  center_is_verified: boolean;
+  center_logo_url: string | null;
+  center_name: string;
+  center_category: CoachingCategory;
+  center_subjects: string[] | null;
+  location_city: string | null;
+  avg_rating: number;
+  total_reviews: number;
+  location_state: string | null;
+  location_district: string | null;
+  distance_meters: number | null;
+  total_count: number; // Total count of results (same for all rows)
+}
+
+/**
+ * Search result wrapper with pagination
+ */
 export interface CoachingCenterSearchResult {
-  centers: PublicCoachingCenter[];
+  results: CoachingCenterSearchItem[];
   total_count: number;
   page: number;
   per_page: number;
@@ -347,10 +401,10 @@ export interface CoachingCenterDashboard {
 }
 
 // Category groupings for UI
-export type CoachingCategoryGroup = 
+export type CoachingCategoryGroup =
   | 'ACADEMIC'
   | 'COMPETITIVE'
-  | 'SKILL_DEVELOPMENT' 
+  | 'SKILL_DEVELOPMENT'
   | 'HOBBY'
   | 'PROFESSIONAL'
   | 'COACHING_TYPE';
@@ -392,12 +446,12 @@ export const COACHING_CATEGORIES = {
   COLLEGE_TUITION: 'COLLEGE_TUITION' as const,
   HOME_TUITION: 'HOME_TUITION' as const,
   ONLINE_TUITION: 'ONLINE_TUITION' as const,
-  
+
   // Competitive Exams
   COMPETITIVE_EXAM: 'COMPETITIVE_EXAM' as const,
   ENTRANCE_EXAM: 'ENTRANCE_EXAM' as const,
   TEST_PREPARATION: 'TEST_PREPARATION' as const,
-  
+
   // Skill & Career Development
   LANGUAGE_TRAINING: 'LANGUAGE_TRAINING' as const,
   SKILL_DEVELOPMENT: 'SKILL_DEVELOPMENT' as const,
@@ -405,20 +459,20 @@ export const COACHING_CATEGORIES = {
   DESIGN_AND_CREATIVE: 'DESIGN_AND_CREATIVE' as const,
   BUSINESS_AND_MARKETING: 'BUSINESS_AND_MARKETING' as const,
   ACCOUNTING_AND_FINANCE: 'ACCOUNTING_AND_FINANCE' as const,
-  
+
   // Hobby & Talent
   HOBBY_CLASSES: 'HOBBY_CLASSES' as const,
   MUSIC_AND_DANCE: 'MUSIC_AND_DANCE' as const,
   ART_AND_CRAFT: 'ART_AND_CRAFT' as const,
   SPORTS_AND_FITNESS: 'SPORTS_AND_FITNESS' as const,
-  
+
   // Professional & Certification
   PROFESSIONAL_CERTIFICATION: 'PROFESSIONAL_CERTIFICATION' as const,
   GOVERNMENT_EXAM_PREPARATION: 'GOVERNMENT_EXAM_PREPARATION' as const,
   UPSC_AND_DEFENCE: 'UPSC_AND_DEFENCE' as const,
   BANKING_AND_INSURANCE: 'BANKING_AND_INSURANCE' as const,
   MEDICAL_AND_ENGINEERING_ENTRANCE: 'MEDICAL_AND_ENGINEERING_ENTRANCE' as const,
-  
+
   // Coaching Type & Mode
   TUTORING: 'TUTORING' as const,
   MENTORSHIP: 'MENTORSHIP' as const,
@@ -481,7 +535,7 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     icon: '💻',
     color: 'purple'
   },
-  
+
   // Competitive Exams
   COMPETITIVE_EXAM: {
     category: 'COMPETITIVE_EXAM',
@@ -507,7 +561,7 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     icon: '📝',
     color: 'yellow'
   },
-  
+
   // Skill & Career Development
   LANGUAGE_TRAINING: {
     category: 'LANGUAGE_TRAINING',
@@ -557,7 +611,7 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     icon: '💰',
     color: 'yellow'
   },
-  
+
   // Hobby & Talent
   HOBBY_CLASSES: {
     category: 'HOBBY_CLASSES',
@@ -591,7 +645,7 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     icon: '⚽',
     color: 'green'
   },
-  
+
   // Professional & Certification
   PROFESSIONAL_CERTIFICATION: {
     category: 'PROFESSIONAL_CERTIFICATION',
@@ -633,7 +687,7 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     icon: '⚕️',
     color: 'red'
   },
-  
+
   // Coaching Type & Mode
   TUTORING: {
     category: 'TUTORING',
