@@ -38,6 +38,7 @@ export function CoachingFiltersPanel({
 
     const [subjectInput, setSubjectInput] = useState('');
     const [isAnimating, setIsAnimating] = useState(false);
+    const [isMobileDevice, setIsMobileDevice] = useState(false);
 
     // Animation handling
     useEffect(() => {
@@ -47,6 +48,19 @@ export function CoachingFiltersPanel({
             return () => clearTimeout(timer);
         }
     }, [isOpen]);
+
+    // Detect mobile viewport so we only auto-close the panel on mobile/tablet
+    useEffect(() => {
+        const updateIsMobile = () => {
+            if (typeof window === 'undefined') return;
+            // Tailwind 'lg' breakpoint is 1024px. Treat widths below that as mobile/tablet.
+            setIsMobileDevice(window.innerWidth < 1024);
+        };
+
+        updateIsMobile();
+        window.addEventListener('resize', updateIsMobile);
+        return () => window.removeEventListener('resize', updateIsMobile);
+    }, []);
 
     // Filter handlers
     const handleLocationUpdate = useCallback(() => {
@@ -71,6 +85,8 @@ export function CoachingFiltersPanel({
         }
 
         onFiltersChange(newFilters);
+        // Close panel on mobile after applying filters to avoid user confusion
+        if (onClose && isMobileDevice) onClose();
     }, [filters, locationInput, onFiltersChange]);
 
     const handleNearMe = useCallback(() => {
@@ -87,6 +103,7 @@ export function CoachingFiltersPanel({
                     longitude: position.coords.longitude,
                     radius_meters: 10000
                 });
+                if (onClose && isMobileDevice) onClose();
             },
             (error) => {
                 console.error('Error getting location:', error);
@@ -101,6 +118,7 @@ export function CoachingFiltersPanel({
             min_rating: value[0],
             max_rating: value[1]
         });
+        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleDaysAgoChange = useCallback((value: string) => {
@@ -114,6 +132,7 @@ export function CoachingFiltersPanel({
         }
 
         onFiltersChange(newFilters);
+        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleSubjectAdd = useCallback(() => {
@@ -125,6 +144,7 @@ export function CoachingFiltersPanel({
                 ...filters,
                 subjects: [...currentSubjects, subjectInput.trim()]
             });
+            if (onClose && isMobileDevice) onClose();
         }
         setSubjectInput('');
     }, [filters, subjectInput, onFiltersChange]);
@@ -135,12 +155,14 @@ export function CoachingFiltersPanel({
             ...filters,
             subjects: currentSubjects.filter(s => s !== subject)
         });
+        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleClearAll = useCallback(() => {
         setLocationInput({ city: '', state: '', district: '' });
         setSubjectInput('');
         onFiltersChange({});
+        if (onClose && isMobileDevice) onClose();
     }, [onFiltersChange]);
 
     // Active filters count for badge
@@ -160,7 +182,8 @@ export function CoachingFiltersPanel({
             {isOpen && (
                 <div
                     className={cn(
-                        "fixed inset-0 bg-background/80 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300",
+                        // overlay should sit above the bottom nav but below the panel
+                        "fixed inset-0 bg-background/80 backdrop-blur-sm z-50 lg:hidden transition-opacity duration-300",
                         isAnimating ? "opacity-0" : "opacity-100"
                     )}
                     onClick={onClose}
@@ -171,7 +194,8 @@ export function CoachingFiltersPanel({
             <Card className={cn(
                 "border-2 ",
                 // Mobile: Fixed, full height, slides from left
-                "fixed lg:sticky top-0 left-0 z-50 h-screen lg:h-[85vh] w-full max-w-sm lg:max-w-none",
+                // Make panel full-width on mobile (w-full) and constrain on lg screens (lg:max-w-sm).
+                "fixed lg:sticky top-0 left-0 z-60 h-screen lg:h-[85vh] w-full lg:max-w-sm",
                 // Smooth animations for mobile
                 "transform transition-transform duration-300 ease-in-out lg:transform-none",
                 "shadow-xl lg:shadow-md",
@@ -215,8 +239,17 @@ export function CoachingFiltersPanel({
                     </div>
                 </CardHeader>
 
-                <ScrollArea className="h-[calc(100vh-5rem)] lg:h-[calc(85vh-5rem)] overflow-auto">
-                    <CardContent className="space-y-6 p-4">
+                {/*
+                    Adjust scroll area so content isn't hidden behind fixed bottom navigation on mobile.
+                    - Subtract an estimated bottom nav height (56px) from the viewport calculation
+                    - Add extra padding at the bottom of the content to ensure last elements are visible
+                    - Include safe-area inset space for devices with notches
+                */}
+                <ScrollArea
+                    className="h-[calc(100vh-5rem-56px)] lg:h-[calc(85vh-5rem)] overflow-auto"
+                    style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+                >
+                    <CardContent className="space-y-6 p-4 pb-28 lg:pb-6">
                         {/* Location Filter */}
                         <div className="space-y-4">
                             <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
