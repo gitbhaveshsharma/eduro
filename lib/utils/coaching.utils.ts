@@ -32,7 +32,7 @@ export class CoachingDisplayUtils {
     if (center.name && center.name.trim()) {
       return center.name.trim();
     }
-    
+
     return 'Unnamed Coaching Center';
   }
 
@@ -41,12 +41,12 @@ export class CoachingDisplayUtils {
    */
   static getInitials(center: Partial<CoachingCenter | PublicCoachingCenter>): string {
     const displayName = this.getDisplayName(center);
-    
+
     const words = displayName.split(' ').filter(word => word.length > 0);
     if (words.length === 1) {
       return words[0].slice(0, 2).toUpperCase();
     }
-    
+
     return words
       .slice(0, 2)
       .map(word => word[0])
@@ -98,7 +98,7 @@ export class CoachingDisplayUtils {
       'ACTIVE': 'Active',
       'INACTIVE': 'Inactive'
     };
-    
+
     return statusMap[status] || status;
   }
 
@@ -111,7 +111,7 @@ export class CoachingDisplayUtils {
       'ACTIVE': 'green',
       'INACTIVE': 'red'
     };
-    
+
     return colorMap[status] || 'gray';
   }
 
@@ -120,10 +120,10 @@ export class CoachingDisplayUtils {
    */
   static formatEstablishedYear(establishedYear: number | null): string {
     if (!establishedYear) return 'Not specified';
-    
+
     const currentYear = new Date().getFullYear();
     const years = currentYear - establishedYear;
-    
+
     if (years <= 0) return `Established ${establishedYear}`;
     if (years === 1) return `Established ${establishedYear} (1 year)`;
     return `Established ${establishedYear} (${years} years)`;
@@ -136,11 +136,11 @@ export class CoachingDisplayUtils {
     if (!subjects || subjects.length === 0) {
       return 'No subjects listed';
     }
-    
+
     if (subjects.length <= maxDisplay) {
       return subjects.join(', ');
     }
-    
+
     const displayed = subjects.slice(0, maxDisplay);
     const remaining = subjects.length - maxDisplay;
     return `${displayed.join(', ')} +${remaining} more`;
@@ -153,11 +153,11 @@ export class CoachingDisplayUtils {
     if (!targetAudience || targetAudience.length === 0) {
       return 'All levels';
     }
-    
+
     if (targetAudience.length <= maxDisplay) {
       return targetAudience.join(', ');
     }
-    
+
     const displayed = targetAudience.slice(0, maxDisplay);
     const remaining = targetAudience.length - maxDisplay;
     return `${displayed.join(', ')} +${remaining} more`;
@@ -167,7 +167,7 @@ export class CoachingDisplayUtils {
    * Get verification status display
    */
   static getVerificationStatus(isVerified: boolean): { label: string; color: string; icon: string } {
-    return isVerified 
+    return isVerified
       ? { label: 'Verified', color: 'green', icon: '✓' }
       : { label: 'Unverified', color: 'gray', icon: '?' };
   }
@@ -176,7 +176,7 @@ export class CoachingDisplayUtils {
    * Get featured status display
    */
   static getFeaturedStatus(isFeatured: boolean): { label: string; color: string; icon: string } {
-    return isFeatured 
+    return isFeatured
       ? { label: 'Featured', color: 'yellow', icon: '⭐' }
       : { label: 'Standard', color: 'gray', icon: '' };
   }
@@ -188,15 +188,15 @@ export class CoachingDisplayUtils {
     if (!totalBranches || totalBranches === 0) {
       return 'No branches';
     }
-    
+
     if (totalBranches === 1) {
       return '1 branch';
     }
-    
+
     if (activeBranches !== undefined && activeBranches !== totalBranches) {
       return `${activeBranches}/${totalBranches} branches active`;
     }
-    
+
     return `${totalBranches} branches`;
   }
 
@@ -204,7 +204,7 @@ export class CoachingDisplayUtils {
    * Get branch type display
    */
   static getBranchTypeDisplay(isMainBranch: boolean): { label: string; color: string; icon: string } {
-    return isMainBranch 
+    return isMainBranch
       ? { label: 'Main Branch', color: 'blue', icon: '🏢' }
       : { label: 'Branch', color: 'gray', icon: '🏪' };
   }
@@ -229,13 +229,13 @@ export class CoachingDisplayUtils {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) return 'Updated today';
     if (diffDays === 1) return 'Updated yesterday';
     if (diffDays < 7) return `Updated ${diffDays} days ago`;
     if (diffDays < 30) return `Updated ${Math.floor(diffDays / 7)} weeks ago`;
     if (diffDays < 365) return `Updated ${Math.floor(diffDays / 30)} months ago`;
-    
+
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short'
@@ -254,17 +254,17 @@ export class CoachingValidationUtils {
     if (!name || name.trim().length < 3) {
       return { valid: false, error: 'Name must be at least 3 characters long' };
     }
-    
+
     if (name.length > 100) {
       return { valid: false, error: 'Name must be no more than 100 characters long' };
     }
-    
+
     // Check for inappropriate content (basic check)
     const inappropriateWords = ['test', 'demo', 'example'];
     if (inappropriateWords.some(word => name.toLowerCase().includes(word))) {
       return { valid: false, error: 'Name contains inappropriate content' };
     }
-    
+
     return { valid: true };
   }
 
@@ -275,30 +275,30 @@ export class CoachingValidationUtils {
     if (!slug || slug.length < 3) {
       return { valid: false, error: 'Slug must be at least 3 characters long' };
     }
-    
+
     if (slug.length > 50) {
       return { valid: false, error: 'Slug must be no more than 50 characters long' };
     }
-    
+
     const slugRegex = /^[a-z0-9-]+$/;
     if (!slugRegex.test(slug)) {
       return { valid: false, error: 'Slug can only contain lowercase letters, numbers, and hyphens' };
     }
-    
+
     if (slug.startsWith('-') || slug.endsWith('-')) {
       return { valid: false, error: 'Slug cannot start or end with a hyphen' };
     }
-    
+
     if (slug.includes('--')) {
       return { valid: false, error: 'Slug cannot contain consecutive hyphens' };
     }
-    
+
     // Check for reserved slugs
     const reserved = ['admin', 'api', 'www', 'app', 'dashboard', 'search', 'about', 'contact', 'privacy', 'terms'];
     if (reserved.includes(slug)) {
       return { valid: false, error: 'This slug is reserved' };
     }
-    
+
     return { valid: true };
   }
 
@@ -307,13 +307,13 @@ export class CoachingValidationUtils {
    */
   static validateEmail(email: string): { valid: boolean; error?: string } {
     if (!email) return { valid: true }; // Email is optional
-    
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     if (!emailRegex.test(email)) {
       return { valid: false, error: 'Invalid email format' };
     }
-    
+
     return { valid: true };
   }
 
@@ -322,13 +322,13 @@ export class CoachingValidationUtils {
    */
   static validatePhone(phone: string): { valid: boolean; error?: string } {
     if (!phone) return { valid: true }; // Phone is optional
-    
+
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-    
+
     if (!phoneRegex.test(phone)) {
       return { valid: false, error: 'Invalid phone number format' };
     }
-    
+
     return { valid: true };
   }
 
@@ -337,7 +337,7 @@ export class CoachingValidationUtils {
    */
   static validateWebsite(url: string): { valid: boolean; error?: string } {
     if (!url) return { valid: true }; // Website is optional
-    
+
     try {
       const urlObj = new URL(url);
       if (!['http:', 'https:'].includes(urlObj.protocol)) {
@@ -354,15 +354,15 @@ export class CoachingValidationUtils {
    */
   static validateEstablishedYear(year: number): { valid: boolean; error?: string } {
     const currentYear = new Date().getFullYear();
-    
+
     if (year < 1800) {
       return { valid: false, error: 'Established year cannot be before 1800' };
     }
-    
+
     if (year > currentYear) {
       return { valid: false, error: 'Established year cannot be in the future' };
     }
-    
+
     return { valid: true };
   }
 
@@ -373,17 +373,17 @@ export class CoachingValidationUtils {
     if (!subjects || subjects.length === 0) {
       return { valid: true }; // Subjects are optional
     }
-    
+
     if (subjects.length > 20) {
       return { valid: false, error: 'Cannot have more than 20 subjects' };
     }
-    
+
     // Check for duplicates
     const uniqueSubjects = [...new Set(subjects.map(s => s.toLowerCase()))];
     if (uniqueSubjects.length !== subjects.length) {
       return { valid: false, error: 'Duplicate subjects are not allowed' };
     }
-    
+
     // Check individual subject length
     for (const subject of subjects) {
       if (!subject || subject.trim().length < 2) {
@@ -393,7 +393,7 @@ export class CoachingValidationUtils {
         return { valid: false, error: 'Each subject must be no more than 50 characters long' };
       }
     }
-    
+
     return { valid: true };
   }
 
@@ -404,17 +404,17 @@ export class CoachingValidationUtils {
     if (!audience || audience.length === 0) {
       return { valid: true }; // Target audience is optional
     }
-    
+
     if (audience.length > 10) {
       return { valid: false, error: 'Cannot have more than 10 target audience groups' };
     }
-    
+
     // Check for duplicates
     const uniqueAudience = [...new Set(audience.map(a => a.toLowerCase()))];
     if (uniqueAudience.length !== audience.length) {
       return { valid: false, error: 'Duplicate target audience groups are not allowed' };
     }
-    
+
     return { valid: true };
   }
 
@@ -423,11 +423,11 @@ export class CoachingValidationUtils {
    */
   static validateDescription(description: string): { valid: boolean; error?: string } {
     if (!description) return { valid: true }; // Description is optional
-    
+
     if (description.length > 2000) {
       return { valid: false, error: 'Description must be no more than 2000 characters long' };
     }
-    
+
     return { valid: true };
   }
 }
@@ -441,7 +441,7 @@ export class CoachingSearchUtils {
    */
   static highlightSearchTerms(text: string, searchQuery: string): string {
     if (!searchQuery || !text) return text;
-    
+
     const regex = new RegExp(`(${searchQuery})`, 'gi');
     return text.replace(regex, '<mark>$1</mark>');
   }
@@ -451,56 +451,56 @@ export class CoachingSearchUtils {
    */
   static calculateRelevanceScore(center: PublicCoachingCenter, searchQuery: string): number {
     if (!searchQuery) return 0;
-    
+
     let score = 0;
     const query = searchQuery.toLowerCase();
-    
+
     // Name matches (highest priority)
     if (center.name?.toLowerCase().includes(query)) {
       score += 100;
     }
-    
+
     // Description matches
     if (center.description?.toLowerCase().includes(query)) {
       score += 50;
     }
-    
+
     // Subjects matches
-    const subjectsMatch = center.subjects?.some(subject => 
+    const subjectsMatch = center.subjects?.some(subject =>
       subject.toLowerCase().includes(query)
     );
     if (subjectsMatch) {
       score += 60;
     }
-    
+
     // Target audience matches
-    const audienceMatch = center.target_audience?.some(audience => 
+    const audienceMatch = center.target_audience?.some(audience =>
       audience.toLowerCase().includes(query)
     );
     if (audienceMatch) {
       score += 40;
     }
-    
+
     // Category matches
     if (center.category?.toLowerCase().includes(query)) {
       score += 30;
     }
-    
+
     // Verification bonus
     if (center.is_verified) {
       score += 10;
     }
-    
+
     // Featured bonus
     if (center.is_featured) {
       score += 15;
     }
-    
+
     // Branch count bonus
     if (center.total_branches && center.total_branches > 1) {
       score += Math.min(center.total_branches * 2, 10);
     }
-    
+
     return score;
   }
 
@@ -509,7 +509,7 @@ export class CoachingSearchUtils {
    */
   static generateSearchSuggestions(centers: PublicCoachingCenter[]): string[] {
     const suggestions = new Set<string>();
-    
+
     centers.forEach(center => {
       // Add subjects
       center.subjects?.forEach(subject => {
@@ -517,19 +517,19 @@ export class CoachingSearchUtils {
           suggestions.add(subject);
         }
       });
-      
+
       // Add target audience
       center.target_audience?.forEach(audience => {
         if (audience.length > 2) {
           suggestions.add(audience);
         }
       });
-      
+
       // Add category display names
       const categoryName = CoachingDisplayUtils.getCategoryDisplayName(center.category);
       suggestions.add(categoryName);
     });
-    
+
     return Array.from(suggestions).sort().slice(0, 10);
   }
 
@@ -537,8 +537,8 @@ export class CoachingSearchUtils {
    * Filter centers by proximity (if location data available)
    */
   static filterByProximity(
-    centers: PublicCoachingCenter[], 
-    userLocation: { lat: number; lng: number }, 
+    centers: PublicCoachingCenter[],
+    userLocation: { lat: number; lng: number },
     maxDistance: number
   ): PublicCoachingCenter[] {
     // This would require location data in the coaching centers
@@ -556,13 +556,13 @@ export class CoachingFilterUtils {
    */
   static getAvailableSubjects(centers: PublicCoachingCenter[]): string[] {
     const subjects = new Set<string>();
-    
+
     centers.forEach(center => {
       if (center.subjects) {
         center.subjects.forEach(subject => subjects.add(subject));
       }
     });
-    
+
     return Array.from(subjects).sort();
   }
 
@@ -571,13 +571,13 @@ export class CoachingFilterUtils {
    */
   static getAvailableTargetAudiences(centers: PublicCoachingCenter[]): string[] {
     const audiences = new Set<string>();
-    
+
     centers.forEach(center => {
       if (center.target_audience) {
         center.target_audience.forEach(audience => audiences.add(audience));
       }
     });
-    
+
     return Array.from(audiences).sort();
   }
 
@@ -593,11 +593,11 @@ export class CoachingFilterUtils {
       PROFESSIONAL: [],
       COACHING_TYPE: []
     };
-    
+
     Object.values(COACHING_CATEGORY_METADATA).forEach(meta => {
       groups[meta.group].push(meta);
     });
-    
+
     return groups;
   }
 
@@ -606,7 +606,7 @@ export class CoachingFilterUtils {
    */
   static getEstablishmentYearRanges(): { label: string; from: number; to?: number }[] {
     const currentYear = new Date().getFullYear();
-    
+
     return [
       { label: 'This year', from: currentYear },
       { label: 'Last 5 years', from: currentYear - 5 },
@@ -713,7 +713,7 @@ export class CoachingTransformUtils {
    * Merge coaching center data
    */
   static mergeCoachingCenterData(
-    original: CoachingCenter, 
+    original: CoachingCenter,
     updates: Partial<CoachingCenter>
   ): CoachingCenter {
     return {
@@ -763,7 +763,7 @@ export class CoachingUrlUtils {
     if (center.logo_url) {
       return center.logo_url;
     }
-    
+
     // Generate initials-based logo URL (use AvatarUtils to enable proxy when configured)
     const initials = CoachingDisplayUtils.getInitials(center);
     const categoryColor = CoachingDisplayUtils.getCategoryColor(center.category || 'OTHER');
@@ -783,7 +783,7 @@ export class CoachingUrlUtils {
     if (center.cover_url) {
       return center.cover_url;
     }
-    
+
     // Generate category-based cover URL
     const categoryIcon = CoachingDisplayUtils.getCategoryIcon(center.category || 'OTHER');
     return `https://via.placeholder.com/800x300/f3f4f6/6b7280?text=${encodeURIComponent(categoryIcon)}`;
@@ -803,14 +803,14 @@ export class CoachingUrlUtils {
   static getSocialShareUrl(center: PublicCoachingCenter, platform: 'facebook' | 'twitter' | 'linkedin' | 'whatsapp'): string {
     const centerUrl = `${window.location.origin}${this.getCoachingCenterUrl(center.slug || center.id)}`;
     const text = `Check out ${center.name} - ${CoachingDisplayUtils.getCategoryDisplayName(center.category)}`;
-    
+
     const platforms = {
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(centerUrl)}`,
       twitter: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(centerUrl)}`,
       linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(centerUrl)}`,
       whatsapp: `https://wa.me/?text=${encodeURIComponent(`${text} ${centerUrl}`)}`
     };
-    
+
     return platforms[platform];
   }
 }
@@ -824,16 +824,16 @@ export class CoachingAnalyticsUtils {
    */
   static calculatePerformanceScore(center: PublicCoachingCenter): number {
     let score = 0;
-    
+
     // Base points for being active
     score += 10;
-    
+
     // Verification bonus
     if (center.is_verified) score += 20;
-    
+
     // Featured bonus
     if (center.is_featured) score += 15;
-    
+
     // Profile completeness
     if (center.description) score += 10;
     if (center.logo_url) score += 5;
@@ -844,12 +844,12 @@ export class CoachingAnalyticsUtils {
     if (center.subjects && center.subjects.length > 0) score += 10;
     if (center.target_audience && center.target_audience.length > 0) score += 5;
     if (center.established_year) score += 5;
-    
+
     // Branch count bonus
     if (center.total_branches) {
       score += Math.min(center.total_branches * 2, 10);
     }
-    
+
     return Math.min(score, 100); // Cap at 100
   }
 
@@ -858,10 +858,10 @@ export class CoachingAnalyticsUtils {
    */
   static getCompletionPercentage(center: CoachingCenter | PublicCoachingCenter): number {
     const fields = [
-      'name', 'description', 'logo_url', 'cover_url', 'phone', 
+      'name', 'description', 'logo_url', 'cover_url', 'phone',
       'email', 'website', 'subjects', 'target_audience', 'established_year'
     ];
-    
+
     let completed = 0;
     fields.forEach(field => {
       const value = (center as any)[field];
@@ -871,7 +871,7 @@ export class CoachingAnalyticsUtils {
         else if (typeof value === 'number') completed++;
       }
     });
-    
+
     return Math.round((completed / fields.length) * 100);
   }
 
@@ -880,39 +880,39 @@ export class CoachingAnalyticsUtils {
    */
   static generateRecommendations(center: CoachingCenter): string[] {
     const recommendations: string[] = [];
-    
+
     if (!center.description) {
       recommendations.push('Add a detailed description to attract more students');
     }
-    
+
     if (!center.logo_url) {
       recommendations.push('Upload a professional logo to build brand recognition');
     }
-    
+
     if (!center.cover_url) {
       recommendations.push('Add a cover image to make your center more visually appealing');
     }
-    
+
     if (!center.subjects || center.subjects.length === 0) {
       recommendations.push('List the subjects you teach to help students find you');
     }
-    
+
     if (!center.target_audience || center.target_audience.length === 0) {
       recommendations.push('Specify your target audience to attract the right students');
     }
-    
+
     if (!center.phone && !center.email) {
       recommendations.push('Add contact information so students can reach you');
     }
-    
+
     if (!center.website) {
       recommendations.push('Add your website URL to provide more information to visitors');
     }
-    
+
     if (!center.established_year) {
       recommendations.push('Add your establishment year to build credibility');
     }
-    
+
     return recommendations.slice(0, 3); // Return top 3 recommendations
   }
 }

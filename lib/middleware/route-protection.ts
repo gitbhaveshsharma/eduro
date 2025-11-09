@@ -4,17 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { 
-  MiddlewareContext, 
-  RouteProtection, 
-  SecurityLevel, 
+import {
+  MiddlewareContext,
+  RouteProtection,
+  SecurityLevel,
   MiddlewareResult,
 } from './types'
 import { AuthHandler } from './auth-utils'
-import { 
-  RateLimiter, 
-  RequestValidator, 
-  IPUtils, 
+import {
+  RateLimiter,
+  RequestValidator,
+  IPUtils,
   SecurityEventTracker,
 } from './security-utils'
 import { Logger, MetricsCollector } from './monitoring'
@@ -33,7 +33,7 @@ export class RouteProtector {
     try {
       // Get route-specific protection rules
       const routeConfig = this.getRouteConfig(pathname, config.routes)
-      
+
       if (!routeConfig) {
         // No specific rules, apply default protection
         return this.applyDefaultProtection(context)
@@ -65,7 +65,7 @@ export class RouteProtector {
         if (!result.shouldContinue) {
           return result
         }
-        
+
         // Merge any context updates
         if (result.context) {
           Object.assign(context, result.context)
@@ -78,7 +78,7 @@ export class RouteProtector {
     } catch (error) {
       Logger.error('Route protection error', error as Error, {}, context)
       MetricsCollector.recordSecurityEvent('MALFORMED_REQUEST' as any)
-      
+
       return {
         shouldContinue: false,
         response: NextResponse.json(
@@ -98,30 +98,52 @@ export class RouteProtector {
       return routes[pathname]
     }
 
-    // Then try pattern matching
+    // Collect all matching patterns and pick the most specific one
+    const matches: Array<{ pattern: string; config: RouteProtection }> = []
+
     for (const [pattern, config] of Object.entries(routes)) {
       if (this.matchesPattern(pathname, pattern)) {
-        return config
+        matches.push({ pattern, config })
       }
     }
 
-    return null
+    if (matches.length === 0) return null
+
+    // Heuristic: prefer the most specific pattern. Compute a simple specificity
+    // score based on number of non-wildcard characters (longer more specific).
+    matches.sort((a, b) => {
+      const scoreA = a.pattern.replace(/\*|\[|\]|\./g, '').length
+      const scoreB = b.pattern.replace(/\*|\[|\]|\./g, '').length
+      return scoreB - scoreA
+    })
+
+    return matches[0].config
   }
 
   /**
    * Check if pathname matches a pattern
    */
   private static matchesPattern(pathname: string, pattern: string): boolean {
-    if (pattern.includes('*')) {
-      const regexPattern = pattern
-        .replace(/\*/g, '.*')
-        .replace(/\//g, '\\/')
-      
-      const regex = new RegExp(`^${regexPattern}$`)
-      return regex.test(pathname)
-    }
+    // Convert Next.js-style dynamic segments and wildcards into a regex
+    // Examples:
+    //  - /coaching/[slug]/branch/[id] => ^/coaching/([^/]+)/branch/([^/]+)$
+    //  - /coaching* => ^/coaching.*$
 
-    return pathname === pattern
+    // Escape regexp special chars except our tokens ([, ], ..., *)
+    let regexPattern = pattern
+      .replace(/\//g, '\\/')
+
+    // Handle catch-all ([...param]) -> match one or more segments
+    regexPattern = regexPattern.replace(/\[\.\.\.([^\]]+)\]/g, '(.+)')
+
+    // Handle single dynamic segments ([param]) -> match single path segment
+    regexPattern = regexPattern.replace(/\[([^\]]+)\]/g, '([^\\/]+)')
+
+    // Handle wildcard * -> match any characters
+    regexPattern = regexPattern.replace(/\*/g, '.*')
+
+    const regex = new RegExp(`^${regexPattern}$`)
+    return regex.test(pathname)
   }
 
   /**
@@ -155,13 +177,15 @@ export class RouteProtector {
    * Check basic request validation
    */
   private static async checkBasicValidation(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { request } = context
 
     // Check for suspicious requests
     if (RequestValidator.isSuspiciousRequest(request)) {
+      // For PUBLIC routes we don't block on non-critical suspicious flags —
+      // just log and continue. For protected routes, treat as before.
       Logger.warn('Suspicious request detected', {
         url: request.nextUrl.href,
         userAgent: request.headers.get('user-agent')
@@ -180,6 +204,11 @@ export class RouteProtector {
 
       MetricsCollector.recordSecurityEvent('SUSPICIOUS_ACTIVITY' as any)
 
+      if (config.securityLevel === SecurityLevel.PUBLIC) {
+        // Allow public routes to continue; do not block the request.
+        return { shouldContinue: true }
+      }
+
       return {
         shouldContinue: false,
         response: NextResponse.json(
@@ -196,7 +225,7 @@ export class RouteProtector {
    * Check IP restrictions
    */
   private static async checkIPRestrictions(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { requestContext } = context
@@ -205,7 +234,7 @@ export class RouteProtector {
     // Check IP blacklist
     if (config.ipBlacklist && config.ipBlacklist.some(blockedIP => IPUtils.isIPInRange(ip, blockedIP))) {
       Logger.warn('Request from blacklisted IP', { ip }, context)
-      
+
       SecurityEventTracker.recordEvent({
         type: 'BLOCKED_IP' as any,
         timestamp: new Date(),
@@ -231,7 +260,7 @@ export class RouteProtector {
     // Check IP whitelist (if configured)
     if (config.ipWhitelist && !config.ipWhitelist.some(allowedIP => IPUtils.isIPInRange(ip, allowedIP))) {
       Logger.warn('Request from non-whitelisted IP', { ip }, context)
-      
+
       return {
         shouldContinue: false,
         response: NextResponse.json(
@@ -244,7 +273,7 @@ export class RouteProtector {
     // Check if IP is marked as suspicious
     if (SecurityEventTracker.isSuspiciousIP(ip)) {
       Logger.warn('Request from suspicious IP', { ip }, context)
-      
+
       return {
         shouldContinue: false,
         response: NextResponse.json(
@@ -261,15 +290,15 @@ export class RouteProtector {
    * Check HTTP method restrictions
    */
   private static async checkMethodRestrictions(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { request } = context
 
     if (config.allowedMethods && !RequestValidator.validateMethod(request, config.allowedMethods)) {
-      Logger.warn('Method not allowed', { 
-        method: request.method, 
-        allowedMethods: config.allowedMethods 
+      Logger.warn('Method not allowed', {
+        method: request.method,
+        allowedMethods: config.allowedMethods
       }, context)
 
       return {
@@ -288,16 +317,16 @@ export class RouteProtector {
    * Check request size limits
    */
   private static async checkRequestSize(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { request } = context
     const maxSize = config.maxRequestSize || context.config.security.maxRequestSize
 
     if (!RequestValidator.validateRequestSize(request, maxSize)) {
-      Logger.warn('Request size exceeds limit', { 
+      Logger.warn('Request size exceeds limit', {
         contentLength: request.headers.get('content-length'),
-        maxSize 
+        maxSize
       }, context)
 
       return {
@@ -316,7 +345,7 @@ export class RouteProtector {
    * Check rate limiting
    */
   private static async checkRateLimit(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     if (!context.config.rateLimiting.enabled || !config.rateLimiting) {
@@ -327,10 +356,10 @@ export class RouteProtector {
     const rateLimitState = RateLimiter.isRateLimited(key, config.rateLimiting)
 
     if (rateLimitState.isLimited) {
-      Logger.warn('Rate limit exceeded', { 
-        key, 
+      Logger.warn('Rate limit exceeded', {
+        key,
         requests: rateLimitState.requests,
-        limit: config.rateLimiting.requests 
+        limit: config.rateLimiting.requests
       }, context)
 
       SecurityEventTracker.recordEvent({
@@ -352,7 +381,7 @@ export class RouteProtector {
       )
 
       // Add rate limit headers
-      response.headers.set('X-Rate-Limit-Remaining', 
+      response.headers.set('X-Rate-Limit-Remaining',
         Math.max(0, config.rateLimiting.requests - rateLimitState.requests).toString())
       response.headers.set('X-Rate-Limit-Reset', rateLimitState.resetTime.toString())
 
@@ -373,7 +402,7 @@ export class RouteProtector {
    * Check authentication requirements
    */
   private static async checkAuthentication(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     if (config.securityLevel === SecurityLevel.PUBLIC) {
@@ -427,7 +456,7 @@ export class RouteProtector {
    * Check authorization (roles and permissions)
    */
   private static async checkAuthorization(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     if (!context.user || config.securityLevel === SecurityLevel.PUBLIC || config.securityLevel === SecurityLevel.AUTHENTICATED) {
@@ -442,12 +471,76 @@ export class RouteProtector {
           requiredRoles: config.allowedRoles
         }, context)
 
+        // For API routes, return JSON error.
+        if (context.request.nextUrl.pathname.startsWith('/api/')) {
+          return {
+            shouldContinue: false,
+            response: NextResponse.json(
+              { error: 'Insufficient permissions' },
+              { status: 403 }
+            )
+          }
+        }
+
+        // For web routes, show a friendly HTML message and redirect back to the
+        // previous page (referer) or history.back() after 5 seconds. This avoids
+        // rendering a raw JSON error body in the browser.
+        const referer = context.request.headers.get('referer')
+        const returnTo = referer || ''
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Insufficient permissions</title>
+    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#111827} .card{max-width:520px;padding:24px;border-radius:8px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .muted{color:#6b7280}</style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Insufficient permissions</h1>
+      <p class="muted">You don't have permission to access this resource.</p>
+      <p class="muted">You will be returned to the previous page in <span id="count">5</span> seconds.</p>
+      <p><a id="backNow" href="#">Go back now</a></p>
+    </div>
+
+    <script>
+      (function(){
+        var seconds = 5;
+        var el = document.getElementById('count');
+        var backLink = document.getElementById('backNow');
+        function tick(){
+          seconds -= 1;
+          if(el) el.textContent = String(seconds);
+          if(seconds <= 0){
+            if(${returnTo ? 'true' : 'false'}){
+              // If referer provided, navigate there
+              window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+            } else {
+              // Otherwise attempt history back
+              if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+            }
+          }
+        }
+        backLink.addEventListener('click', function(e){
+          e.preventDefault();
+          if(${returnTo ? 'true' : 'false'}){
+            window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+          } else {
+            if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+          }
+        });
+        setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>`
+
         return {
           shouldContinue: false,
-          response: NextResponse.json(
-            { error: 'Insufficient permissions' },
-            { status: 403 }
-          )
+          response: new NextResponse(html, {
+            status: 403,
+            headers: { 'content-type': 'text/html; charset=utf-8' }
+          })
         }
       }
     }
@@ -460,12 +553,73 @@ export class RouteProtector {
           requiredPermissions: config.requiredPermissions
         }, context)
 
+        // For API routes, return JSON error.
+        if (context.request.nextUrl.pathname.startsWith('/api/')) {
+          return {
+            shouldContinue: false,
+            response: NextResponse.json(
+              { error: 'Insufficient permissions' },
+              { status: 403 }
+            )
+          }
+        }
+
+        // For web routes, show a friendly HTML message and redirect back to the
+        // previous page (referer) or history.back() after 5 seconds.
+        const referer = context.request.headers.get('referer')
+        const returnTo = referer || ''
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Insufficient permissions</title>
+    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#111827} .card{max-width:520px;padding:24px;border-radius:8px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .muted{color:#6b7280}</style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Insufficient permissions</h1>
+      <p class="muted">You don't have permission to access this resource.</p>
+      <p class="muted">You will be returned to the previous page in <span id="count">5</span> seconds.</p>
+      <p><a id="backNow" href="#">Go back now</a></p>
+    </div>
+
+    <script>
+      (function(){
+        var seconds = 5;
+        var el = document.getElementById('count');
+        var backLink = document.getElementById('backNow');
+        function tick(){
+          seconds -= 1;
+          if(el) el.textContent = String(seconds);
+          if(seconds <= 0){
+            if(${returnTo ? 'true' : 'false'}){
+              window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+            } else {
+              if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+            }
+          }
+        }
+        backLink.addEventListener('click', function(e){
+          e.preventDefault();
+          if(${returnTo ? 'true' : 'false'}){
+            window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+          } else {
+            if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+          }
+        });
+        setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>`
+
         return {
           shouldContinue: false,
-          response: NextResponse.json(
-            { error: 'Insufficient permissions' },
-            { status: 403 }
-          )
+          response: new NextResponse(html, {
+            status: 403,
+            headers: { 'content-type': 'text/html; charset=utf-8' }
+          })
         }
       }
     }
@@ -477,7 +631,7 @@ export class RouteProtector {
    * Check CSRF protection
    */
   private static async checkCSRF(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { request } = context
@@ -511,7 +665,7 @@ export class RouteProtector {
     // Validate CSRF token
     if (!AuthHandler.validateCSRFToken(request, csrfToken)) {
       Logger.warn('Invalid CSRF token', {}, context)
-      
+
       SecurityEventTracker.recordEvent({
         type: 'CSRF_VIOLATION' as any,
         timestamp: new Date(),
@@ -541,7 +695,7 @@ export class RouteProtector {
    * Check API key authentication
    */
   private static async checkAPIKey(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     const { request } = context
@@ -553,7 +707,7 @@ export class RouteProtector {
 
     if (!AuthHandler.validateApiKey(request, apiKeyConfig.validKeys)) {
       Logger.warn('Invalid API key', {}, context)
-      
+
       SecurityEventTracker.recordEvent({
         type: 'INVALID_API_KEY' as any,
         timestamp: new Date(),
@@ -583,7 +737,7 @@ export class RouteProtector {
    * Check custom validator
    */
   private static async checkCustomValidator(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     if (!config.customValidator) {
@@ -592,10 +746,10 @@ export class RouteProtector {
 
     try {
       const isValid = await config.customValidator(context)
-      
+
       if (!isValid) {
         Logger.warn('Custom validation failed', {}, context)
-        
+
         return {
           shouldContinue: false,
           response: NextResponse.json(
@@ -606,7 +760,7 @@ export class RouteProtector {
       }
     } catch (error) {
       Logger.error('Custom validator error', error as Error, {}, context)
-      
+
       return {
         shouldContinue: false,
         response: NextResponse.json(
@@ -623,7 +777,7 @@ export class RouteProtector {
    * Sanitize request if needed
    */
   private static async sanitizeRequest(
-    context: MiddlewareContext, 
+    context: MiddlewareContext,
     config: RouteProtection
   ): Promise<MiddlewareResult> {
     if (!config.sanitizeInput) {
@@ -634,14 +788,14 @@ export class RouteProtector {
       // For POST/PUT requests with JSON body, sanitize the body
       if (context.request.method === 'POST' || context.request.method === 'PUT') {
         const contentType = context.request.headers.get('content-type')
-        
+
         if (contentType && contentType.includes('application/json')) {
           const body = await context.request.text()
-          
+
           if (body) {
             const parsed = JSON.parse(body)
             const sanitized = RequestValidator.sanitizeInput(parsed)
-            
+
             // Create new request with sanitized body
             const modifiedRequest = new NextRequest(context.request.url, {
               method: context.request.method,

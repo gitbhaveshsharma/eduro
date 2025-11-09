@@ -45,7 +45,7 @@ export default function ConnectionsPage({
     }, []);
 
     return (
-        <div className="container max-w-6xl mx-auto py-8 px-4 space-y-6 bg-gradient-to-br from-primary/5 to-secondary/5">
+        <div className=" max-w-7xl mx-auto  space-y-6 bg-gradient-to-br from-primary/5 to-secondary/5">
             {/* Page Header */}
             <div className="space-y-2">
                 <h1 className="text-3xl font-bold">Connections</h1>

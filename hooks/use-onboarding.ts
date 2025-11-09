@@ -1,8 +1,18 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useCurrentProfile, useCurrentProfileLoading } from '@/lib/profile'
+import { isPublicRoute } from '@/lib/utils/auth-redirect'
+
+// Constants to avoid magic numbers
+const ONBOARDING_LEVELS = {
+  ROLE_SELECTION: 1,
+  PERSONAL_INFO: 2,
+  COACHING_DETAILS: 3, // Only for coaching centers
+  TERMS: 4,
+  COMPLETE: 5
+} as const
 
 /**
  * Hook to handle onboarding redirects based on user's onboarding level
@@ -11,31 +21,43 @@ import { useCurrentProfile, useCurrentProfileLoading } from '@/lib/profile'
 export function useOnboardingRedirect() {
   const router = useRouter()
   const pathname = usePathname()
+  const currentPath = pathname || '/'
   const profile = useCurrentProfile()
   const loading = useCurrentProfileLoading()
 
-  useEffect(() => {
-    // Don't redirect if still loading or no profile
-    if (loading || !profile) return
+  // Memoize computed values to avoid recalculating on every render
+  const {
+    onboardingLevel,
+    requiredLevel,
+    isOnOnboardingPage,
+    isAuthPage,
+    shouldRedirect
+  } = useMemo(() => {
+    const onboardingLevel = profile ? parseInt(profile.onboarding_level || '1', 10) : 1
+    const requiredLevel = getRequiredOnboardingLevel(profile?.role || 'S')
+    const isOnOnboardingPage = currentPath.startsWith('/onboarding')
+    const isAuthPage = currentPath.startsWith('/login') ||
+      currentPath.startsWith('/signup') ||
+      currentPath.startsWith('/auth')
 
-    // Don't redirect if already on auth pages
-    const isAuthPage = pathname.startsWith('/login') || 
-                      pathname.startsWith('/signup') || 
-                      pathname.startsWith('/auth')
+    const shouldRedirect = !loading &&
+      !isAuthPage &&
+      !isPublicRoute(currentPath) &&
+      profile &&
+      ((onboardingLevel < requiredLevel && !isOnOnboardingPage) ||
+        (onboardingLevel >= requiredLevel && isOnOnboardingPage))
 
-    if (isAuthPage) return
-
-    // Check onboarding level - ensure it's parsed as a number
-    const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
-    const isOnOnboardingPage = pathname.startsWith('/onboarding')
-
-    // Different completion levels based on role
-    const getRequiredOnboardingLevel = (userRole: string) => {
-      if (userRole === 'C') return 5; // Coaching centers need 5 steps (Role, Personal, Coaching, Terms, Complete)
-      return 5; // Others need 5 steps (Role, Personal, Terms, Complete)
+    return {
+      onboardingLevel,
+      requiredLevel,
+      isOnOnboardingPage,
+      isAuthPage,
+      shouldRedirect
     }
+  }, [loading, profile, currentPath])
 
-    const requiredLevel = getRequiredOnboardingLevel(profile.role || 'S')
+  useEffect(() => {
+    if (!shouldRedirect) return
 
     // If user hasn't completed onboarding and is not on onboarding page, redirect
     if (onboardingLevel < requiredLevel && !isOnOnboardingPage) {
@@ -46,23 +68,18 @@ export function useOnboardingRedirect() {
 
     // If user has completed onboarding but is on onboarding page, redirect to dashboard
     if (onboardingLevel >= requiredLevel && isOnOnboardingPage) {
-      // console.log('Redirecting to dashboard - level:', onboardingLevel)
       router.push('/')
       return
     }
-  }, [loading, profile, pathname, router])
+  }, [shouldRedirect, onboardingLevel, requiredLevel, isOnOnboardingPage, router])
 
   return {
     loading,
     profile,
-    shouldShowOnboarding: profile ? parseInt(profile.onboarding_level || '1', 10) < getRequiredOnboardingLevel(profile.role || 'S') : false,
-    onboardingCompleted: profile ? parseInt(profile.onboarding_level || '1', 10) >= getRequiredOnboardingLevel(profile.role || 'S') : false,
-    onboardingLevel: profile ? parseInt(profile.onboarding_level || '1', 10) : 1
-  }
-
-  function getRequiredOnboardingLevel(userRole: string) {
-    if (userRole === 'C') return 5; // Coaching centers need 5 steps (Role, Personal, Coaching, Terms, Complete)
-    return 5; // Others need 5 steps (Role, Personal, Terms, Complete)
+    shouldShowOnboarding: onboardingLevel < requiredLevel,
+    onboardingCompleted: onboardingLevel >= requiredLevel,
+    onboardingLevel,
+    requiredLevel
   }
 }
 
@@ -72,7 +89,7 @@ export function useOnboardingRedirect() {
 export function isOnboardingRequired(profile: any): boolean {
   if (!profile) return false
   const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
-  const requiredLevel = 5 // All roles now require completing terms (level 5)
+  const requiredLevel = getRequiredOnboardingLevel(profile.role || 'S')
   return onboardingLevel < requiredLevel
 }
 
@@ -80,20 +97,28 @@ export function isOnboardingRequired(profile: any): boolean {
  * Utility function to get the appropriate onboarding step
  */
 export function getOnboardingStep(profile: any): number {
-  if (!profile) return 1
+  if (!profile) return ONBOARDING_LEVELS.ROLE_SELECTION
+
   const onboardingLevel = parseInt(profile.onboarding_level || '1', 10)
   const role = profile.role || 'S'
-  
+
   if (role === 'C') {
     // Coaching center flow: Role (1) → Personal Info (2) → Coaching Details (3) → Terms (4) → Complete (5)
-    if (onboardingLevel >= 4) return 4 // Terms and conditions step
-    if (onboardingLevel >= 3) return 3 // Coaching details step
-    if (onboardingLevel >= 2) return 2 // Personal info step
-    return 1 // Role selection step
+    if (onboardingLevel >= ONBOARDING_LEVELS.TERMS) return ONBOARDING_LEVELS.TERMS
+    if (onboardingLevel >= ONBOARDING_LEVELS.COACHING_DETAILS) return ONBOARDING_LEVELS.COACHING_DETAILS
+    if (onboardingLevel >= ONBOARDING_LEVELS.PERSONAL_INFO) return ONBOARDING_LEVELS.PERSONAL_INFO
+    return ONBOARDING_LEVELS.ROLE_SELECTION
   } else {
     // Other roles flow: Role (1) → Personal Info (2) → Terms (4) → Complete (5)
-    if (onboardingLevel >= 3) return 4 // Terms and conditions step (skipping step 3)
-    if (onboardingLevel >= 2) return 2 // Personal info step
-    return 1 // Role selection step
+    if (onboardingLevel >= 3) return ONBOARDING_LEVELS.TERMS // Skip step 3 for non-coaching roles
+    if (onboardingLevel >= ONBOARDING_LEVELS.PERSONAL_INFO) return ONBOARDING_LEVELS.PERSONAL_INFO
+    return ONBOARDING_LEVELS.ROLE_SELECTION
   }
+}
+
+/**
+ * Get required onboarding level based on user role
+ */
+function getRequiredOnboardingLevel(userRole: string): number {
+  return ONBOARDING_LEVELS.COMPLETE // All roles require level 5 (terms completion)
 }

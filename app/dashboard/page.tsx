@@ -2,7 +2,6 @@
 import { DashboardHeader } from '@/components/dashboard/dashboard-header'
 import { DashboardStats } from '@/components/dashboard/dashboard-stats'
 import { DashboardActions } from '@/components/dashboard/dashboard-actions'
-import { DashboardHeaderAvatar } from '@/components/dashboard/dashboard-header-avatar'
 import { ProfileServerService } from '@/lib/service/server/profile-server.service'
 
 // Force dynamic rendering for authenticated pages
@@ -35,7 +34,7 @@ export default async function DashboardPage() {
     }
 
     return (
-        <main className="min-h-screen bg-background">
+        <main className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
             <div className="max-w-6xl mx-auto p-6 space-y-6">
                 {/* LCP Element - Renders instantly */}
                 <DashboardHeader profile={profile} />

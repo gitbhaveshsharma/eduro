@@ -152,6 +152,9 @@ interface AddressActions {
   // Utility actions
   refreshAddressData: (addressId?: string) => Promise<void>;
   bulkUpdateAddresses: (updates: Array<{ id: string; updates: AddressUpdate }>) => Promise<boolean>;
+  linkAddressToEntity: (addressId: string, entityType: 'branch' | 'coaching', entityId: string) => Promise<boolean>;
+  unlinkAddressFromEntity: (addressId: string) => Promise<boolean>;
+  getAddressByEntity: (entityType: 'branch' | 'coaching', entityId: string) => Promise<Address | null>;
 }
 
 type AddressStore = AddressState & AddressActions;
@@ -222,7 +225,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Cache the addresses
               result.data.forEach((address: Address) => {
                 state.addressCache.set(address.id, address);
@@ -239,18 +242,18 @@ export const useAddressStore = create<AddressStore>()(
           set((state) => {
             if (result.success && result.data) {
               state.primaryAddress = result.data;
-              
+
               // Ensure currentUserAddresses is initialized
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               // Update in current addresses if it exists
               const index = state.currentUserAddresses.findIndex((a: Address) => a.id === result.data!.id);
               if (index >= 0) {
                 state.currentUserAddresses[index] = result.data;
               }
-              
+
               // Cache the address
               if (!state.addressCache) {
                 state.addressCache = new Map();
@@ -274,9 +277,9 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               state.currentUserAddresses.unshift(result.data);
-              
+
               // Update primary address if this was set as primary
               if (result.data.is_primary) {
                 state.primaryAddress = result.data;
@@ -292,7 +295,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Cache the new address
               state.addressCache.set(result.data.id, result.data);
               state.createFormData = null;
@@ -320,13 +323,13 @@ export const useAddressStore = create<AddressStore>()(
               state.operationLoading = new Map();
             }
             state.operationLoading.delete(addressId);
-            
+
             if (result.success && result.data) {
               // Ensure currentUserAddresses is initialized
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               // Update in current addresses
               const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
               if (index >= 0) {
@@ -348,7 +351,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Update cache
               state.addressCache.set(addressId, result.data);
               state.editFormData = null;
@@ -367,7 +370,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.currentUserAddresses) {
               state.currentUserAddresses = [];
             }
-            
+
             // Update in current addresses
             const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
             if (index >= 0) {
@@ -378,7 +381,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.addressCache) {
               state.addressCache = new Map();
             }
-            
+
             // Update in cache
             const cached = state.addressCache.get(addressId);
             if (cached) {
@@ -397,13 +400,13 @@ export const useAddressStore = create<AddressStore>()(
           const result = await AddressService.getAddress(addressId);
           if (result.success && result.data) {
             get().cacheAddress(result.data);
-            
+
             set((state) => {
               // Ensure currentUserAddresses is initialized
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
               if (index >= 0) {
                 state.currentUserAddresses[index] = result.data!;
@@ -427,16 +430,16 @@ export const useAddressStore = create<AddressStore>()(
               state.operationLoading = new Map();
             }
             state.operationLoading.delete(addressId);
-            
+
             if (result.success) {
               // Ensure currentUserAddresses is initialized
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               // Remove from current addresses
               state.currentUserAddresses = state.currentUserAddresses.filter((a: Address) => a.id !== addressId);
-              
+
               // Clear primary address if it was the deleted one
               if (state.primaryAddress?.id === addressId) {
                 state.primaryAddress = null;
@@ -449,7 +452,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.permissionsCache) {
                 state.permissionsCache = new Map();
               }
-              
+
               // Remove from cache
               state.addressCache.delete(addressId);
               state.permissionsCache.delete(addressId);
@@ -474,7 +477,7 @@ export const useAddressStore = create<AddressStore>()(
               state.operationLoading = new Map();
             }
             state.operationLoading.delete(addressId);
-            
+
             if (result.success && result.data) {
               // Update primary address
               state.primaryAddress = result.data;
@@ -483,7 +486,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.currentUserAddresses) {
                 state.currentUserAddresses = [];
               }
-              
+
               // Update current addresses
               state.currentUserAddresses.forEach((addr: Address) => {
                 addr.is_primary = addr.id === addressId;
@@ -493,7 +496,7 @@ export const useAddressStore = create<AddressStore>()(
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Update cache
               state.addressCache.set(addressId, result.data);
             }
@@ -535,7 +538,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.addressCacheErrors) {
               state.addressCacheErrors = new Map();
             }
-            
+
             state.addressCacheLoading.add(addressId);
             state.addressCacheErrors.delete(addressId);
           });
@@ -553,7 +556,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.addressCacheErrors) {
               state.addressCacheErrors = new Map();
             }
-            
+
             state.addressCacheLoading.delete(addressId);
             if (result.success && result.data) {
               state.addressCache.set(addressId, result.data);
@@ -590,7 +593,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.addressCacheErrors) {
               state.addressCacheErrors = new Map();
             }
-            
+
             state.addressCache.set(address.id, address);
             state.addressCacheErrors.delete(address.id);
           });
@@ -602,7 +605,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.publicAddressCache) {
               state.publicAddressCache = new Map();
             }
-            
+
             state.publicAddressCache.set(userId, addresses);
           });
         },
@@ -622,7 +625,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.addressCacheErrors) {
               state.addressCacheErrors = new Map();
             }
-            
+
             state.addressCache.clear();
             state.publicAddressCache.clear();
             state.addressCacheLoading.clear();
@@ -645,7 +648,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.permissionsCache) {
               state.permissionsCache = new Map();
             }
-            
+
             state.addressCache.delete(addressId);
             state.addressCacheErrors.delete(addressId);
             state.addressCacheLoading.delete(addressId);
@@ -673,12 +676,12 @@ export const useAddressStore = create<AddressStore>()(
             state.searchLoading = false;
             if (result.success && result.data) {
               state.searchResults = result.data;
-              
+
               // Ensure addressCache is initialized
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Cache the addresses
               result.data.addresses.forEach((address: Address) => {
                 state.addressCache.set(address.id, address);
@@ -727,12 +730,12 @@ export const useAddressStore = create<AddressStore>()(
             state.nearbyLoading = false;
             if (result.success && result.data) {
               state.nearbyAddresses = result.data;
-              
+
               // Ensure addressCache is initialized
               if (!state.addressCache) {
                 state.addressCache = new Map();
               }
-              
+
               // Cache the addresses
               result.data.addresses.forEach((address: Address) => {
                 state.addressCache.set(address.id, address);
@@ -796,7 +799,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.permissionsCache) {
               state.permissionsCache = new Map();
             }
-            
+
             state.permissionsCache.set(addressId, permissions);
           });
         },
@@ -805,7 +808,7 @@ export const useAddressStore = create<AddressStore>()(
         geocodeAddress: async (address: Partial<Address>) => {
           const addressString = JSON.stringify(address);
           const cache = get().geocodingCache;
-          
+
           if (cache && cache.has(addressString)) {
             return cache.get(addressString)!;
           }
@@ -817,7 +820,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.geocodingCache) {
               state.geocodingCache = new Map();
             }
-            
+
             state.geocodingCache.set(addressString, result);
           });
 
@@ -839,7 +842,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.reverseGeocodingCache) {
               state.reverseGeocodingCache = new Map();
             }
-            
+
             state.reverseGeocodingCache.set(coordString, result);
           });
 
@@ -910,7 +913,7 @@ export const useAddressStore = create<AddressStore>()(
             if (!state.operationLoading) {
               state.operationLoading = new Map();
             }
-            
+
             if (loading) {
               state.operationLoading.set(addressId, true);
             } else {
@@ -932,18 +935,18 @@ export const useAddressStore = create<AddressStore>()(
             const result = await AddressService.getAddress(addressId);
             if (result.success && result.data) {
               get().cacheAddress(result.data);
-              
+
               set((state) => {
                 // Ensure currentUserAddresses is initialized
                 if (!state.currentUserAddresses) {
                   state.currentUserAddresses = [];
                 }
-                
+
                 const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
                 if (index >= 0) {
                   state.currentUserAddresses[index] = result.data!;
                 }
-                
+
                 if (state.primaryAddress?.id === addressId) {
                   state.primaryAddress = result.data!;
                 }
@@ -978,6 +981,91 @@ export const useAddressStore = create<AddressStore>()(
           });
 
           return allSuccessful;
+        },
+
+        linkAddressToEntity: async (addressId: string, entityType: 'branch' | 'coaching', entityId: string) => {
+          const result = await AddressService.linkAddressToEntity(addressId, entityType, entityId);
+
+          if (result.success && result.data) {
+            // Update cache and current addresses
+            get().cacheAddress(result.data);
+
+            set((state) => {
+              // Ensure currentUserAddresses is initialized
+              if (!state.currentUserAddresses) {
+                state.currentUserAddresses = [];
+              }
+
+              const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
+              if (index >= 0) {
+                state.currentUserAddresses[index] = result.data!;
+              }
+
+              if (state.primaryAddress?.id === addressId) {
+                state.primaryAddress = result.data!;
+              }
+            });
+
+            return true;
+          }
+
+          return false;
+        },
+
+        unlinkAddressFromEntity: async (addressId: string) => {
+          const result = await AddressService.unlinkAddressFromEntity(addressId);
+
+          if (result.success && result.data) {
+            // Update cache and current addresses
+            get().cacheAddress(result.data);
+
+            set((state) => {
+              // Ensure currentUserAddresses is initialized
+              if (!state.currentUserAddresses) {
+                state.currentUserAddresses = [];
+              }
+
+              const index = state.currentUserAddresses.findIndex((a: Address) => a.id === addressId);
+              if (index >= 0) {
+                state.currentUserAddresses[index] = result.data!;
+              }
+
+              if (state.primaryAddress?.id === addressId) {
+                state.primaryAddress = result.data!;
+              }
+            });
+
+            return true;
+          }
+
+          return false;
+        },
+
+        getAddressByEntity: async (entityType: 'branch' | 'coaching', entityId: string) => {
+          try {
+            const filters: AddressFilters = entityType === 'branch'
+              ? { branch_id: entityId }
+              : { coaching_id: entityId };
+
+            const result = await AddressService.searchAddresses(
+              filters,
+              { field: 'updated_at', direction: 'desc' },
+              1,
+              1
+            );
+
+            if (result.success && result.data && result.data.addresses.length > 0) {
+              const address = result.data.addresses[0];
+              // Cache the address
+              get().cacheAddress(address);
+              return address;
+            }
+
+            return null;
+          } catch (error) {
+            console.error(`Failed to load address for ${entityType}:`, error);
+            return null;
+          }
         },
       })),
       {

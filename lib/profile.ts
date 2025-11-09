@@ -86,20 +86,20 @@ export class ProfileAPI {
     perPage?: number
   ) {
     // console.log('🟠 ProfileAPI.searchProfiles - Called with:', { filters, sort, page, perPage });
-    
+
     // Call the ProfileService directly instead of using the store
     // This ensures we get fresh results and avoid timing issues
     const { ProfileService } = await import('./service/profile.service');
-    
+
     try {
       const result = await ProfileService.searchProfiles(filters, sort, page, perPage);
-      
+
       // console.log('🟠 ProfileAPI.searchProfiles - Service result:', {
       //   success: result.success,
       //   profileCount: result.data?.profiles?.length || 0,
       //   error: result.error,
       // });
-      
+
       if (result.success && result.data) {
         return result.data;
       } else {
@@ -110,6 +110,14 @@ export class ProfileAPI {
       console.error('🔴 ProfileAPI.searchProfiles - Exception caught:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get profile by ID
+   */
+  static async getProfileById(userId: string) {
+    const store = useProfileStore.getState();
+    return await store.loadProfile(userId);
   }
 
   /**
@@ -175,33 +183,33 @@ export const PROFILE_CONSTANTS = {
   USERNAME_MAX_LENGTH: 20,
   BIO_MAX_LENGTH: 500,
   FULL_NAME_MAX_LENGTH: 100,
-  
+
   // File upload limits
   AVATAR_MAX_SIZE: 5 * 1024 * 1024, // 5MB
   AVATAR_ALLOWED_TYPES: ['image/jpeg', 'image/png', 'image/webp'],
-  
+
   // Pagination defaults
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
-  
+
   // Search limits
   SEARCH_MIN_QUERY_LENGTH: 2,
   SEARCH_MAX_RESULTS: 1000,
-  
+
   // Cache settings
   PROFILE_CACHE_TTL: 5 * 60 * 1000, // 5 minutes
   SEARCH_CACHE_TTL: 2 * 60 * 1000, // 2 minutes
-  
+
   // Role permissions
   ROLES_CAN_VIEW_PRIVATE: ['SA', 'A'],
   ROLES_CAN_EDIT_OTHERS: ['SA', 'A'],
   ROLES_CAN_VIEW_ALL: ['SA', 'A', 'C'],
-  
+
   // Completion thresholds
   COMPLETION_EXCELLENT: 90,
   COMPLETION_GOOD: 70,
   COMPLETION_FAIR: 50,
-  
+
   // Reputation levels
   REPUTATION_NOVICE: 0,
   REPUTATION_INTERMEDIATE: 100,
@@ -218,27 +226,27 @@ export const PROFILE_ERROR_CODES = {
   // Authentication errors
   NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
   INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
-  
+
   // Validation errors
   INVALID_USERNAME: 'INVALID_USERNAME',
   USERNAME_TAKEN: 'USERNAME_TAKEN',
   INVALID_EMAIL: 'INVALID_EMAIL',
   INVALID_PHONE: 'INVALID_PHONE',
   INVALID_URL: 'INVALID_URL',
-  
+
   // Upload errors
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
   INVALID_FILE_TYPE: 'INVALID_FILE_TYPE',
   UPLOAD_FAILED: 'UPLOAD_FAILED',
-  
+
   // Database errors
   PROFILE_NOT_FOUND: 'PROFILE_NOT_FOUND',
   DATABASE_ERROR: 'DATABASE_ERROR',
   CONSTRAINT_VIOLATION: 'CONSTRAINT_VIOLATION',
-  
+
   // Rate limiting
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
-  
+
   // General errors
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
   NETWORK_ERROR: 'NETWORK_ERROR',

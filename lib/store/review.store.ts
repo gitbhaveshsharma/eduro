@@ -49,6 +49,10 @@ interface SearchCache {
   };
 }
 
+interface PendingRequestsCache {
+  [key: string]: Promise<any>;
+}
+
 interface ReviewStoreState {
   // Current review (when viewing details)
   currentReview: ReviewWithDetails | null;
@@ -85,6 +89,7 @@ interface ReviewStoreState {
   reviewCache: ReviewCache;
   ratingSummaryCache: RatingSummaryCache;
   searchCache: SearchCache;
+  pendingRequests: PendingRequestsCache;
 }
 
 interface ReviewStoreActions {
@@ -107,6 +112,12 @@ interface ReviewStoreActions {
     page?: number,
     perPage?: number
   ) => Promise<void>;
+  loadCoachingCenterReviews: (
+    centerId: string,
+    sortBy?: ReviewSortBy,
+    page?: number,
+    perPage?: number
+  ) => Promise<void>;
   loadLocationReviews: (
     location: { state?: string; district?: string; city?: string },
     sortBy?: ReviewSortBy,
@@ -116,6 +127,14 @@ interface ReviewStoreActions {
 
   // Rating summary
   loadRatingSummary: (branchId: string, forceRefresh?: boolean) => Promise<void>;
+  loadCoachingCenterRatingSummary: (centerId: string, forceRefresh?: boolean) => Promise<void>;
+  loadBranchReviewsWithSummary: (
+    branchId: string,
+    sortBy?: ReviewSortBy,
+    page?: number,
+    perPage?: number,
+    forceRefresh?: boolean
+  ) => Promise<void>;
 
   // User's reviews
   loadMyReviews: () => Promise<void>;
@@ -177,7 +196,8 @@ const initialState: ReviewStoreState = {
 
   reviewCache: {},
   ratingSummaryCache: {},
-  searchCache: {}
+  searchCache: {},
+  pendingRequests: {}
 };
 
 // ============================================================
@@ -480,6 +500,19 @@ export const useReviewStore = create<ReviewStore>()(
         );
       },
 
+      loadCoachingCenterReviews: async (
+        centerId: string,
+        sortBy = 'recent' as ReviewSortBy,
+        page = 1,
+        perPage = REVIEW_CONSTANTS.DEFAULT_PAGE_SIZE
+      ) => {
+        await get().searchReviews(
+          { center_id: centerId, sort_by: sortBy },
+          page,
+          perPage
+        );
+      },
+
       loadLocationReviews: async (
         location: { state?: string; district?: string; city?: string },
         sortBy = 'recent' as ReviewSortBy,
@@ -499,6 +532,12 @@ export const useReviewStore = create<ReviewStore>()(
 
       loadRatingSummary: async (branchId: string, forceRefresh = false) => {
         const state = get();
+        const requestKey = `rating_summary_${branchId}`;
+
+        // Check if request is already pending
+        if (requestKey in state.pendingRequests) {
+          return await state.pendingRequests[requestKey];
+        }
 
         // Check cache first
         if (!forceRefresh && state.ratingSummaryCache[branchId]) {
@@ -520,8 +559,85 @@ export const useReviewStore = create<ReviewStore>()(
           currentBranchId: branchId
         });
 
+        const request = (async () => {
+          try {
+            const result = await ReviewService.getBranchRatingSummary(branchId);
+
+            if (result.success && result.data) {
+              set(state => ({
+                ratingSummary: result.data,
+                ratingSummaryLoading: false,
+                pendingRequests: Object.fromEntries(
+                  Object.entries(state.pendingRequests).filter(([key]) => key !== requestKey)
+                ),
+                ratingSummaryCache: {
+                  ...state.ratingSummaryCache,
+                  [branchId]: {
+                    data: result.data!,
+                    timestamp: Date.now()
+                  }
+                }
+              }));
+            } else {
+              set(state => ({
+                ratingSummaryLoading: false,
+                ratingSummaryError: result.error || 'Failed to load rating summary',
+                pendingRequests: Object.fromEntries(
+                  Object.entries(state.pendingRequests).filter(([key]) => key !== requestKey)
+                )
+              }));
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            set(state => ({
+              ratingSummaryLoading: false,
+              ratingSummaryError: errorMessage,
+              pendingRequests: Object.fromEntries(
+                Object.entries(state.pendingRequests).filter(([key]) => key !== requestKey)
+              )
+            }));
+          }
+        })();
+
+        // Store the pending request
+        set(state => ({
+          pendingRequests: {
+            ...state.pendingRequests,
+            [requestKey]: request
+          }
+        }));
+
+        return request;
+      },
+
+      loadCoachingCenterRatingSummary: async (centerId: string, forceRefresh = false) => {
+        const state = get();
+
+        // Use centerId as cache key for coaching center summaries
+        const cacheKey = `center_${centerId}`;
+
+        // Check cache first
+        if (!forceRefresh && state.ratingSummaryCache[cacheKey]) {
+          const cached = state.ratingSummaryCache[cacheKey];
+          if (isCacheValid(cached.timestamp, REVIEW_CONSTANTS.RATING_SUMMARY_CACHE_TTL)) {
+            set({
+              ratingSummary: cached.data,
+              ratingSummaryLoading: false,
+              ratingSummaryError: null,
+              currentBranchId: centerId // Store as center ID for reference
+            });
+            return;
+          }
+        }
+
+        set({
+          ratingSummaryLoading: true,
+          ratingSummaryError: null,
+          currentBranchId: centerId
+        });
+
         try {
-          const result = await ReviewService.getBranchRatingSummary(branchId);
+          const result = await ReviewService.getCoachingCenterRatingSummary(centerId);
 
           if (result.success && result.data) {
             set(state => ({
@@ -529,7 +645,7 @@ export const useReviewStore = create<ReviewStore>()(
               ratingSummaryLoading: false,
               ratingSummaryCache: {
                 ...state.ratingSummaryCache,
-                [branchId]: {
+                [cacheKey]: {
                   data: result.data!,
                   timestamp: Date.now()
                 }
@@ -538,7 +654,7 @@ export const useReviewStore = create<ReviewStore>()(
           } else {
             set({
               ratingSummaryLoading: false,
-              ratingSummaryError: result.error || 'Failed to load rating summary'
+              ratingSummaryError: result.error || 'Failed to load coaching center rating summary'
             });
           }
         } catch (error) {
@@ -546,6 +662,89 @@ export const useReviewStore = create<ReviewStore>()(
           set({
             ratingSummaryLoading: false,
             ratingSummaryError: errorMessage
+          });
+        }
+      },
+
+      loadBranchReviewsWithSummary: async (
+        branchId: string,
+        sortBy: ReviewSortBy = 'recent',
+        page: number = 1,
+        perPage: number = REVIEW_CONSTANTS.DEFAULT_PAGE_SIZE,
+        forceRefresh = false
+      ) => {
+        const state = get();
+
+        // Check cache for both summary and reviews
+        const summaryInCache = !forceRefresh && state.ratingSummaryCache[branchId] && 
+          isCacheValid(state.ratingSummaryCache[branchId].timestamp, REVIEW_CONSTANTS.RATING_SUMMARY_CACHE_TTL);
+        
+        const reviewCacheKey = `${branchId}-${sortBy}-${page}-${perPage}`;
+        const reviewsInCache = !forceRefresh && state.searchCache[reviewCacheKey] &&
+          isCacheValid(state.searchCache[reviewCacheKey].timestamp, REVIEW_CONSTANTS.SEARCH_CACHE_TTL);
+
+        // If both are cached, use cache
+        if (summaryInCache && reviewsInCache) {
+          set({
+            ratingSummary: state.ratingSummaryCache[branchId].data,
+            searchResults: state.searchCache[reviewCacheKey].data,
+            ratingSummaryLoading: false,
+            searchLoading: false,
+            ratingSummaryError: null,
+            searchError: null,
+            currentBranchId: branchId
+          });
+          return;
+        }
+
+        // Set loading states
+        set({
+          ratingSummaryLoading: !summaryInCache,
+          searchLoading: !reviewsInCache,
+          ratingSummaryError: null,
+          searchError: null,
+          currentBranchId: branchId
+        });
+
+        try {
+          const result = await ReviewService.getBranchReviewsWithSummary(branchId, sortBy, page, perPage);
+
+          if (result.success && result.data) {
+            set(state => ({
+              ratingSummary: result.data!.summary,
+              searchResults: result.data!.reviews,
+              ratingSummaryLoading: false,
+              searchLoading: false,
+              ratingSummaryCache: {
+                ...state.ratingSummaryCache,
+                [branchId]: {
+                  data: result.data!.summary,
+                  timestamp: Date.now()
+                }
+              },
+              searchCache: {
+                ...state.searchCache,
+                [reviewCacheKey]: {
+                  data: result.data!.reviews,
+                  timestamp: Date.now()
+                }
+              }
+            }));
+          } else {
+            set({
+              ratingSummaryLoading: false,
+              searchLoading: false,
+              ratingSummaryError: result.error || 'Failed to load rating summary',
+              searchError: result.error || 'Failed to load reviews'
+            });
+          }
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+          set({
+            ratingSummaryLoading: false,
+            searchLoading: false,
+            ratingSummaryError: errorMessage,
+            searchError: errorMessage
           });
         }
       },

@@ -28,13 +28,15 @@ import type {
   CoachingCenterSort,
   CoachingBranchSort,
   CoachingCenterSearchResult,
+  CoachingCenterSearchItem,
   CoachingBranchSearchResult,
   CoachingCenterStats,
   CoachingCenterWithBranches,
   CoachingCenterDashboard,
   CoachingCenterPermissions,
   CoachingBranchPermissions,
-  CoachingCategory
+  CoachingCategory,
+  CoachingCenterSortBy
 } from '../schema/coaching.types';
 
 // Store state interface
@@ -65,7 +67,7 @@ interface CoachingState {
   coachingBranchCacheErrors: Map<string, string>;
 
   // Branches by center cache
-  branchesByCenter: Map<string, PublicCoachingBranch[]>;
+  branchesByCenter: Map<string, CoachingBranch[]>;
   branchesByCenterLoading: Set<string>;
   branchesByCenterErrors: Map<string, string>;
 
@@ -74,7 +76,7 @@ interface CoachingState {
   centerSearchLoading: boolean;
   centerSearchError: string | null;
   currentCenterFilters: CoachingCenterFilters;
-  currentCenterSort: CoachingCenterSort;
+  currentCenterSortBy: CoachingCenterSortBy;
 
   // Search and filtering for branches
   branchSearchResults: CoachingBranchSearchResult | null;
@@ -140,22 +142,22 @@ interface CoachingActions {
 
   // Branch actions
   loadCoachingBranch: (branchId: string) => Promise<CoachingBranch | null>;
-  loadBranchesByCenter: (centerId: string, activeOnly?: boolean) => Promise<PublicCoachingBranch[]>;
-  createCoachingBranch: (branchData: CoachingBranchCreate) => Promise<boolean>;
+  loadBranchesByCenter: (centerId: string, activeOnly?: boolean) => Promise<CoachingBranch[]>;
+  createCoachingBranch: (branchData: CoachingBranchCreate) => Promise<CoachingBranch | null>;
   updateCoachingBranch: (branchId: string, updates: CoachingBranchUpdate) => Promise<boolean>;
   deleteCoachingBranch: (branchId: string) => Promise<boolean>;
-  cacheBranchesByCenter: (centerId: string, branches: PublicCoachingBranch[]) => void;
+  cacheBranchesByCenter: (centerId: string, branches: CoachingBranch[]) => void;
   clearBranchCache: () => void;
 
   // Search and filtering actions for centers
   searchCoachingCenters: (
     filters?: CoachingCenterFilters,
-    sort?: CoachingCenterSort,
+    sortBy?: 'recent' | 'rating_high' | 'rating_low' | 'distance',
     page?: number,
     perPage?: number
   ) => Promise<void>;
   updateCenterFilters: (filters: Partial<CoachingCenterFilters>) => void;
-  updateCenterSort: (sort: CoachingCenterSort) => void;
+  updateCenterSortBy: (sortBy: 'recent' | 'rating_high' | 'rating_low' | 'distance') => void;
   clearCenterSearch: () => void;
 
   // Search and filtering actions for branches
@@ -232,7 +234,7 @@ const initialState: CoachingState = {
   centerSearchLoading: false,
   centerSearchError: null,
   currentCenterFilters: {},
-  currentCenterSort: { field: 'created_at', direction: 'desc' },
+  currentCenterSortBy: 'recent',
 
   branchSearchResults: null,
   branchSearchLoading: false,
@@ -270,6 +272,7 @@ export const useCoachingStore = create<CoachingStore>()(
 
         // My coaching centers actions
         loadMyCoachingCenters: async () => {
+          console.log('[CoachingStore] Loading my coaching centers...');
           set((state) => {
             state.myCoachingCentersLoading = true;
             state.myCoachingCentersError = null;
@@ -277,13 +280,21 @@ export const useCoachingStore = create<CoachingStore>()(
 
           const result = await CoachingService.getMyCoachingCenters();
 
+          console.log('[CoachingStore] getMyCoachingCenters result:', {
+            success: result.success,
+            dataLength: result.data?.length,
+            error: result.error
+          });
+
           set((state) => {
             state.myCoachingCentersLoading = false;
             if (result.success && result.data) {
               state.myCoachingCenters = result.data;
               state.myCoachingCentersError = null;
+              console.log('[CoachingStore] Successfully loaded coaching centers:', result.data.length);
             } else {
               state.myCoachingCentersError = result.error || 'Failed to load coaching centers';
+              console.error('[CoachingStore] Failed to load coaching centers:', result.error);
             }
           });
         },
@@ -317,13 +328,27 @@ export const useCoachingStore = create<CoachingStore>()(
         },
 
         loadCoachingCenterBySlug: async (slug: string) => {
+          set((state) => {
+            state.currentCoachingCenterLoading = true;
+            state.currentCoachingCenterError = null;
+          });
+
           const result = await CoachingService.getCoachingCenterBySlug(slug);
-          
-          if (result.success && result.data) {
-            // Cache the result
-            get().cacheCoachingCenter(result.data);
-            return;
-          }
+
+          set((state) => {
+            state.currentCoachingCenterLoading = false;
+            if (result.success && result.data) {
+              // Cache the result
+              state.coachingCenterCache.set(result.data.id, result.data);
+              state.coachingCenterCacheErrors.delete(result.data.id);
+              // Set as current center (convert PublicCoachingCenter to CoachingCenter)
+              state.currentCoachingCenter = result.data as unknown as CoachingCenter;
+              state.currentCoachingCenterError = null;
+            } else {
+              state.currentCoachingCenterError = result.error || 'Coaching center not found';
+              state.currentCoachingCenter = null;
+            }
+          });
         },
 
         setCurrentCoachingCenter: (center: CoachingCenter | null) => {
@@ -402,12 +427,12 @@ export const useCoachingStore = create<CoachingStore>()(
               if (index !== -1) {
                 state.myCoachingCenters[index] = result.data!;
               }
-              
+
               // Update current center
               if (state.currentCoachingCenter?.id === centerId) {
                 state.currentCoachingCenter = result.data!;
               }
-              
+
               state.editFormData = null;
             });
             return true;
@@ -427,7 +452,7 @@ export const useCoachingStore = create<CoachingStore>()(
               if (!state.editFormData) {
                 state.editFormData = { ...updates };
               }
-              
+
               // Apply optimistic updates
               Object.assign(state.currentCoachingCenter, updates);
             }
@@ -450,14 +475,14 @@ export const useCoachingStore = create<CoachingStore>()(
             set((state) => {
               // Remove from my centers list
               state.myCoachingCenters = state.myCoachingCenters.filter(c => c.id !== centerId);
-              
+
               // Clear current if it's the deleted one
               if (state.currentCoachingCenter?.id === centerId) {
                 state.currentCoachingCenter = null;
                 state.editFormData = null;
                 state.isEditMode = false;
               }
-              
+
               // Remove from cache
               state.coachingCenterCache.delete(centerId);
               state.coachingCenterCacheErrors.delete(centerId);
@@ -558,7 +583,7 @@ export const useCoachingStore = create<CoachingStore>()(
         loadBranchesByCenter: async (centerId: string, activeOnly: boolean = true) => {
           const cacheKey = `${centerId}-${activeOnly}`;
           const cache = get().branchesByCenter;
-          
+
           if (cache.has(cacheKey)) {
             return cache.get(cacheKey)!;
           }
@@ -605,10 +630,10 @@ export const useCoachingStore = create<CoachingStore>()(
               await get().loadCoachingCenterDashboard(centerId);
             }
 
-            return true;
+            return result.data;
           }
 
-          return false;
+          return null;
         },
 
         updateCoachingBranch: async (branchId: string, updates: CoachingBranchUpdate) => {
@@ -618,7 +643,7 @@ export const useCoachingStore = create<CoachingStore>()(
             set((state) => {
               // Update in cache
               state.coachingBranchCache.set(branchId, result.data!);
-              
+
               // Clear branches by center cache to force reload
               const centerId = result.data!.coaching_center_id;
               state.branchesByCenter.delete(`${centerId}-true`);
@@ -641,7 +666,7 @@ export const useCoachingStore = create<CoachingStore>()(
               state.coachingBranchCache.delete(branchId);
               state.coachingBranchCacheErrors.delete(branchId);
               state.coachingBranchCacheLoading.delete(branchId);
-              
+
               // Clear branches by center cache if we know the center
               if (branch) {
                 const centerId = branch.coaching_center_id;
@@ -656,7 +681,7 @@ export const useCoachingStore = create<CoachingStore>()(
           return false;
         },
 
-        cacheBranchesByCenter: (centerId: string, branches: PublicCoachingBranch[]) => {
+        cacheBranchesByCenter: (centerId: string, branches: CoachingBranch[]) => {
           set((state) => {
             state.branchesByCenter.set(`${centerId}-true`, branches.filter(b => b.is_active));
             state.branchesByCenter.set(`${centerId}-false`, branches);
@@ -678,7 +703,7 @@ export const useCoachingStore = create<CoachingStore>()(
         // Search and filtering actions for centers
         searchCoachingCenters: async (
           filters: CoachingCenterFilters = {},
-          sort: CoachingCenterSort = { field: 'created_at', direction: 'desc' },
+          sortBy: CoachingCenterSortBy = 'recent',
           page: number = 1,
           perPage: number = 20
         ) => {
@@ -686,18 +711,27 @@ export const useCoachingStore = create<CoachingStore>()(
             state.centerSearchLoading = true;
             state.centerSearchError = null;
             state.currentCenterFilters = filters;
-            state.currentCenterSort = sort;
+            state.currentCenterSortBy = sortBy;
           });
 
-          const result = await CoachingService.searchCoachingCenters(filters, sort, page, perPage);
+          const result = await CoachingService.searchCoachingCenters(filters, sortBy, page, perPage);
 
           set((state) => {
             state.centerSearchLoading = false;
             if (result.success && result.data) {
               state.centerSearchResults = result.data;
-              // Cache the centers
-              result.data.centers.forEach(center => {
-                state.coachingCenterCache.set(center.id, center);
+              // Cache individual center items for quick lookup
+              result.data.results.forEach((item: CoachingCenterSearchItem) => {
+                // Store in cache with center_id as key
+                state.coachingCenterCache.set(item.center_id, {
+                  id: item.center_id,
+                  slug: item.center_slug,
+                  name: item.center_name,
+                  category: item.center_category,
+                  subjects: item.center_subjects || [],
+                  logo_url: item.center_logo_url,
+                  is_verified: item.center_is_verified,
+                } as any); // Partial caching for performance
               });
             } else {
               state.centerSearchError = result.error || 'Failed to search centers';
@@ -711,9 +745,9 @@ export const useCoachingStore = create<CoachingStore>()(
           });
         },
 
-        updateCenterSort: (sort: CoachingCenterSort) => {
+        updateCenterSortBy: (sortBy: CoachingCenterSortBy) => {
           set((state) => {
-            state.currentCenterSort = sort;
+            state.currentCenterSortBy = sortBy;
           });
         },
 
@@ -721,8 +755,7 @@ export const useCoachingStore = create<CoachingStore>()(
           set((state) => {
             state.centerSearchResults = null;
             state.centerSearchError = null;
-            state.currentCenterFilters = {};
-            state.currentCenterSort = { field: 'created_at', direction: 'desc' };
+            state.currentCenterSortBy = 'recent';
           });
         },
 
@@ -800,12 +833,12 @@ export const useCoachingStore = create<CoachingStore>()(
           }
 
           const result = await CoachingService.getCoachingCenterPermissions(centerId);
-          
+
           if (result.success && result.data) {
             get().cacheCenterPermissions(centerId, result.data);
             return result.data;
           }
-          
+
           return null;
         },
 
@@ -816,12 +849,12 @@ export const useCoachingStore = create<CoachingStore>()(
           }
 
           const result = await CoachingService.getCoachingBranchPermissions(branchId);
-          
+
           if (result.success && result.data) {
             get().cacheBranchPermissions(branchId, result.data);
             return result.data;
           }
-          
+
           return null;
         },
 
@@ -929,8 +962,8 @@ export const useCoachingStore = create<CoachingStore>()(
           });
 
           const result = await CoachingService.searchCoachingCenters(
-            { is_featured: true },
-            { field: 'created_at', direction: 'desc' },
+            { is_verified: true }, // Featured logic can be added via additional filter
+            'recent',
             1,
             10
           );
@@ -938,7 +971,16 @@ export const useCoachingStore = create<CoachingStore>()(
           set((state) => {
             state.featuredCentersLoading = false;
             if (result.success && result.data) {
-              state.featuredCenters = result.data.centers;
+              // Transform search items to simple center format
+              state.featuredCenters = result.data.results.map((item: CoachingCenterSearchItem) => ({
+                id: item.center_id,
+                slug: item.center_slug,
+                name: item.center_name,
+                category: item.center_category,
+                subjects: item.center_subjects || [],
+                logo_url: item.center_logo_url,
+                is_verified: item.center_is_verified,
+              })) as any[];
             }
           });
         },
@@ -950,7 +992,7 @@ export const useCoachingStore = create<CoachingStore>()(
 
           const result = await CoachingService.searchCoachingCenters(
             { category },
-            { field: 'created_at', direction: 'desc' },
+            'recent',
             1,
             20
           );
@@ -958,7 +1000,17 @@ export const useCoachingStore = create<CoachingStore>()(
           set((state) => {
             state.centersByCategoryLoading.delete(category);
             if (result.success && result.data) {
-              state.centersByCategory.set(category, result.data.centers);
+              // Transform search items to simple center format
+              const centers = result.data.results.map((item: CoachingCenterSearchItem) => ({
+                id: item.center_id,
+                slug: item.center_slug,
+                name: item.center_name,
+                category: item.center_category,
+                subjects: item.center_subjects || [],
+                logo_url: item.center_logo_url,
+                is_verified: item.center_is_verified,
+              }));
+              state.centersByCategory.set(category, centers as any[]);
             }
           });
         },
@@ -1014,7 +1066,7 @@ export const useCoachingStore = create<CoachingStore>()(
         partialize: (state) => ({
           // Only persist UI preferences and some cache
           currentCenterFilters: state.currentCenterFilters,
-          currentCenterSort: state.currentCenterSort,
+          currentCenterSortBy: state.currentCenterSortBy,
           currentBranchFilters: state.currentBranchFilters,
           currentBranchSort: state.currentBranchSort,
         }),

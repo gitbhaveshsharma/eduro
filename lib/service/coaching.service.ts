@@ -36,7 +36,7 @@ import type {
 } from '../schema/coaching.types';
 
 export class CoachingService {
-  
+
   // ============================================================
   // COACHING CENTER OPERATIONS
   // ============================================================
@@ -58,9 +58,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -74,24 +74,22 @@ export class CoachingService {
         .from('coaching_center_details')
         .select(`
           id,
-          name,
-          slug,
-          description,
-          established_year,
-          logo_url,
-          cover_url,
-          category,
-          subjects,
-          target_audience,
-          phone,
-          email,
-          website,
-          is_verified,
-          is_featured,
-          created_at,
-          updated_at,
-          total_branches,
-          active_branches
+    name,
+    slug,
+    description,
+    established_year,
+    logo_url,
+    cover_url,
+    category,
+    subjects,
+    target_audience,
+    phone,
+    email,
+    website,
+    is_verified,
+    is_featured,
+    created_at,
+    updated_at    
         `)
         .eq('id', centerId)
         .eq('status', 'ACTIVE')
@@ -103,9 +101,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -134,9 +132,7 @@ export class CoachingService {
           is_verified,
           is_featured,
           created_at,
-          updated_at,
-          total_branches,
-          active_branches
+          updated_at
         `)
         .eq('slug', slug)
         .eq('status', 'ACTIVE')
@@ -148,9 +144,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -161,16 +157,31 @@ export class CoachingService {
   static async getMyCoachingCenters(): Promise<CoachingOperationResult<CoachingCenter[]>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
+      console.log('[CoachingService] getMyCoachingCenters - Auth check:', {
+        hasUser: !!user,
+        userId: user?.id,
+        authError: authError?.message
+      });
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
 
-      return await supabase
+      // Query for centers where user is EITHER owner OR manager
+      const result = await supabase
         .from('coaching_centers')
         .select('*')
-        .eq('owner_id', user.id)
+        .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
+
+      console.log('[CoachingService] getMyCoachingCenters - Query result:', {
+        success: !result.error,
+        count: result.data?.length,
+        error: result.error?.message
+      });
+
+      return result;
     });
   }
 
@@ -180,7 +191,7 @@ export class CoachingService {
   static async getManagedCoachingCenters(): Promise<CoachingOperationResult<CoachingCenter[]>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -205,7 +216,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -233,7 +244,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -257,7 +268,7 @@ export class CoachingService {
   static async deleteCoachingCenter(centerId: string): Promise<CoachingOperationResult<void>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -274,109 +285,86 @@ export class CoachingService {
 
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
 
   /**
-   * Search coaching centers with filters and pagination
+   * Search coaching centers using the optimized RPC function
+   * Uses search_coaching_centers_v2 with comprehensive filtering and sorting
+   * 
+   * @param filters - Search filters (location, category, rating, etc.)
+   * @param sortBy - Sort order ('recent', 'rating_high', 'rating_low', 'distance')
+   * @param page - Page number (1-based)
+   * @param perPage - Results per page (default: 20, max: 100)
+   * @returns Search results with pagination info
    */
   static async searchCoachingCenters(
     filters: CoachingCenterFilters = {},
-    sort: CoachingCenterSort = { field: 'created_at', direction: 'desc' },
+    sortBy: 'recent' | 'rating_high' | 'rating_low' | 'distance' = 'recent',
     page: number = 1,
     perPage: number = 20
   ): Promise<CoachingOperationResult<CoachingCenterSearchResult>> {
     try {
-      let query = supabase
-        .from('coaching_center_details')
-        .select(`
-          id,
-          name,
-          slug,
-          description,
-          established_year,
-          logo_url,
-          cover_url,
-          category,
-          subjects,
-          target_audience,
-          phone,
-          email,
-          website,
-          is_verified,
-          is_featured,
-          created_at,
-          updated_at,
-          total_branches,
-          active_branches
-        `, { count: 'exact' })
-        .eq('status', 'ACTIVE')
-        .eq('is_verified', true);
+      // Validate pagination
+      if (page < 1) page = 1;
+      if (perPage < 1 || perPage > 100) perPage = 20;
 
-      // Apply filters
-      if (filters.category) {
-        if (Array.isArray(filters.category)) {
-          query = query.in('category', filters.category);
-        } else {
-          query = query.eq('category', filters.category);
-        }
-      }
+      // Calculate offset
+      const offset = (page - 1) * perPage;
 
-      if (filters.is_featured !== undefined) {
-        query = query.eq('is_featured', filters.is_featured);
-      }
-
-      if (filters.subjects && filters.subjects.length > 0) {
-        query = query.overlaps('subjects', filters.subjects);
-      }
-
-      if (filters.target_audience && filters.target_audience.length > 0) {
-        query = query.overlaps('target_audience', filters.target_audience);
-      }
-
-      if (filters.established_year_from) {
-        query = query.gte('established_year', filters.established_year_from);
-      }
-
-      if (filters.established_year_to) {
-        query = query.lte('established_year', filters.established_year_to);
-      }
-
-      if (filters.search_query) {
-        query = query.or(`name.ilike.%${filters.search_query}%,description.ilike.%${filters.search_query}%`);
-      }
-
-      // Apply sorting
-      query = query.order(sort.field, { ascending: sort.direction === 'asc' });
-
-      // Apply pagination
-      const from = (page - 1) * perPage;
-      const to = from + perPage - 1;
-      query = query.range(from, to);
-
-      const { data, error, count } = await query;
+      // Call the RPC function
+      const { data, error } = await supabase.rpc('search_coaching_centers_v2', {
+        p_search_query: filters.search_query || null,
+        p_category: filters.category || null,
+        p_subjects: filters.subjects || null,
+        p_branch_id: filters.branch_id || null,
+        p_center_id: filters.center_id || null,
+        p_state: filters.state || null,
+        p_district: filters.district || null,
+        p_city: filters.city || null,
+        p_village_town: filters.village_town || null,
+        p_latitude: filters.latitude || null,
+        p_longitude: filters.longitude || null,
+        p_radius_meters: filters.radius_meters || null,
+        p_min_rating: filters.min_rating || 1,
+        p_max_rating: filters.max_rating || 5,
+        p_is_verified: filters.is_verified || null,
+        p_days_ago: filters.days_ago || null,
+        p_sort_by: sortBy,
+        p_limit_count: perPage,
+        p_offset_count: offset,
+      });
 
       if (error) {
-        return { success: false, error: error.message };
+        console.error('Search coaching centers RPC error:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to search coaching centers'
+        };
       }
 
+      // Extract total count from first result
+      const totalCount = data && data.length > 0 ? data[0].total_count : 0;
+
+      // Build search result
       const result: CoachingCenterSearchResult = {
-        centers: data || [],
-        total_count: count || 0,
+        results: data || [],
+        total_count: totalCount,
         page,
         per_page: perPage,
-        has_more: (count || 0) > page * perPage
+        has_more: totalCount > page * perPage,
       };
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      console.error('Search coaching centers error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
       };
     }
   }
@@ -405,9 +393,9 @@ export class CoachingService {
 
       return { success: true, data: centerWithBranches };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -465,9 +453,9 @@ export class CoachingService {
 
       return { success: true, data: dashboard };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -493,9 +481,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -504,9 +492,9 @@ export class CoachingService {
    * Get branches by coaching center
    */
   static async getBranchesByCenter(
-    centerId: string, 
+    centerId: string,
     activeOnly: boolean = true
-  ): Promise<CoachingOperationResult<PublicCoachingBranch[]>> {
+  ): Promise<CoachingOperationResult<CoachingBranch[]>> {
     try {
       let query = supabase
         .from('coaching_branches')
@@ -515,10 +503,12 @@ export class CoachingService {
           coaching_center_id,
           name,
           description,
+          manager_id,
           phone,
           email,
           is_main_branch,
           is_active,
+          metadata,
           created_at,
           updated_at
         `)
@@ -538,9 +528,9 @@ export class CoachingService {
 
       return { success: true, data: data || [] };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -557,7 +547,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -597,7 +587,7 @@ export class CoachingService {
 
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -620,7 +610,7 @@ export class CoachingService {
   static async deleteCoachingBranch(branchId: string): Promise<CoachingOperationResult<void>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -636,9 +626,9 @@ export class CoachingService {
 
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -687,9 +677,9 @@ export class CoachingService {
 
       return { success: true, data: stats };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -708,9 +698,9 @@ export class CoachingService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -725,10 +715,10 @@ export class CoachingService {
   static async getCoachingCenterPermissions(centerId: string): Promise<CoachingOperationResult<CoachingCenterPermissions>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           data: {
             can_view: true, // Public can view
             can_edit: false,
@@ -770,9 +760,9 @@ export class CoachingService {
 
       return { success: true, data: permissions };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -783,10 +773,10 @@ export class CoachingService {
   static async getCoachingBranchPermissions(branchId: string): Promise<CoachingOperationResult<CoachingBranchPermissions>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
-        return { 
-          success: true, 
+        return {
+          success: true,
           data: {
             can_view: true,
             can_edit: false,
@@ -834,9 +824,9 @@ export class CoachingService {
 
       return { success: true, data: permissions };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -851,7 +841,7 @@ export class CoachingService {
   static async uploadCoachingLogo(centerId: string, file: File): Promise<CoachingOperationResult<string>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -875,16 +865,16 @@ export class CoachingService {
 
       // Update center with new logo URL
       const updateResult = await this.updateCoachingCenter(centerId, { logo_url: publicUrl });
-      
+
       if (!updateResult.success) {
         return { success: false, error: updateResult.error };
       }
 
       return { success: true, data: publicUrl };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -895,7 +885,7 @@ export class CoachingService {
   static async uploadCoachingCover(centerId: string, file: File): Promise<CoachingOperationResult<string>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -919,16 +909,16 @@ export class CoachingService {
 
       // Update center with new cover URL
       const updateResult = await this.updateCoachingCenter(centerId, { cover_url: publicUrl });
-      
+
       if (!updateResult.success) {
         return { success: false, error: updateResult.error };
       }
 
       return { success: true, data: publicUrl };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -970,40 +960,9 @@ export class CoachingService {
       const isAvailable = !data;
       return { success: true, data: isAvailable };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      };
-    }
-  }
-
-  /**
-   * Search coaching centers using database function
-   */
-  static async searchCoachingCentersWithFunction(
-    searchQuery?: string,
-    category?: CoachingCategory,
-    limitCount: number = 20,
-    offsetCount: number = 0
-  ): Promise<CoachingOperationResult<PublicCoachingCenter[]>> {
-    try {
-      const { data, error } = await supabase
-        .rpc('search_coaching_centers', {
-          search_query: searchQuery || null,
-          category_filter: category || null,
-          limit_count: limitCount,
-          offset_count: offsetCount
-        });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      return { success: true, data: data || [] };
-    } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1167,10 +1126,10 @@ export class CoachingService {
    */
   private static validateCoachingBranchUpdate(updates: CoachingBranchUpdate): CoachingOperationResult<void> {
     // Use similar validation logic as creation, but make all fields optional
-    const tempData = { 
-      name: 'temp', 
-      coaching_center_id: 'temp-id', 
-      ...updates 
+    const tempData = {
+      name: 'temp',
+      coaching_center_id: 'temp-id',
+      ...updates
     };
     return this.validateCoachingBranchData(tempData as CoachingBranchCreate);
   }

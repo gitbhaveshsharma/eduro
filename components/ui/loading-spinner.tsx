@@ -71,9 +71,7 @@ export function LoadingSpinner({
             inline ? '' : 'justify-center',
             className
         )}>
-            {title && (
-                <div className={cn('text-sm font-semibold text-gray-700')}>{title}</div>
-            )}
+            {/* Spinner at the top */}
             <div
                 className={cn(
                     'animate-spin rounded-full border-2 border-t-transparent',
@@ -85,6 +83,13 @@ export function LoadingSpinner({
                     variant === 'error' && 'border-[#EF4444]'
                 )}
             />
+
+            {/* Title below spinner */}
+            {title && (
+                <div className={cn('text-sm font-semibold text-gray-700')}>{title}</div>
+            )}
+
+            {/* Message below title */}
             {displayMessage && (
                 <span className={cn(
                     'text-[#6B7280] font-medium',

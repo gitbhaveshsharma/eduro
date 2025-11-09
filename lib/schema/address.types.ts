@@ -12,20 +12,21 @@ export type AddressType = 'HOME' | 'WORK' | 'SCHOOL' | 'COLLEGE' | 'COACHING' | 
 export interface Address {
   // Primary identification
   id: string; // UUID
-  
+
   // Foreign key relationships
   user_id: string; // UUID from auth.users
   branch_id: string | null; // UUID for branch reference
-  
+  coaching_id: string | null; // UUID for coaching center reference
+
   // Address type and labeling
   address_type: AddressType;
   label: string | null; // Custom label
-  
+
   // Required location fields
   state: string;
   district: string;
   pin_code: string;
-  
+
   // Detailed address fields (optional)
   country: string; // Default 'India'
   address_line_1: string | null;
@@ -33,25 +34,25 @@ export interface Address {
   city: string | null;
   sub_district: string | null; // Tehsil/Taluka/Block
   village_town: string | null;
-  
+
   // Geographic coordinates
   latitude: number | null;
   longitude: number | null;
-  
+
   // Google Maps integration
   google_maps_url: string | null;
   google_place_id: string | null;
   google_plus_code: string | null;
-  
+
   // Additional metadata
   postal_address: string | null;
   delivery_instructions: string | null;
-  
+
   // Status flags
   is_primary: boolean;
   is_active: boolean;
   is_verified: boolean;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -76,14 +77,15 @@ export interface PublicAddress {
 export interface AddressCreate {
   user_id?: string; // Optional - will be set automatically by the service
   branch_id?: string | null;
+  coaching_id?: string | null;
   address_type?: AddressType;
   label?: string;
-  
+
   // Required fields
   state: string;
   district: string;
   pin_code: string;
-  
+
   // Optional fields
   country?: string;
   address_line_1?: string;
@@ -91,18 +93,18 @@ export interface AddressCreate {
   city?: string;
   sub_district?: string;
   village_town?: string;
-  
+
   // Geographic data
   latitude?: number;
   longitude?: number;
   google_maps_url?: string;
   google_place_id?: string;
   google_plus_code?: string;
-  
+
   // Metadata
   postal_address?: string;
   delivery_instructions?: string;
-  
+
   // Status
   is_primary?: boolean;
   is_active?: boolean;
@@ -110,9 +112,11 @@ export interface AddressCreate {
 
 // Address update interface
 export interface AddressUpdate {
+  branch_id?: string | null;
+  coaching_id?: string | null;
   address_type?: AddressType;
   label?: string;
-  
+
   // Location fields
   state?: string;
   district?: string;
@@ -123,18 +127,18 @@ export interface AddressUpdate {
   city?: string;
   sub_district?: string;
   village_town?: string;
-  
+
   // Geographic data
   latitude?: number;
   longitude?: number;
   google_maps_url?: string;
   google_place_id?: string;
   google_plus_code?: string;
-  
+
   // Metadata
   postal_address?: string;
   delivery_instructions?: string;
-  
+
   // Status
   is_primary?: boolean;
   is_active?: boolean;
@@ -145,6 +149,7 @@ export interface AddressUpdate {
 export interface AddressFilters {
   user_id?: string;
   branch_id?: string;
+  coaching_id?: string;
   address_type?: AddressType | AddressType[];
   state?: string | string[];
   district?: string | string[];
@@ -163,9 +168,9 @@ export interface AddressFilters {
 }
 
 // Address sort options
-export type AddressSortField = 
-  | 'created_at' 
-  | 'updated_at' 
+export type AddressSortField =
+  | 'created_at'
+  | 'updated_at'
   | 'address_type'
   | 'state'
   | 'district'
@@ -352,31 +357,31 @@ export const ADDRESS_CONSTANTS = {
   MAX_LABEL_LENGTH: 100,
   MAX_ADDRESS_LINE_LENGTH: 200,
   MAX_INSTRUCTIONS_LENGTH: 500,
-  
+
   // Coordinate limits for India
   INDIA_LAT_MIN: 6.0,
   INDIA_LAT_MAX: 37.6,
   INDIA_LNG_MIN: 68.7,
   INDIA_LNG_MAX: 97.25,
-  
+
   // Search and pagination limits
   DEFAULT_PAGE_SIZE: 20,
   MAX_PAGE_SIZE: 100,
   MAX_SEARCH_RADIUS_KM: 100,
   DEFAULT_SEARCH_RADIUS_KM: 10,
-  
+
   // Cache TTL in minutes
   ADDRESS_CACHE_TTL: 15,
   GEOCODING_CACHE_TTL: 60,
-  
+
   // Default values
   DEFAULT_COUNTRY: 'India',
   DEFAULT_ADDRESS_TYPE: 'HOME' as AddressType,
-  
+
   // Google Maps
   GOOGLE_MAPS_BASE_URL: 'https://www.google.com/maps',
   GOOGLE_PLACES_API_URL: 'https://maps.googleapis.com/maps/api/place',
-  
+
   // Distance calculation
   EARTH_RADIUS_KM: 6371,
 } as const;
@@ -416,28 +421,28 @@ export const ADDRESS_ERROR_CODES = {
   INVALID_PLUS_CODE: 'INVALID_PLUS_CODE',
   REQUIRED_FIELD_MISSING: 'REQUIRED_FIELD_MISSING',
   FIELD_TOO_LONG: 'FIELD_TOO_LONG',
-  
+
   // Business logic errors
   PRIMARY_ADDRESS_EXISTS: 'PRIMARY_ADDRESS_EXISTS',
   ADDRESS_NOT_FOUND: 'ADDRESS_NOT_FOUND',
   CANNOT_DELETE_PRIMARY: 'CANNOT_DELETE_PRIMARY',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
-  
+
   // Geographic errors
   COORDINATES_OUT_OF_BOUNDS: 'COORDINATES_OUT_OF_BOUNDS',
   GEOCODING_FAILED: 'GEOCODING_FAILED',
   REVERSE_GEOCODING_FAILED: 'REVERSE_GEOCODING_FAILED',
   INVALID_SEARCH_RADIUS: 'INVALID_SEARCH_RADIUS',
-  
+
   // Permission errors
   INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
   NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
-  
+
   // External service errors
   GOOGLE_MAPS_API_ERROR: 'GOOGLE_MAPS_API_ERROR',
   GOOGLE_PLACES_API_ERROR: 'GOOGLE_PLACES_API_ERROR',
   GEOCODING_SERVICE_UNAVAILABLE: 'GEOCODING_SERVICE_UNAVAILABLE',
-  
+
   // General errors
   DATABASE_ERROR: 'DATABASE_ERROR',
   NETWORK_ERROR: 'NETWORK_ERROR',

@@ -53,11 +53,11 @@ export class AddressService {
   static async getCurrentUserAddresses(): Promise<AddressOperationResult<Address[]>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError) {
         return { success: false, error: 'Authentication error' };
       }
-      
+
       if (!user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -76,9 +76,9 @@ export class AddressService {
 
       return { success: true, data: data || [] };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -89,7 +89,7 @@ export class AddressService {
   static async getPrimaryAddress(): Promise<AddressOperationResult<Address>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -112,9 +112,9 @@ export class AddressService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -137,9 +137,9 @@ export class AddressService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -172,9 +172,9 @@ export class AddressService {
 
       return { success: true, data: data || [] };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -185,7 +185,7 @@ export class AddressService {
   static async createAddress(addressData: AddressCreate): Promise<AddressOperationResult<Address>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -202,7 +202,7 @@ export class AddressService {
       }
 
       // Format postal address if not provided
-      const postalAddress = addressData.postal_address || 
+      const postalAddress = addressData.postal_address ||
         await this.formatAddress(addressData as Partial<Address>);
 
       const { data, error } = await supabase
@@ -223,9 +223,9 @@ export class AddressService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -236,7 +236,7 @@ export class AddressService {
   static async updateAddress(addressId: string, updates: AddressUpdate): Promise<AddressOperationResult<Address>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -254,8 +254,8 @@ export class AddressService {
 
       // Update postal address if location fields changed
       const shouldUpdatePostal = !!(
-        updates.address_line_1 || updates.address_line_2 || 
-        updates.city || updates.district || updates.state || 
+        updates.address_line_1 || updates.address_line_2 ||
+        updates.city || updates.district || updates.state ||
         updates.pin_code || updates.country
       );
 
@@ -287,9 +287,9 @@ export class AddressService {
 
       return { success: true, data };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -300,7 +300,7 @@ export class AddressService {
   static async deleteAddress(addressId: string): Promise<AddressOperationResult<void>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -318,7 +318,7 @@ export class AddressService {
       // Soft delete by setting is_active to false
       const { error } = await supabase
         .from('addresses')
-        .update({ 
+        .update({
           is_active: false,
           updated_at: new Date().toISOString()
         })
@@ -331,9 +331,9 @@ export class AddressService {
 
       return { success: true };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -344,7 +344,7 @@ export class AddressService {
   static async setPrimaryAddress(addressId: string): Promise<AddressOperationResult<Address>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -367,9 +367,9 @@ export class AddressService {
       // Return the updated address
       return this.getAddress(addressId);
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -470,9 +470,9 @@ export class AddressService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -518,9 +518,9 @@ export class AddressService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -564,9 +564,9 @@ export class AddressService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -579,7 +579,7 @@ export class AddressService {
       // This would integrate with a geocoding service like Google Maps API
       // For now, return a placeholder implementation
       const addressString = await this.formatAddress(address);
-      
+
       // TODO: Implement actual geocoding service integration
       return {
         success: false,
@@ -628,7 +628,7 @@ export class AddressService {
         if (match) {
           const latitude = parseFloat(match[1]);
           const longitude = parseFloat(match[2]);
-          
+
           if (!isNaN(latitude) && !isNaN(longitude)) {
             return { latitude, longitude };
           }
@@ -656,7 +656,7 @@ export class AddressService {
       }
 
       const addresses = data || [];
-      
+
       // Calculate statistics
       const byType: Record<AddressType, number> = {
         HOME: 0, WORK: 0, SCHOOL: 0, COLLEGE: 0, COACHING: 0,
@@ -687,9 +687,9 @@ export class AddressService {
 
       return { success: true, data: stats };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -700,7 +700,7 @@ export class AddressService {
   static async getAddressPermissions(addressId: string): Promise<AddressOperationResult<AddressPermissions>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -732,9 +732,9 @@ export class AddressService {
 
       return { success: true, data: permissions };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -777,7 +777,7 @@ export class AddressService {
   private static async clearPrimaryFlag(userId: string, exceptAddressId?: string): Promise<void> {
     let query = supabase
       .from('addresses')
-      .update({ 
+      .update({
         is_primary: false,
         updated_at: new Date().toISOString()
       })
@@ -872,5 +872,97 @@ export class AddressService {
       valid: errors.length === 0,
       errors: errors.length > 0 ? errors : undefined
     };
+  }
+
+  /**
+   * Link an address to a coaching center or branch
+   * Updates the address with the appropriate IDs and address_type
+   */
+  static async linkAddressToEntity(
+    addressId: string,
+    entityType: 'branch' | 'coaching',
+    entityId: string
+  ): Promise<AddressOperationResult<Address>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Prepare update data based on entity type
+      const updateData: Partial<Address> = {
+        updated_at: new Date().toISOString()
+      };
+
+      if (entityType === 'branch') {
+        updateData.branch_id = entityId;
+        updateData.address_type = 'BRANCH';
+      } else if (entityType === 'coaching') {
+        updateData.coaching_id = entityId;
+        updateData.address_type = 'COACHING';
+      }
+
+      // Update the address
+      const { data, error } = await supabase
+        .from('addresses')
+        .update(updateData)
+        .eq('id', addressId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Unlink an address from a coaching center or branch
+   * Removes the entity IDs and resets address_type to HOME
+   */
+  static async unlinkAddressFromEntity(
+    addressId: string
+  ): Promise<AddressOperationResult<Address>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Reset the entity relationships
+      const { data, error } = await supabase
+        .from('addresses')
+        .update({
+          branch_id: null,
+          coaching_id: null,
+          address_type: 'HOME',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', addressId)
+        .eq('user_id', user.id)
+        .select()
+        .single();
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 }

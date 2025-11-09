@@ -663,6 +663,22 @@ export class ReviewService {
   }
 
   /**
+   * Get reviews for a specific coaching center (all branches)
+   */
+  static async getReviewsByCoachingCenter(
+    centerId: string,
+    sortBy: ReviewSortBy = 'recent',
+    page: number = 1,
+    perPage: number = REVIEW_CONSTANTS.DEFAULT_PAGE_SIZE
+  ): Promise<ServiceResponse<PaginatedReviews>> {
+    return this.searchReviews(
+      { center_id: centerId, sort_by: sortBy },
+      page,
+      perPage
+    );
+  }
+
+  /**
    * Get reviews by location (state, district, city)
    */
   static async getReviewsByLocation(
@@ -824,6 +840,142 @@ static async getBranchRatingSummary(
     };
   }
 }
+
+  /**
+   * Get aggregated rating summary for a coaching center (all branches)
+   */
+  static async getCoachingCenterRatingSummary(
+    centerId: string
+  ): Promise<ServiceResponse<RatingSummaryResponse>> {
+    try {
+      const supabase = createClient();
+
+      // Validate UUID format
+      if (!centerId || typeof centerId !== 'string') {
+        return {
+          success: false,
+          error: 'Invalid center ID provided',
+          code: REVIEW_ERROR_CODES.INVALID_INPUT
+        };
+      }
+
+      const cleanCenterId = centerId.trim();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      
+      if (!uuidRegex.test(cleanCenterId)) {
+        return {
+          success: false,
+          error: 'Invalid UUID format for center ID',
+          code: REVIEW_ERROR_CODES.INVALID_INPUT
+        };
+      }
+
+      // Get aggregated statistics for all branches of the coaching center
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('overall_rating, teaching_quality, infrastructure, staff_support, value_for_money, created_at, is_verified_reviewer')
+        .eq('coaching_center_id', cleanCenterId)
+        .eq('status', 'APPROVED');
+
+      if (error) {
+        console.error('Error fetching coaching center ratings:', error);
+        return {
+          success: false,
+          error: error.message || 'Failed to fetch center ratings',
+          code: REVIEW_ERROR_CODES.DATABASE_ERROR
+        };
+      }
+
+      if (!data || data.length === 0) {
+        return {
+          success: true,
+          data: {
+            total_reviews: 0,
+            average_rating: 0,
+            rating_breakdown: {
+              '5': 0,
+              '4': 0,
+              '3': 0,
+              '2': 0,
+              '1': 0
+            },
+            category_ratings: {
+              teaching_quality: null,
+              infrastructure: null,
+              staff_support: null,
+              value_for_money: null
+            },
+            verified_reviews: 0,
+            last_review_date: null,
+            recent_activity: 0,
+            cached: false
+          } as RatingSummaryResponse
+        };
+      }
+
+      // Calculate aggregated statistics
+      const totalReviews = data.length;
+      const ratings = data.map((r: any) => parseInt(r.overall_rating));
+      const averageRating = ratings.reduce((sum: number, rating: number) => sum + rating, 0) / totalReviews;
+
+      // Rating breakdown
+      const ratingBreakdown = {
+        '5': data.filter((r: any) => r.overall_rating === '5').length,
+        '4': data.filter((r: any) => r.overall_rating === '4').length,
+        '3': data.filter((r: any) => r.overall_rating === '3').length,
+        '2': data.filter((r: any) => r.overall_rating === '2').length,
+        '1': data.filter((r: any) => r.overall_rating === '1').length,
+      };
+
+      // Category ratings (average where available)
+      const calculateCategoryAverage = (category: string) => {
+        const validRatings = data
+          .filter((r: any) => r[category as keyof typeof r] !== null)
+          .map((r: any) => parseInt(r[category as keyof typeof r] as string));
+        return validRatings.length > 0 
+          ? validRatings.reduce((sum: number, rating: number) => sum + rating, 0) / validRatings.length 
+          : null;
+      };
+
+      const categoryRatings = {
+        teaching_quality: calculateCategoryAverage('teaching_quality'),
+        infrastructure: calculateCategoryAverage('infrastructure'),
+        staff_support: calculateCategoryAverage('staff_support'),
+        value_for_money: calculateCategoryAverage('value_for_money'),
+      };
+
+      // Other statistics
+      const verifiedReviews = data.filter((r: any) => r.is_verified_reviewer).length;
+      const dates = data.map((r: any) => new Date(r.created_at).getTime());
+      const lastReviewDate = new Date(Math.max(...dates)).toISOString();
+      
+      // Recent activity (last 30 days)
+      const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
+      const recentActivity = data.filter((r: any) => new Date(r.created_at).getTime() > thirtyDaysAgo).length;
+
+      return {
+        success: true,
+        data: {
+          total_reviews: totalReviews,
+          average_rating: Math.round(averageRating * 10) / 10,
+          rating_breakdown: ratingBreakdown,
+          category_ratings: categoryRatings,
+          verified_reviews: verifiedReviews,
+          last_review_date: lastReviewDate,
+          recent_activity: recentActivity,
+          cached: false
+        } as RatingSummaryResponse
+      };
+
+    } catch (error) {
+      console.error('Error in getCoachingCenterRatingSummary:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        code: REVIEW_ERROR_CODES.UNKNOWN_ERROR
+      };
+    }
+  }
 
 // ============================================================
 // HELPFUL VOTES
@@ -1365,6 +1517,59 @@ static async getBranchRatingSummary(
 
     } catch (error) {
       console.error('Error in refreshRatingSummaryCache:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        code: REVIEW_ERROR_CODES.UNKNOWN_ERROR
+      };
+    }
+  }
+
+  /**
+   * OPTIMIZED: Get branch reviews with rating summary in one call
+   * Reduces network dependency chain by combining two API calls
+   */
+  static async getBranchReviewsWithSummary(
+    branchId: string,
+    sortBy: ReviewSortBy = 'recent',
+    page: number = 1,
+    perPage: number = REVIEW_CONSTANTS.DEFAULT_PAGE_SIZE
+  ): Promise<ServiceResponse<{
+    summary: RatingSummaryResponse;
+    reviews: PaginatedReviews;
+  }>> {
+    try {
+      // Execute both calls in parallel to minimize latency
+      const [summaryResult, reviewsResult] = await Promise.all([
+        this.getBranchRatingSummary(branchId),
+        this.searchReviews({ branch_id: branchId, sort_by: sortBy }, page, perPage)
+      ]);
+
+      // Check if either call failed
+      if (!summaryResult.success) {
+        return {
+          success: false,
+          error: summaryResult.error || 'Failed to load rating summary',
+          code: summaryResult.code || REVIEW_ERROR_CODES.DATABASE_ERROR
+        };
+      }
+
+      if (!reviewsResult.success) {
+        return {
+          success: false,
+          error: reviewsResult.error || 'Failed to load reviews',
+          code: reviewsResult.code || REVIEW_ERROR_CODES.DATABASE_ERROR
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          summary: summaryResult.data!,
+          reviews: reviewsResult.data!
+        }
+      };
+    } catch (error) {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error occurred',

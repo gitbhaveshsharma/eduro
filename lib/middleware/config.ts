@@ -3,12 +3,12 @@
  * Centralized configuration for the middleware system
  */
 
-import { 
-  MiddlewareConfig, 
-  UserRole, 
-  Permission, 
-  SecurityLevel, 
-  RateLimitWindow 
+import {
+  MiddlewareConfig,
+  UserRole,
+  Permission,
+  SecurityLevel,
+  RateLimitWindow
 } from './types'
 
 // Default security headers for production
@@ -18,7 +18,8 @@ const defaultSecurityHeaders = {
   xFrameOptions: 'DENY',
   xContentTypeOptions: 'nosniff',
   referrerPolicy: 'strict-origin-when-cross-origin',
-  permissionsPolicy: 'camera=(), microphone=(), geolocation=(), payment=()',
+  // ✅ FIXED: Allow geolocation for same-origin (self) - enables coaching location features
+  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'require-corp',
   crossOriginOpenerPolicy: 'same-origin',
   crossOriginResourcePolicy: 'same-origin'
@@ -28,12 +29,14 @@ const defaultSecurityHeaders = {
 const developmentSecurityHeaders = {
   ...defaultSecurityHeaders,
   contentSecurityPolicy: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws:;",
+  // ✅ FIXED: Allow geolocation in development too
+  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'unsafe-none'
 }
 
 // Default CORS configuration
 const defaultCorsConfig = {
-  origin: process.env.NODE_ENV === 'production' 
+  origin: process.env.NODE_ENV === 'production'
     ? [process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com']
     : ['http://localhost:3000', 'http://127.0.0.1:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -62,7 +65,7 @@ const routeProtections = {
     },
     logRequests: false
   },
-  
+
   '/login': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: {
@@ -73,7 +76,7 @@ const routeProtections = {
     sanitizeInput: true,
     logRequests: true
   },
-  
+
   '/auth/callback': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: {
@@ -82,7 +85,7 @@ const routeProtections = {
     },
     logRequests: true
   },
-  
+
   // API routes
   '/api/auth/*': {
     securityLevel: SecurityLevel.PUBLIC,
@@ -96,7 +99,7 @@ const routeProtections = {
     requiresCSRF: false, // OAuth doesn't work well with CSRF
     logRequests: true
   },
-  
+
   '/api/pincode': {
     securityLevel: SecurityLevel.AUTHENTICATED,
     rateLimiting: {
@@ -108,7 +111,7 @@ const routeProtections = {
     sanitizeInput: false, // Disable input sanitization for GET requests
     logRequests: true
   },
-  
+
   // Protected pages - require authentication
   '/dashboard': {
     securityLevel: SecurityLevel.AUTHENTICATED,
@@ -118,7 +121,7 @@ const routeProtections = {
     },
     logRequests: false
   },
-  
+
   '/onboarding': {
     securityLevel: SecurityLevel.AUTHENTICATED,
     rateLimiting: {
@@ -162,11 +165,60 @@ const routeProtections = {
     },
     logRequests: true
   },
+  //setting routes
+  '/settings': {
+    securityLevel: SecurityLevel.AUTHENTICATED,
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  '/settings/*': {
+    securityLevel: SecurityLevel.AUTHENTICATED,
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+
+  // settings coaching center routes
+  '/settings/coaching-center': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.ADMIN, UserRole.COACH, UserRole.SUPER_ADMIN],
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  '/settings/coaching-center/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.ADMIN, UserRole.COACH, UserRole.SUPER_ADMIN],
+    rateLimiting: { requests: 60, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+
+  // coaching routes
   '/coaching-reviews': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
     logRequests: true
   },
+  '/coaching': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  '/coaching*': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  // '/coaching/[slug]': {
+  //   securityLevel: SecurityLevel.PUBLIC,
+  //   rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+  //   logRequests: true
+  // },
+  '/coaching/[slug]/branch/[id]': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+
+
   '/coaching-reviews/*': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
@@ -183,7 +235,7 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
-  
+
   // API routes by role
   '/api/admin/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
@@ -196,7 +248,7 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
-  
+
   '/api/teacher/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
     allowedRoles: [UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN],
@@ -206,7 +258,7 @@ const routeProtections = {
     },
     logRequests: true
   },
-  
+
   '/api/student/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
     allowedRoles: [UserRole.STUDENT, UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN],
@@ -216,7 +268,7 @@ const routeProtections = {
     },
     logRequests: false
   },
-  
+
   // File upload routes
   '/api/upload/*': {
     securityLevel: SecurityLevel.AUTHENTICATED,
@@ -235,22 +287,22 @@ const routeProtections = {
 export const middlewareConfig: MiddlewareConfig = {
   enabled: true,
   debug: process.env.NODE_ENV === 'development',
-  
+
   security: {
-    headers: process.env.NODE_ENV === 'production' 
-      ? defaultSecurityHeaders 
+    headers: process.env.NODE_ENV === 'production'
+      ? defaultSecurityHeaders
       : developmentSecurityHeaders,
     cors: defaultCorsConfig,
     maxRequestSize: 1048576, // 1MB default
     sanitizeInput: true,
-    
+
     // API Keys configuration (optional)
     apiKeys: process.env.API_KEYS ? {
       header: 'X-API-Key',
       validKeys: process.env.API_KEYS.split(','),
       rateLimitMultiplier: 10 // API key users get 10x rate limit
     } : undefined,
-    
+
     // CSRF protection
     csrf: {
       tokenLength: 32,
@@ -261,7 +313,7 @@ export const middlewareConfig: MiddlewareConfig = {
       sameSite: 'strict'
     }
   },
-  
+
   auth: {
     enabled: true,
     cookieName: 'supabase-auth-token', // Fixed to match auth store
@@ -269,7 +321,7 @@ export const middlewareConfig: MiddlewareConfig = {
     refreshThreshold: 300, // 5 minutes before expiry
     requiresVerification: true
   },
-  
+
   rateLimiting: {
     enabled: true,
     global: {
@@ -285,7 +337,7 @@ export const middlewareConfig: MiddlewareConfig = {
       window: RateLimitWindow.HOUR
     }
   },
-  
+
   logging: {
     enabled: true,
     logLevel: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
@@ -297,7 +349,7 @@ export const middlewareConfig: MiddlewareConfig = {
     anonymizeIPs: process.env.NODE_ENV === 'production',
     excludeRoutes: ['/health', '/favicon.ico', '/_next/static/*']
   },
-  
+
   monitoring: {
     enabled: true,
     collectMetrics: true,
@@ -309,9 +361,9 @@ export const middlewareConfig: MiddlewareConfig = {
     },
     webhookUrl: process.env.SECURITY_WEBHOOK_URL
   },
-  
+
   routes: routeProtections,
-  
+
   errorPages: {
     unauthorized: '/login',
     forbidden: '/403',

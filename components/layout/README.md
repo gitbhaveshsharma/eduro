@@ -2,11 +2,24 @@
 
 A comprehensive conditional navigation system that adapts to different platforms and devices.
 
+## 🎯 Latest Updates
+
+### ✨ New Features (Universal Layout System)
+
+1. **UniversalHeader** - Single header component that works across all pages
+2. **Sidebar Component** - Reusable sidebar with open/close state management
+3. **Page-based Configuration** - Headers adapt based on page context, not just platform
+4. **Dynamic Header Items** - Items rendered based on page, device, and platform
+5. **Sidebar Integration** - Header includes sidebar toggle functionality
+6. **Backward Compatible** - Existing ConditionalHeader still works
+
 ## Features
 
 - **Platform-aware**: Supports Community and LMS platforms with different navigation patterns
+- **Page-aware**: Headers and navigation adapt to specific pages (feed, network, dashboard, settings, etc.)
 - **Responsive**: Adapts to mobile, tablet, and desktop screen sizes
 - **Webview-ready**: Detects and optimizes for mobile app webviews
+- **Sidebar Support**: Collapsible sidebar with responsive behavior
 - **Flexible**: Highly configurable with override options
 - **Quality code**: TypeScript, well-structured, maintainable
 
@@ -30,13 +43,57 @@ function App() {
 
 ### Headers
 
-#### ConditionalHeader
+#### UniversalHeader (NEW - Recommended)
 
-Automatically chooses between FeedHeader (Community) and LMSHeader (LMS).
+Single, flexible header component that works across all pages. Use this for new implementations.
+
+```tsx
+import { UniversalHeader } from "@/components/layout";
+
+<UniversalHeader
+  config={config}
+  title="My App"
+  items={customHeaderItems}
+  searchConfig={{
+    enabled: true,
+    placeholder: "Search...",
+    value: searchQuery,
+    onChange: setSearchQuery,
+  }}
+  sidebarOpen={sidebarOpen}
+  onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+/>;
+```
+
+#### ConditionalHeader (Legacy)
+
+Automatically chooses between FeedHeader (Community) and LMSHeader (LMS). Still supported for backward compatibility.
 
 #### LMSHeader
 
 Specialized header for LMS platform with search, notifications, and user menu.
+
+### Sidebar (NEW)
+
+Reusable sidebar component with responsive behavior.
+
+```tsx
+import { Sidebar } from "@/components/layout";
+
+<Sidebar
+  open={sidebarOpen}
+  onOpenChange={setSidebarOpen}
+  config={{
+    enabled: true,
+    position: "left",
+    width: "280px",
+    collapsible: true,
+    overlay: true,
+  }}
+>
+  {/* Sidebar content */}
+</Sidebar>;
+```
 
 ### Navigation
 
@@ -51,6 +108,16 @@ Mobile-optimized bottom navigation with platform-specific items.
 - `community`: Social learning platform (uses FeedHeader)
 - `lms`: Learning Management System (uses LMSHeader)
 
+### Page Types (NEW)
+
+- `default`: Default page configuration
+- `feed`: Community feed page
+- `network`: Network/connections page
+- `dashboard`: LMS dashboard page
+- `settings`: Settings page
+- `profile`: User profile page
+- `connections`: Connections page
+
 ### Device Types
 
 - `mobile`: < 768px width
@@ -62,6 +129,27 @@ Mobile-optimized bottom navigation with platform-specific items.
 - `webview`: Running inside mobile app
 - `browser`: Running in regular browser
 
+### Header Types
+
+- `community`: Community platform header (legacy)
+- `lms`: LMS platform header (legacy)
+- `network`: Network page header (legacy)
+- `minimal`: Minimal header
+- `universal`: NEW - Use this for page-based headers
+
+### Sidebar Configuration
+
+```tsx
+sidebar: {
+  enabled: boolean;          // Enable/disable sidebar
+  defaultOpen?: boolean;     // Default: false
+  position?: 'left' | 'right'; // Default: 'left'
+  width?: string;            // Default: '280px'
+  collapsible?: boolean;     // Default: true
+  overlay?: boolean;         // Default: true (mobile/tablet)
+}
+```
+
 ## Usage Examples
 
 ### Basic Community Layout
@@ -70,6 +158,73 @@ Mobile-optimized bottom navigation with platform-specific items.
 <ConditionalLayout platform="community">
   <FeedPage />
 </ConditionalLayout>
+```
+
+### Using Universal Header (NEW)
+
+```tsx
+<ConditionalLayout
+  platform="community"
+  forceConfig={{
+    page: "feed",
+    headerType: "universal",
+  }}
+>
+  <FeedPage />
+</ConditionalLayout>
+```
+
+### With Sidebar (NEW)
+
+```tsx
+<ConditionalLayout
+  platform="lms"
+  forceConfig={{
+    page: "dashboard",
+    headerType: "universal",
+    sidebar: {
+      enabled: true,
+      defaultOpen: true,
+      position: "left",
+      width: "280px",
+    },
+  }}
+>
+  <DashboardPage />
+</ConditionalLayout>
+```
+
+### Custom Header Items (NEW)
+
+```tsx
+import { UniversalHeader } from "@/components/layout";
+import { Settings, Users } from "lucide-react";
+
+const customItems = [
+  {
+    id: "settings",
+    label: "Settings",
+    icon: Settings,
+    action: {
+      type: "navigate",
+      href: "/settings",
+    },
+    showOn: {
+      devices: ["desktop", "tablet"],
+    },
+  },
+  {
+    id: "users",
+    label: "Users",
+    icon: Users,
+    action: {
+      type: "callback",
+      onClick: () => console.log("Users clicked"),
+    },
+  },
+];
+
+<UniversalHeader config={config} items={customItems} title="My App" />;
 ```
 
 ### LMS with Custom Config
@@ -120,11 +275,54 @@ The system automatically:
 
 Helper class with static methods:
 
+#### Existing Methods
+
 - `getDeviceType()`: Detect current device type
 - `getViewType()`: Detect if running in webview
 - `generateConfig()`: Generate layout configuration
 - `filterNavigationItems()`: Filter items by platform/device
 - `shouldShowBottomNav()`: Check if bottom nav should be shown
+- `shouldShowHeader()`: Check if header should be shown
+- `getNavigationItems()`: Get navigation items for platform
+
+#### New Methods
+
+- `getHeaderItemsForPage(page)`: Get header items for specific page
+- `filterHeaderItems(items, page, device, platform?)`: Filter header items by context
+- `getDefaultSidebarConfig(device, page?)`: Get default sidebar configuration
+
+### Header Items Configuration
+
+Header items are defined in `config.ts` for each page:
+
+- `FEED_HEADER_ITEMS`: Items for feed page
+- `NETWORK_HEADER_ITEMS`: Items for network page
+- `DASHBOARD_HEADER_ITEMS`: Items for dashboard page
+- `SETTINGS_HEADER_ITEMS`: Items for settings page
+- `PROFILE_HEADER_ITEMS`: Items for profile page
+
+Each item supports:
+
+```typescript
+{
+  id: string;
+  label: string;
+  icon?: React.ComponentType;
+  action?: {
+    type: 'navigate' | 'callback' | 'toggle' | 'dropdown';
+    href?: string;
+    onClick?: () => void | boolean | Promise<void | boolean>;
+    items?: HeaderItem[]; // For dropdown
+  };
+  badge?: number;
+  active?: boolean;
+  showOn?: {
+    devices?: DeviceType[];
+    pages?: PageType[];
+    platforms?: PlatformType[];
+  };
+}
+```
 
 ## Integration
 
