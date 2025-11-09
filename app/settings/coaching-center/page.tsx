@@ -68,8 +68,8 @@ export default function CoachingCentersPage() {
 
     // Simply render the CoachingManager component
     return (
-        <div className="min-h-screen flex items-center justify-center p-8">
-            <div className="w-full max-w-5xl mx-auto">
+        <div className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-b from-background to-muted/10">
+            <div className="w-full max-w-6xl mx-auto">
                 <CoachingManager />
             </div>
         </div>
