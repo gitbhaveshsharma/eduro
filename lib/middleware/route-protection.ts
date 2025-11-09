@@ -471,12 +471,76 @@ export class RouteProtector {
           requiredRoles: config.allowedRoles
         }, context)
 
+        // For API routes, return JSON error.
+        if (context.request.nextUrl.pathname.startsWith('/api/')) {
+          return {
+            shouldContinue: false,
+            response: NextResponse.json(
+              { error: 'Insufficient permissions' },
+              { status: 403 }
+            )
+          }
+        }
+
+        // For web routes, show a friendly HTML message and redirect back to the
+        // previous page (referer) or history.back() after 5 seconds. This avoids
+        // rendering a raw JSON error body in the browser.
+        const referer = context.request.headers.get('referer')
+        const returnTo = referer || ''
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Insufficient permissions</title>
+    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#111827} .card{max-width:520px;padding:24px;border-radius:8px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .muted{color:#6b7280}</style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Insufficient permissions</h1>
+      <p class="muted">You don't have permission to access this resource.</p>
+      <p class="muted">You will be returned to the previous page in <span id="count">5</span> seconds.</p>
+      <p><a id="backNow" href="#">Go back now</a></p>
+    </div>
+
+    <script>
+      (function(){
+        var seconds = 5;
+        var el = document.getElementById('count');
+        var backLink = document.getElementById('backNow');
+        function tick(){
+          seconds -= 1;
+          if(el) el.textContent = String(seconds);
+          if(seconds <= 0){
+            if(${returnTo ? 'true' : 'false'}){
+              // If referer provided, navigate there
+              window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+            } else {
+              // Otherwise attempt history back
+              if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+            }
+          }
+        }
+        backLink.addEventListener('click', function(e){
+          e.preventDefault();
+          if(${returnTo ? 'true' : 'false'}){
+            window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+          } else {
+            if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+          }
+        });
+        setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>`
+
         return {
           shouldContinue: false,
-          response: NextResponse.json(
-            { error: 'Insufficient permissions' },
-            { status: 403 }
-          )
+          response: new NextResponse(html, {
+            status: 403,
+            headers: { 'content-type': 'text/html; charset=utf-8' }
+          })
         }
       }
     }
@@ -489,12 +553,73 @@ export class RouteProtector {
           requiredPermissions: config.requiredPermissions
         }, context)
 
+        // For API routes, return JSON error.
+        if (context.request.nextUrl.pathname.startsWith('/api/')) {
+          return {
+            shouldContinue: false,
+            response: NextResponse.json(
+              { error: 'Insufficient permissions' },
+              { status: 403 }
+            )
+          }
+        }
+
+        // For web routes, show a friendly HTML message and redirect back to the
+        // previous page (referer) or history.back() after 5 seconds.
+        const referer = context.request.headers.get('referer')
+        const returnTo = referer || ''
+        const html = `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Insufficient permissions</title>
+    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#111827} .card{max-width:520px;padding:24px;border-radius:8px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .muted{color:#6b7280}</style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Insufficient permissions</h1>
+      <p class="muted">You don't have permission to access this resource.</p>
+      <p class="muted">You will be returned to the previous page in <span id="count">5</span> seconds.</p>
+      <p><a id="backNow" href="#">Go back now</a></p>
+    </div>
+
+    <script>
+      (function(){
+        var seconds = 5;
+        var el = document.getElementById('count');
+        var backLink = document.getElementById('backNow');
+        function tick(){
+          seconds -= 1;
+          if(el) el.textContent = String(seconds);
+          if(seconds <= 0){
+            if(${returnTo ? 'true' : 'false'}){
+              window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+            } else {
+              if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+            }
+          }
+        }
+        backLink.addEventListener('click', function(e){
+          e.preventDefault();
+          if(${returnTo ? 'true' : 'false'}){
+            window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
+          } else {
+            if(window.history.length > 1) window.history.back(); else window.location.href = '/';
+          }
+        });
+        setInterval(tick, 1000);
+      })();
+    </script>
+  </body>
+</html>`
+
         return {
           shouldContinue: false,
-          response: NextResponse.json(
-            { error: 'Insufficient permissions' },
-            { status: 403 }
-          )
+          response: new NextResponse(html, {
+            status: 403,
+            headers: { 'content-type': 'text/html; charset=utf-8' }
+          })
         }
       }
     }

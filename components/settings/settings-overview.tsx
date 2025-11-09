@@ -51,9 +51,8 @@ export function SettingsOverview({ userRole, className = '' }: SettingsOverviewP
     return (
         <div className={cn('space-y-6', className)}>
             {/* Info Banner */}
-            <Alert className="bg-blue-50 border-blue-200 text-blue-600">
-                <AlertCircle className="h-4 w-4 " />
-                <AlertDescription className="text-blue-800">
+            <Alert variant={"info"}>
+                <AlertDescription >
                     Use the search bar above to quickly find specific settings, or browse by category below.
                 </AlertDescription>
             </Alert>
@@ -142,9 +141,8 @@ export function SettingsOverview({ userRole, className = '' }: SettingsOverviewP
             })}
 
             {/* Footer Info */}
-            <Alert className="bg-blue-50 border-blue-200 text-blue-800">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-blue-600">
+            <Alert variant={"info"}>
+                <AlertDescription >
                     Some settings may only be available to specific user roles (Student, Teacher, Coach, Admin).
                     {userRole && (
                         <span className="ml-1 font-medium">

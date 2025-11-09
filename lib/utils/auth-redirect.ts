@@ -18,31 +18,46 @@ export interface AuthRedirectResult {
  * Get redirect destination from URL search params
  */
 export function getRedirectFromUrl(searchParams?: URLSearchParams | string): string | null {
-  let params: URLSearchParams
-  
+  // Accept multiple shapes for the input:
+  // - A full search string like '?redirect=/path&foo=bar'
+  // - A URLSearchParams instance
+  // - A raw redirect path string like '/settings/profiles' or '%2Fsettings%2Fprofiles'
+  let redirect: string | null = null
+
   if (typeof searchParams === 'string') {
-    // Handle case where search params are passed as string
-    params = new URLSearchParams(searchParams.startsWith('?') ? searchParams.slice(1) : searchParams)
+    const str = searchParams
+
+    // If it's a query string or contains a redirect= key, parse it
+    if (str.includes('redirect=') || str.startsWith('?')) {
+      const params = new URLSearchParams(str.startsWith('?') ? str.slice(1) : str)
+      redirect = params.get('redirect')
+    } else if (str.startsWith('/') || str.startsWith('%2F')) {
+      // It's a raw path (possibly encoded) - decode it safely
+      try {
+        redirect = decodeURIComponent(str)
+      } catch (e) {
+        redirect = str
+      }
+    }
   } else if (searchParams instanceof URLSearchParams) {
-    params = searchParams
+    redirect = searchParams.get('redirect')
   } else {
     // Try to get from current URL if running in browser
     if (typeof window !== 'undefined') {
-      params = new URLSearchParams(window.location.search)
+      const params = new URLSearchParams(window.location.search)
+      redirect = params.get('redirect')
     } else {
       return null
     }
   }
-  
-  const redirect = params.get('redirect')
-  
+
   // Validate redirect URL to prevent open redirect attacks
   if (redirect) {
     // Only allow relative URLs or same origin
     if (redirect.startsWith('/') && !redirect.startsWith('//')) {
       // Fix common typos in redirect URLs
       const cleanRedirect = redirect.replace('/onbording', '/onboarding')
-      
+
       // Allow review pages and other safe paths
       const safePatterns = [
         /^\/dashboard/,
@@ -51,16 +66,20 @@ export function getRedirectFromUrl(searchParams?: URLSearchParams | string): str
         /^\/coaching-reviews/,
         /^\/network/,
         /^\/feed/,
-        /^\/settings/
+        /^\/settings/,
+        /^\/coaching/,
+        /^\/search/,
+        /^\/notifications/,
+        /^\/messages/
       ]
-      
+
       const isSafePath = safePatterns.some(pattern => pattern.test(cleanRedirect))
       if (isSafePath) {
         return cleanRedirect
       }
     }
   }
-  
+
   return null
 }
 
@@ -71,14 +90,14 @@ export function getRedirectFromUrl(searchParams?: URLSearchParams | string): str
  * @returns Object with destination path and reason
  */
 export function getAuthRedirectDestination(
-  profile: Profile | null, 
+  profile: Profile | null,
   redirectParam?: string | URLSearchParams
 ): AuthRedirectResult {
   // First check if there's a valid redirect parameter
-  const redirectUrl = typeof redirectParam === 'string' ? 
-    getRedirectFromUrl(redirectParam) : 
+  const redirectUrl = typeof redirectParam === 'string' ?
+    getRedirectFromUrl(redirectParam) :
     getRedirectFromUrl(redirectParam)
-  
+
   if (redirectUrl) {
     // If redirect is to onboarding, check if user actually needs onboarding
     if (redirectUrl === '/onboarding') {
@@ -97,7 +116,7 @@ export function getAuthRedirectDestination(
         }
       }
     }
-    
+
     // For other redirect URLs, only allow if user has completed onboarding
     if (profile && !isOnboardingRequired(profile)) {
       return {
@@ -142,22 +161,22 @@ export function getAuthRedirectDestination(
  */
 export async function waitForProfileAndGetRedirect(
   getUserProfile: () => Profile | null,
-  maxWaitTime: number = 5000
+  maxWaitTime: number = 1000
 ): Promise<AuthRedirectResult> {
   const startTime = Date.now()
-  
+
   // Poll for profile data
   while (Date.now() - startTime < maxWaitTime) {
     const profile = getUserProfile()
-    
+
     if (profile) {
       return getAuthRedirectDestination(profile)
     }
-    
+
     // Wait 100ms before checking again
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  
+
   // Timeout - assume onboarding needed
   return {
     destination: '/onboarding',
@@ -177,15 +196,21 @@ export function shouldRedirectFromCurrentPage(
   currentPath: string
 ): { shouldRedirect: boolean; destination?: string } {
   const isOnOnboardingPage = currentPath.startsWith('/onboarding')
-  const isOnAuthPage = currentPath.startsWith('/login') || 
-                      currentPath.startsWith('/auth') || 
-                      currentPath.startsWith('/signup')
-  
+  const isOnAuthPage = currentPath.startsWith('/login') ||
+    currentPath.startsWith('/auth') ||
+    currentPath.startsWith('/signup')
+
   // Don't redirect if on auth pages
   if (isOnAuthPage) {
     return { shouldRedirect: false }
   }
-  
+
+  // Don't redirect from public routes — allow public pages to be viewed even if
+  // profile is incomplete.
+  if (isPublicRoute(currentPath)) {
+    return { shouldRedirect: false }
+  }
+
   if (!profile) {
     // No profile - redirect to onboarding if not already there
     return {
@@ -193,9 +218,9 @@ export function shouldRedirectFromCurrentPage(
       destination: '/onboarding'
     }
   }
-  
+
   const needsOnboarding = isOnboardingRequired(profile)
-  
+
   if (needsOnboarding && !isOnOnboardingPage) {
     // Needs onboarding but not on onboarding page
     return {
@@ -203,7 +228,7 @@ export function shouldRedirectFromCurrentPage(
       destination: '/onboarding'
     }
   }
-  
+
   if (!needsOnboarding && isOnOnboardingPage) {
     // Completed onboarding but still on onboarding page
     return {
@@ -211,7 +236,7 @@ export function shouldRedirectFromCurrentPage(
       destination: '/dashboard'
     }
   }
-  
+
   return { shouldRedirect: false }
 }
 
@@ -222,18 +247,18 @@ export function shouldRedirectFromCurrentPage(
  * @returns Login URL with proper redirect back to current page
  */
 export function createAuthRedirectUrl(
-  currentPath: string, 
+  currentPath: string,
   action?: string
 ): string {
   const loginUrl = new URL('/login', typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000')
-  
+
   // Always redirect back to the current page after login
   loginUrl.searchParams.set('redirect', currentPath)
-  
+
   if (action) {
     loginUrl.searchParams.set('action', action)
   }
-  
+
   return loginUrl.href
 }
 
@@ -250,7 +275,11 @@ export function isPublicRoute(pathname: string): boolean {
     '/auth/callback',
     '/api/auth/callback',
     '/api/health',
-    '/favicon.ico'
+    '/favicon.ico',
+    '/coaching',
+    '/search',
+    '/notifications',
+    '/messages'
   ]
 
   const publicPatterns = [
@@ -259,6 +288,8 @@ export function isPublicRoute(pathname: string): boolean {
     /^\/static\//,
     /^\/images\//,
     /^\/coaching-reviews/, // Review pages are public for viewing
+    /^\/coaching\//, // Coaching pages are public
+    /^\/search\//, // Search pages are public
   ]
 
   // Check exact matches
@@ -268,4 +299,14 @@ export function isPublicRoute(pathname: string): boolean {
 
   // Check pattern matches
   return publicPatterns.some(pattern => pattern.test(pathname))
+}
+
+// Export the updated utilities
+export default {
+  getRedirectFromUrl,
+  getAuthRedirectDestination,
+  waitForProfileAndGetRedirect,
+  shouldRedirectFromCurrentPage,
+  createAuthRedirectUrl,
+  isPublicRoute
 }
