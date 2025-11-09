@@ -250,7 +250,7 @@ export function ProfileForm({ profile, onSuccess, className = '' }: ProfileFormP
                                 variant="destructive"
                             >
                                 <AlertDescription className="ml-2 text-sm text-red-800">
-                                    To update your role, please contact our support team at support@eduro.com
+                                    To update your role, please contact our support team at support@tutrsy.com
                                 </AlertDescription>
                             </Alert>
                         </div>

@@ -12,11 +12,11 @@ import { UserRole, OnboardingLevel } from '@/lib/schema/profile.types';
  * Reserved usernames that cannot be used
  */
 const RESERVED_USERNAMES = [
-    'admin', 'administrator', 'root', 'api', 'www', 'mail', 
+    'admin', 'administrator', 'root', 'api', 'www', 'mail',
     'support', 'help', 'about', 'contact', 'settings', 'profile',
     'user', 'users', 'account', 'accounts', 'dashboard', 'login',
     'logout', 'signup', 'signin', 'register', 'auth', 'oauth',
-    'eduro', 'system', 'moderator', 'mod', 'staff'
+    'tutrsy', 'system', 'moderator', 'mod', 'staff'
 ];
 
 /**
@@ -265,25 +265,25 @@ export const profileUpdateSchema = z.object({
     phone: phoneSchema.nullable().optional().or(z.literal('')),
     timezone: timezoneSchema.optional(),
     language_preference: languagePreferenceSchema.optional(),
-    
+
     // Social links
     website_url: urlSchema.nullable().optional().or(z.literal('')),
     linkedin_url: linkedinUrlSchema.nullable().optional().or(z.literal('')),
     github_url: githubUrlSchema.nullable().optional().or(z.literal('')),
     twitter_url: twitterUrlSchema.nullable().optional().or(z.literal('')),
-    
+
     // Notification preferences
     email_notifications: z.boolean().optional(),
     push_notifications: z.boolean().optional(),
     chat_notifications: z.boolean().optional(),
     whatsapp_notifications: z.boolean().optional(),
     sms_notifications: z.boolean().optional(),
-    
+
     // Role-specific fields for Teachers/Coaches
     expertise_areas: expertiseAreasSchema.nullable().optional(),
     years_of_experience: yearsOfExperienceSchema.nullable().optional(),
     hourly_rate: hourlyRateSchema.nullable().optional(),
-    
+
     // Role-specific fields for Students
     grade_level: gradeLevelSchema.nullable().optional(),
     subjects_of_interest: subjectsOfInterestSchema.nullable().optional(),
@@ -306,12 +306,12 @@ export const profileFormSchema = z.object({
     phone: phoneSchema.nullable().optional().or(z.literal('')),
     timezone: z.string().optional(),
     language_preference: z.string().optional(),
-    
+
     // Role-specific fields for Teachers/Coaches
     expertise_areas: z.array(z.string()).nullable().optional(),
     years_of_experience: z.number().min(0).max(100).nullable().optional(),
     hourly_rate: z.number().min(0).max(10000).nullable().optional(),
-    
+
     // Role-specific fields for Students
     grade_level: z.string().nullable().optional(),
     subjects_of_interest: z.array(z.string()).nullable().optional(),

@@ -159,7 +159,7 @@ export function UniversalHeader({
     // Use a page-specific placeholder for coaching page, otherwise respect searchConfig or fallback
     const defaultPlaceholder = searchConfig?.placeholder || 'Search...';
     const searchPlaceholder = config.page === 'coaching'
-        ? 'Search by name, subject, location...'
+        ? 'Search by coaching name, subject, location...'
         : defaultPlaceholder;
 
     // Check if we're on settings or coaching page for custom search

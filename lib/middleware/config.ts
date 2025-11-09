@@ -18,7 +18,8 @@ const defaultSecurityHeaders = {
   xFrameOptions: 'DENY',
   xContentTypeOptions: 'nosniff',
   referrerPolicy: 'strict-origin-when-cross-origin',
-  permissionsPolicy: 'camera=(), microphone=(), geolocation=(), payment=()',
+  // ✅ FIXED: Allow geolocation for same-origin (self) - enables coaching location features
+  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'require-corp',
   crossOriginOpenerPolicy: 'same-origin',
   crossOriginResourcePolicy: 'same-origin'
@@ -28,6 +29,8 @@ const defaultSecurityHeaders = {
 const developmentSecurityHeaders = {
   ...defaultSecurityHeaders,
   contentSecurityPolicy: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws:;",
+  // ✅ FIXED: Allow geolocation in development too
+  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'unsafe-none'
 }
 
@@ -199,6 +202,23 @@ const routeProtections = {
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
     logRequests: true
   },
+  '/coaching*': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+  // '/coaching/[slug]': {
+  //   securityLevel: SecurityLevel.PUBLIC,
+  //   rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+  //   logRequests: true
+  // },
+  '/coaching/[slug]/branch/[id]': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },
+    logRequests: true
+  },
+
+
   '/coaching-reviews/*': {
     securityLevel: SecurityLevel.PUBLIC,
     rateLimiting: { requests: 100, window: RateLimitWindow.MINUTE },

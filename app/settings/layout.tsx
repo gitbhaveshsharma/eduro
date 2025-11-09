@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { ConditionalLayout } from '@/components/layout/conditional-layout';
 
 export const metadata: Metadata = {
-    title: 'Settings | Eduro',
+    title: 'Settings | Tutrsy - Learning Platform',
     description: 'Manage your profile, preferences, and account settings',
 };
 

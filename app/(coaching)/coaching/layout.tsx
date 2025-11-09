@@ -1,11 +1,9 @@
-import { Metadata } from "next";
+'use client';
+
 import { ConditionalLayout } from "@/components/layout/conditional-layout";
 import { CoachingFilterPanelProvider } from "@/components/coaching/search/coaching-filter-panel-context";
-
-export const metadata: Metadata = {
-    title: "Coaching | Eduro",
-    description: "Access coaching resources and support for your learning journey",
-};
+import { PermissionGuard } from "@/components/permissions";
+import { LOCATION_PERMISSION } from "@/lib/permissions";
 
 export default function CoachingLayout({
     children,
@@ -14,19 +12,35 @@ export default function CoachingLayout({
 }) {
     return (
         <CoachingFilterPanelProvider>
-            <ConditionalLayout
-                forceConfig={{
-                    page: 'coaching',
-                    headerType: 'universal',
-                    title: 'Coaching',
-                    sidebar: {
-                        enabled: false,
-                        defaultOpen: false,
-                    },
+            <PermissionGuard
+                permissions={[{
+                    ...LOCATION_PERMISSION,
+                    required: false,
+                    autoRequest: true,
+                }]}
+                strategy="all"
+                autoRequest={true}
+                strictMode={false}
+
+                showLoading={false}
+                onAllGranted={() => {
+                    // console.log('✅ [COACHING LAYOUT] Location permission granted for coaching discovery');
                 }}
             >
-                {children}
-            </ConditionalLayout>
+                <ConditionalLayout
+                    forceConfig={{
+                        page: 'coaching',
+                        headerType: 'universal',
+                        title: 'Coaching',
+                        sidebar: {
+                            enabled: false,
+                            defaultOpen: false,
+                        },
+                    }}
+                >
+                    {children}
+                </ConditionalLayout>
+            </PermissionGuard>
         </CoachingFilterPanelProvider>
     );
 }
