@@ -8,7 +8,8 @@ import {
   MiddlewareContext,
   RequestContext,
   SecurityEvent,
-  SecurityEventType
+  SecurityEventType,
+  SecurityLevel
 } from './lib/middleware/types'
 import middlewareConfig from './lib/middleware/config'
 import { AuthHandler } from './lib/middleware/auth-utils'
@@ -40,11 +41,49 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const requestId = SecurityUtils.generateRequestId()
 
   try {
-    // FIRST: Handle Supabase session refresh (CRITICAL - must be first!)
-    console.log('[MIDDLEWARE] Step 1: Refreshing Supabase session...')
-    const supabaseMiddleware = createSupabaseMiddleware()
-    let response = await supabaseMiddleware(request)
-    console.log('[MIDDLEWARE] Step 1 complete: Session refreshed')
+    // FIRST: Decide whether to refresh Supabase session. We avoid refreshing
+    // for purely PUBLIC routes when there is no auth cookie/header to reduce
+    // noisy "No user session" logs and unnecessary work.
+    console.log('[MIDDLEWARE] Step 1: Checking whether to refresh Supabase session...')
+
+    const cookieName = middlewareConfig.auth?.cookieName || 'supabase-auth-token'
+    const hasAuthCookie = Boolean(request.cookies.get(cookieName))
+    const hasAuthHeader = Boolean(request.headers.get('authorization') || request.headers.get('x-api-key'))
+
+    // Helper: match route pattern (simple Next-style conversion -> regex)
+    const matchesPattern = (pathname: string, pattern: string): boolean => {
+      let regexPattern = pattern.replace(/\//g, '\\/')
+      regexPattern = regexPattern.replace(/\[\.\.\.([^\]]+)\]/g, '(.+)')
+      regexPattern = regexPattern.replace(/\[([^\]]+)\]/g, '([^\\/]+)')
+      regexPattern = regexPattern.replace(/\*/g, '.*')
+      const regex = new RegExp(`^${regexPattern}$`)
+      return regex.test(pathname)
+    }
+
+    // Find route config if defined
+    const pathname = request.nextUrl.pathname
+    let routeConfig: any | undefined
+    for (const [pattern, cfg] of Object.entries(middlewareConfig.routes || {})) {
+      if (pattern === pathname || matchesPattern(pathname, pattern)) {
+        routeConfig = cfg as any
+        break
+      }
+    }
+
+    let response: NextResponse
+    const shouldSkipSupabase = !!(routeConfig && routeConfig.securityLevel === SecurityLevel.PUBLIC && !hasAuthCookie && !hasAuthHeader)
+
+    if (shouldSkipSupabase) {
+      // Skip calling Supabase middleware entirely for public routes with no
+      // authentication present — use a "next" response as a neutral base.
+      console.log('[MIDDLEWARE] Skipping Supabase session refresh for public route with no auth')
+      response = NextResponse.next()
+    } else {
+      console.log('[MIDDLEWARE] Step 1: Refreshing Supabase session...')
+      const supabaseMiddleware = createSupabaseMiddleware()
+      response = await supabaseMiddleware(request)
+      console.log('[MIDDLEWARE] Step 1 complete: Session refreshed')
+    }
 
     // CRITICAL: Create enriched request with auth headers from Supabase middleware
     // This allows AuthHandler to read the user info set by Supabase middleware

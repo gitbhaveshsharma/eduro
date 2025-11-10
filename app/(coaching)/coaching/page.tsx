@@ -106,7 +106,7 @@ export default function CoachingCentersPage() {
     }, [currentPage, currentCenterFilters, currentCenterSortBy, perPage, searchCoachingCenters]);
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-background to-muted/10">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
             <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
                 {/* Header Section */}
                 <div className="space-y-4">

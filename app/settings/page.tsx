@@ -22,7 +22,7 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-b from-background to-muted/10">
+        <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-primary/5 to-secondary/5">
             <div className="w-full max-w-6xl mx-auto">
                 <div className="space-y-6">
                     {/* Header */}

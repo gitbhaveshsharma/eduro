@@ -398,6 +398,10 @@ export class AddressService {
         query = query.eq('branch_id', filters.branch_id);
       }
 
+      if (filters.coaching_id) {
+        query = query.eq('coaching_id', filters.coaching_id);
+      }
+
       if (filters.address_type) {
         if (Array.isArray(filters.address_type)) {
           query = query.in('address_type', filters.address_type);
@@ -665,7 +669,7 @@ export class AddressService {
 
       const stateCount: Record<string, number> = {};
 
-      addresses.forEach(addr => {
+      addresses.forEach((addr: Address) => {
         if (addr.address_type && byType.hasOwnProperty(addr.address_type)) {
           byType[addr.address_type as AddressType]++;
         }
@@ -680,9 +684,9 @@ export class AddressService {
         total_addresses: addresses.length,
         by_type: byType,
         by_state: byState,
-        verified_addresses: addresses.filter(a => a.is_verified).length,
-        primary_addresses: addresses.filter(a => a.is_primary).length,
-        with_coordinates: addresses.filter(a => a.latitude && a.longitude).length
+        verified_addresses: addresses.filter((a: Address) => a.is_verified).length,
+        primary_addresses: addresses.filter((a: Address) => a.is_primary).length,
+        with_coordinates: addresses.filter((a: Address) => a.latitude && a.longitude).length
       };
 
       return { success: true, data: stats };

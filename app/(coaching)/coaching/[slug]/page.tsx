@@ -14,10 +14,12 @@ import {
     type PublicCoachingCenter,
     type PublicCoachingBranch
 } from '@/lib/coaching';
+import { useAddressStore, type Address } from '@/lib/address';
 import { CoachingProfileHeader } from '@/components/coaching/public/coaching-profile-header';
 import { CoachingAboutSection } from '@/components/coaching/public/coaching-about-section';
 import { CoachingBranchesSection } from '@/components/coaching/public/coaching-branches-section';
 import { CoachingReviewsSection } from '@/components/coaching/public/coaching-reviews-section';
+import { CoachingLocationCard } from '@/components/coaching/public/coaching-location-card';
 // import { CoachingStatsCards } from '@/components/coaching/public/coaching-stats-cards';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -33,9 +35,11 @@ export default function CoachingCenterProfilePage() {
     const slug = params?.slug as string;
 
     const { loadCoachingCenterBySlug, loadBranchesByCenter } = useCoachingStore();
+    const { getAddressByEntity } = useAddressStore();
 
     const [center, setCenter] = useState<PublicCoachingCenter | null>(null);
     const [branches, setBranches] = useState<PublicCoachingBranch[]>([]);
+    const [address, setAddress] = useState<Address | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -59,13 +63,17 @@ export default function CoachingCenterProfilePage() {
             setCenter(centerData as unknown as PublicCoachingCenter);
             const branchesData = await loadBranchesByCenter(centerData.id, true);
             setBranches(branchesData || []);
+
+            // Load coaching center address
+            const addressData = await getAddressByEntity('coaching', centerData.id);
+            setAddress(addressData);
         } catch (err) {
             console.error('Failed to load coaching center:', err);
             setError('Failed to load coaching center details');
         } finally {
             setLoading(false);
         }
-    }, [slug, loadCoachingCenterBySlug, loadBranchesByCenter]);
+    }, [slug, loadCoachingCenterBySlug, loadBranchesByCenter, getAddressByEntity]);
 
     useEffect(() => {
         loadCoachingData();
@@ -120,7 +128,7 @@ export default function CoachingCenterProfilePage() {
 
     if (error || !center) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
                 <Alert variant="destructive" className="max-w-md shadow-lg">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
@@ -150,7 +158,7 @@ export default function CoachingCenterProfilePage() {
             />
 
             {/* Content Grid */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-5">
                 {/* Stats Cards - Bento Grid */}
                 {/* <CoachingStatsCards 
                     center={center}
@@ -162,6 +170,7 @@ export default function CoachingCenterProfilePage() {
                 <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
                     {/* Left Column - About */}
                     <div className="lg:col-span-2 space-y-6">
+
                         <CoachingAboutSection center={center} />
                         <CoachingBranchesSection
                             branches={branches}
@@ -179,6 +188,8 @@ export default function CoachingCenterProfilePage() {
                                 centerSlug={slug}
                                 branchIds={branchIds}
                             />
+                            <CoachingLocationCard center={center} address={address} />
+
                         </div>
                     </div>
                 </div>
