@@ -6,7 +6,6 @@
  */
 
 import { createClient } from '../supabase/client';
-import { withAuth } from '../api-interceptor';
 
 // Initialize Supabase client
 const supabase = createClient();
