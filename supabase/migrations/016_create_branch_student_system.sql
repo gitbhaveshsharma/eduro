@@ -88,7 +88,7 @@ CREATE TABLE branch_classes (
   -- Capacity and pricing
   max_students INTEGER DEFAULT 30,
   current_enrollment INTEGER DEFAULT 0,
-  fees_amount DECIMAL(10,2),
+--   fees_amount DECIMAL(10,2),
   fees_frequency TEXT DEFAULT 'MONTHLY', -- MONTHLY, QUARTERLY, YEARLY
   
   -- Teacher assignment
