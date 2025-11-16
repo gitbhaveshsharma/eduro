@@ -48,7 +48,8 @@ export const BRANCH_CLASS_LIMITS = {
  * Regular expressions for validation
  */
 const VALIDATION_REGEX = {
-    TIME: /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/, // HH:MM or HH:MM:SS
+    // Accepts both 24-hour (HH:MM) and 12-hour (hh:MM AM/PM) formats
+    TIME: /^(([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?|([0-1]?[0-9]:[0-5][0-9]\s?(AM|PM|am|pm)))$/i,
     UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
 } as const;
 
@@ -176,18 +177,44 @@ export const dateSchema = z
     );
 
 /**
- * Time validation (HH:MM or HH:MM:SS format)
+ * Time validation (HH:MM or hh:MM AM/PM format)
  */
 export const timeSchema = z
     .string()
-    .regex(VALIDATION_REGEX.TIME, 'Invalid time format (expected HH:MM or HH:MM:SS)')
+    .regex(VALIDATION_REGEX.TIME, 'Invalid time format (expected HH:MM or HH:MM AM/PM)')
     .refine(
         (time) => {
-            const [hours, minutes] = time.split(':').map(Number);
+            // Convert to 24-hour format for validation
+            const time24 = convertTo24Hour(time);
+            const [hours, minutes] = time24.split(':').map(Number);
             return hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59;
         },
         'Invalid time values'
     );
+
+/**
+ * Helper function to convert 12-hour format to 24-hour format
+ */
+function convertTo24Hour(timeStr: string): string {
+    timeStr = timeStr.trim().toUpperCase();
+    
+    // If already in 24-hour format, return as is
+    if (!timeStr.includes('AM') && !timeStr.includes('PM')) {
+        return timeStr;
+    }
+    
+    // Handle 12-hour format with AM/PM
+    const [time, period] = timeStr.split(/\s+/);
+    let [hours, minutes] = time.split(':').map(Number);
+    
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
 
 /**
  * Class days array validation
@@ -285,11 +312,14 @@ export const timeRangeSchema = z
         (data) => {
             if (!data.start_time || !data.end_time) return true;
 
-            const [startHours, startMinutes] = data.start_time.split(':').map(Number);
-            const [endHours, endMinutes] = data.end_time.split(':').map(Number);
+            const convertToMinutes = (timeStr: string): number => {
+                const time24 = convertTo24Hour(timeStr);
+                const [hours, minutes] = time24.split(':').map(Number);
+                return hours * 60 + minutes;
+            };
 
-            const startTotalMinutes = startHours * 60 + startMinutes;
-            const endTotalMinutes = endHours * 60 + endMinutes;
+            const startTotalMinutes = convertToMinutes(data.start_time);
+            const endTotalMinutes = convertToMinutes(data.end_time);
 
             return startTotalMinutes < endTotalMinutes;
         },
@@ -297,7 +327,7 @@ export const timeRangeSchema = z
             message: 'Start time must be before end time',
             path: ['end_time'],
         }
-    );
+    );;
 
 // ============================================================
 // MAIN VALIDATION SCHEMAS

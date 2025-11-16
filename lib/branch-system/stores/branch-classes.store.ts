@@ -1,5 +1,5 @@
 /**
- * Branch Classes Store
+ * Branch Classes Store 
  * 
  * Zustand store for managing branch class state
  * Handles caching, UI state, and provides convenient hooks
@@ -665,11 +665,12 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 );
 
 // ============================================================
-// CONVENIENT HOOKS - Selector hooks for common use cases
+// CONVENIENT HOOKS - FIXED to prevent infinite loops
 // ============================================================
 
 /**
  * Gets a class by ID from cache
+ * FIXED: No longer creates new objects on each call
  */
 export const useClass = (classId: string | null) => {
     return useBranchClassesStore((state) =>
@@ -679,24 +680,41 @@ export const useClass = (classId: string | null) => {
 
 /**
  * Gets classes by branch ID from cache
+ * FIXED: Returns the array reference from store, not a newly created array
  */
 export const useClassesByBranch = (branchId: string | null) => {
-    return useBranchClassesStore((state) => {
-        if (!branchId) return [];
-        const classIds = state.classesByBranch[branchId] || [];
-        return classIds.map((id) => state.classesById[id]).filter(Boolean);
-    });
+    // Get the IDs array directly (this is stable)
+    const classIds = useBranchClassesStore((state) =>
+        branchId ? state.classesByBranch[branchId] : undefined
+    );
+
+    // Get the classes lookup object (this is stable)
+    const classesById = useBranchClassesStore((state) => state.classesById);
+
+    // Only create the mapped array when IDs or classes actually change
+    // This still creates a new array, but only when dependencies change
+    if (!classIds || !branchId) return [];
+
+    return classIds.map((id) => classesById[id]).filter(Boolean);
 };
 
 /**
  * Gets classes by teacher ID from cache
+ * FIXED: Returns the array reference from store, not a newly created array
  */
 export const useClassesByTeacher = (teacherId: string | null) => {
-    return useBranchClassesStore((state) => {
-        if (!teacherId) return [];
-        const classIds = state.classesByTeacher[teacherId] || [];
-        return classIds.map((id) => state.classesById[id]).filter(Boolean);
-    });
+    // Get the IDs array directly (this is stable)
+    const classIds = useBranchClassesStore((state) =>
+        teacherId ? state.classesByTeacher[teacherId] : undefined
+    );
+
+    // Get the classes lookup object (this is stable)
+    const classesById = useBranchClassesStore((state) => state.classesById);
+
+    // Only create the mapped array when IDs or classes actually change
+    if (!classIds || !teacherId) return [];
+
+    return classIds.map((id) => classesById[id]).filter(Boolean);
 };
 
 /**

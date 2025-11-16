@@ -181,6 +181,9 @@ interface CoachingActions {
   updateBranchFilters: (filters: Partial<CoachingBranchFilters>) => void;
   updateBranchSort: (sort: CoachingBranchSort) => void;
   clearBranchSearch: () => void;
+  
+  // ADD: Search branches by name
+  searchBranchesByName: (searchQuery: string, limit?: number) => Promise<CoachingBranch[]>;
 
   // Statistics actions
   loadStats: () => Promise<void>;
@@ -862,6 +865,25 @@ export const useCoachingStore = create<CoachingStore>()(
             state.currentBranchFilters = {};
             state.currentBranchSort = { field: 'created_at', direction: 'desc' };
           });
+        },
+
+        // ADD: Search branches by name
+        searchBranchesByName: async (searchQuery: string, limit: number = 10) => {
+          console.log('[CoachingStore] Searching branches by name:', searchQuery);
+          
+          if (!searchQuery || searchQuery.trim().length === 0) {
+            return [];
+          }
+
+          const result = await CoachingService.searchBranchesByName(searchQuery.trim(), limit);
+
+          if (result.success && result.data) {
+            console.log('[CoachingStore] Found branches:', result.data.length);
+            return result.data;
+          }
+
+          console.error('[CoachingStore] Failed to search branches:', result.error);
+          return [];
         },
 
         // Statistics actions

@@ -95,6 +95,10 @@ export function DashboardActions({ role }: DashboardActionsProps) {
                             Manage your coaching sessions and track student progress.
                         </p>
                         <div className="flex flex-wrap gap-3">
+                            {/* Manage Classes */}
+                            <Button asChild>
+                                <Link href="/coach/branch-classes">Manage Classes</Link>
+                            </Button>
                             <Button asChild>
                                 <Link href="/coach/schedule">Schedule Session</Link>
                             </Button>

@@ -1133,4 +1133,74 @@ export class CoachingService {
     };
     return this.validateCoachingBranchData(tempData as CoachingBranchCreate);
   }
+
+  /**
+   * Search branches by name for a specific coaching center
+   * Only returns branches owned by the user (either as owner or manager)
+   */
+  static async searchBranchesByName(
+    searchQuery: string,
+    limit: number = 10
+  ): Promise<CoachingOperationResult<CoachingBranch[]>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // First, get all coaching centers owned or managed by the user
+      const { data: centers, error: centersError } = await supabase
+        .from('coaching_centers')
+        .select('id')
+        .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`);
+
+      if (centersError) {
+        return { success: false, error: centersError.message };
+      }
+
+      if (!centers || centers.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      const centerIds = centers.map(c => c.id);
+
+      // Search branches by name for these centers
+      const query = supabase
+        .from('coaching_branches')
+        .select(`
+          id,
+          coaching_center_id,
+          name,
+          description,
+          manager_id,
+          phone,
+          email,
+          is_main_branch,
+          is_active,
+          metadata,
+          created_at,
+          updated_at
+        `)
+        .in('coaching_center_id', centerIds)
+        .eq('is_active', true)
+        .ilike('name', `%${searchQuery}%`)
+        .order('is_main_branch', { ascending: false })
+        .order('name', { ascending: true })
+        .limit(limit);
+
+      const { data, error } = await query;
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
 }
