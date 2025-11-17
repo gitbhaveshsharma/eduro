@@ -18,7 +18,6 @@ import {
     formatDate,
     formatEnrollmentStatus,
     formatPaymentStatus,
-    getAttendanceStatus,
 } from '@/lib/branch-system/utils/branch-students.utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -56,7 +55,7 @@ function StatCard({ title, value, description, icon, trend, className }: StatCar
         <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
-                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                     {icon}
                 </div>
             </CardHeader>
@@ -200,28 +199,28 @@ export function BranchStudentsDashboard() {
                     title="Total Students"
                     value={stats?.total_students || 0}
                     description={`${stats?.enrolled_students || 0} actively enrolled`}
-                    icon={<Users className="h-4 w-4" />}
+                    icon={<Users className="h-4 w-4 text-green-600" />}
                 />
 
                 <StatCard
                     title="Pending Approvals"
                     value={stats?.pending_students || 0}
                     description="Students awaiting approval"
-                    icon={<Clock className="h-4 w-4" />}
+                    icon={<Clock className="h-4 w-4 text-yellow-600" />}
                 />
 
                 <StatCard
                     title="Overdue Payments"
                     value={stats?.students_with_overdue_payments || 0}
                     description={`${paymentComplianceRate}% compliance rate`}
-                    icon={<AlertTriangle className="h-4 w-4" />}
+                    icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
                 />
 
                 <StatCard
                     title="Average Attendance"
                     value={`${stats?.average_attendance.toFixed(1) || 0}%`}
                     description="Across all students"
-                    icon={<TrendingUp className="h-4 w-4" />}
+                    icon={<TrendingUp className="h-4 w-4 text-blue-600" />}
                 />
             </div>
 

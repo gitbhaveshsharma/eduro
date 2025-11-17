@@ -1135,9 +1135,9 @@ export class CoachingService {
   }
 
   /**
-   * Search branches by name for a specific coaching center
-   * Only returns branches owned by the user (either as owner or manager)
-   */
+  * Search branches by name for a specific coaching center
+  * Returns branches from coaching centers where user is owner, manager, OR branch manager
+  */
   static async searchBranchesByName(
     searchQuery: string,
     limit: number = 10
@@ -1149,53 +1149,55 @@ export class CoachingService {
         return { success: false, error: 'User not authenticated' };
       }
 
-      // First, get all coaching centers owned or managed by the user
+      // SIMPLIFIED: Just get coaching center IDs where user is owner or manager
       const { data: centers, error: centersError } = await supabase
         .from('coaching_centers')
-        .select('id')
+        .select('id')  // ← JUST SELECT ID, NO COMPLEX JOINS
         .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`);
 
       if (centersError) {
         return { success: false, error: centersError.message };
       }
 
-      if (!centers || centers.length === 0) {
+      // Get branches where user is branch manager
+      const { data: managedBranches, error: branchesError } = await supabase
+        .from('coaching_branches')
+        .select('coaching_center_id')
+        .eq('manager_id', user.id)
+        .eq('is_active', true);
+
+      if (branchesError) {
+        return { success: false, error: branchesError.message };
+      }
+
+      // Combine all accessible coaching center IDs
+      const centerIdsFromCenters = centers?.map(c => c.id) || [];
+      const centerIdsFromBranches = managedBranches?.map(b => b.coaching_center_id) || [];
+
+      const allAccessibleCenterIds = [
+        ...new Set([...centerIdsFromCenters, ...centerIdsFromBranches])
+      ];
+
+      if (allAccessibleCenterIds.length === 0) {
         return { success: true, data: [] };
       }
 
-      const centerIds = centers.map(c => c.id);
-
-      // Search branches by name for these centers
-      const query = supabase
+      // Search branches by name for these coaching centers
+      const { data: branches, error: searchError } = await supabase
         .from('coaching_branches')
-        .select(`
-          id,
-          coaching_center_id,
-          name,
-          description,
-          manager_id,
-          phone,
-          email,
-          is_main_branch,
-          is_active,
-          metadata,
-          created_at,
-          updated_at
-        `)
-        .in('coaching_center_id', centerIds)
+        .select('*')
+        .in('coaching_center_id', allAccessibleCenterIds)
         .eq('is_active', true)
         .ilike('name', `%${searchQuery}%`)
         .order('is_main_branch', { ascending: false })
         .order('name', { ascending: true })
         .limit(limit);
 
-      const { data, error } = await query;
-
-      if (error) {
-        return { success: false, error: error.message };
+      if (searchError) {
+        return { success: false, error: searchError.message };
       }
 
-      return { success: true, data: data || [] };
+      return { success: true, data: branches || [] };
     } catch (error) {
       return {
         success: false,

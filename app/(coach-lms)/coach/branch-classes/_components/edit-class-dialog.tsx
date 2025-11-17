@@ -59,7 +59,6 @@ import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast'
 import { Loader2 } from 'lucide-react';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
-import { BranchSearchSelect } from '@/components/coaching/management/branch-search-select';
 
 /**
  * Edit Class Dialog Component
