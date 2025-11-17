@@ -2,6 +2,7 @@
 
 import { memo, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -20,6 +21,7 @@ import {
 
 interface CoachingProfileHeaderProps {
     center: PublicCoachingCenter;
+    branchIds?: string[];
     onShare?: () => void;
     onSave?: () => void;
 }
@@ -52,49 +54,53 @@ export const CoachingProfileHeader = memo(function CoachingProfileHeader({
     const handleImageError = useCallback(() => setImageError(true), []);
 
     return (
-        <section className="w-full">
+        <section className="max-w-7xl mx-auto">
             {/* Cover */}
-            <div className="relative h-[196px] sm:h-[220px] lg:h-[240px] bg-muted overflow-hidden">
-                {center.cover_url && !imageError ? (
-                    <>
-                        <img
-                            src={coverUrl}
-                            alt={`${center.name} cover`}
-                            className="w-full h-full object-cover"
-                            onError={handleImageError}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
-                    </>
-                ) : (
-                    <div className="w-full h-full grid place-items-center">
-                        <span className="text-6xl">{categoryInfo.icon}</span>
-                    </div>
-                )}
+            <div className="relative px-4 sm:px-6 lg:px-8">
+                <div className="max-w-7xl mx-auto">
+                    <div className="relative h-[160px] sm:h-[210px] lg:h-[240px] bg-primary/10 overflow-hidden ">
+                        {center.cover_url && !imageError ? (
+                            <>
+                                <Image
+                                    src={coverUrl}
+                                    alt={`${center.name} cover`}
+                                    className="w-full h-full object-cover"
+                                    onError={handleImageError}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />
+                            </>
+                        ) : (
+                            <div className="w-full h-full grid place-items-center">
+                                <span className="text-6xl">{categoryInfo.icon}</span>
+                            </div>
+                        )}
 
-                {/* Floating actions (right) */}
-                <div className="absolute top-4 right-4 flex items-center gap-2">
-                    <Button variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-4">
-                        + Follow
-                    </Button>
-                    {center.website && (
-                        <Button asChild variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-3">
-                            <a href={center.website} target="_blank" rel="noopener noreferrer">
-                                <Globe className="h-4 w-4" />
-                            </a>
-                        </Button>
-                    )}
-                    {(onShare || onSave) && (
-                        <Button variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-3" onClick={onShare}>
-                            <Ellipsis className="h-4 w-4" />
-                        </Button>
-                    )}
+                        {/* Floating actions (right) */}
+                        <div className="absolute top-4 right-4 flex items-center gap-2">
+                            <Button variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-4">
+                                + Follow
+                            </Button>
+                            {center.website && (
+                                <Button asChild variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-3">
+                                    <a href={center.website} target="_blank" rel="noopener noreferrer">
+                                        <Globe className="h-4 w-4" />
+                                    </a>
+                                </Button>
+                            )}
+                            {(onShare || onSave) && (
+                                <Button variant="secondary" className="rounded-full bg-white/95 backdrop-blur px-3" onClick={onShare}>
+                                    <Ellipsis className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* Overlap card */}
             <div className="-mt-10 sm:-mt-12 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-6xl mx-auto">
-                    <div className="bg-card border rounded-xl p-4 sm:p-6">
+                <div className="max-w-7xl mx-auto">
+                    <div className="relative bg-card border rounded-b-xl border-t-0 p-4 sm:p-6">
                         <div className="flex gap-4 sm:gap-6">
                             {/* Logo block overlapping */}
                             <div className="relative shrink-0 -mt-12">
@@ -120,10 +126,6 @@ export const CoachingProfileHeader = memo(function CoachingProfileHeader({
                                                 <span aria-hidden>{categoryInfo.icon}</span>
                                                 {categoryInfo.label}
                                             </span>
-                                            {/* {center.city && <span>• {center.city}</span>}
-                      {typeof center.total_employees === 'number' && (
-                        <span>• {Intl.NumberFormat().format(center.total_employees)} employees</span>
-                      )} */}
                                             {center.website && (
                                                 <a
                                                     href={center.website}

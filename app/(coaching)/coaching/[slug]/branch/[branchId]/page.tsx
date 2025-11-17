@@ -23,6 +23,9 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // 1 second between retries
+
 export default function CoachingBranchProfilePage() {
     const params = useParams();
     const router = useRouter();
@@ -30,19 +33,23 @@ export default function CoachingBranchProfilePage() {
     const branchId = params?.branchId as string;
 
     const { loadCoachingCenterBySlug, loadCoachingBranch } = useCoachingStore();
-    const { loadAddress } = useAddressStore();
+    const { getAddressByEntity } = useAddressStore();
 
     const [center, setCenter] = useState<PublicCoachingCenter | null>(null);
     const [branch, setBranch] = useState<PublicCoachingBranch | null>(null);
     const [address, setAddress] = useState<Address | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
 
-    const loadBranchData = useCallback(async () => {
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+    const loadBranchData = useCallback(async (attemptNumber: number = 1) => {
         if (!slug || !branchId) return;
 
         setLoading(true);
         setError(null);
+        setRetryCount(attemptNumber);
 
         try {
             // 1) Load center by slug (populates store)
@@ -51,42 +58,58 @@ export default function CoachingBranchProfilePage() {
             const centerData = storeState.currentCoachingCenter;
 
             if (!centerData) {
-                setError('Coaching center not found');
-                return;
+                throw new Error('Coaching center not found');
             }
             setCenter(centerData as unknown as PublicCoachingCenter);
 
             // 2) Load branch by id
             const branchData = await loadCoachingBranch(branchId);
             if (!branchData) {
-                setError('Branch not found');
-                return;
+                throw new Error('Branch not found');
             }
             setBranch(branchData as PublicCoachingBranch);
 
-            // 3) Optional address loading (enable when schema supports it)
-            // if (branchData.metadata?.address_id) {
-            //   const addr = await loadAddress(branchData.metadata.address_id);
-            //   setAddress(addr || null);
-            // }
-        } catch (err) {
-            console.error('Failed to load branch:', err);
-            setError('Failed to load branch details');
-        } finally {
+            // 3) Load branch address
+            const addressData = await getAddressByEntity('branch', branchId);
+            setAddress(addressData || null);
+
+            // Success - reset retry count
+            setRetryCount(0);
             setLoading(false);
+        } catch (err) {
+            console.error(`Failed to load branch (attempt ${attemptNumber}/${MAX_RETRIES}):`, err);
+
+            // Retry logic
+            if (attemptNumber < MAX_RETRIES) {
+                console.log(`Retrying in ${RETRY_DELAY}ms...`);
+                await sleep(RETRY_DELAY);
+                await loadBranchData(attemptNumber + 1);
+            } else {
+                // Max retries reached, show error
+                setError(
+                    err instanceof Error && err.message.includes('not found')
+                        ? err.message
+                        : 'Failed to load branch details. Please try again later.'
+                );
+                setLoading(false);
+            }
         }
-    }, [slug, branchId, loadCoachingCenterBySlug, loadCoachingBranch, loadAddress]);
+    }, [slug, branchId, loadCoachingCenterBySlug, loadCoachingBranch, getAddressByEntity]);
 
     useEffect(() => {
-        loadBranchData();
+        loadBranchData(1);
     }, [loadBranchData]);
 
     if (loading) {
-        // Use the same full-screen spinner pattern used on the center slug page
+        // Show retry attempt in loading message
+        const loadingMessage = retryCount > 1
+            ? `Loading ${slug} / branch... (Attempt ${retryCount}/${MAX_RETRIES})`
+            : `Loading ${slug} / branch...`;
+
         return (
-            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
                 <LoadingSpinner
-                    message={`Loading ${slug} / branch...`}
+                    message={loadingMessage}
                     size="lg"
                     variant="primary"
                     fullscreen
@@ -97,20 +120,31 @@ export default function CoachingBranchProfilePage() {
 
     if (error || !center || !branch) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
                 <Alert variant="destructive" className="max-w-md shadow-lg">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error || 'Branch not found'}
                     </AlertDescription>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-4"
-                        onClick={() => router.push(`/coaching/${slug}`)}
-                    >
-                        Back to Coaching Center
-                    </Button>
+                    <div className="flex gap-2 mt-4">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setError(null);
+                                loadBranchData(1);
+                            }}
+                        >
+                            Try Again
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => router.push(`/coaching/${slug}`)}
+                        >
+                            Back to Coaching Center
+                        </Button>
+                    </div>
                 </Alert>
             </div>
         );

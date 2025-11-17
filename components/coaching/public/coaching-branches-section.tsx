@@ -5,7 +5,7 @@
 
 'use client';
 
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +22,7 @@ import {
     ChevronRight,
     Star
 } from 'lucide-react';
+import { useAddressStore, type Address } from '@/lib/address';
 import Link from 'next/link';
 
 interface CoachingBranchesSectionProps {
@@ -47,7 +48,7 @@ export const CoachingBranchesSection = memo(function CoachingBranchesSection({
 
     if (!branches || branches.length === 0) {
         return (
-            <Card className="border-border/50 shadow-sm">
+            <Card className=" ">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2.5 text-xl">
                         <div className="p-2 bg-primary/10 rounded-lg">
@@ -69,7 +70,7 @@ export const CoachingBranchesSection = memo(function CoachingBranchesSection({
     }
 
     return (
-        <Card className="border-border/50 shadow-sm">
+        <Card className="">
             <CardHeader>
                 <CardTitle className="flex items-center gap-2.5 text-xl">
                     <div className="p-2 bg-primary/10 rounded-lg">
@@ -117,6 +118,28 @@ const BranchCard = memo(function BranchCard({
         onJoinBranch?.(branch.id);
     }, [branch.id, onJoinBranch]);
 
+    // Load branch address (only show condensed location in the list)
+    const { getAddressByEntity } = useAddressStore();
+    const [branchAddress, setBranchAddress] = useState<Address | null>(null);
+
+    useEffect(() => {
+        let mounted = true;
+        // fetch address for this branch and cache via store
+        getAddressByEntity('branch', branch.id)
+            .then((addr) => {
+                if (!mounted) return;
+                setBranchAddress(addr || null);
+            })
+            .catch((err) => {
+                // swallow errors, nothing to show
+                if (!mounted) return;
+                setBranchAddress(null);
+                console.warn('Failed to load branch address for list view', branch.id, err);
+            });
+
+        return () => { mounted = false; };
+    }, [branch.id, getAddressByEntity]);
+
     return (
         <div className={`
             group relative rounded-xl border border-border/50 p-5 space-y-4
@@ -141,8 +164,8 @@ const BranchCard = memo(function BranchCard({
                         <Badge
                             variant={branch.is_active ? "default" : "secondary"}
                             className={`text-xs ${branch.is_active
-                                    ? "bg-green-500 hover:bg-green-600"
-                                    : ""
+                                ? "bg-green-500 hover:bg-green-600"
+                                : ""
                                 }`}
                         >
                             {branch.is_active ? 'Active' : 'Inactive'}
@@ -152,6 +175,16 @@ const BranchCard = memo(function BranchCard({
                     {branch.description && (
                         <p className="text-sm text-muted-foreground line-clamp-2">
                             {branch.description}
+                        </p>
+                    )}
+                    {branchAddress && (
+                        <p className="text-sm text-muted-foreground">
+                            {[
+                                branchAddress.address_line_1 || branchAddress.city,
+                                branchAddress.district,
+                                branchAddress.state,
+                                branchAddress.pin_code
+                            ].filter(Boolean).join(', ')}
                         </p>
                     )}
                 </div>

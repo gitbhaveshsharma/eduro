@@ -31,7 +31,7 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-b from-background to-muted/10">
+        <div className="min-h-screen flex items-center justify-center p-8 bg-gradient-to-br from-primary/5 to-secondary/5">
             <div className="w-full max-w-6xl mx-auto"> {/* Increased width to max-w-6xl */}
                 <div className="space-y-6">
                     {/* Header */}

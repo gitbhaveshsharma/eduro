@@ -26,14 +26,14 @@ export class IPUtils {
     const forwardedFor = request.headers.get('x-forwarded-for')
     const realIP = request.headers.get('x-real-ip')
     const cfConnectingIP = request.headers.get('cf-connecting-ip')
-    
+
     if (cfConnectingIP) return cfConnectingIP
     if (realIP) return realIP
     if (forwardedFor) {
       // x-forwarded-for can contain multiple IPs, first one is usually the real client IP
       return forwardedFor.split(',')[0].trim()
     }
-    
+
     // Fallback to connection IP
     return request.ip || '127.0.0.1'
   }
@@ -131,7 +131,7 @@ export class RateLimiter {
    */
   static generateKey(context: MiddlewareContext, prefix: string): string {
     const config = context.config.routes[context.request.nextUrl.pathname]
-    
+
     if (config?.rateLimiting?.keyGenerator) {
       return config.rateLimiting.keyGenerator(context)
     }
@@ -143,7 +143,7 @@ export class RateLimiter {
     if (userId) {
       return `${prefix}:user:${userId}`
     }
-    
+
     return `${prefix}:ip:${ip}`
   }
 
@@ -152,7 +152,7 @@ export class RateLimiter {
    */
   static cleanup(): void {
     const now = Math.floor(Date.now() / 1000)
-    
+
     for (const [key, state] of rateLimitStore.entries()) {
       if (now >= state.resetTime) {
         rateLimitStore.delete(key)
@@ -218,6 +218,28 @@ export class RequestValidator {
     const referer = request.headers.get('referer') || ''
     const url = request.nextUrl.pathname + request.nextUrl.search
 
+    // Dev-friendly: if request originates from a private/local IP, skip suspicion
+    try {
+      const ip = IPUtils.getRealIP(request)
+      if (IPUtils.isPrivateIP(ip)) {
+        // Do not treat local requests as suspicious by default
+        return false
+      }
+    } catch (e) {
+      // ignore IP errors and continue
+    }
+
+    // Dev-friendly: common browser UAs should not be considered suspicious
+    const commonBrowserPatterns = [/Chrome\//i, /Firefox\//i, /Safari\//i, /Edge\//i, /Brave\//i]
+    if (commonBrowserPatterns.some((p) => p.test(userAgent))) {
+      // If the UA matches a common browser and doesn't contain known tooling keywords,
+      // treat as non-suspicious to reduce false positives in dev and normal browsing.
+      const toolingPatterns = [/curl/i, /wget/i, /python-requests/i, /nikto/i, /sqlmap/i]
+      if (!toolingPatterns.some((p) => p.test(userAgent))) {
+        return false
+      }
+    }
+
     // Skip suspicious checks for legitimate API endpoints
     const legitApiPatterns = [
       /^\/api\/pincode/, // Pincode API is legitimate
@@ -242,12 +264,14 @@ export class RequestValidator {
       /wget|curl|nc|netcat/i,    // Tool usage
     ]
 
-    // Check URL for suspicious patterns
-    if (suspiciousPatterns.some(pattern => pattern.test(url))) {
+    // Check URL for suspicious patterns (and record which matched for diagnostics)
+    const matchedUrlPattern = suspiciousPatterns.find((pattern) => pattern.test(url))
+    if (matchedUrlPattern) {
+      console.warn('[SECURITY] Suspicious URL pattern matched:', matchedUrlPattern.toString(), { url, userAgent })
       return true
     }
 
-    // Check User-Agent for bots or suspicious clients
+    // Check User-Agent for bots or suspicious clients and log matcher
     const suspiciousUAs = [
       /nikto/i,
       /sqlmap/i,
@@ -258,7 +282,9 @@ export class RequestValidator {
       /wget/i
     ]
 
-    if (suspiciousUAs.some(pattern => pattern.test(userAgent))) {
+    const matchedUAPattern = suspiciousUAs.find((pattern) => pattern.test(userAgent))
+    if (matchedUAPattern) {
+      console.warn('[SECURITY] Suspicious User-Agent matched:', matchedUAPattern.toString(), { url, userAgent })
       return true
     }
 
@@ -547,7 +573,7 @@ export const SecurityUtils = {
     if (IPUtils.isPrivateIP(ip)) {
       return { country: 'Local', city: 'Local' }
     }
-    
+
     // Mock data for demo
     return { country: 'Unknown', city: 'Unknown' }
   },
@@ -557,7 +583,7 @@ export const SecurityUtils = {
    */
   cleanup(): void {
     RateLimiter.cleanup()
-    
+
     // Clean up old security events
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
     for (const [ip, events] of securityEvents.entries()) {

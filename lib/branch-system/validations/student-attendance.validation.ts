@@ -98,11 +98,27 @@ export const attendanceFiltersSchema = z.object({
 });
 
 // List params schema
-export const attendanceListParamsSchema = attendanceFiltersSchema.extend({
+export const attendanceListParamsSchema = z.object({
+  student_id: z.string().uuid().optional(),
+  class_id: z.string().uuid().optional(),
+  teacher_id: z.string().uuid().optional(),
+  branch_id: z.string().uuid().optional(),
+  attendance_status: attendanceStatusSchema.optional(),
+  date_from: z.string().date().optional(),
+  date_to: z.string().date().optional(),
+  attendance_date: z.string().date().optional(),
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(20),
   sort_by: z.enum(['attendance_date', 'created_at']).default('attendance_date'),
   sort_order: z.enum(['asc', 'desc']).default('desc'),
+}).refine((data) => {
+  if (data.date_from && data.date_to) {
+    return new Date(data.date_from) <= new Date(data.date_to);
+  }
+  return true;
+}, {
+  message: 'From date must be before or equal to date',
+  path: ['date_to'],
 });
 
 // Get attendance summary schema

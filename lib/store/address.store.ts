@@ -1043,6 +1043,12 @@ export const useAddressStore = create<AddressStore>()(
 
         getAddressByEntity: async (entityType: 'branch' | 'coaching', entityId: string) => {
           try {
+            // Validate inputs
+            if (!entityId || typeof entityId !== 'string') {
+              console.error('Invalid entityId provided to getAddressByEntity');
+              return null;
+            }
+
             const filters: AddressFilters = entityType === 'branch'
               ? { branch_id: entityId }
               : { coaching_id: entityId };
@@ -1056,6 +1062,23 @@ export const useAddressStore = create<AddressStore>()(
 
             if (result.success && result.data && result.data.addresses.length > 0) {
               const address = result.data.addresses[0];
+
+              // Additional validation: Ensure the address actually belongs to this entity
+              const addressBelongsToEntity = entityType === 'branch'
+                ? address.branch_id === entityId
+                : address.coaching_id === entityId;
+
+              if (!addressBelongsToEntity) {
+                console.warn(`Address ${address.id} does not belong to ${entityType} ${entityId}`);
+                return null;
+              }
+
+              // Ensure the address is active
+              if (!address.is_active) {
+                console.warn(`Address ${address.id} is not active`);
+                return null;
+              }
+
               // Cache the address
               get().cacheAddress(address);
               return address;

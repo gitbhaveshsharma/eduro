@@ -1133,4 +1133,76 @@ export class CoachingService {
     };
     return this.validateCoachingBranchData(tempData as CoachingBranchCreate);
   }
+
+  /**
+  * Search branches by name for a specific coaching center
+  * Returns branches from coaching centers where user is owner, manager, OR branch manager
+  */
+  static async searchBranchesByName(
+    searchQuery: string,
+    limit: number = 10
+  ): Promise<CoachingOperationResult<CoachingBranch[]>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // SIMPLIFIED: Just get coaching center IDs where user is owner or manager
+      const { data: centers, error: centersError } = await supabase
+        .from('coaching_centers')
+        .select('id')  // ← JUST SELECT ID, NO COMPLEX JOINS
+        .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`);
+
+      if (centersError) {
+        return { success: false, error: centersError.message };
+      }
+
+      // Get branches where user is branch manager
+      const { data: managedBranches, error: branchesError } = await supabase
+        .from('coaching_branches')
+        .select('coaching_center_id')
+        .eq('manager_id', user.id)
+        .eq('is_active', true);
+
+      if (branchesError) {
+        return { success: false, error: branchesError.message };
+      }
+
+      // Combine all accessible coaching center IDs
+      const centerIdsFromCenters = centers?.map(c => c.id) || [];
+      const centerIdsFromBranches = managedBranches?.map(b => b.coaching_center_id) || [];
+
+      const allAccessibleCenterIds = [
+        ...new Set([...centerIdsFromCenters, ...centerIdsFromBranches])
+      ];
+
+      if (allAccessibleCenterIds.length === 0) {
+        return { success: true, data: [] };
+      }
+
+      // Search branches by name for these coaching centers
+      const { data: branches, error: searchError } = await supabase
+        .from('coaching_branches')
+        .select('*')
+        .in('coaching_center_id', allAccessibleCenterIds)
+        .eq('is_active', true)
+        .ilike('name', `%${searchQuery}%`)
+        .order('is_main_branch', { ascending: false })
+        .order('name', { ascending: true })
+        .limit(limit);
+
+      if (searchError) {
+        return { success: false, error: searchError.message };
+      }
+
+      return { success: true, data: branches || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
 }
