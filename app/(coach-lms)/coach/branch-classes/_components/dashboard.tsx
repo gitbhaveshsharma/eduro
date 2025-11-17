@@ -1,24 +1,22 @@
 /**
- * Branch Classes Dashboard Component
+ * Branch Classes Dashboard Component - FIXED VERSION
  * 
- * Displays comprehensive overview of branch classes with:
- * - Statistics cards (total, active, full, completed classes)
- * - Utilization metrics
- * - Recent classes list
- * - Quick action buttons
+ * Key fixes:
+ * 1. Uses cache properly - only fetches once on mount
+ * 2. Updates automatically when classes are created/updated/deleted
+ * 3. Better loading state management
+ * 4. Prevents redundant API calls
  */
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    BranchClassesAPI,
-    useClassesByBranch,
-    useBranchStats,
+    useSearchResults,
     useClassesLoading,
     useBranchClassesStore,
     formatClassSchedule,
@@ -29,11 +27,11 @@ import {
     Users,
     BookOpen,
     CheckCircle,
-    XCircle,
     AlertCircle,
     TrendingUp,
     Calendar,
     Clock,
+    RefreshCw,
 } from 'lucide-react';
 
 interface DashboardProps {
@@ -82,15 +80,19 @@ function StatCard({
  * Recent Classes List Component
  */
 function RecentClassesList({ branchId }: { branchId?: string }) {
-    const classes = useClassesByBranch(branchId || '');
-    const { fetchClasses } = useClassesLoading();
+    const searchResults = useSearchResults();
+    const { search: isSearching } = useClassesLoading();
 
-    // Get 5 most recent classes
-    const recentClasses = classes
+    // Get all classes from search results
+    const allClasses = searchResults?.classes || [];
+
+    // Filter by branch if branchId provided, then get 5 most recent
+    const recentClasses = allClasses
+        .filter(cls => !branchId || cls.branch_id === branchId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5);
 
-    if (fetchClasses) {
+    if (isSearching && allClasses.length === 0) {
         return (
             <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
@@ -124,16 +126,22 @@ function RecentClassesList({ branchId }: { branchId?: string }) {
                 return (
                     <div
                         key={classItem.id}
-                        className="flex items-start space-x-4 p-4 rounded-lg border hover:bg-accent transition-colors"
+                        className="flex items-start space-x-4 p-4 rounded-lg border hover:bg-accent transition-colors cursor-pointer"
                     >
                         <div className="flex-1 space-y-1">
                             <div className="flex items-center justify-between">
                                 <h4 className="font-semibold">{classItem.class_name}</h4>
-                                <Badge variant={
-                                    status.color === 'green' ? 'default' :
-                                        status.color === 'yellow' ? 'secondary' :
-                                            status.color === 'red' ? 'destructive' : 'outline'
-                                }>
+                                <Badge
+                                    variant={
+                                        status.color === 'green'
+                                            ? 'default'
+                                            : status.color === 'yellow'
+                                                ? 'secondary'
+                                                : status.color === 'red'
+                                                    ? 'destructive'
+                                                    : 'outline'
+                                    }
+                                >
                                     {status.label}
                                 </Badge>
                             </div>
@@ -164,19 +172,72 @@ function RecentClassesList({ branchId }: { branchId?: string }) {
  * Main Dashboard Component
  */
 export function BranchClassesDashboard({ branchId }: DashboardProps) {
-    const stats = useBranchStats(branchId || '');
-    const { stats: statsLoading } = useClassesLoading();
+    const store = useBranchClassesStore();
+    const searchResults = useSearchResults();
+    const { search: isSearching } = useClassesLoading();
+    const { currentFilters, currentSort, currentPagination } = store.ui;
 
-    // Fetch data on mount
+    // ✅ FIX: Only search once on mount, then use cache
+    const [hasInitialized, setHasInitialized] = useState(false);
+
     useEffect(() => {
-        if (branchId) {
-            useBranchClassesStore.getState().fetchBranchStats(branchId);
-            BranchClassesAPI.fetchBranchClasses(branchId);
-        }
-    }, [branchId]);
+        if (!hasInitialized) {
+            console.log('📊 Dashboard: Initial load - checking cache');
 
-    // Show loading skeletons
-    if (statsLoading) {
+            // Build filters based on branchId if provided
+            const filters = branchId ? { branch_id: branchId } : {};
+
+            // This will check cache first, only fetch if needed
+            store.searchClasses(
+                filters,
+                { field: 'created_at', direction: 'desc' },
+                { page: 1, limit: 100 }, // Get more results for dashboard
+                false // Don't force refresh, use cache if available
+            );
+
+            setHasInitialized(true);
+        }
+    }, [hasInitialized, branchId, store]);
+
+    // ✅ Calculate stats from search results (updates automatically when cache is invalidated)
+    const allClasses = searchResults?.classes || [];
+    const stats = {
+        total_classes: allClasses.length,
+        active_classes: allClasses.filter((c) => c.status === 'ACTIVE').length,
+        full_classes: allClasses.filter(
+            (c) => c.status === 'FULL' || c.current_enrollment >= c.max_students
+        ).length,
+        total_students_enrolled: allClasses.reduce((sum, c) => sum + c.current_enrollment, 0),
+        total_capacity: allClasses.reduce((sum, c) => sum + c.max_students, 0),
+        average_utilization:
+            allClasses.length > 0
+                ? Math.round(
+                    allClasses.reduce(
+                        (sum, c) => sum + (c.current_enrollment / c.max_students) * 100,
+                        0
+                    ) / allClasses.length
+                )
+                : 0,
+        classes_by_subject: allClasses.reduce((acc, c) => {
+            acc[c.subject] = (acc[c.subject] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>),
+    };
+
+    // ✅ Manual refresh function
+    const handleRefresh = () => {
+        console.log('🔄 Dashboard: Manual refresh');
+        const filters = branchId ? { branch_id: branchId } : {};
+        store.searchClasses(
+            filters,
+            { field: 'created_at', direction: 'desc' },
+            { page: 1, limit: 100 },
+            true // Force refresh, bypass cache
+        );
+    };
+
+    // Show loading skeletons only on initial load
+    if (isSearching && !searchResults) {
         return (
             <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -218,11 +279,30 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
     // Show stats
     return (
         <div className="space-y-6">
+            {/* Header with Refresh Button */}
+            {/* <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+                    <p className="text-muted-foreground">
+                        Overview of your {branchId ? 'branch' : ''} classes
+                    </p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isSearching}
+                >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isSearching ? 'animate-spin' : ''}`} />
+                    Refresh
+                </Button>
+            </div> */}
+
             {/* Stats Cards */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="Total Classes"
-                    value={stats?.total_classes || 0}
+                    value={stats.total_classes}
                     description="All classes in your branch"
                     icon={BookOpen}
                     colorClass="text-blue-600"
@@ -230,7 +310,7 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
 
                 <StatCard
                     title="Active Classes"
-                    value={stats?.active_classes || 0}
+                    value={stats.active_classes}
                     description="Currently running classes"
                     icon={CheckCircle}
                     colorClass="text-green-600"
@@ -238,7 +318,7 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
 
                 <StatCard
                     title="Full Classes"
-                    value={stats?.full_classes || 0}
+                    value={stats.full_classes}
                     description="Classes at max capacity"
                     icon={AlertCircle}
                     colorClass="text-orange-600"
@@ -246,8 +326,8 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
 
                 <StatCard
                     title="Total Students"
-                    value={stats?.total_students_enrolled || 0}
-                    description={`Out of ${stats?.total_capacity || 0} capacity`}
+                    value={stats.total_students_enrolled}
+                    description={`Out of ${stats.total_capacity} capacity`}
                     icon={Users}
                     colorClass="text-purple-600"
                 />
@@ -269,12 +349,17 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                         <div className="space-y-2">
                             <div className="flex items-center justify-between text-sm">
                                 <span>Utilization Rate</span>
-                                <span className="font-bold">{stats?.average_utilization || 0}%</span>
+                                <span className="font-bold">{stats.average_utilization}%</span>
                             </div>
                             <div className="w-full bg-secondary rounded-full h-3">
                                 <div
-                                    className="bg-primary h-3 rounded-full transition-all"
-                                    style={{ width: `${stats?.average_utilization || 0}%` }}
+                                    className={`h-3 rounded-full transition-all ${stats.average_utilization >= 90
+                                        ? 'bg-red-500'
+                                        : stats.average_utilization >= 70
+                                            ? 'bg-orange-500'
+                                            : 'bg-green-500'
+                                        }`}
+                                    style={{ width: `${stats.average_utilization}%` }}
                                 />
                             </div>
                         </div>
@@ -282,12 +367,12 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                         <div className="grid grid-cols-2 gap-4 text-sm">
                             <div>
                                 <p className="text-muted-foreground">Enrolled</p>
-                                <p className="text-2xl font-bold">{stats?.total_students_enrolled || 0}</p>
+                                <p className="text-2xl font-bold">{stats.total_students_enrolled}</p>
                             </div>
                             <div>
                                 <p className="text-muted-foreground">Available Seats</p>
                                 <p className="text-2xl font-bold">
-                                    {(stats?.total_capacity || 0) - (stats?.total_students_enrolled || 0)}
+                                    {stats.total_capacity - stats.total_students_enrolled}
                                 </p>
                             </div>
                         </div>
@@ -304,9 +389,7 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                             <Clock className="h-5 w-5" />
                             Recent Classes
                         </CardTitle>
-                        <CardDescription>
-                            Latest classes created in your branch
-                        </CardDescription>
+                        <CardDescription>Latest classes created in your branch</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <RecentClassesList branchId={branchId} />
@@ -317,19 +400,22 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle>Classes by Subject</CardTitle>
-                        <CardDescription>
-                            Distribution of classes across subjects
-                        </CardDescription>
+                        <CardDescription>Distribution of classes across subjects</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="space-y-3">
-                            {stats && Object.entries(stats.classes_by_subject).length > 0 ? (
+                            {Object.entries(stats.classes_by_subject).length > 0 ? (
                                 Object.entries(stats.classes_by_subject)
                                     .sort(([, a], [, b]) => b - a)
                                     .map(([subject, count]) => (
-                                        <div key={subject} className="flex items-center justify-between">
+                                        <div
+                                            key={subject}
+                                            className="flex items-center justify-between p-2 rounded-lg hover:bg-accent transition-colors"
+                                        >
                                             <span className="text-sm font-medium">{subject}</span>
-                                            <Badge variant="secondary">{count} {count === 1 ? 'class' : 'classes'}</Badge>
+                                            <Badge variant="secondary">
+                                                {count} {count === 1 ? 'class' : 'classes'}
+                                            </Badge>
                                         </div>
                                     ))
                             ) : (
@@ -341,6 +427,14 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ✅ Real-time update indicator */}
+            {isSearching && (
+                <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Updating...</span>
+                </div>
+            )}
         </div>
     );
 }

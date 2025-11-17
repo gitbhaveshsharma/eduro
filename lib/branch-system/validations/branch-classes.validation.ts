@@ -197,22 +197,22 @@ export const timeSchema = z
  */
 function convertTo24Hour(timeStr: string): string {
     timeStr = timeStr.trim().toUpperCase();
-    
+
     // If already in 24-hour format, return as is
     if (!timeStr.includes('AM') && !timeStr.includes('PM')) {
         return timeStr;
     }
-    
+
     // Handle 12-hour format with AM/PM
     const [time, period] = timeStr.split(/\s+/);
     let [hours, minutes] = time.split(':').map(Number);
-    
+
     if (period === 'PM' && hours !== 12) {
         hours += 12;
     } else if (period === 'AM' && hours === 12) {
         hours = 0;
     }
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
 }
 
@@ -376,8 +376,8 @@ export const createBranchClassSchema = z
         (data) => {
             if (!data.start_time || !data.end_time) return true;
 
-            const [startHours, startMinutes] = data.start_time.split(':').map(Number);
-            const [endHours, endMinutes] = data.end_time.split(':').map(Number);
+            const [startHours, startMinutes] = convertTo24Hour(data.start_time).split(':').slice(0, 2).map(Number);
+            const [endHours, endMinutes] = convertTo24Hour(data.end_time).split(':').slice(0, 2).map(Number);
 
             const startTotalMinutes = startHours * 60 + startMinutes;
             const endTotalMinutes = endHours * 60 + endMinutes;
@@ -430,8 +430,8 @@ export const updateBranchClassSchema = z
         (data) => {
             if (!data.start_time || !data.end_time) return true;
 
-            const [startHours, startMinutes] = data.start_time.split(':').map(Number);
-            const [endHours, endMinutes] = data.end_time.split(':').map(Number);
+            const [startHours, startMinutes] = convertTo24Hour(data.start_time).split(':').slice(0, 2).map(Number);
+            const [endHours, endMinutes] = convertTo24Hour(data.end_time).split(':').slice(0, 2).map(Number);
 
             const startTotalMinutes = startHours * 60 + startMinutes;
             const endTotalMinutes = endHours * 60 + endMinutes;

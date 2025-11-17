@@ -33,12 +33,18 @@ import {
     type ClassStatus,
     type BranchClassFilters,
 } from '@/lib/branch-system/branch-classes';
+import { CoachingService } from '@/lib/service/coaching.service';
 import {
     Search,
     Filter,
     X,
     RefreshCw,
 } from 'lucide-react';
+
+interface Branch {
+    id: string;
+    name: string;
+}
 
 /**
  * Main Class Filters Component
@@ -52,7 +58,28 @@ export function ClassFilters() {
     const [selectedStatus, setSelectedStatus] = useState<ClassStatus | 'all'>('all');
     const [selectedGrade, setSelectedGrade] = useState<string | 'all'>('all');
     const [selectedSubject, setSelectedSubject] = useState<string | 'all'>('all');
+    const [selectedBranch, setSelectedBranch] = useState<string | 'all'>('all');
     const [showAvailableOnly, setShowAvailableOnly] = useState(false);
+    const [branches, setBranches] = useState<Branch[]>([]);
+    const [loadingBranches, setLoadingBranches] = useState(false);
+
+    // Fetch user's branches on mount
+    useEffect(() => {
+        const fetchBranches = async () => {
+            setLoadingBranches(true);
+            try {
+                const result = await CoachingService.searchBranchesByName('', 100);
+                if (result.success && result.data) {
+                    setBranches(result.data.map((b: any) => ({ id: b.id, name: b.name })));
+                }
+            } catch (error) {
+                console.error('Failed to fetch branches:', error);
+            } finally {
+                setLoadingBranches(false);
+            }
+        };
+        fetchBranches();
+    }, []);
 
     // Apply filters to the store and trigger search
     const applyFilters = () => {
@@ -74,6 +101,10 @@ export function ClassFilters() {
             filters.subject = selectedSubject;
         }
 
+        if (selectedBranch !== 'all') {
+            filters.branch_id = selectedBranch;
+        }
+
         if (showAvailableOnly) {
             filters.has_available_seats = true;
         }
@@ -88,6 +119,7 @@ export function ClassFilters() {
         setSelectedStatus('all');
         setSelectedGrade('all');
         setSelectedSubject('all');
+        setSelectedBranch('all');
         setShowAvailableOnly(false);
         store.setFilters({});
         BranchClassesAPI.search({});
@@ -108,6 +140,7 @@ export function ClassFilters() {
         selectedStatus !== 'all' ||
         selectedGrade !== 'all' ||
         selectedSubject !== 'all' ||
+        selectedBranch !== 'all' ||
         showAvailableOnly;
 
     return (
@@ -148,6 +181,28 @@ export function ClassFilters() {
 
             {/* Filter Controls */}
             <div className="flex flex-wrap gap-3">
+                {/* Branch Filter */}
+                <Select
+                    value={selectedBranch}
+                    onValueChange={(value) => {
+                        setSelectedBranch(value);
+                        applyFilters();
+                    }}
+                    disabled={loadingBranches}
+                >
+                    <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder={loadingBranches ? "Loading branches..." : "All Branches"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">All Branches</SelectItem>
+                        {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                                {branch.name}
+                            </SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
                 {/* Status Filter */}
                 <Select
                     value={selectedStatus}
@@ -236,6 +291,19 @@ export function ClassFilters() {
                             <X
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => setSearchQuery('')}
+                            />
+                        </Badge>
+                    )}
+
+                    {selectedBranch !== 'all' && (
+                        <Badge variant="secondary" className="gap-1">
+                            Branch: {branches.find(b => b.id === selectedBranch)?.name || selectedBranch}
+                            <X
+                                className="h-3 w-3 cursor-pointer"
+                                onClick={() => {
+                                    setSelectedBranch('all');
+                                    applyFilters();
+                                }}
                             />
                         </Badge>
                     )}

@@ -185,7 +185,8 @@ export class RouteProtector {
     // Check for suspicious requests
     if (RequestValidator.isSuspiciousRequest(request)) {
       // For PUBLIC routes we don't block on non-critical suspicious flags —
-      // just log and continue. For protected routes, treat as before.
+      // just log and continue. For protected routes, we allow an override
+      // when the user is authenticated and holds one of the allowed roles.
       Logger.warn('Suspicious request detected', {
         url: request.nextUrl.href,
         userAgent: request.headers.get('user-agent')
@@ -207,6 +208,23 @@ export class RouteProtector {
       if (config.securityLevel === SecurityLevel.PUBLIC) {
         // Allow public routes to continue; do not block the request.
         return { shouldContinue: true }
+      }
+
+      // If route is protected (AUTHENTICATED / ROLE_BASED), allow requests
+      // that come from an authenticated user who already satisfies the
+      // required role constraints. This reduces false positives for internal
+      // users (e.g., devs, admins) while still blocking unauthenticated
+      // or unexpected traffic.
+      if (context.user && config.allowedRoles && Array.isArray(config.allowedRoles)) {
+        try {
+          const hasRole = AuthHandler.hasRole(context.user, config.allowedRoles)
+          if (hasRole) {
+            Logger.debug('Suspicious request allowed due to valid authenticated role', { userId: context.user.id, role: context.user.role }, context)
+            return { shouldContinue: true }
+          }
+        } catch (e) {
+          // Fall through to block below if role check fails unexpectedly
+        }
       }
 
       return {

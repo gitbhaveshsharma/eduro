@@ -1,10 +1,10 @@
 /**
  * Branch Classes Store 
  * 
- * Zustand store for managing branch class state
- * Handles caching, UI state, and provides convenient hooks
- * 
- * @module branch-system/stores/branch-classes
+ * Key fixes:
+ * 1. Caches search results by filters/sort/pagination
+ * 2. Invalidates search cache when creating/updating/deleting
+ * 3. Prevents unnecessary API calls
  */
 
 import { create } from 'zustand';
@@ -13,7 +13,6 @@ import { immer } from 'zustand/middleware/immer';
 import type {
     BranchClass,
     PublicBranchClass,
-    BranchClassWithRelations,
     CreateBranchClassInput,
     UpdateBranchClassInput,
     BranchClassFilters,
@@ -21,11 +20,23 @@ import type {
     PaginationOptions,
     BranchClassSearchResult,
     BranchClassStats,
-    ClassAvailability,
-    TeacherClassSummary,
-    BranchClassSummary,
 } from '../types/branch-classes.types';
 import { branchClassesService } from '../services/branch-classes.service';
+
+// ============================================================
+// CACHE KEY GENERATION
+// ============================================================
+
+/**
+ * Generate a stable cache key from search parameters
+ */
+function generateSearchCacheKey(
+    filters: BranchClassFilters,
+    sort: BranchClassSort,
+    pagination: PaginationOptions
+): string {
+    return JSON.stringify({ filters, sort, pagination });
+}
 
 // ============================================================
 // STORE STATE INTERFACE
@@ -36,10 +47,20 @@ interface BranchClassesState {
     // CACHE - Normalized data storage
     // ============================================================
     classesById: Record<string, BranchClass>;
-    classesByBranch: Record<string, string[]>; // branch_id -> class_id[]
-    classesByTeacher: Record<string, string[]>; // teacher_id -> class_id[]
-    searchResults: BranchClassSearchResult | null;
-    stats: Record<string, BranchClassStats>; // branch_id -> stats
+    classesByBranch: Record<string, string[]>;
+    classesByTeacher: Record<string, string[]>;
+
+    // NEW: Cache search results by search parameters
+    searchCache: Record<string, {
+        result: BranchClassSearchResult;
+        timestamp: number;
+    }>;
+
+    // Current search results (for convenience)
+    currentSearchResults: BranchClassSearchResult | null;
+    currentSearchKey: string | null;
+
+    stats: Record<string, BranchClassStats>;
 
     // ============================================================
     // LOADING STATES
@@ -72,6 +93,7 @@ interface BranchClassesState {
     // ============================================================
     ui: {
         selectedClassId: string | null;
+        showDeleteDialog?: boolean;
         isCreating: boolean;
         isEditing: boolean;
         editingClassId: string | null;
@@ -83,7 +105,7 @@ interface BranchClassesState {
     };
 
     // ============================================================
-    // ACTIONS - Data fetching and manipulation
+    // ACTIONS
     // ============================================================
 
     // Fetch operations
@@ -93,7 +115,8 @@ interface BranchClassesState {
     searchClasses: (
         filters?: BranchClassFilters,
         sort?: BranchClassSort,
-        pagination?: PaginationOptions
+        pagination?: PaginationOptions,
+        forceRefresh?: boolean
     ) => Promise<void>;
     fetchBranchStats: (branchId: string, forceRefresh?: boolean) => Promise<void>;
 
@@ -106,6 +129,8 @@ interface BranchClassesState {
 
     // UI Actions
     setSelectedClass: (classId: string | null) => void;
+    openDeleteDialog: (classId?: string) => void;
+    closeDeleteDialog: () => void;
     startCreating: (branchId?: string) => void;
     cancelCreating: () => void;
     startEditing: (classId: string) => void;
@@ -119,6 +144,7 @@ interface BranchClassesState {
 
     // Cache management
     clearCache: () => void;
+    clearSearchCache: () => void;
     clearBranchCache: (branchId: string) => void;
     clearTeacherCache: (teacherId: string) => void;
     invalidateClass: (classId: string) => void;
@@ -140,6 +166,9 @@ const DEFAULT_PAGINATION: PaginationOptions = {
     limit: 20,
 };
 
+// Cache TTL: 5 minutes
+const CACHE_TTL = 5 * 60 * 1000;
+
 // ============================================================
 // STORE CREATION
 // ============================================================
@@ -153,7 +182,9 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             classesById: {},
             classesByBranch: {},
             classesByTeacher: {},
-            searchResults: null,
+            searchCache: {},
+            currentSearchResults: null,
+            currentSearchKey: null,
             stats: {},
 
             loading: {
@@ -178,6 +209,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
             ui: {
                 selectedClassId: null,
+                showDeleteDialog: false,
                 isCreating: false,
                 isEditing: false,
                 editingClassId: null,
@@ -195,10 +227,13 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             fetchClassById: async (classId: string, forceRefresh = false) => {
                 const state = get();
 
-                // Check cache first
+                // ✅ Check cache first
                 if (!forceRefresh && state.classesById[classId]) {
+                    console.log(`[Cache Hit] Class ${classId} loaded from cache`);
                     return;
                 }
+
+                console.log(`[Cache Miss] Fetching class ${classId} from API`);
 
                 set((draft) => {
                     draft.loading.fetchClass = true;
@@ -230,10 +265,13 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             fetchClassesByBranch: async (branchId: string, forceRefresh = false) => {
                 const state = get();
 
-                // Check cache first
+                // ✅ Check cache first
                 if (!forceRefresh && state.classesByBranch[branchId]) {
+                    console.log(`[Cache Hit] Branch ${branchId} classes loaded from cache`);
                     return;
                 }
+
+                console.log(`[Cache Miss] Fetching branch ${branchId} classes from API`);
 
                 set((draft) => {
                     draft.loading.fetchClasses = true;
@@ -272,10 +310,13 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             fetchClassesByTeacher: async (teacherId: string, forceRefresh = false) => {
                 const state = get();
 
-                // Check cache first
+                // ✅ Check cache first
                 if (!forceRefresh && state.classesByTeacher[teacherId]) {
+                    console.log(`[Cache Hit] Teacher ${teacherId} classes loaded from cache`);
                     return;
                 }
+
+                console.log(`[Cache Miss] Fetching teacher ${teacherId} classes from API`);
 
                 set((draft) => {
                     draft.loading.fetchClasses = true;
@@ -314,8 +355,34 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             searchClasses: async (
                 filters = DEFAULT_FILTERS,
                 sort = DEFAULT_SORT,
-                pagination = DEFAULT_PAGINATION
+                pagination = DEFAULT_PAGINATION,
+                forceRefresh = false
             ) => {
+                const cacheKey = generateSearchCacheKey(filters, sort, pagination);
+                const state = get();
+                const cached = state.searchCache[cacheKey];
+
+                // ✅ Check cache first
+                if (!forceRefresh && cached) {
+                    const age = Date.now() - cached.timestamp;
+
+                    if (age < CACHE_TTL) {
+                        console.log(`[Cache Hit] Search results loaded from cache (age: ${Math.round(age / 1000)}s)`);
+
+                        set((draft) => {
+                            draft.currentSearchResults = cached.result;
+                            draft.currentSearchKey = cacheKey;
+                            draft.ui.currentFilters = filters;
+                            draft.ui.currentSort = sort;
+                            draft.ui.currentPagination = pagination;
+                        });
+
+                        return;
+                    }
+                }
+
+                console.log(`[Cache Miss] Fetching search results from API`);
+
                 set((draft) => {
                     draft.loading.search = true;
                     draft.errors.search = null;
@@ -331,12 +398,17 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                         set((draft) => {
                             // Cache classes in normalized store
                             result.data!.classes.forEach((cls) => {
-                                // result.data!.classes may be PublicBranchClass; cast via unknown first to silence
-                                // TypeScript complaint about non-overlapping types when the cast is intentional.
                                 draft.classesById[cls.id] = cls as unknown as BranchClass;
                             });
 
-                            draft.searchResults = result.data!;
+                            // Cache search results
+                            draft.searchCache[cacheKey] = {
+                                result: result.data!,
+                                timestamp: Date.now(),
+                            };
+
+                            draft.currentSearchResults = result.data!;
+                            draft.currentSearchKey = cacheKey;
                             draft.loading.search = false;
                         });
                     } else {
@@ -356,10 +428,13 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             fetchBranchStats: async (branchId: string, forceRefresh = false) => {
                 const state = get();
 
-                // Check cache first
+                // ✅ Check cache first
                 if (!forceRefresh && state.stats[branchId]) {
+                    console.log(`[Cache Hit] Branch ${branchId} stats loaded from cache`);
                     return;
                 }
+
+                console.log(`[Cache Miss] Fetching branch ${branchId} stats from API`);
 
                 set((draft) => {
                     draft.loading.stats = true;
@@ -403,6 +478,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                     if (result.success && result.data) {
                         set((draft) => {
+                            // Add to cache
                             draft.classesById[result.data!.id] = result.data!;
 
                             // Add to branch cache
@@ -421,11 +497,21 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                                 draft.classesByTeacher[teacherId].push(result.data!.id);
                             }
 
+                            // ✅ CRITICAL: Invalidate search cache to force refresh
+                            draft.searchCache = {};
+
+                            // ✅ Update current search results immediately
+                            if (draft.currentSearchResults) {
+                                draft.currentSearchResults.classes.unshift(result.data! as unknown as PublicBranchClass);
+                                draft.currentSearchResults.total_count += 1;
+                            }
+
                             draft.loading.createClass = false;
                             draft.ui.isCreating = false;
                             draft.ui.createFormData = {};
                         });
 
+                        console.log('✅ Class created and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -454,13 +540,27 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                     if (result.success && result.data) {
                         set((draft) => {
+                            // Update cache
                             draft.classesById[classId] = result.data!;
+
+                            // ✅ Invalidate search cache
+                            draft.searchCache = {};
+
+                            // ✅ Update current search results immediately
+                            if (draft.currentSearchResults) {
+                                const index = draft.currentSearchResults.classes.findIndex(c => c.id === classId);
+                                if (index !== -1) {
+                                    draft.currentSearchResults.classes[index] = result.data! as unknown as PublicBranchClass;
+                                }
+                            }
+
                             draft.loading.updateClass = false;
                             draft.ui.isEditing = false;
                             draft.ui.editingClassId = null;
                             draft.ui.editFormData = {};
                         });
 
+                        console.log('✅ Class updated and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -510,9 +610,19 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                                 }
                             }
 
+                            // ✅ Invalidate search cache
+                            draft.searchCache = {};
+
+                            // ✅ Update current search results immediately
+                            if (draft.currentSearchResults) {
+                                draft.currentSearchResults.classes = draft.currentSearchResults.classes.filter(c => c.id !== classId);
+                                draft.currentSearchResults.total_count -= 1;
+                            }
+
                             draft.loading.deleteClass = false;
                         });
 
+                        console.log('✅ Class deleted and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -545,6 +655,19 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             setSelectedClass: (classId: string | null) => {
                 set((draft) => {
                     draft.ui.selectedClassId = classId;
+                });
+            },
+
+            openDeleteDialog: (classId?: string) => {
+                set((draft) => {
+                    if (classId) draft.ui.selectedClassId = classId;
+                    draft.ui.showDeleteDialog = true;
+                });
+            },
+
+            closeDeleteDialog: () => {
+                set((draft) => {
+                    draft.ui.showDeleteDialog = false;
                 });
             },
 
@@ -599,7 +722,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             setFilters: (filters: BranchClassFilters) => {
                 set((draft) => {
                     draft.ui.currentFilters = filters;
-                    draft.ui.currentPagination = { ...draft.ui.currentPagination, page: 1 }; // Reset to first page
+                    draft.ui.currentPagination = { ...draft.ui.currentPagination, page: 1 };
                 });
             },
 
@@ -632,9 +755,21 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     draft.classesById = {};
                     draft.classesByBranch = {};
                     draft.classesByTeacher = {};
-                    draft.searchResults = null;
+                    draft.searchCache = {};
+                    draft.currentSearchResults = null;
+                    draft.currentSearchKey = null;
                     draft.stats = {};
                 });
+                console.log('🗑️ All cache cleared');
+            },
+
+            clearSearchCache: () => {
+                set((draft) => {
+                    draft.searchCache = {};
+                    draft.currentSearchResults = null;
+                    draft.currentSearchKey = null;
+                });
+                console.log('🗑️ Search cache cleared');
             },
 
             clearBranchCache: (branchId: string) => {
@@ -645,118 +780,80 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     });
                     delete draft.classesByBranch[branchId];
                     delete draft.stats[branchId];
+                    draft.searchCache = {};
                 });
+                console.log(`🗑️ Branch ${branchId} cache cleared`);
             },
 
             clearTeacherCache: (teacherId: string) => {
                 set((draft) => {
                     delete draft.classesByTeacher[teacherId];
+                    draft.searchCache = {};
                 });
+                console.log(`🗑️ Teacher ${teacherId} cache cleared`);
             },
 
             invalidateClass: (classId: string) => {
                 set((draft) => {
                     delete draft.classesById[classId];
+                    draft.searchCache = {};
                 });
+                console.log(`🗑️ Class ${classId} invalidated`);
             },
         })),
         { name: 'BranchClassesStore' }
     )
 );
 
-// ============================================================
-// CONVENIENT HOOKS - FIXED to prevent infinite loops
-// ============================================================
-
-/**
- * Gets a class by ID from cache
- * FIXED: No longer creates new objects on each call
- */
+// Export hooks (same as before, they're already correct)
 export const useClass = (classId: string | null) => {
     return useBranchClassesStore((state) =>
         classId ? state.classesById[classId] : null
     );
 };
 
-/**
- * Gets classes by branch ID from cache
- * FIXED: Returns the array reference from store, not a newly created array
- */
 export const useClassesByBranch = (branchId: string | null) => {
-    // Get the IDs array directly (this is stable)
     const classIds = useBranchClassesStore((state) =>
         branchId ? state.classesByBranch[branchId] : undefined
     );
-
-    // Get the classes lookup object (this is stable)
     const classesById = useBranchClassesStore((state) => state.classesById);
 
-    // Only create the mapped array when IDs or classes actually change
-    // This still creates a new array, but only when dependencies change
     if (!classIds || !branchId) return [];
-
     return classIds.map((id) => classesById[id]).filter(Boolean);
 };
 
-/**
- * Gets classes by teacher ID from cache
- * FIXED: Returns the array reference from store, not a newly created array
- */
 export const useClassesByTeacher = (teacherId: string | null) => {
-    // Get the IDs array directly (this is stable)
     const classIds = useBranchClassesStore((state) =>
         teacherId ? state.classesByTeacher[teacherId] : undefined
     );
-
-    // Get the classes lookup object (this is stable)
     const classesById = useBranchClassesStore((state) => state.classesById);
 
-    // Only create the mapped array when IDs or classes actually change
     if (!classIds || !teacherId) return [];
-
     return classIds.map((id) => classesById[id]).filter(Boolean);
 };
 
-/**
- * Gets search results
- */
 export const useSearchResults = () => {
-    return useBranchClassesStore((state) => state.searchResults);
+    return useBranchClassesStore((state) => state.currentSearchResults);
 };
 
-/**
- * Gets branch stats
- */
 export const useBranchStats = (branchId: string | null) => {
     return useBranchClassesStore((state) =>
         branchId ? state.stats[branchId] : null
     );
 };
 
-/**
- * Gets loading states
- */
 export const useClassesLoading = () => {
     return useBranchClassesStore((state) => state.loading);
 };
 
-/**
- * Gets error states
- */
 export const useClassesErrors = () => {
     return useBranchClassesStore((state) => state.errors);
 };
 
-/**
- * Gets UI state
- */
 export const useClassesUI = () => {
     return useBranchClassesStore((state) => state.ui);
 };
 
-/**
- * Gets selected class
- */
 export const useSelectedClass = () => {
     const selectedId = useBranchClassesStore((state) => state.ui.selectedClassId);
     return useClass(selectedId);

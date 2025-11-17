@@ -354,8 +354,8 @@ export function getClassTimeStatus(branchClass: BranchClass | PublicBranchClass)
  * @param branchClass - Full branch class object
  * @returns Public branch class object
  */
-export function toPublicBranchClass(branchClass: BranchClass): PublicBranchClass {
-    return {
+export function toPublicBranchClass(branchClass: BranchClass | BranchClass & { branch?: any; teacher?: any }): PublicBranchClass {
+    const base: PublicBranchClass = {
         id: branchClass.id,
         branch_id: branchClass.branch_id,
         class_name: branchClass.class_name,
@@ -379,6 +379,37 @@ export function toPublicBranchClass(branchClass: BranchClass): PublicBranchClass
         is_full: isClassFull(branchClass),
         available_seats: calculateAvailableSeats(branchClass),
     };
+
+    // Map optional relation: branch
+    if ((branchClass as any).branch) {
+        try {
+            const b = (branchClass as any).branch;
+            base.branch = {
+                id: b.id,
+                name: b.name,
+                coaching_center_id: b.coaching_center_id,
+            };
+        } catch (err) {
+            // ignore if unexpected shape
+        }
+    }
+
+    // Map optional relation: teacher
+    if ((branchClass as any).teacher) {
+        try {
+            const t = (branchClass as any).teacher;
+            base.teacher = {
+                id: t.id,
+                full_name: t.full_name || t.name || null,
+                username: t.username || null,
+                avatar_url: t.avatar_url ?? null,
+            };
+        } catch (err) {
+            // ignore if unexpected shape
+        }
+    }
+
+    return base;
 }
 
 /**

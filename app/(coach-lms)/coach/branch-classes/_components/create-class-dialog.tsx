@@ -15,6 +15,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -425,7 +426,7 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
                                                 {selectedTeacher.avatar_url && (
-                                                    <img
+                                                    <Image
                                                         src={selectedTeacher.avatar_url}
                                                         alt={selectedTeacher.full_name || selectedTeacher.username}
                                                         className="h-10 w-10 rounded-full object-cover"
@@ -495,7 +496,7 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                                     >
                                                         <div className="flex items-center gap-3">
                                                             {profile.avatar_url && (
-                                                                <img
+                                                                <Image
                                                                     src={profile.avatar_url}
                                                                     alt={profile.full_name || profile.username}
                                                                     className="h-10 w-10 rounded-full object-cover"

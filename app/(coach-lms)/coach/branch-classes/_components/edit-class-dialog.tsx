@@ -59,6 +59,7 @@ import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast'
 import { Loader2 } from 'lucide-react';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
+import { BranchSearchSelect } from '@/components/coaching/management/branch-search-select';
 
 /**
  * Edit Class Dialog Component
@@ -74,6 +75,8 @@ export function EditClassDialog() {
     const [teacherSearchResults, setTeacherSearchResults] = useState<PublicProfile[]>([]);
     const [showTeacherResults, setShowTeacherResults] = useState(false);
     const [teacherError, setTeacherError] = useState<string | null>(null);
+    const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+    const [selectedBranchName, setSelectedBranchName] = useState<string>("");
 
     // Normalize time value for HTML time input (expects HH:MM 24-hour)
     const normalizeTimeForInput = (time?: string | null): string => {
@@ -192,6 +195,15 @@ export function EditClassDialog() {
         loadTeacherInfo();
     }, [isEditing, classData?.teacher_id, selectedTeacher]);
 
+    // Load branch info when editing
+    useEffect(() => {
+        if (isEditing && classData) {
+            setSelectedBranchId(classData.branch_id);
+            // Get branch name from classData if it has relations, otherwise show just ID
+            setSelectedBranchName((classData as any).branch?.name || classData.branch_id);
+        }
+    }, [isEditing, classData]);
+
     // Handle form submission
     const onSubmit = async (data: UpdateBranchClassInput) => {
         if (!editingClassId) return;
@@ -200,13 +212,13 @@ export function EditClassDialog() {
         setIsSubmitting(true);
 
         try {
-                // Ensure times are formatted for backend (HH:MM:SS) and include teacher_id
-                const finalData: UpdateBranchClassInput = {
-                    ...data,
-                    start_time: formatTimeForBackend(data.start_time as any) as any,
-                    end_time: formatTimeForBackend(data.end_time as any) as any,
-                    teacher_id: selectedTeacher?.id ?? data.teacher_id ?? null,
-                };
+            // Ensure times are formatted for backend (HH:MM:SS) and include teacher_id
+            const finalData: UpdateBranchClassInput = {
+                ...data,
+                start_time: formatTimeForBackend(data.start_time as any) as any,
+                end_time: formatTimeForBackend(data.end_time as any) as any,
+                teacher_id: selectedTeacher?.id ?? data.teacher_id ?? null,
+            };
 
             const success = await BranchClassesAPI.update(editingClassId, finalData);
 
@@ -315,7 +327,7 @@ export function EditClassDialog() {
 
     return (
         <Dialog open={isEditing} onOpenChange={handleClose}>
-            <DialogContent className="max-w-3xl max-h-[90vh]">
+            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Edit Class</DialogTitle>
                     <DialogDescription>
@@ -323,9 +335,9 @@ export function EditClassDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-4">
                             {/* Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="font-semibold text-sm">Basic Information</h3>
@@ -343,6 +355,18 @@ export function EditClassDialog() {
                                         </FormItem>
                                     )}
                                 />
+
+                                {/* Branch - Read Only */}
+                                <div className="space-y-2">
+                                    <FormLabel>Branch</FormLabel>
+                                    <div className="flex items-center gap-2 p-3 border rounded-md bg-muted/50">
+                                        <span className="text-sm">{selectedBranchName}</span>
+                                        <Badge variant="secondary" className="text-xs">Current</Badge>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Branch cannot be changed after class creation
+                                    </p>
+                                </div>
 
                                 <FormField
                                     control={form.control}

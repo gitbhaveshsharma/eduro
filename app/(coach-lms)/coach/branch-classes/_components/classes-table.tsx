@@ -1,18 +1,15 @@
 /**
- * Classes Table Component
+ * Classes Table Component - FIXED VERSION
  * 
- * Displays all branch classes in a sortable, filterable table
- * Features:
- * - Sorting by multiple columns
- * - Status badges with colors
- * - Quick actions (view, edit, delete)
- * - Capacity indicators
- * - Schedule display
+ * Key fixes:
+ * 1. Only calls searchClasses() once on mount
+ * 2. Uses cached results on subsequent renders
+ * 3. Automatically updates when classes are created/updated/deleted
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Table,
     TableBody,
@@ -52,6 +49,7 @@ import {
     ArrowUpDown,
     Users,
     Calendar,
+    RefreshCw,
 } from 'lucide-react';
 
 /**
@@ -96,7 +94,7 @@ function ClassRowActions({ classItem }: { classItem: BranchClass | PublicBranchC
 
     const handleDelete = () => {
         store.setSelectedClass(classItem.id);
-        // Delete dialog will handle the actual deletion
+        store.openDeleteDialog?.(classItem.id);
     };
 
     return (
@@ -171,13 +169,33 @@ function EmptyState() {
 export function ClassesTable() {
     const searchResults = useSearchResults();
     const { search: isSearching } = useClassesLoading();
-    const { currentSort } = useClassesUI();
+    const { currentSort, currentFilters, currentPagination } = useClassesUI();
     const store = useBranchClassesStore();
 
     const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({
         field: currentSort?.field || 'created_at',
         direction: currentSort?.direction || 'desc',
     });
+
+    // ✅ FIX: Only search once on mount, then use cache
+    const [hasInitialized, setHasInitialized] = useState(false);
+
+    useEffect(() => {
+        if (!hasInitialized) {
+            console.log('🔍 Initial search - checking cache first');
+            // This will check cache first, only fetch if needed
+            store.searchClasses(currentFilters, currentSort, currentPagination, false);
+            setHasInitialized(true);
+        }
+    }, [hasInitialized, store, currentFilters, currentSort, currentPagination]);
+
+    // ✅ When filters/sort/pagination change, trigger new search
+    useEffect(() => {
+        if (hasInitialized) {
+            console.log('🔍 Filters/Sort/Pagination changed - searching');
+            store.searchClasses(currentFilters, currentSort, currentPagination, false);
+        }
+    }, [currentFilters, currentSort, currentPagination, hasInitialized, store]);
 
     // Handle column sorting
     const handleSort = (field: string) => {
@@ -186,130 +204,171 @@ export function ClassesTable() {
 
         setSortConfig({ field, direction: newDirection });
 
-        // Update store sort
+        // Update store sort (this will trigger the useEffect above)
         store.setSort({
             field: field as any,
             direction: newDirection,
         });
     };
 
-    // Show loading state
-    if (isSearching) {
+    // Manual refresh function
+    const handleRefresh = () => {
+        console.log('🔄 Manual refresh - bypassing cache');
+        store.searchClasses(currentFilters, currentSort, currentPagination, true);
+    };
+
+    // Show loading state only on initial load
+    if (isSearching && !searchResults) {
         return <TableSkeleton />;
     }
 
-    // Get classes from search results or show empty state
+    // Get classes from search results
     const classes = searchResults?.classes || [];
 
-    if (classes.length === 0) {
+    if (classes.length === 0 && !isSearching) {
         return <EmptyState />;
     }
 
     return (
-        <div className="rounded-md border">
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <SortableHeader
-                            label="Class Name"
-                            field="class_name"
-                            currentSort={sortConfig}
-                            onSort={handleSort}
-                        />
-                        <SortableHeader
-                            label="Subject"
-                            field="subject"
-                            currentSort={sortConfig}
-                            onSort={handleSort}
-                        />
-                        <SortableHeader
-                            label="Grade"
-                            field="grade_level"
-                            currentSort={sortConfig}
-                            onSort={handleSort}
-                        />
-                        <TableHead>Schedule</TableHead>
-                        <TableHead>Capacity</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {classes.map((classItem) => {
-                        const status = formatClassStatus(classItem.status);
-                        const utilization = calculateUtilization(classItem);
+        <div className="space-y-4">
+            {/* Header with refresh button */}
+            <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                    {searchResults?.total_count || 0} classes found
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRefresh}
+                    disabled={isSearching}
+                >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isSearching ? 'animate-spin' : ''}`} />
+                    Refresh
+                </Button>
+            </div>
 
-                        return (
-                            <TableRow key={classItem.id}>
-                                {/* Class Name */}
-                                <TableCell className="font-medium">
-                                    <div>
-                                        <div>{classItem.class_name}</div>
-                                        {classItem.batch_name && (
-                                            <div className="text-xs text-muted-foreground">
-                                                {classItem.batch_name}
-                                            </div>
-                                        )}
-                                    </div>
-                                </TableCell>
+            {/* Table */}
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <SortableHeader
+                                label="Class Name"
+                                field="class_name"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            />
+                            <TableHead>Branch</TableHead>
+                            <SortableHeader
+                                label="Subject"
+                                field="subject"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            />
+                            <SortableHeader
+                                label="Grade"
+                                field="grade_level"
+                                currentSort={sortConfig}
+                                onSort={handleSort}
+                            />
+                            <TableHead>Schedule</TableHead>
+                            <TableHead>Capacity</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {classes.map((classItem) => {
+                            const status = formatClassStatus(classItem.status);
+                            const utilization = calculateUtilization(classItem);
 
-                                {/* Subject */}
-                                <TableCell>{classItem.subject}</TableCell>
+                            return (
+                                <TableRow key={classItem.id}>
+                                    {/* Class Name */}
+                                    <TableCell className="font-medium">
+                                        <div>
+                                            <div>{classItem.class_name}</div>
+                                            {classItem.batch_name && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    {classItem.batch_name}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
 
-                                {/* Grade Level */}
-                                <TableCell>
-                                    <Badge variant="outline">{classItem.grade_level}</Badge>
-                                </TableCell>
+                                    {/* Branch Name */}
+                                    <TableCell>
+                                        <div className="text-sm">
+                                            {(classItem as any).branch?.name || 'N/A'}
+                                        </div>
+                                    </TableCell>
 
-                                {/* Schedule */}
-                                <TableCell>
-                                    <div className="flex items-center gap-1 text-sm">
-                                        <Calendar className="h-3 w-3 text-muted-foreground" />
-                                        <span className="text-muted-foreground">
-                                            {formatClassSchedule(classItem)}
-                                        </span>
-                                    </div>
-                                </TableCell>
+                                    {/* Subject */}
+                                    <TableCell>{classItem.subject}</TableCell>
 
-                                {/* Capacity */}
-                                <TableCell>
-                                    <div className="space-y-1">
+                                    {/* Grade Level */}
+                                    <TableCell>
+                                        <Badge variant="outline">{classItem.grade_level}</Badge>
+                                    </TableCell>
+
+                                    {/* Schedule */}
+                                    <TableCell>
                                         <div className="flex items-center gap-1 text-sm">
-                                            <Users className="h-3 w-3 text-muted-foreground" />
-                                            <span>{getCapacityDisplay(classItem)}</span>
+                                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                                            <span className="text-muted-foreground">
+                                                {formatClassSchedule(classItem)}
+                                            </span>
                                         </div>
-                                        <div className="w-full bg-secondary rounded-full h-1.5">
-                                            <div
-                                                className={`h-1.5 rounded-full transition-all ${utilization >= 90 ? 'bg-red-500' :
-                                                        utilization >= 70 ? 'bg-orange-500' :
-                                                            'bg-green-500'
-                                                    }`}
-                                                style={{ width: `${utilization}%` }}
-                                            />
+                                    </TableCell>
+
+                                    {/* Capacity */}
+                                    <TableCell>
+                                        <div className="space-y-1">
+                                            <div className="flex items-center gap-1 text-sm">
+                                                <Users className="h-3 w-3 text-muted-foreground" />
+                                                <span>{getCapacityDisplay(classItem)}</span>
+                                            </div>
+                                            <div className="w-full bg-secondary rounded-full h-1.5">
+                                                <div
+                                                    className={`h-1.5 rounded-full transition-all ${utilization >= 90
+                                                            ? 'bg-red-500'
+                                                            : utilization >= 70
+                                                                ? 'bg-orange-500'
+                                                                : 'bg-green-500'
+                                                        }`}
+                                                    style={{ width: `${utilization}%` }}
+                                                />
+                                            </div>
                                         </div>
-                                    </div>
-                                </TableCell>
+                                    </TableCell>
 
-                                {/* Status */}
-                                <TableCell>
-                                    <Badge variant={
-                                        status.color === 'green' ? 'default' :
-                                            status.color === 'yellow' ? 'secondary' :
-                                                status.color === 'red' ? 'destructive' : 'outline'
-                                    }>
-                                        {status.label}
-                                    </Badge>
-                                </TableCell>
+                                    {/* Status */}
+                                    <TableCell>
+                                        <Badge
+                                            variant={
+                                                status.color === 'green'
+                                                    ? 'default'
+                                                    : status.color === 'yellow'
+                                                        ? 'secondary'
+                                                        : status.color === 'red'
+                                                            ? 'destructive'
+                                                            : 'outline'
+                                            }
+                                        >
+                                            {status.label}
+                                        </Badge>
+                                    </TableCell>
 
-                                {/* Actions */}
-                                <TableCell>
-                                    <ClassRowActions classItem={classItem} />
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
+                                    {/* Actions */}
+                                    <TableCell>
+                                        <ClassRowActions classItem={classItem} />
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }

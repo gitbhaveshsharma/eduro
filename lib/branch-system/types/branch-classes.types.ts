@@ -123,6 +123,18 @@ export interface PublicBranchClass {
     // Computed fields
     is_full: boolean;
     available_seats: number;
+    // Optional related data (provided when query selects relations)
+    branch?: {
+        id: string;
+        name: string;
+        coaching_center_id: string;
+    };
+    teacher?: {
+        id: string;
+        full_name: string;
+        username: string;
+        avatar_url?: string | null;
+    };
 }
 
 /**

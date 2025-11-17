@@ -56,7 +56,7 @@ function InfoRow({ icon: Icon, label, value }: {
             <Icon className="h-5 w-5 text-muted-foreground mt-0.5" />
             <div className="flex-1">
                 <p className="text-sm text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium">{value}</p>
+                <div className="text-sm font-medium">{value}</div>
             </div>
         </div>
     );
@@ -81,7 +81,10 @@ export function ClassDetailsDialog() {
     };
 
     const handleDelete = () => {
-        // Keep the dialog open and let delete dialog handle it
+        // Open the delete confirmation for the currently selected class
+        if (selectedClassId) {
+            store.openDeleteDialog?.(selectedClassId);
+        }
     };
 
     if (!classData) return null;
@@ -91,7 +94,7 @@ export function ClassDetailsDialog() {
 
     return (
         <Dialog open={!!selectedClassId} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
                 <DialogHeader>
                     <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -110,8 +113,8 @@ export function ClassDetailsDialog() {
                     </div>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
-                    <div className="space-y-6">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
+                    <div className="space-y-6 p-4">
                         {/* Description */}
                         {classData.description && (
                             <div>
@@ -125,6 +128,19 @@ export function ClassDetailsDialog() {
                         {/* Basic Information */}
                         <div className="space-y-4">
                             <h4 className="font-semibold">Class Information</h4>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <InfoRow
+                                    icon={BookOpen}
+                                    label="Branch"
+                                    value={(classData as any).branch?.name || 'N/A'}
+                                />
+                                <InfoRow
+                                    icon={Users}
+                                    label="Teacher"
+                                    value={(classData as any).teacher?.full_name || (classData as any).teacher?.username || 'Not Assigned'}
+                                />
+                            </div>
 
                             <div className="grid grid-cols-2 gap-4">
                                 <InfoRow
@@ -209,8 +225,8 @@ export function ClassDetailsDialog() {
                                         <div className="w-full bg-secondary rounded-full h-2">
                                             <div
                                                 className={`h-2 rounded-full transition-all ${utilization >= 90 ? 'bg-red-500' :
-                                                        utilization >= 70 ? 'bg-orange-500' :
-                                                            'bg-green-500'
+                                                    utilization >= 70 ? 'bg-orange-500' :
+                                                        'bg-green-500'
                                                     }`}
                                                 style={{ width: `${utilization}%` }}
                                             />

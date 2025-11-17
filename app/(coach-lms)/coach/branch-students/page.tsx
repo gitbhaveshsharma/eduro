@@ -27,59 +27,61 @@ export default function BranchStudentsPage() {
     const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
 
     return (
-        <div className="container mx-auto py-6 space-y-6">
+        <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
             {/* Page Header */}
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Branch Students</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Manage student enrollments, track attendance, and monitor payments
-                    </p>
+            <div className="max-w-6xl mx-auto space-y-6 p-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Branch Students</h1>
+                        <p className="text-muted-foreground mt-1">
+                            Manage student enrollments, track attendance, and monitor payments
+                        </p>
+                    </div>
+
+                    <Button
+                        onClick={() => setIsEnrollDialogOpen(true)}
+                        size="lg"
+                        className="gap-2"
+                    >
+                        <Plus className="h-5 w-5" />
+                        Enroll Student
+                    </Button>
                 </div>
 
-                <Button
-                    onClick={() => setIsEnrollDialogOpen(true)}
-                    size="lg"
-                    className="gap-2"
-                >
-                    <Plus className="h-5 w-5" />
-                    Enroll Student
-                </Button>
+                {/* Main Content */}
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'dashboard' | 'list')} className="w-full">
+                    <TabsList className="grid w-full grid-cols-2 max-w-sm">
+                        <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                            <LayoutDashboard className="h-4 w-4" />
+                            Dashboard
+                        </TabsTrigger>
+                        <TabsTrigger value="list" className="flex items-center gap-2">
+                            <List className="h-4 w-4" />
+                            All Students
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* Dashboard Tab */}
+                    <TabsContent value="dashboard" className="mt-6">
+                        <BranchStudentsDashboard />
+                    </TabsContent>
+
+                    {/* List Tab */}
+                    <TabsContent value="list" className="mt-6 space-y-4">
+                        <StudentFilters />
+                        <StudentsTable />
+                    </TabsContent>
+                </Tabs>
+
+                {/* Dialogs */}
+                <EnrollStudentDialog
+                    open={isEnrollDialogOpen}
+                    onOpenChange={setIsEnrollDialogOpen}
+                />
+                <EditEnrollmentDialog />
+                <StudentDetailsDialog />
+                <DeleteEnrollmentDialog />
             </div>
-
-            {/* Main Content */}
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'dashboard' | 'list')}>
-                <TabsList className="grid w-full max-w-md grid-cols-2">
-                    <TabsTrigger value="dashboard" className="gap-2">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
-                    </TabsTrigger>
-                    <TabsTrigger value="list" className="gap-2">
-                        <List className="h-4 w-4" />
-                        All Students
-                    </TabsTrigger>
-                </TabsList>
-
-                {/* Dashboard Tab */}
-                <TabsContent value="dashboard" className="space-y-6">
-                    <BranchStudentsDashboard />
-                </TabsContent>
-
-                {/* List Tab */}
-                <TabsContent value="list" className="space-y-6">
-                    <StudentFilters />
-                    <StudentsTable />
-                </TabsContent>
-            </Tabs>
-
-            {/* Dialogs */}
-            <EnrollStudentDialog
-                open={isEnrollDialogOpen}
-                onOpenChange={setIsEnrollDialogOpen}
-            />
-            <EditEnrollmentDialog />
-            <StudentDetailsDialog />
-            <DeleteEnrollmentDialog />
         </div>
     );
 }

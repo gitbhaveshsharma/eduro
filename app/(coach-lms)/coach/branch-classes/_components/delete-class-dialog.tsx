@@ -38,8 +38,8 @@ export function DeleteClassDialog() {
     const classData = selectedClass;
     const [isDeleting, setIsDeleting] = useState(false);
 
-    // Check if delete dialog should be shown (when class is selected and not in edit mode)
-    const isOpen = !!selectedClassId && !store.ui.isEditing;
+    // Check if delete dialog should be shown only when explicitly opened
+    const isOpen = !!selectedClassId && !!store.ui.showDeleteDialog && !store.ui.isEditing;
 
     const handleDelete = async () => {
         if (!selectedClassId) return;
@@ -52,6 +52,7 @@ export function DeleteClassDialog() {
 
             if (success) {
                 showSuccessToast('Class deleted successfully!');
+                store.closeDeleteDialog?.();
                 store.setSelectedClass(null);
             } else {
                 showErrorToast('Failed to delete class. Please try again.');
@@ -65,7 +66,7 @@ export function DeleteClassDialog() {
 
     const handleCancel = () => {
         if (!isDeleting) {
-            store.setSelectedClass(null);
+            store.closeDeleteDialog?.();
         }
     };
 
@@ -80,24 +81,24 @@ export function DeleteClassDialog() {
                         Delete Class
                     </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-3">
-                        <p>
+                        <div>
                             Are you sure you want to delete <strong>{classData.class_name}</strong>?
-                        </p>
+                        </div>
 
                         {classData.current_enrollment > 0 && (
                             <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3">
-                                <p className="text-sm font-semibold text-destructive">
+                                <div className="text-sm font-semibold text-destructive">
                                     Warning: This class has {classData.current_enrollment} enrolled student{classData.current_enrollment !== 1 ? 's' : ''}
-                                </p>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                </div>
+                                <div className="text-sm text-muted-foreground mt-1">
                                     Deleting this class may affect student enrollments.
-                                </p>
+                                </div>
                             </div>
                         )}
 
-                        <p className="text-sm">
+                        <div className="text-sm">
                             This action cannot be undone. All class data will be permanently removed.
-                        </p>
+                        </div>
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

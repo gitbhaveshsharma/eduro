@@ -235,6 +235,16 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
+  '/coach/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    rateLimiting: {
+      requests: 100,
+      window: RateLimitWindow.MINUTE
+    },
+    requiresCSRF: true,
+    logRequests: true
+  },
 
   // API routes by role
   '/api/admin/*': {

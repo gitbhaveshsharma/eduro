@@ -13,6 +13,23 @@ const nextConfig = {
     unoptimized: false, // Allow Next.js to handle lazy loading + compression
     formats: ["image/avif", "image/webp"], // Serve modern image formats
     deviceSizes: [320, 640, 768, 1024, 1280, 1600], // Optimize per device size
+    // Allow loading images from Supabase Storage (public buckets)
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "ixhlpassuqmqpzpumkuw.supabase.co",
+        port: "",
+        // Public storage URLs use /storage/v1/object/public/<bucket>/...
+        pathname: "/storage/v1/object/public/**",
+      },
+      {
+        protocol: "https",
+        hostname: "ixhlpassuqmqpzpumkuw.supabase.co",
+        port: "",
+        // In case signed URLs or other paths are used
+        pathname: "/storage/v1/object/**",
+      },
+    ],
   },
 
   // ✅ Performance and UX improvements

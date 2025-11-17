@@ -2,6 +2,7 @@
 
 import { memo, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -60,7 +61,7 @@ export const CoachingProfileHeader = memo(function CoachingProfileHeader({
                     <div className="relative h-[160px] sm:h-[210px] lg:h-[240px] bg-primary/10 overflow-hidden ">
                         {center.cover_url && !imageError ? (
                             <>
-                                <img
+                                <Image
                                     src={coverUrl}
                                     alt={`${center.name} cover`}
                                     className="w-full h-full object-cover"

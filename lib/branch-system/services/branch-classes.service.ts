@@ -72,9 +72,12 @@ export class BranchClassesService {
         input: CreateBranchClassInput
     ): Promise<BranchClassOperationResult<BranchClass>> {
         try {
+            console.log('🔵 [createClass] Starting class creation:', input);
+
             // Validate input
             const validation = createBranchClassSchema.safeParse(input);
             if (!validation.success) {
+                console.error('❌ [createClass] Validation failed:', validation.error.errors);
                 return {
                     success: false,
                     error: 'Validation failed',
@@ -86,6 +89,8 @@ export class BranchClassesService {
                 };
             }
 
+            console.log('✅ [createClass] Validation passed, inserting data');
+
             // Insert class
             const { data, error } = await this.supabase
                 .from('branch_classes')
@@ -94,17 +99,25 @@ export class BranchClassesService {
                 .single();
 
             if (error) {
+                console.error('❌ [createClass] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to create class: ${error.message}`,
                 };
             }
 
+            console.log('✅ [createClass] Class created successfully:', data);
             return {
                 success: true,
                 data,
             };
         } catch (error) {
+            console.error('❌ [createClass] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -125,6 +138,8 @@ export class BranchClassesService {
         classId: string
     ): Promise<BranchClassOperationResult<BranchClass>> {
         try {
+            console.log('🔵 [getClassById] Fetching class:', classId);
+
             const { data, error } = await this.supabase
                 .from('branch_classes')
                 .select('*')
@@ -132,6 +147,12 @@ export class BranchClassesService {
                 .single();
 
             if (error) {
+                console.error('❌ [getClassById] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to fetch class: ${error.message}`,
@@ -139,17 +160,20 @@ export class BranchClassesService {
             }
 
             if (!data) {
+                console.warn('⚠️ [getClassById] Class not found:', classId);
                 return {
                     success: false,
                     error: 'Class not found',
                 };
             }
 
+            console.log('✅ [getClassById] Class fetched successfully:', data);
             return {
                 success: true,
                 data,
             };
         } catch (error) {
+            console.error('❌ [getClassById] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -166,9 +190,12 @@ export class BranchClassesService {
         classId: string
     ): Promise<BranchClassOperationResult<PublicBranchClass>> {
         try {
+            console.log('🔵 [getPublicClassById] Fetching public class:', classId);
+
             const result = await this.getClassById(classId);
 
             if (!result.success || !result.data) {
+                console.error('❌ [getPublicClassById] Failed to fetch class:', result.error);
                 return {
                     success: false,
                     error: result.error || 'Failed to fetch class',
@@ -177,17 +204,23 @@ export class BranchClassesService {
 
             // Filter based on visibility and status
             if (!result.data.is_visible || result.data.status === 'INACTIVE') {
+                console.warn('⚠️ [getPublicClassById] Class not available (visibility or status):', {
+                    is_visible: result.data.is_visible,
+                    status: result.data.status,
+                });
                 return {
                     success: false,
                     error: 'Class not available',
                 };
             }
 
+            console.log('✅ [getPublicClassById] Public class fetched successfully');
             return {
                 success: true,
                 data: toPublicBranchClass(result.data),
             };
         } catch (error) {
+            console.error('❌ [getPublicClassById] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -204,17 +237,25 @@ export class BranchClassesService {
         classId: string
     ): Promise<BranchClassOperationResult<BranchClassWithRelations>> {
         try {
+            console.log('🔵 [getClassWithRelations] Fetching class with relations:', classId);
+
             const { data, error } = await this.supabase
                 .from('branch_classes')
                 .select(`
           *,
           branch:coaching_branches(id, name, coaching_center_id),
-          teacher:profiles(id, full_name, username, avatar_url)
+          teacher:profiles(id, full_name, username)
         `)
                 .eq('id', classId)
                 .single();
 
             if (error) {
+                console.error('❌ [getClassWithRelations] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to fetch class: ${error.message}`,
@@ -222,17 +263,25 @@ export class BranchClassesService {
             }
 
             if (!data) {
+                console.warn('⚠️ [getClassWithRelations] Class not found:', classId);
                 return {
                     success: false,
                     error: 'Class not found',
                 };
             }
 
+            console.log('✅ [getClassWithRelations] Class with relations fetched:', {
+                classId: data.id,
+                branchId: data.branch?.id,
+                teacherId: data.teacher?.id,
+            });
+
             return {
                 success: true,
                 data: data as BranchClassWithRelations,
             };
         } catch (error) {
+            console.error('❌ [getClassWithRelations] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -251,6 +300,11 @@ export class BranchClassesService {
         includeInactive: boolean = false
     ): Promise<BranchClassOperationResult<BranchClass[]>> {
         try {
+            console.log('🔵 [getClassesByBranch] Fetching classes for branch:', {
+                branchId,
+                includeInactive,
+            });
+
             let query = this.supabase
                 .from('branch_classes')
                 .select('*')
@@ -263,17 +317,29 @@ export class BranchClassesService {
             const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) {
+                console.error('❌ [getClassesByBranch] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to fetch classes: ${error.message}`,
                 };
             }
 
+            console.log('✅ [getClassesByBranch] Classes fetched:', {
+                branchId,
+                count: data?.length || 0,
+            });
+
             return {
                 success: true,
                 data: data || [],
             };
         } catch (error) {
+            console.error('❌ [getClassesByBranch] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -290,6 +356,8 @@ export class BranchClassesService {
         teacherId: string
     ): Promise<BranchClassOperationResult<BranchClass[]>> {
         try {
+            console.log('🔵 [getClassesByTeacher] Fetching classes for teacher:', teacherId);
+
             const { data, error } = await this.supabase
                 .from('branch_classes')
                 .select('*')
@@ -297,17 +365,29 @@ export class BranchClassesService {
                 .order('created_at', { ascending: false });
 
             if (error) {
+                console.error('❌ [getClassesByTeacher] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to fetch classes: ${error.message}`,
                 };
             }
 
+            console.log('✅ [getClassesByTeacher] Classes fetched:', {
+                teacherId,
+                count: data?.length || 0,
+            });
+
             return {
                 success: true,
                 data: data || [],
             };
         } catch (error) {
+            console.error('❌ [getClassesByTeacher] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -328,84 +408,125 @@ export class BranchClassesService {
         pagination: PaginationOptions = { page: 1, limit: 20 }
     ): Promise<BranchClassOperationResult<BranchClassSearchResult>> {
         try {
+            console.log('🔵 [searchClasses] Starting search with params:', {
+                filters,
+                sort,
+                pagination,
+            });
+
             // Validate inputs
             const filterValidation = branchClassFilterSchema.safeParse(filters);
             const sortValidation = branchClassSortSchema.safeParse(sort);
             const paginationValidation = paginationSchema.safeParse(pagination);
 
             if (!filterValidation.success || !sortValidation.success || !paginationValidation.success) {
+                console.error('❌ [searchClasses] Validation failed:', {
+                    filters: filterValidation.success ? 'OK' : filterValidation.error,
+                    sort: sortValidation.success ? 'OK' : sortValidation.error,
+                    pagination: paginationValidation.success ? 'OK' : paginationValidation.error,
+                });
                 return {
                     success: false,
                     error: 'Invalid search parameters',
                 };
             }
 
-            // Build query
-            let query = this.supabase.from('branch_classes').select('*', { count: 'exact' });
+            console.log('✅ [searchClasses] Validation passed, building query');
+
+            // Build query - include branch and teacher relations
+            let query = this.supabase.from('branch_classes').select(`
+                *,
+                branch:coaching_branches(id, name, coaching_center_id),
+                teacher:profiles(id, full_name, username)
+            `, { count: 'exact' });
+
+            console.log('📊 [searchClasses] Base query built with relations');
 
             // Apply filters
             if (filters.branch_id) {
+                console.log('🔍 [searchClasses] Applying branch_id filter:', filters.branch_id);
                 query = query.eq('branch_id', filters.branch_id);
             }
 
             if (filters.teacher_id) {
+                console.log('🔍 [searchClasses] Applying teacher_id filter:', filters.teacher_id);
                 query = query.eq('teacher_id', filters.teacher_id);
             }
 
             if (filters.subject) {
+                console.log('🔍 [searchClasses] Applying subject filter:', filters.subject);
                 query = query.eq('subject', filters.subject);
             }
 
             if (filters.grade_level) {
+                console.log('🔍 [searchClasses] Applying grade_level filter:', filters.grade_level);
                 query = query.eq('grade_level', filters.grade_level);
             }
 
             if (filters.status) {
                 if (Array.isArray(filters.status)) {
+                    console.log('🔍 [searchClasses] Applying status filter (array):', filters.status);
                     query = query.in('status', filters.status);
                 } else {
+                    console.log('🔍 [searchClasses] Applying status filter:', filters.status);
                     query = query.eq('status', filters.status);
                 }
             }
 
             if (filters.is_visible !== undefined) {
+                console.log('🔍 [searchClasses] Applying is_visible filter:', filters.is_visible);
                 query = query.eq('is_visible', filters.is_visible);
             }
 
             if (filters.has_available_seats) {
+                console.log('🔍 [searchClasses] Applying has_available_seats filter');
                 query = query.lt('current_enrollment', 'max_students');
             }
 
             if (filters.start_date_from) {
+                console.log('🔍 [searchClasses] Applying start_date_from filter:', filters.start_date_from);
                 query = query.gte('start_date', filters.start_date_from);
             }
 
             if (filters.start_date_to) {
+                console.log('🔍 [searchClasses] Applying start_date_to filter:', filters.start_date_to);
                 query = query.lte('start_date', filters.start_date_to);
             }
 
             if (filters.class_days && filters.class_days.length > 0) {
+                console.log('🔍 [searchClasses] Applying class_days filter:', filters.class_days);
                 query = query.overlaps('class_days', filters.class_days);
             }
 
             if (filters.search_query) {
+                console.log('🔍 [searchClasses] Applying search_query filter:', filters.search_query);
                 query = query.or(
                     `class_name.ilike.%${filters.search_query}%,subject.ilike.%${filters.search_query}%,description.ilike.%${filters.search_query}%`
                 );
             }
 
             // Apply sorting
+            console.log('📊 [searchClasses] Applying sort:', sort);
             query = query.order(sort.field, { ascending: sort.direction === 'asc' });
 
             // Apply pagination
             const from = (pagination.page - 1) * pagination.limit;
             const to = from + pagination.limit - 1;
+            console.log('📄 [searchClasses] Applying pagination:', { from, to, page: pagination.page, limit: pagination.limit });
             query = query.range(from, to);
+
+            console.log('🚀 [searchClasses] Executing query...');
 
             // Execute query
             const { data, error, count } = await query;
 
             if (error) {
+                console.error('❌ [searchClasses] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to search classes: ${error.message}`,
@@ -416,10 +537,24 @@ export class BranchClassesService {
             const totalPages = Math.ceil(totalCount / pagination.limit);
             const hasMore = pagination.page < totalPages;
 
+            console.log('✅ [searchClasses] Search completed successfully:', {
+                resultsCount: data?.length || 0,
+                totalCount,
+                totalPages,
+                currentPage: pagination.page,
+                hasMore,
+            });
+
+            console.log('📦 [searchClasses] Raw data from Supabase:', data);
+
+            const mappedClasses = (data || []).map(toPublicBranchClass);
+
+            console.log('📦 [searchClasses] Mapped public classes:', mappedClasses);
+
             return {
                 success: true,
                 data: {
-                    classes: (data || []).map(toPublicBranchClass),
+                    classes: mappedClasses,
                     total_count: totalCount,
                     page: pagination.page,
                     limit: pagination.limit,
@@ -428,6 +563,7 @@ export class BranchClassesService {
                 },
             };
         } catch (error) {
+            console.error('❌ [searchClasses] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -450,9 +586,12 @@ export class BranchClassesService {
         input: UpdateBranchClassInput
     ): Promise<BranchClassOperationResult<BranchClass>> {
         try {
+            console.log('🔵 [updateClass] Updating class:', { classId, input });
+
             // Validate input
             const validation = updateBranchClassSchema.safeParse(input);
             if (!validation.success) {
+                console.error('❌ [updateClass] Validation failed:', validation.error.errors);
                 return {
                     success: false,
                     error: 'Validation failed',
@@ -464,6 +603,8 @@ export class BranchClassesService {
                 };
             }
 
+            console.log('✅ [updateClass] Validation passed, updating data');
+
             // Update class
             const { data, error } = await this.supabase
                 .from('branch_classes')
@@ -473,6 +614,12 @@ export class BranchClassesService {
                 .single();
 
             if (error) {
+                console.error('❌ [updateClass] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to update class: ${error.message}`,
@@ -480,17 +627,20 @@ export class BranchClassesService {
             }
 
             if (!data) {
+                console.warn('⚠️ [updateClass] Class not found:', classId);
                 return {
                     success: false,
                     error: 'Class not found',
                 };
             }
 
+            console.log('✅ [updateClass] Class updated successfully:', data);
             return {
                 success: true,
                 data,
             };
         } catch (error) {
+            console.error('❌ [updateClass] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -508,6 +658,7 @@ export class BranchClassesService {
         classId: string,
         status: BranchClass['status']
     ): Promise<BranchClassOperationResult<BranchClass>> {
+        console.log('🔵 [updateClassStatus] Updating status:', { classId, status });
         return this.updateClass(classId, { status });
     }
 
@@ -521,6 +672,7 @@ export class BranchClassesService {
         classId: string,
         isVisible: boolean
     ): Promise<BranchClassOperationResult<BranchClass>> {
+        console.log('🔵 [updateClassVisibility] Updating visibility:', { classId, isVisible });
         return this.updateClass(classId, { is_visible: isVisible });
     }
 
@@ -535,22 +687,32 @@ export class BranchClassesService {
      */
     async deleteClass(classId: string): Promise<BranchClassOperationResult<void>> {
         try {
+            console.log('🔵 [deleteClass] Deleting class:', classId);
+
             const { error } = await this.supabase
                 .from('branch_classes')
                 .delete()
                 .eq('id', classId);
 
             if (error) {
+                console.error('❌ [deleteClass] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
                 return {
                     success: false,
                     error: `Failed to delete class: ${error.message}`,
                 };
             }
 
+            console.log('✅ [deleteClass] Class deleted successfully');
             return {
                 success: true,
             };
         } catch (error) {
+            console.error('❌ [deleteClass] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -571,9 +733,12 @@ export class BranchClassesService {
         branchId: string
     ): Promise<BranchClassOperationResult<BranchClassStats>> {
         try {
+            console.log('🔵 [getBranchClassStats] Fetching stats for branch:', branchId);
+
             const result = await this.getClassesByBranch(branchId, true);
 
             if (!result.success || !result.data) {
+                console.error('❌ [getBranchClassStats] Failed to fetch classes:', result.error);
                 return {
                     success: false,
                     error: result.error || 'Failed to fetch classes',
@@ -582,11 +747,13 @@ export class BranchClassesService {
 
             const stats = calculateClassStats(result.data);
 
+            console.log('✅ [getBranchClassStats] Stats calculated:', stats);
             return {
                 success: true,
                 data: stats,
             };
         } catch (error) {
+            console.error('❌ [getBranchClassStats] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -603,9 +770,12 @@ export class BranchClassesService {
         teacherId: string
     ): Promise<BranchClassOperationResult<TeacherClassSummary>> {
         try {
+            console.log('🔵 [getTeacherClassSummary] Fetching summary for teacher:', teacherId);
+
             const result = await this.getClassesByTeacher(teacherId);
 
             if (!result.success || !result.data) {
+                console.error('❌ [getTeacherClassSummary] Failed to fetch classes:', result.error);
                 return {
                     success: false,
                     error: result.error || 'Failed to fetch classes',
@@ -620,6 +790,7 @@ export class BranchClassesService {
                 .single();
 
             if (teacherError) {
+                console.error('❌ [getTeacherClassSummary] Failed to fetch teacher info:', teacherError);
                 return {
                     success: false,
                     error: `Failed to fetch teacher info: ${teacherError.message}`,
@@ -629,18 +800,28 @@ export class BranchClassesService {
             const activeClasses = result.data.filter((c) => c.status === 'ACTIVE');
             const totalStudents = result.data.reduce((sum, c) => sum + c.current_enrollment, 0);
 
+            const summary = {
+                teacher_id: teacherId,
+                teacher_name: teacher?.full_name || 'Unknown',
+                total_classes: result.data.length,
+                active_classes: activeClasses.length,
+                total_students: totalStudents,
+                classes: result.data.map(toPublicBranchClass),
+            };
+
+            console.log('✅ [getTeacherClassSummary] Summary calculated:', {
+                teacher_id: summary.teacher_id,
+                total_classes: summary.total_classes,
+                active_classes: summary.active_classes,
+                total_students: summary.total_students,
+            });
+
             return {
                 success: true,
-                data: {
-                    teacher_id: teacherId,
-                    teacher_name: teacher?.full_name || 'Unknown',
-                    total_classes: result.data.length,
-                    active_classes: activeClasses.length,
-                    total_students: totalStudents,
-                    classes: result.data.map(toPublicBranchClass),
-                },
+                data: summary,
             };
         } catch (error) {
+            console.error('❌ [getTeacherClassSummary] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -657,9 +838,12 @@ export class BranchClassesService {
         classId: string
     ): Promise<BranchClassOperationResult<ClassAvailability>> {
         try {
+            console.log('🔵 [getClassAvailability] Fetching availability for class:', classId);
+
             const result = await this.getClassById(classId);
 
             if (!result.success || !result.data) {
+                console.error('❌ [getClassAvailability] Failed to fetch class:', result.error);
                 return {
                     success: false,
                     error: result.error || 'Failed to fetch class',
@@ -668,11 +852,13 @@ export class BranchClassesService {
 
             const availability = getClassAvailability(result.data);
 
+            console.log('✅ [getClassAvailability] Availability calculated:', availability);
             return {
                 success: true,
                 data: availability,
             };
         } catch (error) {
+            console.error('❌ [getClassAvailability] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -689,9 +875,12 @@ export class BranchClassesService {
         branchId: string
     ): Promise<BranchClassOperationResult<BranchClassSummary>> {
         try {
+            console.log('🔵 [getBranchClassSummary] Fetching summary for branch:', branchId);
+
             const result = await this.getClassesByBranch(branchId, true);
 
             if (!result.success || !result.data) {
+                console.error('❌ [getBranchClassSummary] Failed to fetch classes:', result.error);
                 return {
                     success: false,
                     error: result.error || 'Failed to fetch classes',
@@ -706,6 +895,7 @@ export class BranchClassesService {
                 .single();
 
             if (branchError) {
+                console.error('❌ [getBranchClassSummary] Failed to fetch branch info:', branchError);
                 return {
                     success: false,
                     error: `Failed to fetch branch info: ${branchError.message}`,
@@ -717,19 +907,29 @@ export class BranchClassesService {
             const totalEnrolled = result.data.reduce((sum, c) => sum + c.current_enrollment, 0);
             const utilizationRate = totalCapacity > 0 ? (totalEnrolled / totalCapacity) * 100 : 0;
 
+            const summary = {
+                branch_id: branchId,
+                branch_name: branch?.name || 'Unknown',
+                total_classes: result.data.length,
+                active_classes: activeClasses.length,
+                total_capacity: totalCapacity,
+                total_enrolled: totalEnrolled,
+                utilization_rate: Math.round(utilizationRate),
+            };
+
+            console.log('✅ [getBranchClassSummary] Summary calculated:', {
+                branch_id: summary.branch_id,
+                total_classes: summary.total_classes,
+                active_classes: summary.active_classes,
+                utilization_rate: summary.utilization_rate,
+            });
+
             return {
                 success: true,
-                data: {
-                    branch_id: branchId,
-                    branch_name: branch?.name || 'Unknown',
-                    total_classes: result.data.length,
-                    active_classes: activeClasses.length,
-                    total_capacity: totalCapacity,
-                    total_enrolled: totalEnrolled,
-                    utilization_rate: Math.round(utilizationRate),
-                },
+                data: summary,
             };
         } catch (error) {
+            console.error('❌ [getBranchClassSummary] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
