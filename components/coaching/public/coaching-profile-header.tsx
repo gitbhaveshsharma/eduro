@@ -12,7 +12,7 @@ import {
 } from '@/lib/coaching';
 import { useReviewStore } from '@/lib/review';
 import {
-    CheckCircle2,
+    BadgeCheck,
     Ellipsis,
     Globe,
     Link as LinkIcon,
@@ -109,7 +109,7 @@ export const CoachingProfileHeader = memo(function CoachingProfileHeader({
                                 </div>
                                 {center.is_verified && (
                                     <div className="absolute -bottom-2 -right-2 bg-blue-600 rounded-full p-1.5 ring-4 ring-card">
-                                        <CheckCircle2 className="h-4 w-4 text-white" />
+                                        <BadgeCheck className="h-4 w-4 text-white" />
                                     </div>
                                 )}
                             </div>

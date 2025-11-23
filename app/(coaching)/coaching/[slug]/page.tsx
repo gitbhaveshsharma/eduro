@@ -8,7 +8,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import {
     useCoachingStore,
     type PublicCoachingCenter,
@@ -30,9 +30,11 @@ import { useToast } from '@/hooks/use-toast';
 
 export default function CoachingCenterProfilePage() {
     const params = useParams();
+    const searchParams = useSearchParams();
     const router = useRouter();
     const { toast } = useToast();
     const slug = params?.slug as string;
+    const highlightedBranchId = searchParams?.get('branch') || null;
 
     const { loadCoachingCenterBySlug, loadBranchesByCenter } = useCoachingStore();
     const { getAddressByEntity } = useAddressStore();
@@ -176,6 +178,7 @@ export default function CoachingCenterProfilePage() {
                             branches={branches}
                             centerSlug={slug}
                             onJoinBranch={handleJoinBranch}
+                            highlightedBranchId={highlightedBranchId}
                         />
                     </div>
 
