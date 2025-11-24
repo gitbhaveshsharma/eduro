@@ -39,21 +39,22 @@ interface StatCardProps {
     title: string;
     value: string | number;
     description?: string;
-    icon: React.ReactNode;
+    icon: React.ElementType;
     trend?: {
         value: number;
         isPositive: boolean;
     };
+    colorClass?: string;
     className?: string;
 }
 
-function StatCard({ title, value, description, icon, trend, className }: StatCardProps) {
+function StatCard({ title, value, description, icon: Icon, trend, colorClass, className }: StatCardProps) {
     return (
         <Card className={className}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{title}</CardTitle>
                 <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                    {icon}
+                    <Icon className={`h-4 w-4 ${colorClass || 'text-primary'}`} />
                 </div>
             </CardHeader>
             <CardContent>
@@ -98,7 +99,9 @@ function RecentEnrollmentsList() {
     if (recentEnrollments.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-8 text-center">
-                <UserCheck className="h-12 w-12 text-muted-foreground mb-3" />
+                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                    <UserCheck className="h-6 w-6 text-primary" />
+                </div>
                 <p className="text-sm text-muted-foreground">No enrollments yet</p>
             </div>
         );
@@ -253,28 +256,32 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                     title="Total Students"
                     value={calculatedStats.total_students}
                     description={`${calculatedStats.enrolled_students} actively enrolled`}
-                    icon={<Users className="h-4 w-4" />}
+                    icon={Users}
+                    colorClass="text-blue-600"
                 />
 
                 <StatCard
                     title="Pending Approvals"
                     value={calculatedStats.pending_students}
                     description="Students awaiting approval"
-                    icon={<Clock className="h-4 w-4" />}
+                    icon={Clock}
+                    colorClass="text-orange-600"
                 />
 
                 <StatCard
                     title="Overdue Payments"
                     value={calculatedStats.students_with_overdue_payments}
                     description={`${paymentComplianceRate}% compliance rate`}
-                    icon={<AlertTriangle className="h-4 w-4" />}
+                    icon={AlertTriangle}
+                    colorClass="text-red-600"
                 />
 
                 <StatCard
                     title="Average Attendance"
                     value={`${calculatedStats.average_attendance.toFixed(1)}%`}
                     description="Across all students"
-                    icon={<TrendingUp className="h-4 w-4" />}
+                    icon={TrendingUp}
+                    colorClass="text-green-600"
                 />
             </div>
 
@@ -282,7 +289,9 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <DollarSign className="h-5 w-5" />
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <DollarSign className="h-5 w-5 text-primary" />
+                            </div>
                             Financial Overview
                         </CardTitle>
                         <CardDescription>Fee collection and outstanding amounts</CardDescription>
@@ -316,7 +325,9 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5" />
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Calendar className="h-5 w-5 text-primary" />
+                            </div>
                             Enrollment Status
                         </CardTitle>
                         <CardDescription>Distribution of student enrollment statuses</CardDescription>
@@ -335,7 +346,9 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                             ))
                         ) : (
                             <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <Users className="h-12 w-12 text-muted-foreground mb-3" />
+                                <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                                    <Users className="h-6 w-6 text-primary" />
+                                </div>
                                 <p className="text-sm text-muted-foreground">No enrollment data available</p>
                             </div>
                         )}

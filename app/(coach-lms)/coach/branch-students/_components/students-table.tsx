@@ -51,6 +51,7 @@ import {
     Eye,
     Edit,
     Trash2,
+    Calendar,
     GraduationCap,
 } from 'lucide-react';
 
@@ -222,14 +223,32 @@ const StudentRow = memo(function StudentRow({
 
             {/* Attendance */}
             <TableCell>
-                <div className="flex items-center gap-3">
-                    <Progress
-                        value={student.attendance_percentage}
-                        className="h-2 w-[60px]"
-                    />
-                    <span className={`text-sm font-medium ${attendanceColor}`}>
-                        {student.attendance_percentage.toFixed(1)}%
-                    </span>
+                <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <span>Attendance</span>
+                        </div>
+                        <span className={`font-medium ${student.attendance_percentage >= 90
+                            ? 'text-green-600'
+                            : student.attendance_percentage >= 70
+                                ? 'text-orange-600'
+                                : 'text-red-600'
+                            }`}>
+                            {student.attendance_percentage.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-1.5">
+                        <div
+                            className={`h-1.5 rounded-full transition-all ${student.attendance_percentage >= 90
+                                ? 'bg-green-500'
+                                : student.attendance_percentage >= 70
+                                    ? 'bg-orange-500'
+                                    : 'bg-red-500'
+                                }`}
+                            style={{ width: `${student.attendance_percentage}%` }}
+                        />
+                    </div>
                 </div>
             </TableCell>
 

@@ -28,6 +28,7 @@ import {
 } from '@/lib/coaching';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
+import { Card, CardContent } from '@/components/ui/card';
 
 /**
  * Branch Students Page Component for Coaches
@@ -194,39 +195,51 @@ export default function BranchStudentsPage() {
 
                     {/* Dashboard Tab - Keep mounted to preserve state */}
                     <TabsContent value="dashboard" className="mt-6" forceMount hidden={activeTab !== 'dashboard'}>
-                        <BranchStudentsDashboard coachingCenterId={coachingCenterId} />
+                        <Card>
+                            <CardContent className="p-6">
+                                <BranchStudentsDashboard coachingCenterId={coachingCenterId} />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
                     {/* List Tab - Keep mounted to preserve state */}
                     <TabsContent value="list" className="mt-6 space-y-4" forceMount hidden={activeTab !== 'list'}>
-                        <StudentFilters coachingCenterId={coachingCenterId} />
-                        <StudentsTable
-                            coachingCenterId={coachingCenterId}
-                            onViewStudent={async (studentId: string) => {
-                                try {
-                                    await fetchEnrollment(studentId);
-                                    openDetailsDialog();
-                                } catch (err) {
-                                    console.error('Failed to load enrollment for details:', err);
-                                }
-                            }}
-                            onEditStudent={async (studentId: string) => {
-                                try {
-                                    await fetchEnrollment(studentId);
-                                    openEditDialog();
-                                } catch (err) {
-                                    console.error('Failed to load enrollment for edit:', err);
-                                }
-                            }}
-                            onDeleteStudent={async (studentId: string) => {
-                                try {
-                                    await fetchEnrollment(studentId);
-                                    openDeleteDialog();
-                                } catch (err) {
-                                    console.error('Failed to load enrollment for delete:', err);
-                                }
-                            }}
-                        />
+                        <Card className="p-4">
+                            <CardContent className="p-0">
+                                <StudentFilters coachingCenterId={coachingCenterId} />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-6">
+                                <StudentsTable
+                                    coachingCenterId={coachingCenterId}
+                                    onViewStudent={async (studentId: string) => {
+                                        try {
+                                            await fetchEnrollment(studentId);
+                                            openDetailsDialog();
+                                        } catch (err) {
+                                            console.error('Failed to load enrollment for details:', err);
+                                        }
+                                    }}
+                                    onEditStudent={async (studentId: string) => {
+                                        try {
+                                            await fetchEnrollment(studentId);
+                                            openEditDialog();
+                                        } catch (err) {
+                                            console.error('Failed to load enrollment for edit:', err);
+                                        }
+                                    }}
+                                    onDeleteStudent={async (studentId: string) => {
+                                        try {
+                                            await fetchEnrollment(studentId);
+                                            openDeleteDialog();
+                                        } catch (err) {
+                                            console.error('Failed to load enrollment for delete:', err);
+                                        }
+                                    }}
+                                />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
 

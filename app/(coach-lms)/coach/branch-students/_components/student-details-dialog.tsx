@@ -77,6 +77,7 @@ interface StudentDetailsDialogProps {
 export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialogProps = {}) {
     const {
         currentEnrollment,
+        setCurrentEnrollment,
         isDetailsDialogOpen,
         closeDetailsDialog,
         openEditDialog,
@@ -96,7 +97,10 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
     const daysUntilPayment = calculateDaysUntilPayment(student.next_payment_due);
 
     const handleClose = () => {
+        // Close the details dialog and clear the current enrollment since
+        // the user explicitly closed the details view.
         closeDetailsDialog();
+        setCurrentEnrollment(null);
         if (typeof onOpenChange === 'function') onOpenChange(false);
     };
 

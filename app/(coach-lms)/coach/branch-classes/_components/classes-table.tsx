@@ -21,6 +21,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
@@ -50,12 +56,15 @@ import {
     Users,
     Calendar,
     RefreshCw,
+    ArrowUp,
+    ArrowDown,
 } from 'lucide-react';
+import { memo, useCallback } from 'react';
 
 /**
  * Table Header Cell with Sorting
  */
-function SortableHeader({
+const SortableHeader = memo(function SortableHeader({
     label,
     field,
     currentSort,
@@ -67,17 +76,36 @@ function SortableHeader({
     onSort: (field: string) => void;
 }) {
     const isActive = currentSort.field === field;
+    const direction = currentSort.direction;
+
+    const handleClick = useCallback(() => {
+        onSort(field);
+    }, [field, onSort]);
 
     return (
-        <TableHead className="cursor-pointer select-none" onClick={() => onSort(field)}>
-            <div className="flex items-center gap-2">
-                {label}
-                <ArrowUpDown className={`h-4 w-4 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-            </div>
+        <TableHead>
+            <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClick}
+                className="hover:bg-transparent font-semibold"
+            >
+                <div className="flex items-center gap-2">
+                    {label}
+                    {!isActive && (
+                        <ArrowUpDown className="h-4 w-4 " />
+                    )}
+                    {isActive && direction === 'asc' && (
+                        <ArrowUp className="h-4 w-4 text-secondary" />
+                    )}
+                    {isActive && direction === 'desc' && (
+                        <ArrowDown className="h-4 w-4 " />
+                    )}
+                </div>
+            </Button>
         </TableHead>
     );
-}
-
+});
 /**
  * Class Row Actions Menu
  */
@@ -313,12 +341,21 @@ export function ClassesTable() {
 
                                     {/* Schedule */}
                                     <TableCell>
-                                        <div className="flex items-center gap-1 text-sm">
-                                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                                            <span className="text-muted-foreground">
-                                                {formatClassSchedule(classItem)}
-                                            </span>
-                                        </div>
+                                        <TooltipProvider>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <div className="flex items-center gap-1 text-sm max-w-[200px]">
+                                                        <Calendar className="h-3 w-3 text-muted-foreground shrink-0" />
+                                                        <span className="text-muted-foreground truncate">
+                                                            {formatClassSchedule(classItem)}
+                                                        </span>
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>{formatClassSchedule(classItem)}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        </TooltipProvider>
                                     </TableCell>
 
                                     {/* Capacity */}
@@ -331,10 +368,10 @@ export function ClassesTable() {
                                             <div className="w-full bg-secondary rounded-full h-1.5">
                                                 <div
                                                     className={`h-1.5 rounded-full transition-all ${utilization >= 90
-                                                            ? 'bg-red-500'
-                                                            : utilization >= 70
-                                                                ? 'bg-orange-500'
-                                                                : 'bg-green-500'
+                                                        ? 'bg-red-500'
+                                                        : utilization >= 70
+                                                            ? 'bg-orange-500'
+                                                            : 'bg-green-500'
                                                         }`}
                                                     style={{ width: `${utilization}%` }}
                                                 />

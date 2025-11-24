@@ -733,7 +733,10 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                 },
 
                 closeDetailsDialog: () => {
-                    set({ isDetailsDialogOpen: false, currentEnrollment: null });
+                    // Only close the details dialog. Keep `currentEnrollment` intact
+                    // so we can transition to other dialogs (edit/delete) without
+                    // refetching the enrollment.
+                    set({ isDetailsDialogOpen: false });
                 },
 
                 openEditDialog: () => {
