@@ -18,6 +18,7 @@ import {
 import { ENROLLMENT_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/branch-students.types';
 import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast';
 import { toast } from 'react-hot-toast';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     Dialog,
     DialogContent,
@@ -54,12 +55,13 @@ import { Loader2, Edit } from 'lucide-react';
 export function EditEnrollmentDialog() {
     const {
         currentEnrollment,
+        isEditDialogOpen,
         updateEnrollmentByManager,
         loading,
-        setCurrentEnrollment,
+        closeEditDialog,
     } = useBranchStudentsStore();
 
-    const isOpen = !!currentEnrollment;
+    const isOpen = isEditDialogOpen && !!currentEnrollment;
 
     // Initialize form
     const form = useForm<UpdateStudentByManagerInput>({
@@ -106,7 +108,7 @@ export function EditEnrollmentDialog() {
 
             if (success) {
                 showSuccessToast('Enrollment updated successfully!');
-                setCurrentEnrollment(null);
+                closeEditDialog();
             } else {
                 showErrorToast('Failed to update enrollment. Please try again.');
             }
@@ -117,8 +119,8 @@ export function EditEnrollmentDialog() {
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && setCurrentEnrollment(null)}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && closeEditDialog()}>
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Edit className="h-5 w-5" />
@@ -128,276 +130,277 @@ export function EditEnrollmentDialog() {
                         Update enrollment information, academic performance, and payment details.
                     </DialogDescription>
                 </DialogHeader>
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                            {/* Status Fields */}
+                            <div className="space-y-4  p-4">
+                                <h3 className="text-sm font-semibold">Status Information</h3>
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                        {/* Status Fields */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold">Status Information</h3>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="enrollment_status"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Enrollment Status</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select status" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {Object.entries(ENROLLMENT_STATUS_OPTIONS).map(([status, config]) => (
+                                                            <SelectItem key={status} value={status}>
+                                                                {config.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                            <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="payment_status"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Payment Status</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Select status" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {Object.entries(PAYMENT_STATUS_OPTIONS).map(([status, config]) => (
+                                                            <SelectItem key={status} value={status}>
+                                                                {config.label}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+
                                 <FormField
                                     control={form.control}
-                                    name="enrollment_status"
+                                    name="class_id"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Enrollment Status</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormLabel>Class ID</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Class UUID" {...field} value={field.value || ''} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+
+                            <Separator />
+
+                            {/* Academic Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold">Academic Information</h3>
+
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="attendance_percentage"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Attendance Percentage</FormLabel>
                                                 <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select status" />
-                                                    </SelectTrigger>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        max="100"
+                                                        placeholder="85.5"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                                    />
                                                 </FormControl>
-                                                <SelectContent>
-                                                    {Object.entries(ENROLLMENT_STATUS_OPTIONS).map(([status, config]) => (
-                                                        <SelectItem key={status} value={status}>
-                                                            {config.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                                <FormField
-                                    control={form.control}
-                                    name="payment_status"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Payment Status</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormField
+                                        control={form.control}
+                                        name="current_grade"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Current Grade</FormLabel>
                                                 <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select status" />
-                                                    </SelectTrigger>
+                                                    <Input placeholder="A+ / B / 85%" {...field} value={field.value || ''} />
                                                 </FormControl>
-                                                <SelectContent>
-                                                    {Object.entries(PAYMENT_STATUS_OPTIONS).map(([status, config]) => (
-                                                        <SelectItem key={status} value={status}>
-                                                            {config.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
 
-                            <FormField
-                                control={form.control}
-                                name="class_id"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Class ID</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Class UUID" {...field} value={field.value || ''} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-
-                        <Separator />
-
-                        {/* Academic Information */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold">Academic Information</h3>
-
-                            <div className="grid gap-4 md:grid-cols-2">
                                 <FormField
                                     control={form.control}
-                                    name="attendance_percentage"
+                                    name="performance_notes"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Attendance Percentage</FormLabel>
+                                            <FormLabel>Performance Notes</FormLabel>
                                             <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    max="100"
-                                                    placeholder="85.5"
+                                                <Textarea
+                                                    placeholder="Notes about student's academic performance..."
                                                     {...field}
-                                                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                                    value={field.value || ''}
+                                                    rows={3}
                                                 />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
-
-                                <FormField
-                                    control={form.control}
-                                    name="current_grade"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Current Grade</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="A+ / B / 85%" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
                             </div>
 
-                            <FormField
-                                control={form.control}
-                                name="performance_notes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Performance Notes</FormLabel>
-                                        <FormControl>
-                                            <Textarea
-                                                placeholder="Notes about student's academic performance..."
-                                                {...field}
-                                                value={field.value || ''}
-                                                rows={3}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
+                            <Separator />
 
-                        <Separator />
+                            {/* Financial Information */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold">Financial Information</h3>
 
-                        {/* Financial Information */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold">Financial Information</h3>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="total_fees_due"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Total Fees Due</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="10000.00"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <FormField
-                                    control={form.control}
-                                    name="total_fees_due"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Total Fees Due</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    placeholder="10000.00"
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="total_fees_paid"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Total Fees Paid</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        min="0"
+                                                        placeholder="5000.00"
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                                <FormField
-                                    control={form.control}
-                                    name="total_fees_paid"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Total Fees Paid</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    type="number"
-                                                    step="0.01"
-                                                    min="0"
-                                                    placeholder="5000.00"
-                                                    {...field}
-                                                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="last_payment_date"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Last Payment Date</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                                <FormField
-                                    control={form.control}
-                                    name="last_payment_date"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Last Payment Date</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                <FormField
-                                    control={form.control}
-                                    name="next_payment_due"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Next Payment Due</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="next_payment_due"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Next Payment Due</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        <Separator />
+                            <Separator />
 
-                        {/* Dates */}
-                        <div className="space-y-4">
-                            <h3 className="text-sm font-semibold">Enrollment Dates</h3>
+                            {/* Dates */}
+                            <div className="space-y-4">
+                                <h3 className="text-sm font-semibold">Enrollment Dates</h3>
 
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <FormField
-                                    control={form.control}
-                                    name="expected_completion_date"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Expected Completion Date</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <FormField
+                                        control={form.control}
+                                        name="expected_completion_date"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Expected Completion Date</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
 
-                                <FormField
-                                    control={form.control}
-                                    name="actual_completion_date"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Actual Completion Date</FormLabel>
-                                            <FormControl>
-                                                <Input type="date" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="actual_completion_date"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Actual Completion Date</FormLabel>
+                                                <FormControl>
+                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
-                        </div>
 
-                        <DialogFooter>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => setCurrentEnrollment(null)}
-                                disabled={loading}
-                            >
-                                Cancel
-                            </Button>
-                            <Button type="submit" disabled={loading}>
-                                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Save Changes
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                            <DialogFooter>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => closeEditDialog()}
+                                    disabled={loading}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button type="submit" disabled={loading}>
+                                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Save Changes
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </ScrollArea>
             </DialogContent>
         </Dialog>
     );

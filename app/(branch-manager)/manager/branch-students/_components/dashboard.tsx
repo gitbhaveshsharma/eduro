@@ -1,13 +1,13 @@
 /**
- * Branch Students Dashboard Component
+ * Branch Manager - Students Dashboard Component
  * 
  * Displays comprehensive statistics and analytics for branch students
- * Features: Stat cards, recent enrollments, students needing attention
+ * Specifically designed for branch managers viewing their assigned branch
  */
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import {
     ENROLLMENT_STATUS_OPTIONS,
@@ -35,6 +35,16 @@ import {
     GraduationCap,
 } from 'lucide-react';
 
+/**
+ * Props
+ */
+interface BranchStudentsDashboardProps {
+    branchId: string;
+}
+
+/**
+ * Stat Card Component
+ */
 interface StatCardProps {
     title: string;
     value: string | number;
@@ -72,9 +82,13 @@ function StatCard({ title, value, description, icon, trend, className }: StatCar
     );
 }
 
+/**
+ * Recent Enrollments List Component
+ */
 function RecentEnrollmentsList() {
     const { branchStudents, listLoading } = useBranchStudentsStore();
 
+    // Get 5 most recent enrollments
     const recentEnrollments = [...branchStudents]
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5);
@@ -136,97 +150,35 @@ function RecentEnrollmentsList() {
     );
 }
 
-interface BranchStudentsDashboardProps {
-    coachingCenterId: string;
-}
-
-export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDashboardProps) {
+/**
+ * Main Dashboard Component for Branch Managers
+ */
+export function BranchStudentsDashboard({ branchId }: BranchStudentsDashboardProps) {
     const {
+        stats,
         statsLoading,
-        fetchCoachingCenterStudents,
-        branchStudents,
-        listLoading,
+        fetchBranchStats,
+        fetchBranchStudents,
     } = useBranchStudentsStore();
 
+    // Fetch data on mount
     useEffect(() => {
-        if (coachingCenterId) {
-            fetchCoachingCenterStudents(coachingCenterId);
+        if (branchId) {
+            fetchBranchStats(branchId);
+            fetchBranchStudents(branchId);
         }
-    }, [coachingCenterId, fetchCoachingCenterStudents]);
+    }, [branchId, fetchBranchStats, fetchBranchStudents]);
 
-    const calculatedStats = useMemo(() => {
-        if (branchStudents.length === 0) {
-            return {
-                total_students: 0,
-                enrolled_students: 0,
-                pending_students: 0,
-                students_with_overdue_payments: 0,
-                average_attendance: 0,
-                total_fees_collected: 0,
-                total_outstanding_fees: 0,
-                students_by_enrollment_status: {},
-                students_by_payment_status: {},
-            };
-        }
-
-        const enrollmentStatusCounts: Record<string, number> = {};
-        const paymentStatusCounts: Record<string, number> = {};
-
-        let enrolledCount = 0;
-        let pendingCount = 0;
-        let overduePaymentCount = 0;
-        let totalAttendance = 0;
-        let totalOutstanding = 0;
-
-        branchStudents.forEach((student) => {
-            enrollmentStatusCounts[student.enrollment_status] =
-                (enrollmentStatusCounts[student.enrollment_status] || 0) + 1;
-
-            paymentStatusCounts[student.payment_status] =
-                (paymentStatusCounts[student.payment_status] || 0) + 1;
-
-            if (student.enrollment_status === 'ENROLLED') {
-                enrolledCount++;
-            }
-
-            if (student.enrollment_status === 'PENDING') {
-                pendingCount++;
-            }
-
-            if (student.is_payment_overdue) {
-                overduePaymentCount++;
-            }
-
-            totalAttendance += student.attendance_percentage || 0;
-            totalOutstanding += student.outstanding_balance || 0;
-        });
-
-        const averageAttendance = branchStudents.length > 0
-            ? totalAttendance / branchStudents.length
-            : 0;
-
-        return {
-            total_students: branchStudents.length,
-            enrolled_students: enrolledCount,
-            pending_students: pendingCount,
-            students_with_overdue_payments: overduePaymentCount,
-            average_attendance: averageAttendance,
-            total_fees_collected: 0,
-            total_outstanding_fees: totalOutstanding,
-            students_by_enrollment_status: enrollmentStatusCounts,
-            students_by_payment_status: paymentStatusCounts,
-        };
-    }, [branchStudents]);
-
-    const activeStudentsRate = calculatedStats.total_students > 0
-        ? ((calculatedStats.enrolled_students / calculatedStats.total_students) * 100).toFixed(1)
+    // Calculate derived stats
+    const activeStudentsRate = stats
+        ? ((stats.enrolled_students / stats.total_students) * 100).toFixed(1)
         : '0';
 
-    const paymentComplianceRate = calculatedStats.total_students > 0
-        ? (((calculatedStats.total_students - calculatedStats.students_with_overdue_payments) / calculatedStats.total_students) * 100).toFixed(1)
+    const paymentComplianceRate = stats && stats.total_students > 0
+        ? (((stats.total_students - stats.students_with_overdue_payments) / stats.total_students) * 100).toFixed(1)
         : '0';
 
-    if (statsLoading || listLoading) {
+    if (statsLoading) {
         return (
             <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -248,37 +200,40 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
 
     return (
         <div className="space-y-6">
+            {/* Main Stats */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <StatCard
                     title="Total Students"
-                    value={calculatedStats.total_students}
-                    description={`${calculatedStats.enrolled_students} actively enrolled`}
-                    icon={<Users className="h-4 w-4" />}
+                    value={stats?.total_students || 0}
+                    description={`${stats?.enrolled_students || 0} actively enrolled`}
+                    icon={<Users className="h-4 w-4 text-green-600" />}
                 />
 
                 <StatCard
                     title="Pending Approvals"
-                    value={calculatedStats.pending_students}
+                    value={stats?.pending_students || 0}
                     description="Students awaiting approval"
-                    icon={<Clock className="h-4 w-4" />}
+                    icon={<Clock className="h-4 w-4 text-yellow-600" />}
                 />
 
                 <StatCard
                     title="Overdue Payments"
-                    value={calculatedStats.students_with_overdue_payments}
+                    value={stats?.students_with_overdue_payments || 0}
                     description={`${paymentComplianceRate}% compliance rate`}
-                    icon={<AlertTriangle className="h-4 w-4" />}
+                    icon={<AlertTriangle className="h-4 w-4 text-red-600" />}
                 />
 
                 <StatCard
                     title="Average Attendance"
-                    value={`${calculatedStats.average_attendance.toFixed(1)}%`}
+                    value={`${stats?.average_attendance.toFixed(1) || 0}%`}
                     description="Across all students"
-                    icon={<TrendingUp className="h-4 w-4" />}
+                    icon={<TrendingUp className="h-4 w-4 text-blue-600" />}
                 />
             </div>
 
+            {/* Secondary Stats */}
             <div className="grid gap-4 md:grid-cols-2">
+                {/* Financial Overview */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -292,13 +247,13 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                             <div className="flex items-center justify-between mb-2">
                                 <span className="text-sm font-medium">Total Collected</span>
                                 <span className="text-sm font-bold text-green-600">
-                                    {formatCurrency(calculatedStats.total_fees_collected)}
+                                    {formatCurrency(stats?.total_fees_collected || 0)}
                                 </span>
                             </div>
                             <div className="flex items-center justify-between">
                                 <span className="text-sm font-medium">Outstanding</span>
                                 <span className="text-sm font-bold text-orange-600">
-                                    {formatCurrency(calculatedStats.total_outstanding_fees)}
+                                    {formatCurrency(stats?.total_outstanding_fees || 0)}
                                 </span>
                             </div>
                         </div>
@@ -313,6 +268,7 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                     </CardContent>
                 </Card>
 
+                {/* Enrollment Status Breakdown */}
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -322,27 +278,21 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                         <CardDescription>Distribution of student enrollment statuses</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {Object.keys(calculatedStats.students_by_enrollment_status).length > 0 ? (
-                            Object.entries(calculatedStats.students_by_enrollment_status).map(([status, count]) => (
-                                <div key={status} className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Badge variant={ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS]?.color as any}>
-                                            {ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS]?.label || status}
-                                        </Badge>
-                                    </div>
-                                    <span className="text-sm font-medium">{count}</span>
+                        {stats && Object.entries(stats.students_by_enrollment_status).map(([status, count]) => (
+                            <div key={status} className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Badge variant={ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS].color as any}>
+                                        {ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS].label}
+                                    </Badge>
                                 </div>
-                            ))
-                        ) : (
-                            <div className="flex flex-col items-center justify-center py-8 text-center">
-                                <Users className="h-12 w-12 text-muted-foreground mb-3" />
-                                <p className="text-sm text-muted-foreground">No enrollment data available</p>
+                                <span className="text-sm font-medium">{count}</span>
                             </div>
-                        )}
+                        ))}
                     </CardContent>
                 </Card>
             </div>
 
+            {/* Recent Enrollments */}
             <Card>
                 <CardHeader>
                     <CardTitle>Recent Enrollments</CardTitle>
@@ -353,11 +303,12 @@ export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDash
                 </CardContent>
             </Card>
 
+            {/* Active Students Rate */}
             <Card>
                 <CardHeader>
                     <CardTitle>Active Students Rate</CardTitle>
                     <CardDescription>
-                        {calculatedStats.enrolled_students} of {calculatedStats.total_students} students actively enrolled
+                        {stats?.enrolled_students || 0} of {stats?.total_students || 0} students actively enrolled
                     </CardDescription>
                 </CardHeader>
                 <CardContent>

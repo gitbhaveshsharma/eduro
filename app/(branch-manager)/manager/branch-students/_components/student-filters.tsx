@@ -1,8 +1,8 @@
 /**
- * Student Filters Component
+ * Branch Manager - Student Filters Component
  * 
  * Advanced filtering controls for the students list
- * Features: Search, status filters, payment filters, attendance range
+ * Adapted for branch manager use
  */
 
 'use client';
@@ -26,18 +26,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { Search, X, Filter } from 'lucide-react';
 
-/**
- * Props for Student Filters Component
- */
 interface StudentFiltersProps {
-    coachingCenterId?: string; // Coaching center ID for fetching students
+    branchId: string;
 }
 
-/**
- * Main Student Filters Component
- */
-export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
-    const { filters, setFilters, fetchCoachingCenterStudents } = useBranchStudentsStore();
+export function StudentFilters({ branchId }: StudentFiltersProps) {
+    const { filters, setFilters, fetchBranchStudents } = useBranchStudentsStore();
 
     const [searchQuery, setSearchQuery] = useState(filters?.search_query || '');
     const [enrollmentStatus, setEnrollmentStatus] = useState<EnrollmentStatus | 'all'>('all');
@@ -49,7 +43,7 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
     // Debounce search query
     useEffect(() => {
         const timer = setTimeout(() => {
-            applyFilters()
+            applyFilters();
         }, 300);
 
         return () => clearTimeout(timer);
@@ -57,7 +51,7 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
 
     // Apply filters
     const applyFilters = () => {
-        const newFilters: BranchStudentFilters = {};
+        const newFilters: BranchStudentFilters = { branch_id: branchId };
 
         if (searchQuery.trim()) {
             newFilters.search_query = searchQuery.trim();
@@ -83,12 +77,8 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
             newFilters.has_overdue_payment = true;
         }
 
-        setFilters(Object.keys(newFilters).length > 0 ? newFilters : null);
-
-        // Re-fetch coaching center students with new filters
-        if (coachingCenterId) {
-            fetchCoachingCenterStudents(coachingCenterId, newFilters);
-        }
+        setFilters(Object.keys(newFilters).length > 1 ? newFilters : null);
+        fetchBranchStudents(branchId, newFilters);
     };
 
     // Handle filter changes
@@ -126,11 +116,7 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
         setAttendanceMax('');
         setHasOverduePayment(false);
         setFilters(null);
-
-        // Re-fetch all coaching center students without filters
-        if (coachingCenterId) {
-            fetchCoachingCenterStudents(coachingCenterId);
-        }
+        fetchBranchStudents(branchId);
     };
 
     // Check if any filters are active

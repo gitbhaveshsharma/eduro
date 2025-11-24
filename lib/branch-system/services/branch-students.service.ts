@@ -376,6 +376,135 @@ export class BranchStudentsService {
     }
 
     /**
+     * Lists all students enrolled across all branches of a coaching center
+     * 
+     * @param coachingCenterId - Coaching Center UUID
+     * @param filters - Optional filters
+     * @param sort - Optional sort parameters
+     * @param pagination - Optional pagination
+     * @returns Search result with students and metadata
+     */
+    async getCoachingCenterStudents(
+        coachingCenterId: string,
+        filters?: BranchStudentFilters,
+        sort?: BranchStudentSort,
+        pagination?: PaginationOptions
+    ): Promise<BranchStudentOperationResult<BranchStudentSearchResult>> {
+        try {
+            // Validate inputs
+            const validatedFilters = filters ? branchStudentFilterSchema.parse(filters) : {};
+            const validatedSort = sort ? branchStudentSortSchema.parse(sort) : { field: 'enrollment_date', direction: 'desc' };
+            const validatedPagination = pagination ? paginationSchema.parse(pagination) : { page: 1, limit: 20 };
+
+            // Build query - join with coaching_branches to filter by coaching_center_id
+            let query = this.supabase
+                .from('branch_students')
+                .select(`
+                    *,
+                    branch:branch_id!inner (
+                        id,
+                        name,
+                        coaching_center_id
+                    )
+                `, { count: 'exact' })
+                .eq('branch.coaching_center_id', coachingCenterId);
+
+            // Apply filters
+            if (validatedFilters.student_id) {
+                query = query.eq('student_id', validatedFilters.student_id);
+            }
+
+            if (validatedFilters.branch_id) {
+                query = query.eq('branch_id', validatedFilters.branch_id);
+            }
+
+            if (validatedFilters.class_id) {
+                query = query.eq('class_id', validatedFilters.class_id);
+            }
+
+            if (validatedFilters.enrollment_status) {
+                if (Array.isArray(validatedFilters.enrollment_status)) {
+                    query = query.in('enrollment_status', validatedFilters.enrollment_status);
+                } else {
+                    query = query.eq('enrollment_status', validatedFilters.enrollment_status);
+                }
+            }
+
+            if (validatedFilters.payment_status) {
+                if (Array.isArray(validatedFilters.payment_status)) {
+                    query = query.in('payment_status', validatedFilters.payment_status);
+                } else {
+                    query = query.eq('payment_status', validatedFilters.payment_status);
+                }
+            }
+
+            if (validatedFilters.enrollment_date_from) {
+                query = query.gte('enrollment_date', validatedFilters.enrollment_date_from);
+            }
+
+            if (validatedFilters.enrollment_date_to) {
+                query = query.lte('enrollment_date', validatedFilters.enrollment_date_to);
+            }
+
+            if (validatedFilters.attendance_min !== undefined) {
+                query = query.gte('attendance_percentage', validatedFilters.attendance_min);
+            }
+
+            if (validatedFilters.attendance_max !== undefined) {
+                query = query.lte('attendance_percentage', validatedFilters.attendance_max);
+            }
+
+            if (validatedFilters.has_overdue_payment) {
+                query = query.lt('next_payment_due', new Date().toISOString().split('T')[0]);
+            }
+
+            // Apply sorting
+            query = query.order(validatedSort.field as any, {
+                ascending: validatedSort.direction === 'asc',
+            });
+
+            // Apply pagination
+            const from = (validatedPagination.page - 1) * validatedPagination.limit;
+            const to = from + validatedPagination.limit - 1;
+            query = query.range(from, to);
+
+            // Execute query
+            const { data, error, count } = await query;
+
+            if (error) {
+                console.error('Error fetching coaching center students:', error);
+                return {
+                    success: false,
+                    error: error.message,
+                };
+            }
+
+            const totalCount = count || 0;
+            const totalPages = Math.ceil(totalCount / validatedPagination.limit);
+
+            // Extract the main student data (remove branch relation for clean response)
+            const students = (data || []).map(({ branch, ...student }: any) => student);
+
+            return {
+                success: true,
+                data: {
+                    students: toPublicBranchStudents(students),
+                    total_count: totalCount,
+                    page: validatedPagination.page,
+                    limit: validatedPagination.limit,
+                    total_pages: totalPages,
+                    has_more: validatedPagination.page < totalPages,
+                },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
      * Lists all students enrolled in a branch
      * 
      * @param branchId - Branch UUID

@@ -41,6 +41,11 @@ interface BranchStudentsState {
     stats: BranchStudentStats | null;
     summary: StudentEnrollmentSummary | null;
 
+    // Dialog open states
+    isDetailsDialogOpen: boolean;
+    isEditDialogOpen: boolean;
+    isDeleteDialogOpen: boolean;
+
     // Loading state
     loading: boolean;
     enrollmentLoading: boolean;
@@ -90,6 +95,16 @@ interface BranchStudentsState {
      */
     fetchBranchStudents: (
         branchId: string,
+        filters?: BranchStudentFilters,
+        sort?: BranchStudentSort,
+        pagination?: PaginationOptions
+    ) => Promise<void>;
+
+    /**
+     * Fetches all students across all branches of a coaching center
+     */
+    fetchCoachingCenterStudents: (
+        coachingCenterId: string,
         filters?: BranchStudentFilters,
         sort?: BranchStudentSort,
         pagination?: PaginationOptions
@@ -168,6 +183,41 @@ interface BranchStudentsState {
     setCurrentEnrollment: (enrollment: BranchStudent | null) => void;
 
     /**
+     * Opens the details dialog for the current enrollment
+     */
+    openDetailsDialog: () => void;
+
+    /**
+     * Closes the details dialog
+     */
+    closeDetailsDialog: () => void;
+
+    /**
+     * Opens the edit dialog for the current enrollment
+     */
+    openEditDialog: () => void;
+
+    /**
+     * Closes the edit dialog
+     */
+    closeEditDialog: () => void;
+
+    /**
+     * Opens the delete dialog for the current enrollment
+     */
+    openDeleteDialog: () => void;
+
+    /**
+     * Closes the delete dialog
+     */
+    closeDeleteDialog: () => void;
+
+    /**
+     * Closes all dialogs
+     */
+    closeAllDialogs: () => void;
+
+    /**
      * Sets filters
      */
     setFilters: (filters: BranchStudentFilters | null) => void;
@@ -206,6 +256,9 @@ const initialState = {
     searchResult: null,
     stats: null,
     summary: null,
+    isDetailsDialogOpen: false,
+    isEditDialogOpen: false,
+    isDeleteDialogOpen: false,
     loading: false,
     enrollmentLoading: false,
     listLoading: false,
@@ -381,6 +434,39 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         set({
                             listLoading: false,
                             error: result.error || 'Failed to fetch branch students',
+                            branchStudents: [],
+                        });
+                    }
+                },
+
+                fetchCoachingCenterStudents: async (
+                    coachingCenterId: string,
+                    filters?: BranchStudentFilters,
+                    sort?: BranchStudentSort,
+                    pagination?: PaginationOptions
+                ) => {
+                    set({ listLoading: true, error: null });
+
+                    const result = await branchStudentsService.getCoachingCenterStudents(
+                        coachingCenterId,
+                        filters,
+                        sort,
+                        pagination
+                    );
+
+                    if (result.success && result.data) {
+                        set({
+                            listLoading: false,
+                            searchResult: result.data,
+                            branchStudents: result.data.students,
+                            filters: filters || null,
+                            sort: sort || null,
+                            pagination: pagination || { page: 1, limit: 20 },
+                        });
+                    } else {
+                        set({
+                            listLoading: false,
+                            error: result.error || 'Failed to fetch coaching center students',
                             branchStudents: [],
                         });
                     }
@@ -640,6 +726,39 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
 
                 setCurrentEnrollment: (enrollment: BranchStudent | null) => {
                     set({ currentEnrollment: enrollment });
+                },
+
+                openDetailsDialog: () => {
+                    set({ isDetailsDialogOpen: true });
+                },
+
+                closeDetailsDialog: () => {
+                    set({ isDetailsDialogOpen: false, currentEnrollment: null });
+                },
+
+                openEditDialog: () => {
+                    set({ isEditDialogOpen: true });
+                },
+
+                closeEditDialog: () => {
+                    set({ isEditDialogOpen: false, currentEnrollment: null });
+                },
+
+                openDeleteDialog: () => {
+                    set({ isDeleteDialogOpen: true });
+                },
+
+                closeDeleteDialog: () => {
+                    set({ isDeleteDialogOpen: false, currentEnrollment: null });
+                },
+
+                closeAllDialogs: () => {
+                    set({
+                        isDetailsDialogOpen: false,
+                        isEditDialogOpen: false,
+                        isDeleteDialogOpen: false,
+                        currentEnrollment: null
+                    });
                 },
 
                 setFilters: (filters: BranchStudentFilters | null) => {
