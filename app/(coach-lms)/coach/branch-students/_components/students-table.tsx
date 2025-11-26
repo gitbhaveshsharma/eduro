@@ -44,6 +44,12 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
@@ -53,6 +59,7 @@ import {
     Trash2,
     Calendar,
     GraduationCap,
+    User,
 } from 'lucide-react';
 
 /**
@@ -83,13 +90,54 @@ const SortableHeader = memo(function SortableHeader({
             variant="ghost"
             size="sm"
             onClick={handleClick}
-            className="hover:bg-transparent font-semibold"
+            className="hover:bg-transparent font-semibold p-0 h-auto"
         >
-            {label}
-            {!isActive && <ArrowUpDown className="ml-2 h-4 w-4" />}
-            {isActive && direction === 'asc' && <ArrowUp className="ml-2 h-4 w-4" />}
-            {isActive && direction === 'desc' && <ArrowDown className="ml-2 h-4 w-4" />}
+            <div className="flex items-center gap-1">
+                {label}
+                <div className="flex flex-col">
+                    {!isActive && <ArrowUpDown className="h-3 w-3" />}
+                    {isActive && direction === 'asc' && <ArrowUp className="h-3 w-3" />}
+                    {isActive && direction === 'desc' && <ArrowDown className="h-3 w-3" />}
+                </div>
+            </div>
         </Button>
+    );
+});
+
+/**
+ * Student ID with Tooltip Component
+ */
+interface StudentIdTooltipProps {
+    studentId: string;
+    studentName: string;
+}
+
+const StudentIdTooltip = memo(function StudentIdTooltip({
+    studentId,
+    studentName
+}: StudentIdTooltipProps) {
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-help">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div className="text-left">
+                            <p className="font-medium text-sm leading-none">{studentName}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                ID: {studentId.slice(0, 8)}...
+                            </p>
+                        </div>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <div className="text-xs">
+                        <p className="font-medium">Student ID:</p>
+                        <p className="font-mono">{studentId}</p>
+                    </div>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
     );
 });
 
@@ -192,12 +240,13 @@ const StudentRow = memo(function StudentRow({
 
     return (
         <TableRow>
-            {/* Student ID & Enrolled Date */}
+            {/* Student Name & ID with Tooltip */}
             <TableCell>
-                <div>
-                    <p className="font-medium text-sm">
-                        {student.student_id.slice(0, 8)}...
-                    </p>
+                <div className="space-y-1">
+                    <StudentIdTooltip
+                        studentId={student.student_id}
+                        studentName={student.student_name || 'Unknown Student'}
+                    />
                     <p className="text-xs text-muted-foreground">
                         Enrolled {formatDate(student.enrollment_date)}
                     </p>
@@ -297,7 +346,8 @@ const StudentRow = memo(function StudentRow({
         prevProps.student.enrollment_status === nextProps.student.enrollment_status &&
         prevProps.student.payment_status === nextProps.student.payment_status &&
         prevProps.student.attendance_percentage === nextProps.student.attendance_percentage &&
-        prevProps.student.outstanding_balance === nextProps.student.outstanding_balance;
+        prevProps.student.outstanding_balance === nextProps.student.outstanding_balance &&
+        prevProps.student.student_name === nextProps.student.student_name;
 });
 
 /**
@@ -307,14 +357,15 @@ const TableSkeleton = memo(function TableSkeleton() {
     return (
         <div className="space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                    <Skeleton className="h-12 w-12 rounded" />
+                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <Skeleton className="h-10 w-10 rounded-full" />
                     <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-[250px]" />
-                        <Skeleton className="h-3 w-[200px]" />
+                        <Skeleton className="h-4 w-[200px]" />
+                        <Skeleton className="h-3 w-[150px]" />
                     </div>
-                    <Skeleton className="h-8 w-[100px]" />
-                    <Skeleton className="h-8 w-[80px]" />
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-8 w-[60px]" />
                 </div>
             ))}
         </div>
@@ -367,14 +418,18 @@ export function StudentsTable({
     const handleSort = useCallback((field: BranchStudentSort['field']) => {
         const prevSort = sort;
         let newSort: BranchStudentSort;
+
         if (prevSort?.field === field) {
+            // Toggle direction if same field
             newSort = {
                 field,
                 direction: prevSort.direction === 'asc' ? 'desc' : 'asc',
             };
         } else {
-            newSort = { field, direction: 'desc' } as BranchStudentSort;
+            // New field, default to descending
+            newSort = { field, direction: 'desc' };
         }
+
         setSort(newSort);
     }, [sort, setSort]);
 
@@ -413,15 +468,15 @@ export function StudentsTable({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[180px]">
+                        <TableHead className="w-[220px]">
                             <SortableHeader
-                                field="enrollment_date"
-                                label="Student ID"
+                                field="student_name"
+                                label="Student"
                                 currentSort={sort}
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[120px]">
                             <SortableHeader
                                 field="enrollment_status"
                                 label="Status"
@@ -429,7 +484,7 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[140px]">
                             <SortableHeader
                                 field="payment_status"
                                 label="Payment"
@@ -437,7 +492,7 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[150px]">
                             <SortableHeader
                                 field="attendance_percentage"
                                 label="Attendance"
@@ -445,15 +500,15 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="text-right">
+                        <TableHead className="w-[120px] text-right">
                             <SortableHeader
                                 field="total_fees_due"
-                                label="Fees"
+                                label="Fees Due"
                                 currentSort={sort}
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[140px]">
                             <SortableHeader
                                 field="next_payment_due"
                                 label="Next Payment"
@@ -461,7 +516,7 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="w-[80px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
