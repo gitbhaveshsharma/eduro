@@ -402,18 +402,28 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Validate student role before enrollment
+-- Update the trigger function to auto-populate the new fields
 CREATE OR REPLACE FUNCTION validate_student_enrollment()
 RETURNS TRIGGER AS $$
+DECLARE
+    student_profile profiles;
 BEGIN
+    -- Get student profile information
+    SELECT * INTO student_profile
+    FROM profiles 
+    WHERE id = NEW.student_id 
+    AND role = 'S'
+    AND is_active = TRUE;
+    
     -- Check if the user has student role
-    IF NOT EXISTS (
-        SELECT 1 FROM profiles 
-        WHERE id = NEW.student_id 
-        AND role = 'S'
-        AND is_active = TRUE
-    ) THEN
+    IF student_profile.id IS NULL THEN
         RAISE EXCEPTION 'Only active students can be enrolled in branches';
     END IF;
+    
+    -- Auto-populate student name, email, and phone
+    NEW.student_name := student_profile.full_name;
+    NEW.student_email := student_profile.email;
+    NEW.student_phone := student_profile.phone;
     
     -- Check if teacher exists and has appropriate role
     IF NEW.class_id IS NOT NULL THEN
@@ -1087,7 +1097,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Function to enroll student in branch (with validation)
+-- Update the enrollment function to handle phone
 CREATE OR REPLACE FUNCTION enroll_student_in_branch(
     student_uuid UUID,
     branch_uuid UUID,
@@ -1097,14 +1107,15 @@ RETURNS JSON AS $$
 DECLARE
     result JSON;
     enrollment_id UUID;
+    student_profile profiles;
 BEGIN
     -- Validate student exists and has correct role
-    IF NOT EXISTS (
-        SELECT 1 FROM profiles 
-        WHERE id = student_uuid 
-        AND role = 'S' 
-        AND is_active = TRUE
-    ) THEN
+    SELECT * INTO student_profile FROM profiles 
+    WHERE id = student_uuid 
+    AND role = 'S' 
+    AND is_active = TRUE;
+    
+    IF student_profile.id IS NULL THEN
         RETURN json_build_object('success', false, 'error', 'Invalid or inactive student');
     END IF;
     
@@ -1139,9 +1150,23 @@ BEGIN
         END IF;
     END IF;
     
-    -- Create enrollment
-    INSERT INTO branch_students (student_id, branch_id, class_id)
-    VALUES (student_uuid, branch_uuid, class_uuid)
+    -- Create enrollment with name, email, and phone
+    INSERT INTO branch_students (
+        student_id, 
+        branch_id, 
+        class_id,
+        student_name,
+        student_email,
+        student_phone
+    )
+    VALUES (
+        student_uuid, 
+        branch_uuid, 
+        class_uuid,
+        student_profile.full_name,
+        student_profile.email,
+        student_profile.phone
+    )
     RETURNING id INTO enrollment_id;
     
     RETURN json_build_object(

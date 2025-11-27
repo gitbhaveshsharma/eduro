@@ -30,12 +30,13 @@ import { AlertTriangle, Loader2 } from 'lucide-react';
 export function DeleteEnrollmentDialog() {
     const {
         currentEnrollment,
+        isDeleteDialogOpen,
         deleteEnrollment,
-        setCurrentEnrollment,
+        closeDeleteDialog,
     } = useBranchStudentsStore();
 
     const [isDeleting, setIsDeleting] = useState(false);
-    const isOpen = !!currentEnrollment;
+    const isOpen = isDeleteDialogOpen && !!currentEnrollment;
 
     const handleDelete = async () => {
         if (!currentEnrollment) return;
@@ -50,7 +51,7 @@ export function DeleteEnrollmentDialog() {
 
             if (success) {
                 showSuccessToast('Enrollment deleted successfully');
-                setCurrentEnrollment(null);
+                closeDeleteDialog();
             } else {
                 showErrorToast('Failed to delete enrollment. Please try again.');
             }
@@ -65,7 +66,7 @@ export function DeleteEnrollmentDialog() {
     if (!currentEnrollment) return null;
 
     return (
-        <AlertDialog open={isOpen} onOpenChange={(open) => !open && setCurrentEnrollment(null)}>
+        <AlertDialog open={isOpen} onOpenChange={(open) => !open && closeDeleteDialog()}>
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">

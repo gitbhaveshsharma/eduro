@@ -3,11 +3,12 @@
  * 
  * Displays all branch students with sorting, filtering, and actions
  * Features: Sortable columns, status badges, action menus
+ * Optimized: Prevents unnecessary re-renders, no duplicate API calls
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useMemo, memo } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import type { PublicBranchStudent, BranchStudentSort } from '@/lib/branch-system/types/branch-students.types';
 import {
@@ -43,6 +44,12 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     ArrowUpDown,
     ArrowUp,
     ArrowDown,
@@ -50,11 +57,13 @@ import {
     Eye,
     Edit,
     Trash2,
+    Calendar,
     GraduationCap,
+    User,
 } from 'lucide-react';
 
 /**
- * Sortable Header Component
+ * Sortable Header Component - Memoized
  */
 interface SortableHeaderProps {
     field: BranchStudentSort['field'];
@@ -63,27 +72,77 @@ interface SortableHeaderProps {
     onSort: (field: BranchStudentSort['field']) => void;
 }
 
-function SortableHeader({ field, label, currentSort, onSort }: SortableHeaderProps) {
+const SortableHeader = memo(function SortableHeader({
+    field,
+    label,
+    currentSort,
+    onSort
+}: SortableHeaderProps) {
     const isActive = currentSort?.field === field;
     const direction = currentSort?.direction;
+
+    const handleClick = useCallback(() => {
+        onSort(field);
+    }, [field, onSort]);
 
     return (
         <Button
             variant="ghost"
             size="sm"
-            onClick={() => onSort(field)}
-            className="hover:bg-transparent font-semibold"
+            onClick={handleClick}
+            className="hover:bg-transparent font-semibold p-0 h-auto"
         >
-            {label}
-            {!isActive && <ArrowUpDown className="ml-2 h-4 w-4" />}
-            {isActive && direction === 'asc' && <ArrowUp className="ml-2 h-4 w-4" />}
-            {isActive && direction === 'desc' && <ArrowDown className="ml-2 h-4 w-4" />}
+            <div className="flex items-center gap-1">
+                {label}
+                <div className="flex flex-col">
+                    {!isActive && <ArrowUpDown className="h-3 w-3" />}
+                    {isActive && direction === 'asc' && <ArrowUp className="h-3 w-3" />}
+                    {isActive && direction === 'desc' && <ArrowDown className="h-3 w-3" />}
+                </div>
+            </div>
         </Button>
     );
-}
+});
 
 /**
- * Student Row Actions Component
+ * Student ID with Tooltip Component
+ */
+interface StudentIdTooltipProps {
+    studentId: string;
+    studentName: string;
+}
+
+const StudentIdTooltip = memo(function StudentIdTooltip({
+    studentId,
+    studentName
+}: StudentIdTooltipProps) {
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center gap-2 cursor-help">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <div className="text-left">
+                            <p className="font-medium text-sm leading-none">{studentName}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                ID: {studentId.slice(0, 8)}...
+                            </p>
+                        </div>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <div className="text-xs">
+                        <p className="font-medium">Student ID:</p>
+                        <p className="font-mono">{studentId}</p>
+                    </div>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+});
+
+/**
+ * Student Row Actions Component - Memoized
  */
 interface StudentRowActionsProps {
     student: PublicBranchStudent;
@@ -92,7 +151,16 @@ interface StudentRowActionsProps {
     onDelete: (student: PublicBranchStudent) => void;
 }
 
-function StudentRowActions({ student, onView, onEdit, onDelete }: StudentRowActionsProps) {
+const StudentRowActions = memo(function StudentRowActions({
+    student,
+    onView,
+    onEdit,
+    onDelete
+}: StudentRowActionsProps) {
+    const handleView = useCallback(() => onView(student), [student, onView]);
+    const handleEdit = useCallback(() => onEdit(student), [student, onEdit]);
+    const handleDelete = useCallback(() => onDelete(student), [student, onDelete]);
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -102,17 +170,17 @@ function StudentRowActions({ student, onView, onEdit, onDelete }: StudentRowActi
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onView(student)}>
+                <DropdownMenuItem onClick={handleView}>
                     <Eye className="mr-2 h-4 w-4" />
                     View Details
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onEdit(student)}>
+                <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Enrollment
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                    onClick={() => onDelete(student)}
+                    onClick={handleDelete}
                     className="text-destructive focus:text-destructive"
                 >
                     <Trash2 className="mr-2 h-4 w-4" />
@@ -121,101 +189,35 @@ function StudentRowActions({ student, onView, onEdit, onDelete }: StudentRowActi
             </DropdownMenuContent>
         </DropdownMenu>
     );
-}
+});
 
 /**
- * Table Skeleton Loader
+ * Student Row Component - Memoized for performance
  */
-function TableSkeleton() {
-    return (
-        <div className="space-y-3">
-            {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex items-center gap-4">
-                    <Skeleton className="h-12 w-12 rounded" />
-                    <div className="space-y-2 flex-1">
-                        <Skeleton className="h-4 w-[250px]" />
-                        <Skeleton className="h-3 w-[200px]" />
-                    </div>
-                    <Skeleton className="h-8 w-[100px]" />
-                    <Skeleton className="h-8 w-[80px]" />
-                </div>
-            ))}
-        </div>
-    );
+interface StudentRowProps {
+    student: PublicBranchStudent;
+    onView: (student: PublicBranchStudent) => void;
+    onEdit: (student: PublicBranchStudent) => void;
+    onDelete: (student: PublicBranchStudent) => void;
 }
 
-/**
- * Empty State Component
- */
-function EmptyState() {
-    return (
-        <div className="flex flex-col items-center justify-center py-12 text-center">
-            <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Students Found</h3>
-            <p className="text-sm text-muted-foreground max-w-sm">
-                No students match your current filters. Try adjusting your search criteria or enroll a new student.
-            </p>
-        </div>
-    );
-}
-
-/**
- * Main Students Table Component
- */
-export function StudentsTable() {
-    const {
-        branchStudents,
-        listLoading,
-        sort,
-        setSort,
-        setCurrentEnrollment,
-    } = useBranchStudentsStore();
-
-    const [selectedStudent, setSelectedStudent] = useState<PublicBranchStudent | null>(null);
-
-    // Handle sorting
-    const handleSort = (field: BranchStudentSort['field']) => {
-        if (sort?.field === field) {
-            // Toggle direction
-            setSort({
-                field,
-                direction: sort.direction === 'asc' ? 'desc' : 'asc',
-            });
-        } else {
-            // New field, default to descending
-            setSort({ field, direction: 'desc' });
-        }
-    };
-
-    // Handle actions
-    const handleView = (student: PublicBranchStudent) => {
-        setSelectedStudent(student);
-        // This will trigger the StudentDetailsDialog to open
-        // You'll need to add state management for this
-    };
-
-    const handleEdit = (student: PublicBranchStudent) => {
-        setSelectedStudent(student);
-        // This will trigger the EditEnrollmentDialog to open
-        // You'll need to add state management for this
-    };
-
-    const handleDelete = (student: PublicBranchStudent) => {
-        setSelectedStudent(student);
-        // This will trigger the DeleteEnrollmentDialog to open
-        // You'll need to add state management for this
-    };
-
-    // Get attendance color
-    const getAttendanceColor = (percentage: number) => {
+const StudentRow = memo(function StudentRow({
+    student,
+    onView,
+    onEdit,
+    onDelete
+}: StudentRowProps) {
+    // Memoize attendance color calculation
+    const attendanceColor = useMemo(() => {
+        const percentage = student.attendance_percentage;
         if (percentage >= ATTENDANCE_THRESHOLDS.EXCELLENT) return 'text-green-600';
         if (percentage >= ATTENDANCE_THRESHOLDS.GOOD) return 'text-blue-600';
         if (percentage >= ATTENDANCE_THRESHOLDS.NEEDS_IMPROVEMENT) return 'text-orange-600';
         return 'text-red-600';
-    };
+    }, [student.attendance_percentage]);
 
-    // Get payment urgency badge
-    const getPaymentUrgencyBadge = (student: PublicBranchStudent) => {
+    // Memoize payment urgency badge
+    const paymentUrgencyBadge = useMemo(() => {
         const urgency = getPaymentUrgency(student.next_payment_due);
         const daysUntil = calculateDaysUntilPayment(student.next_payment_due);
 
@@ -234,7 +236,224 @@ export function StudentsTable() {
                 {config.label}
             </Badge>
         );
-    };
+    }, [student.next_payment_due]);
+
+    return (
+        <TableRow>
+            {/* Student Name & ID with Tooltip */}
+            <TableCell>
+                <div className="space-y-1">
+                    <StudentIdTooltip
+                        studentId={student.student_id}
+                        studentName={student.student_name || 'Unknown Student'}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        Enrolled {formatDate(student.enrollment_date)}
+                    </p>
+                </div>
+            </TableCell>
+
+            {/* Enrollment Status */}
+            <TableCell>
+                <Badge variant={ENROLLMENT_STATUS_OPTIONS[student.enrollment_status].color as any}>
+                    {formatEnrollmentStatus(student.enrollment_status)}
+                </Badge>
+            </TableCell>
+
+            {/* Payment Status */}
+            <TableCell>
+                <div className="flex flex-col gap-1">
+                    <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status].color as any}>
+                        {formatPaymentStatus(student.payment_status)}
+                    </Badge>
+                    {paymentUrgencyBadge}
+                </div>
+            </TableCell>
+
+            {/* Attendance */}
+            <TableCell>
+                <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <span>Attendance</span>
+                        </div>
+                        <span className={`font-medium ${student.attendance_percentage >= 90
+                            ? 'text-green-600'
+                            : student.attendance_percentage >= 70
+                                ? 'text-orange-600'
+                                : 'text-red-600'
+                            }`}>
+                            {student.attendance_percentage.toFixed(1)}%
+                        </span>
+                    </div>
+                    <div className="w-full bg-secondary rounded-full h-1.5">
+                        <div
+                            className={`h-1.5 rounded-full transition-all ${student.attendance_percentage >= 90
+                                ? 'bg-green-500'
+                                : student.attendance_percentage >= 70
+                                    ? 'bg-orange-500'
+                                    : 'bg-red-500'
+                                }`}
+                            style={{ width: `${student.attendance_percentage}%` }}
+                        />
+                    </div>
+                </div>
+            </TableCell>
+
+            {/* Fees */}
+            <TableCell className="text-right">
+                <div>
+                    <p className="text-sm font-medium">
+                        {formatCurrency(student.outstanding_balance)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        outstanding
+                    </p>
+                </div>
+            </TableCell>
+
+            {/* Next Payment */}
+            <TableCell>
+                {student.next_payment_due ? (
+                    <div className="text-sm">
+                        <p className="font-medium">
+                            {formatDate(student.next_payment_due)}
+                        </p>
+                        {student.is_payment_overdue && (
+                            <p className="text-xs text-red-600">Overdue</p>
+                        )}
+                    </div>
+                ) : (
+                    <span className="text-xs text-muted-foreground">-</span>
+                )}
+            </TableCell>
+
+            {/* Actions */}
+            <TableCell className="text-right">
+                <StudentRowActions
+                    student={student}
+                    onView={onView}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                />
+            </TableCell>
+        </TableRow>
+    );
+}, (prevProps, nextProps) => {
+    // Custom comparison to prevent re-render if student data hasn't changed
+    return prevProps.student.id === nextProps.student.id &&
+        prevProps.student.enrollment_status === nextProps.student.enrollment_status &&
+        prevProps.student.payment_status === nextProps.student.payment_status &&
+        prevProps.student.attendance_percentage === nextProps.student.attendance_percentage &&
+        prevProps.student.outstanding_balance === nextProps.student.outstanding_balance &&
+        prevProps.student.student_name === nextProps.student.student_name;
+});
+
+/**
+ * Table Skeleton Loader - Memoized
+ */
+const TableSkeleton = memo(function TableSkeleton() {
+    return (
+        <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-[200px]" />
+                        <Skeleton className="h-3 w-[150px]" />
+                    </div>
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-8 w-[60px]" />
+                </div>
+            ))}
+        </div>
+    );
+});
+
+/**
+ * Empty State Component - Memoized
+ */
+const EmptyState = memo(function EmptyState() {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+            <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Students Found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+                No students match your current filters. Try adjusting your search criteria or enroll a new student.
+            </p>
+        </div>
+    );
+});
+
+/**
+ * Props for Students Table Component
+ */
+interface StudentsTableProps {
+    coachingCenterId?: string;
+    onViewStudent?: (studentId: string) => void;
+    onEditStudent?: (studentId: string) => void;
+    onDeleteStudent?: (studentId: string) => void;
+}
+
+/**
+ * Main Students Table Component
+ * Optimized: Uses existing data from store, no API calls
+ */
+export function StudentsTable({
+    coachingCenterId,
+    onViewStudent,
+    onEditStudent,
+    onDeleteStudent
+}: StudentsTableProps = {}) {
+    const {
+        branchStudents,
+        listLoading,
+        sort,
+        setSort,
+    } = useBranchStudentsStore();
+
+    // Memoize sort handler to prevent recreation
+    const handleSort = useCallback((field: BranchStudentSort['field']) => {
+        const prevSort = sort;
+        let newSort: BranchStudentSort;
+
+        if (prevSort?.field === field) {
+            // Toggle direction if same field
+            newSort = {
+                field,
+                direction: prevSort.direction === 'asc' ? 'desc' : 'asc',
+            };
+        } else {
+            // New field, default to descending
+            newSort = { field, direction: 'desc' };
+        }
+
+        setSort(newSort);
+    }, [sort, setSort]);
+
+    // Memoize action handlers
+    const handleView = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] View student:', student.id);
+        if (onViewStudent) {
+            onViewStudent(student.id);
+        }
+    }, [onViewStudent]);
+
+    const handleEdit = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] Edit student:', student.id);
+        if (onEditStudent) {
+            onEditStudent(student.id);
+        }
+    }, [onEditStudent]);
+
+    const handleDelete = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] Delete student:', student.id);
+        if (onDeleteStudent) {
+            onDeleteStudent(student.id);
+        }
+    }, [onDeleteStudent]);
 
     if (listLoading) {
         return <TableSkeleton />;
@@ -249,15 +468,15 @@ export function StudentsTable() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[180px]">
+                        <TableHead className="w-[220px]">
                             <SortableHeader
-                                field="enrollment_date"
-                                label="Student ID"
+                                field="student_name"
+                                label="Student"
                                 currentSort={sort}
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[120px]">
                             <SortableHeader
                                 field="enrollment_status"
                                 label="Status"
@@ -265,7 +484,7 @@ export function StudentsTable() {
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[140px]">
                             <SortableHeader
                                 field="payment_status"
                                 label="Payment"
@@ -273,7 +492,7 @@ export function StudentsTable() {
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[150px]">
                             <SortableHeader
                                 field="attendance_percentage"
                                 label="Attendance"
@@ -281,15 +500,15 @@ export function StudentsTable() {
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="text-right">
+                        <TableHead className="w-[120px] text-right">
                             <SortableHeader
                                 field="total_fees_due"
-                                label="Fees"
+                                label="Fees Due"
                                 currentSort={sort}
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[140px]">
                             <SortableHeader
                                 field="next_payment_due"
                                 label="Next Payment"
@@ -297,92 +516,18 @@ export function StudentsTable() {
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
+                        <TableHead className="w-[80px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {branchStudents.map((student) => (
-                        <TableRow key={student.id}>
-                            {/* Student ID & Enrolled Date */}
-                            <TableCell>
-                                <div>
-                                    <p className="font-medium text-sm">
-                                        {student.student_id.slice(0, 8)}...
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        Enrolled {formatDate(student.enrollment_date)}
-                                    </p>
-                                </div>
-                            </TableCell>
-
-                            {/* Enrollment Status */}
-                            <TableCell>
-                                <Badge variant={ENROLLMENT_STATUS_OPTIONS[student.enrollment_status].color as any}>
-                                    {formatEnrollmentStatus(student.enrollment_status)}
-                                </Badge>
-                            </TableCell>
-
-                            {/* Payment Status */}
-                            <TableCell>
-                                <div className="flex flex-col gap-1">
-                                    <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status].color as any}>
-                                        {formatPaymentStatus(student.payment_status)}
-                                    </Badge>
-                                    {getPaymentUrgencyBadge(student)}
-                                </div>
-                            </TableCell>
-
-                            {/* Attendance */}
-                            <TableCell>
-                                <div className="flex items-center gap-3">
-                                    <Progress
-                                        value={student.attendance_percentage}
-                                        className="h-2 w-[60px]"
-                                    />
-                                    <span className={`text-sm font-medium ${getAttendanceColor(student.attendance_percentage)}`}>
-                                        {student.attendance_percentage.toFixed(1)}%
-                                    </span>
-                                </div>
-                            </TableCell>
-
-                            {/* Fees */}
-                            <TableCell className="text-right">
-                                <div>
-                                    <p className="text-sm font-medium">
-                                        {formatCurrency(student.outstanding_balance)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                        outstanding
-                                    </p>
-                                </div>
-                            </TableCell>
-
-                            {/* Next Payment */}
-                            <TableCell>
-                                {student.next_payment_due ? (
-                                    <div className="text-sm">
-                                        <p className="font-medium">
-                                            {formatDate(student.next_payment_due)}
-                                        </p>
-                                        {student.is_payment_overdue && (
-                                            <p className="text-xs text-red-600">Overdue</p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <span className="text-xs text-muted-foreground">-</span>
-                                )}
-                            </TableCell>
-
-                            {/* Actions */}
-                            <TableCell className="text-right">
-                                <StudentRowActions
-                                    student={student}
-                                    onView={handleView}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                />
-                            </TableCell>
-                        </TableRow>
+                        <StudentRow
+                            key={student.id}
+                            student={student}
+                            onView={handleView}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
                     ))}
                 </TableBody>
             </Table>

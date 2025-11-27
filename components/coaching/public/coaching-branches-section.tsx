@@ -5,7 +5,7 @@
 
 'use client';
 
-import { memo, useCallback, useMemo, useEffect, useState } from 'react';
+import { memo, useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,12 +29,14 @@ interface CoachingBranchesSectionProps {
     branches: PublicCoachingBranch[];
     centerSlug: string;
     onJoinBranch?: (branchId: string) => void;
+    highlightedBranchId?: string | null;
 }
 
 export const CoachingBranchesSection = memo(function CoachingBranchesSection({
     branches,
     centerSlug,
-    onJoinBranch
+    onJoinBranch,
+    highlightedBranchId
 }: CoachingBranchesSectionProps) {
     const sortedBranches = useMemo(() => {
         return [...branches].sort((a, b) => {
@@ -90,6 +92,7 @@ export const CoachingBranchesSection = memo(function CoachingBranchesSection({
                             branch={branch}
                             centerSlug={centerSlug}
                             onJoinBranch={onJoinBranch}
+                            isHighlighted={highlightedBranchId === branch.id}
                         />
                     ))}
                 </div>
@@ -102,13 +105,16 @@ interface BranchCardProps {
     branch: PublicCoachingBranch;
     centerSlug: string;
     onJoinBranch?: (branchId: string) => void;
+    isHighlighted?: boolean;
 }
 
 const BranchCard = memo(function BranchCard({
     branch,
     centerSlug,
-    onJoinBranch
+    onJoinBranch,
+    isHighlighted = false
 }: BranchCardProps) {
+    const cardRef = useRef<HTMLDivElement>(null);
     const branchTypeDisplay = useMemo(
         () => CoachingDisplayUtils.getBranchTypeDisplay(branch.is_main_branch),
         [branch.is_main_branch]
@@ -121,6 +127,19 @@ const BranchCard = memo(function BranchCard({
     // Load branch address (only show condensed location in the list)
     const { getAddressByEntity } = useAddressStore();
     const [branchAddress, setBranchAddress] = useState<Address | null>(null);
+
+    // Scroll to highlighted branch
+    useEffect(() => {
+        if (isHighlighted && cardRef.current) {
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                cardRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }, 300);
+        }
+    }, [isHighlighted]);
 
     useEffect(() => {
         let mounted = true;
@@ -141,11 +160,18 @@ const BranchCard = memo(function BranchCard({
     }, [branch.id, getAddressByEntity]);
 
     return (
-        <div className={`
-            group relative rounded-xl border border-border/50 p-5 space-y-4
-            transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5
-            ${!branch.is_active ? 'opacity-60 bg-muted/30' : 'bg-card hover:border-primary/20'}
-        `}>
+        <div
+            ref={cardRef}
+            className={`
+                group relative rounded-xl border p-5 space-y-4
+                transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5
+                ${isHighlighted
+                    ? 'border-primary bg-primary/5 shadow-lg ring-2 ring-primary/20'
+                    : 'border-border/50'
+                }
+                ${!branch.is_active ? 'opacity-60 bg-muted/30' : 'bg-card hover:border-primary/20'}
+            `}
+        >
             {/* Header */}
             <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 space-y-2">

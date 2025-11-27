@@ -40,11 +40,13 @@ import {
     MapPin,
     CheckCircle2,
     AlertCircle,
-    ExternalLink
+    ExternalLink,
+    Scroll
 } from 'lucide-react';
 import { AddressForm } from './address-form';
 import { AddressCard } from './address-card';
 import { useToast } from '@/hooks/use-toast';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface AddressManagerProps {
     onAddressSelect?: (address: Address) => void;
@@ -243,17 +245,21 @@ export function AddressManager({
                 </Card>
             ) : (
                 <div className="space-y-4 mordern-scrollbar">
-                    {currentUserAddresses.map((address) => (
-                        <AddressCard
-                            key={address.id}
-                            address={address}
-                            onEdit={allowEdit ? () => setEditingAddressId(address.id) : undefined}
-                            onDelete={allowDelete ? () => handleDelete(address.id) : undefined}
-                            onSetPrimary={allowSetPrimary && !address.is_primary ? () => handleSetPrimary(address.id) : undefined}
-                            onSelect={onAddressSelect ? () => onAddressSelect(address) : undefined}
-                            showActions={allowEdit || allowDelete || allowSetPrimary}
-                        />
-                    ))}
+                    <ScrollArea className=" max-h-76 overflow-y-auto">
+                        <div className="space-y-4 pr-2">
+                            {currentUserAddresses.map((address) => (
+                                <AddressCard
+                                    key={address.id}
+                                    address={address}
+                                    onEdit={allowEdit ? () => setEditingAddressId(address.id) : undefined}
+                                    onDelete={allowDelete ? () => handleDelete(address.id) : undefined}
+                                    onSetPrimary={allowSetPrimary && !address.is_primary ? () => handleSetPrimary(address.id) : undefined}
+                                    onSelect={onAddressSelect ? () => onAddressSelect(address) : undefined}
+                                    showActions={allowEdit || allowDelete || allowSetPrimary}
+                                />
+                            ))}
+                        </div>
+                    </ScrollArea>
                 </div>
             )}
 

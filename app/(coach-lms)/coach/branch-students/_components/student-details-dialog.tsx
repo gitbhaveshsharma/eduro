@@ -69,15 +69,23 @@ function InfoRow({ label, value }: InfoRowProps) {
 /**
  * Student Details Dialog Component
  */
-export function StudentDetailsDialog() {
+interface StudentDetailsDialogProps {
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+}
+
+export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialogProps = {}) {
     const {
         currentEnrollment,
         setCurrentEnrollment,
-        deleteEnrollment,
+        isDetailsDialogOpen,
+        closeDetailsDialog,
+        openEditDialog,
+        openDeleteDialog,
     } = useBranchStudentsStore();
 
-    const isOpen = !!currentEnrollment;
     const student = currentEnrollment;
+    const isOpen = typeof open === 'boolean' ? open : isDetailsDialogOpen;
 
     if (!student) return null;
 
@@ -89,22 +97,31 @@ export function StudentDetailsDialog() {
     const daysUntilPayment = calculateDaysUntilPayment(student.next_payment_due);
 
     const handleClose = () => {
+        // Close the details dialog and clear the current enrollment since
+        // the user explicitly closed the details view.
+        closeDetailsDialog();
         setCurrentEnrollment(null);
+        if (typeof onOpenChange === 'function') onOpenChange(false);
     };
 
     const handleEdit = () => {
-        // Keep current enrollment set - EditEnrollmentDialog will use it
-        // User flow: Details → Edit (same enrollment)
+        closeDetailsDialog();
+        openEditDialog();
     };
 
     const handleDelete = () => {
-        // Keep current enrollment set - DeleteEnrollmentDialog will use it
-        // User flow: Details → Delete (same enrollment)
+        closeDetailsDialog();
+        openDeleteDialog();
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="max-w-3xl max-h-[90vh]">
+        <Dialog open={isOpen} onOpenChange={(next) => {
+            if (!next) handleClose();
+            else {
+                if (typeof onOpenChange === 'function') onOpenChange(true);
+            }
+        }}>
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <GraduationCap className="h-5 w-5" />
@@ -115,8 +132,8 @@ export function StudentDetailsDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[60vh] pr-4">
-                    <div className="space-y-6">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
+                    <div className="space-y-6  p-4">
                         {/* Header Info */}
                         <div className="flex items-center justify-between">
                             <div>

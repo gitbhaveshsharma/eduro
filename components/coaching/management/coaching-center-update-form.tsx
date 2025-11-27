@@ -30,6 +30,7 @@ import { showSuccessToast, showErrorToast } from "@/lib/toast";
 import { AddressManager } from "@/components/address/address-manager";
 import type { Address } from "@/lib/schema/address.types";
 import { useAddressStore } from "@/lib/store/address.store";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
 
 type CoachingCenterFormData = z.infer<typeof coachingCenterFormSchema>;
 
@@ -150,22 +151,24 @@ export function CoachingCenterUpdateForm({
 
     // Load linked address when editing
     useEffect(() => {
-        if (initialData?.id && !selectedAddress && !loadingAddress) {
-            setLoadingAddress(true);
-            getAddressByEntity('coaching', initialData.id)
-                .then((address) => {
+        const loadCenterAddress = async () => {
+            if (initialData?.id && !selectedAddress) {
+                setLoadingAddress(true);
+                try {
+                    const address = await getAddressByEntity('coaching', initialData.id);
                     if (address) {
                         setSelectedAddress(address);
                     }
-                })
-                .catch((error) => {
+                } catch (error) {
                     console.error('Failed to load linked address:', error);
-                })
-                .finally(() => {
+                } finally {
                     setLoadingAddress(false);
-                });
-        }
-    }, [initialData?.id, selectedAddress, loadingAddress, getAddressByEntity]);
+                }
+            }
+        };
+
+        loadCenterAddress();
+    }, [initialData?.id, getAddressByEntity]);
 
     // Handle logo file selection
     const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -512,14 +515,48 @@ export function CoachingCenterUpdateForm({
                         <CardContent>
                             <div className="space-y-4">
                                 {/* Loading State */}
-                                {loadingAddress && (
+                                {loadingAddress ? (
                                     <div className="flex items-center justify-center py-8">
                                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                                         <span className="ml-2 text-sm text-muted-foreground">Loading address...</span>
                                     </div>
-                                )}
-
-                                {!loadingAddress && !showAddressManager && selectedAddress && (
+                                ) : showAddressManager ? (
+                                    /* Address Manager - Show when user wants to select/change address */
+                                    <Card>
+                                        <CardHeader>
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <CardTitle>Manage Center Address</CardTitle>
+                                                    <CardDescription>
+                                                        Select an existing address or create a new one for this coaching center
+                                                    </CardDescription>
+                                                </div>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setShowAddressManager(false)}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <AddressManager
+                                                onAddressSelect={(address) => {
+                                                    setSelectedAddress(address);
+                                                    setShowAddressManager(false);
+                                                    showSuccessToast("Address selected for coaching center. Please remember to click 'Update Center' to apply changes.");
+                                                }}
+                                                showAddButton={true}
+                                                allowEdit={true}
+                                                allowDelete={true}
+                                                allowSetPrimary={false}
+                                            />
+                                        </CardContent>
+                                    </Card>
+                                ) : selectedAddress ? (
+                                    /* Display selected address */
                                     <div className="space-y-3">
                                         <div className="p-3 border rounded-lg bg-muted/50">
                                             <div className="flex items-start justify-between mb-2">
@@ -564,9 +601,8 @@ export function CoachingCenterUpdateForm({
                                             Change Address
                                         </Button>
                                     </div>
-                                )}
-
-                                {!loadingAddress && !showAddressManager && !selectedAddress && (
+                                ) : (
+                                    /* No address linked - Show button to add address */
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -579,41 +615,11 @@ export function CoachingCenterUpdateForm({
                                         </div>
                                     </Button>
                                 )}
-
-                                {!loadingAddress && showAddressManager && (
-                                    <div className="space-y-3">
-                                        <div className="flex items-center justify-between">
-                                            <h4 className="text-sm font-medium">Select Address</h4>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                onClick={() => setShowAddressManager(false)}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                        <div className="max-h-60 overflow-y-auto scrollbar-modern">
-                                            <AddressManager
-                                                onAddressSelect={(address) => {
-                                                    setSelectedAddress(address);
-                                                    setShowAddressManager(false);
-                                                    showSuccessToast("Address selected for coaching center. Please remember to click 'Update Center' to apply changes.");
-                                                }}
-                                                showAddButton={true}
-                                                allowEdit={true}
-                                                allowDelete={true}
-                                                allowSetPrimary={false}
-                                            />
-                                        </div>
-                                    </div>
-                                )}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
             </div>
-
             {/* Subjects and Target Audience - Two Column Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Subjects Card */}

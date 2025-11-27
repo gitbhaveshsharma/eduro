@@ -13,7 +13,6 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     useSearchResults,
@@ -339,7 +338,10 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
             <Card>
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5" />
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+
+                            <TrendingUp className="h-5 w-5" />
+                        </div>
                         Capacity Utilization
                     </CardTitle>
                     <CardDescription>
@@ -388,7 +390,10 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <Clock className="h-5 w-5" />
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+
+                                <Clock className="h-5 w-5" />
+                            </div>
                             Recent Classes
                         </CardTitle>
                         <CardDescription>Latest classes created in your branch</CardDescription>

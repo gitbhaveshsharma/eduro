@@ -10,7 +10,6 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import {
     type PublicCoachingCenter,
     CoachingDisplayUtils,
@@ -21,9 +20,10 @@ import {
     Star,
     MapPin,
     Building2,
-    CheckCircle2,
+    BadgeCheck,
     StarIcon,
-    ChevronRight
+    ChevronRight,
+    Egg
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -32,13 +32,17 @@ interface CoachingCenterCardProps {
     searchItem?: CoachingCenterSearchItem; // Additional search data
     averageRating?: number;
     totalReviews?: number;
+    branchIndex?: number; // e.g., 1 for first branch, 2 for second
+    totalBranches?: number; // Total number of branches for this center
 }
 
 export function CoachingCenterCard({
     center,
     searchItem,
     averageRating = 0,
-    totalReviews = 0
+    totalReviews = 0,
+    branchIndex,
+    totalBranches = 1
 }: CoachingCenterCardProps) {
     const categoryInfo = {
         label: CoachingDisplayUtils.getCategoryDisplayName(center.category),
@@ -47,7 +51,10 @@ export function CoachingCenterCard({
     };
 
     const logoUrl = CoachingUrlUtils.getLogoUrl(center, 80);
-    const centerUrl = `/coaching/${center.slug || center.id}`;
+    // Include branch_id in URL when available so we can highlight it on the profile page
+    const centerUrl = searchItem?.branch_id
+        ? `/coaching/${center.slug || center.id}?branch=${searchItem.branch_id}`
+        : `/coaching/${center.slug || center.id}`;
 
     // Use search result data if available, otherwise use center data
     const displayRating = searchItem?.avg_rating ? parseFloat(searchItem.avg_rating.toString()) : averageRating;
@@ -75,22 +82,31 @@ export function CoachingCenterCard({
             <Card className="group overflow-hidden transition-all hover:shadow-lg hover:border-primary/50 h-full p-0">
                 <CardContent className="p-0">
                     {/* Cover Image / Header */}
-                    <div className=" h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center">
+                    <div className=" h-32 bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 flex items-center justify-center relative">
                         <span className="text-4xl">{categoryInfo.icon}</span>
 
                         {/* Badges */}
                         <div className="absolute top-2 right-2 flex gap-1">
                             {center.is_verified && (
-                                <Badge variant="default" className="bg-blue-500 text-white text-xs">
-                                    <CheckCircle2 className="h-3 w-3" />
+                                <Badge variant="default" className="h-6 min-w-6 border-2 border-white rounded-full px-1">
+                                    <BadgeCheck className="h-3 w-3" />
                                 </Badge>
                             )}
                             {center.is_featured && (
-                                <Badge variant="default" className="bg-yellow-500 text-white text-xs">
+                                <Badge variant="default" className="h-6 min-w-6 rounded-full bg-yellow-500 text-white shadow-lg text-xs">
                                     <StarIcon className="h-3 w-3" />
                                 </Badge>
                             )}
                         </div>
+
+                        {/* Branch Indicator Badge - Bottom Left */}
+                        {branchIndex && totalBranches > 1 && (
+                            <div className="absolute bottom-2 left-2">
+                                <Badge variant="success" >
+                                    <Egg />Branch {branchIndex}
+                                </Badge>
+                            </div>
+                        )}
                     </div>
 
                     {/* Content */}
@@ -166,7 +182,11 @@ export function CoachingCenterCard({
                             <div className="flex items-center gap-1 text-muted-foreground">
                                 <Building2 className="h-3.5 w-3.5" />
                                 {hasBranch ? (
-                                    <span>Has branch location</span>
+                                    totalBranches > 1 ? (
+                                        <span>{totalBranches} locations</span>
+                                    ) : (
+                                        <span>Has branch location</span>
+                                    )
                                 ) : (
                                     <span>No branch locations</span>
                                 )}
@@ -228,23 +248,57 @@ export function CoachingCenterGrid({
         );
     }
 
+    // Group search items by center to count branches and assign indices
+    const branchIndexMap = new Map<string, Map<string, number>>(); // center_id -> (branch_id -> branch_index)
+
+    if (searchItems) {
+        searchItems.forEach((item) => {
+            if (!branchIndexMap.has(item.center_id)) {
+                branchIndexMap.set(item.center_id, new Map());
+            }
+            const centerBranches = branchIndexMap.get(item.center_id)!;
+            if (!centerBranches.has(item.branch_id)) {
+                centerBranches.set(item.branch_id, centerBranches.size + 1);
+            }
+        });
+    }
+
     return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {centers.map((center, index) => {
-                // Find matching search item by center_id
-                const searchItem = searchItems?.find(item => item.center_id === center.id);
+            {searchItems && searchItems.length > 0 ? (
+                // Render based on search items (one card per branch)
+                searchItems.map((searchItem) => {
+                    const center = centers.find(c => c.id === searchItem.center_id);
+                    if (!center) return null;
 
-                return (
+                    // Get branch info
+                    const centerBranches = branchIndexMap.get(searchItem.center_id);
+                    const branchIndex = centerBranches?.get(searchItem.branch_id) || 1;
+                    const totalBranches = centerBranches?.size || 1;
+
+                    return (
+                        <CoachingCenterCard
+                            key={`${searchItem.center_id}-${searchItem.branch_id}`}
+                            center={center}
+                            searchItem={searchItem}
+                            averageRating={parseFloat(searchItem.avg_rating.toString())}
+                            totalReviews={searchItem.total_reviews || 0}
+                            branchIndex={totalBranches > 1 ? branchIndex : undefined}
+                            totalBranches={totalBranches}
+                        />
+                    );
+                })
+            ) : (
+                // Fallback: render based on centers only
+                centers.map((center) => (
                     <CoachingCenterCard
                         key={center.id}
                         center={center}
-                        searchItem={searchItem}
-                        // Use search data if available
-                        averageRating={searchItem ? parseFloat(searchItem.avg_rating.toString()) : 0}
-                        totalReviews={searchItem?.total_reviews || 0}
+                        averageRating={0}
+                        totalReviews={0}
                     />
-                );
-            })}
+                ))
+            )}
         </div>
     );
 }
