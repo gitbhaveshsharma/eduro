@@ -44,7 +44,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     // FIRST: Decide whether to refresh Supabase session. We avoid refreshing
     // for purely PUBLIC routes when there is no auth cookie/header to reduce
     // noisy "No user session" logs and unnecessary work.
-    console.log('[MIDDLEWARE] Step 1: Checking whether to refresh Supabase session...')
+    if (middlewareConfig.debug) {
+      console.log('[MIDDLEWARE] Processing request:', request.nextUrl.pathname)
+    }
 
     const cookieName = middlewareConfig.auth?.cookieName || 'supabase-auth-token'
     const hasAuthCookie = Boolean(request.cookies.get(cookieName))
@@ -76,13 +78,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
     if (shouldSkipSupabase) {
       // Skip calling Supabase middleware entirely for public routes with no
       // authentication present — use a "next" response as a neutral base.
-      console.log('[MIDDLEWARE] Skipping Supabase session refresh for public route with no auth')
+      if (middlewareConfig.debug) {
+        console.log('[MIDDLEWARE] Skipping Supabase session for public route with no auth')
+      }
       response = NextResponse.next()
     } else {
-      console.log('[MIDDLEWARE] Step 1: Refreshing Supabase session...')
+      // Call Supabase middleware - it will internally throttle session refresh
       const supabaseMiddleware = createSupabaseMiddleware()
       response = await supabaseMiddleware(request)
-      console.log('[MIDDLEWARE] Step 1 complete: Session refreshed')
     }
 
     // CRITICAL: Create enriched request with auth headers from Supabase middleware
@@ -94,7 +97,9 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       const headerValue = response.headers.get(headerName)
       if (headerValue) {
         enrichedHeaders.set(headerName, headerValue)
-        console.log(`[MIDDLEWARE] Copied header: ${headerName} = ${headerValue}`)
+        if (middlewareConfig.debug) {
+          console.log(`[MIDDLEWARE] Copied header: ${headerName} = ${headerValue}`)
+        }
       }
     })
 

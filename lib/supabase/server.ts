@@ -52,7 +52,7 @@ export async function createServerClient() {
  */
 export async function getCurrentUser() {
   const supabase = await createServerClient()
-  
+
   const {
     data: { user },
     error,
@@ -68,20 +68,31 @@ export async function getCurrentUser() {
 
 /**
  * Get the current session from Supabase
+ * SECURITY: Uses getUser() to verify with auth server, not getSession()
  * This is a convenience method that creates a client and gets the session
  */
 export async function getCurrentSession() {
   const supabase = await createServerClient()
-  
-  const {
-    data: { session },
-    error,
-  } = await supabase.auth.getSession()
 
-  if (error) {
-    console.error('[SERVER CLIENT] Error getting session:', error.message)
+  // Use getUser() for security - it verifies with the Supabase Auth server
+  // getSession() only reads from cookies without verification
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    if (error) {
+      console.error('[SERVER CLIENT] Error getting user:', error.message)
+    }
     return null
   }
+
+  // If user is verified, we can safely get the session tokens
+  // The session tokens are needed for database operations
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
 
   return session
 }

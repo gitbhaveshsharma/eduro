@@ -27,17 +27,14 @@ export class AuthHandler {
       const roleHeader = request.headers.get('x-user-role')
 
       if (isAuthenticated === 'true' && userId) {
-        console.log('[AUTH] User authenticated via Supabase middleware:', userId)
-
         // Use role from header (set by supabase-middleware) or fetch from database as fallback
         let userRole: UserRole = UserRole.STUDENT // Default fallback
 
         if (roleHeader && Object.values(UserRole).includes(roleHeader as UserRole)) {
           userRole = roleHeader as UserRole
-          console.log('[AUTH] Using user role from header:', userRole)
         } else {
           // Fallback: Fetch user role from database if not in header
-          console.warn('[AUTH] Role not in header, fetching from database...')
+          console.warn('[AUTH] Role not in header, fetching from database for user:', userId)
           try {
             const supabaseUrl = this.supabaseUrl
             const supabaseAnonKey = this.supabaseAnonKey
@@ -56,7 +53,6 @@ export class AuthHandler {
               const profiles = await response.json()
               if (profiles && profiles.length > 0 && profiles[0].role) {
                 userRole = profiles[0].role as UserRole
-                console.log('[AUTH] Fetched user role from database:', userRole)
               } else {
                 console.warn('[AUTH] No profile found for user, using default role:', UserRole.STUDENT)
               }
@@ -81,7 +77,6 @@ export class AuthHandler {
         }
       }
 
-      console.log('[AUTH] No authenticated user found in headers')
       return null
     } catch (error) {
       console.error('Auth validation error:', error)
