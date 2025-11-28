@@ -161,25 +161,26 @@ export class AvatarUtils {
 
   /**
    * Return a client-usage URL (proxied when configured).
-   * If NEXT_PUBLIC_AVATAR_PROXY === 'true' and running in the browser,
-   * returns an app-relative proxy route that will fetch the remote image.
+   * If NEXT_PUBLIC_AVATAR_PROXY === 'false' is NOT set, returns an app-relative 
+   * proxy route that will fetch the remote image.
    */
   static getPublicAvatarUrlFromRemote(remoteUrl: string): string {
     // Decide when to use the in-app proxy for remote avatar images.
-    // We proxy client requests when either:
-    //  - NEXT_PUBLIC_AVATAR_PROXY is explicitly set to 'true', or
-    //  - no explicit setting is provided and we're running in production.
-    // This ensures deployed sites that enable COEP/COOP (which block cross-origin
-    // image embedding unless the resource has a CORP header) will load avatars
-    // via the local `/api/avatar-proxy` which adds the required headers.
+    // We proxy client requests by default in both development and production.
+    // This ensures:
+    //  - Consistent behavior between localhost and deployed sites
+    //  - Proper CORS headers for cross-origin image embedding
+    //  - Avatar images go through `/api/avatar-proxy` which adds required headers
+    // 
+    // To disable the proxy, set NEXT_PUBLIC_AVATAR_PROXY=false
     // Keep the behavior client-only to avoid changing server-side image generation.
     const isClient = typeof window !== 'undefined';
 
     // Read runtime env variables (NEXT_PUBLIC_* are inlined for the client by Next.js)
     const envFlag = process.env.NEXT_PUBLIC_AVATAR_PROXY;
-    const isProduction = process.env.NODE_ENV === 'production';
 
-    const useProxy = isClient && (envFlag === 'true' || (envFlag === undefined && isProduction));
+    // Use proxy by default unless explicitly disabled with 'false'
+    const useProxy = isClient && envFlag !== 'false';
 
     if (!useProxy) return remoteUrl;
 
@@ -242,8 +243,16 @@ export class AvatarUtils {
       return this.getPublicAvatarUrlFromRemote(remote);
     }
 
-    // Legacy URL support - check if it's a string that looks like a URL
-    if (typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))) {
+    // URL support - check if it's a string that looks like a URL (http, https, data:, or relative /)
+    if (typeof avatarUrl === 'string' && (
+      avatarUrl.startsWith('http') ||
+      avatarUrl.startsWith('data:') ||
+      avatarUrl.startsWith('/')
+    )) {
+      // Relative URLs (like /api/avatar-proxy?...) are already proxied, return as-is
+      if (avatarUrl.startsWith('/')) {
+        return avatarUrl;
+      }
       return this.getPublicAvatarUrlFromRemote(avatarUrl);
     }
 
@@ -374,8 +383,12 @@ export class AvatarUtils {
           }
         }
 
-        // It's a URL string, apply proxy if needed
-        if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:') || avatarUrl.startsWith('/')) {
+        // It's a URL string - handle different types
+        if (avatarUrl.startsWith('/')) {
+          // Relative URLs (like /api/avatar-proxy) are already proxied, return as-is
+          return avatarUrl;
+        }
+        if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
           return this.getPublicAvatarUrlFromRemote(avatarUrl);
         }
 
