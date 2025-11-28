@@ -758,10 +758,17 @@ export class CoachingUrlUtils {
 
   /**
    * Generate logo URL with fallback
+   * Handles Supabase storage URLs and applies proxy in production
    */
   static getLogoUrl(center: Partial<CoachingCenter | PublicCoachingCenter>, size: number = 100): string {
     if (center.logo_url) {
-      return center.logo_url;
+      // If it's a Supabase storage URL or external URL, apply proxy in production
+      try {
+        const AvatarUtils = require('./avatar.utils').AvatarUtils;
+        return AvatarUtils.getPublicAvatarUrlFromRemote(center.logo_url);
+      } catch {
+        return center.logo_url;
+      }
     }
 
     // Generate initials-based logo URL (use AvatarUtils to enable proxy when configured)
@@ -778,10 +785,17 @@ export class CoachingUrlUtils {
 
   /**
    * Generate cover image URL with fallback
+   * Handles Supabase storage URLs and applies proxy in production
    */
   static getCoverUrl(center: Partial<CoachingCenter | PublicCoachingCenter>): string {
     if (center.cover_url) {
-      return center.cover_url;
+      // If it's a Supabase storage URL or external URL, apply proxy in production
+      try {
+        const AvatarUtils = require('./avatar.utils').AvatarUtils;
+        return AvatarUtils.getPublicAvatarUrlFromRemote(center.cover_url);
+      } catch {
+        return center.cover_url;
+      }
     }
 
     // Generate category-based cover URL

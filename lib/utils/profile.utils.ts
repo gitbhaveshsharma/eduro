@@ -28,11 +28,11 @@ export class ProfileDisplayUtils {
     if (profile.full_name && profile.full_name.trim()) {
       return profile.full_name.trim();
     }
-    
+
     if (profile.username && profile.username.trim()) {
       return `@${profile.username.trim()}`;
     }
-    
+
     return 'Anonymous User';
   }
 
@@ -41,16 +41,16 @@ export class ProfileDisplayUtils {
    */
   static getInitials(profile: Partial<Profile | PublicProfile>): string {
     const displayName = this.getDisplayName(profile);
-    
+
     if (displayName.startsWith('@')) {
       return displayName.slice(1, 3).toUpperCase();
     }
-    
+
     const names = displayName.split(' ').filter(name => name.length > 0);
     if (names.length === 1) {
       return names[0].slice(0, 2).toUpperCase();
     }
-    
+
     return names
       .slice(0, 2)
       .map(name => name[0])
@@ -69,7 +69,7 @@ export class ProfileDisplayUtils {
       'T': 'Teacher',
       'C': 'Coach'
     };
-    
+
     return roleMap[role] || 'Unknown';
   }
 
@@ -84,7 +84,7 @@ export class ProfileDisplayUtils {
       'T': 'green',
       'C': 'purple'
     };
-    
+
     return colorMap[role] || 'gray';
   }
 
@@ -103,13 +103,13 @@ export class ProfileDisplayUtils {
    */
   static getActivityStatus(profile: Partial<Profile | PublicProfile>): ProfileActivityStatus {
     if (!profile.is_online) return 'offline';
-    
+
     if (!profile.last_seen_at) return 'online';
-    
+
     const lastSeen = new Date(profile.last_seen_at);
     const now = new Date();
     const diffMinutes = (now.getTime() - lastSeen.getTime()) / (1000 * 60);
-    
+
     if (diffMinutes < 5) return 'online';
     if (diffMinutes < 30) return 'away';
     return 'offline';
@@ -125,12 +125,12 @@ export class ProfileDisplayUtils {
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
-    
+
     if (diffMinutes < 1) return 'Just now';
     if (diffMinutes < 60) return `${diffMinutes}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
+
     return lastSeen.toLocaleDateString();
   }
 
@@ -157,22 +157,22 @@ export class ProfileValidationUtils {
     if (!username || username.length < 3) {
       return { valid: false, error: 'Username must be at least 3 characters long' };
     }
-    
+
     if (username.length > 20) {
       return { valid: false, error: 'Username must be no more than 20 characters long' };
     }
-    
+
     const usernameRegex = /^[a-zA-Z0-9_]+$/;
     if (!usernameRegex.test(username)) {
       return { valid: false, error: 'Username can only contain letters, numbers, and underscores' };
     }
-    
+
     // Check for reserved usernames
     const reserved = ['admin', 'root', 'api', 'www', 'mail', 'support', 'help', 'about', 'contact'];
     if (reserved.includes(username.toLowerCase())) {
       return { valid: false, error: 'This username is reserved' };
     }
-    
+
     return { valid: true };
   }
 
@@ -181,11 +181,11 @@ export class ProfileValidationUtils {
    */
   static validateEmail(email: string): { valid: boolean; error?: string } {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    
+
     if (!emailRegex.test(email)) {
       return { valid: false, error: 'Invalid email format' };
     }
-    
+
     return { valid: true };
   }
 
@@ -194,11 +194,11 @@ export class ProfileValidationUtils {
    */
   static validatePhone(phone: string): { valid: boolean; error?: string } {
     const phoneRegex = /^\+?[1-9]\d{1,14}$/;
-    
+
     if (!phoneRegex.test(phone)) {
       return { valid: false, error: 'Invalid phone number format' };
     }
-    
+
     return { valid: true };
   }
 
@@ -222,21 +222,21 @@ export class ProfileValidationUtils {
     if (!urlValidation.valid) {
       return urlValidation;
     }
-    
+
     const platformDomains = {
       linkedin: ['linkedin.com', 'www.linkedin.com'],
       github: ['github.com', 'www.github.com'],
       twitter: ['twitter.com', 'www.twitter.com', 'x.com', 'www.x.com']
     };
-    
+
     try {
       const urlObj = new URL(url);
       const validDomains = platformDomains[platform];
-      
+
       if (!validDomains.includes(urlObj.hostname)) {
         return { valid: false, error: `Invalid ${platform} URL` };
       }
-      
+
       return { valid: true };
     } catch {
       return { valid: false, error: 'Invalid URL format' };
@@ -359,7 +359,7 @@ export class ProfileCompletionUtils {
     const earnedPoints = steps
       .filter(step => step.completed)
       .reduce((sum, step) => sum + step.points, 0);
-    
+
     return Math.round((earnedPoints / totalPoints) * 100);
   }
 
@@ -368,16 +368,16 @@ export class ProfileCompletionUtils {
    */
   static getNextStep(profile: Profile): ProfileCompletionStep | null {
     const steps = this.getCompletionSteps(profile);
-    
+
     // Find first incomplete required step
     const nextRequired = steps.find(step => step.required && !step.completed);
     if (nextRequired) return nextRequired;
-    
+
     // Find highest point value incomplete step
     const incompleteSteps = steps.filter(step => !step.completed);
     if (incompleteSteps.length === 0) return null;
-    
-    return incompleteSteps.reduce((highest, current) => 
+
+    return incompleteSteps.reduce((highest, current) =>
       current.points > highest.points ? current : highest
     );
   }
@@ -392,13 +392,13 @@ export class ProfileFilterUtils {
    */
   static getAvailableExpertiseAreas(profiles: PublicProfile[]): string[] {
     const areas = new Set<string>();
-    
+
     profiles.forEach(profile => {
       if (profile.expertise_areas) {
         profile.expertise_areas.forEach(area => areas.add(area));
       }
     });
-    
+
     return Array.from(areas).sort();
   }
 
@@ -407,13 +407,13 @@ export class ProfileFilterUtils {
    */
   static getAvailableSubjects(profiles: PublicProfile[]): string[] {
     const subjects = new Set<string>();
-    
+
     profiles.forEach(profile => {
       if (profile.subjects_of_interest) {
         profile.subjects_of_interest.forEach(subject => subjects.add(subject));
       }
     });
-    
+
     return Array.from(subjects).sort();
   }
 
@@ -422,13 +422,13 @@ export class ProfileFilterUtils {
    */
   static getAvailableGradeLevels(profiles: PublicProfile[]): string[] {
     const grades = new Set<string>();
-    
+
     profiles.forEach(profile => {
       if (profile.grade_level) {
         grades.add(profile.grade_level);
       }
     });
-    
+
     return Array.from(grades).sort();
   }
 }
@@ -442,7 +442,7 @@ export class ProfileSearchUtils {
    */
   static highlightSearchTerms(text: string, searchQuery: string): string {
     if (!searchQuery || !text) return text;
-    
+
     const regex = new RegExp(`(${searchQuery})`, 'gi');
     return text.replace(regex, '<mark>$1</mark>');
   }
@@ -452,45 +452,45 @@ export class ProfileSearchUtils {
    */
   static calculateRelevanceScore(profile: PublicProfile, searchQuery: string): number {
     if (!searchQuery) return 0;
-    
+
     let score = 0;
     const query = searchQuery.toLowerCase();
-    
+
     // Name matches (highest priority)
     if (profile.full_name?.toLowerCase().includes(query)) {
       score += 100;
     }
-    
+
     // Username matches
     if (profile.username?.toLowerCase().includes(query)) {
       score += 80;
     }
-    
+
     // Bio matches
     if (profile.bio?.toLowerCase().includes(query)) {
       score += 50;
     }
-    
+
     // Expertise/subjects matches
-    const expertiseMatch = profile.expertise_areas?.some(area => 
+    const expertiseMatch = profile.expertise_areas?.some(area =>
       area.toLowerCase().includes(query)
     );
-    const subjectsMatch = profile.subjects_of_interest?.some(subject => 
+    const subjectsMatch = profile.subjects_of_interest?.some(subject =>
       subject.toLowerCase().includes(query)
     );
-    
+
     if (expertiseMatch || subjectsMatch) {
       score += 60;
     }
-    
+
     // Reputation bonus
     score += Math.min(profile.reputation_score / 10, 20);
-    
+
     // Verification bonus
     if (profile.is_verified) {
       score += 10;
     }
-    
+
     return score;
   }
 }
@@ -552,7 +552,7 @@ export class ProfileTransformUtils {
    */
   static extractTeacherProfile(profile: Profile): TeacherProfile | null {
     if (profile.role !== 'T' && profile.role !== 'C') return null;
-    
+
     return {
       expertise_areas: profile.expertise_areas || [],
       years_of_experience: profile.years_of_experience || 0,
@@ -566,7 +566,7 @@ export class ProfileTransformUtils {
    */
   static extractStudentProfile(profile: Profile): StudentProfile | null {
     if (profile.role !== 'S') return null;
-    
+
     return {
       grade_level: profile.grade_level || '',
       subjects_of_interest: profile.subjects_of_interest || [],
@@ -590,36 +590,36 @@ export class ProfilePermissionUtils {
   ): boolean {
     // Own profile - can view everything
     if (isOwnProfile) return true;
-    
+
     // Public fields everyone can see
     const publicFields: (keyof Profile)[] = [
       'id', 'full_name', 'username', 'bio', 'avatar_url', 'role',
       'reputation_score', 'is_verified', 'created_at', 'expertise_areas',
       'years_of_experience', 'grade_level', 'subjects_of_interest'
     ];
-    
+
     if (publicFields.includes(field)) return true;
-    
+
     // Private fields only for admins and own profile
     const privateFields: (keyof Profile)[] = [
       'email', 'phone', 'email_notifications', 'push_notifications',
       'chat_notifications', 'whatsapp_notifications', 'sms_notifications',
       'language_preference', 'timezone', 'hourly_rate'
     ];
-    
+
     if (privateFields.includes(field)) {
       return viewerRole === 'SA' || viewerRole === 'A';
     }
-    
+
     // Semi-private fields (coaches and admins can view)
     const semiPrivateFields: (keyof Profile)[] = [
       'is_online', 'last_seen_at', 'onboarding_level', 'profile_completion_percentage'
     ];
-    
+
     if (semiPrivateFields.includes(field)) {
       return viewerRole === 'SA' || viewerRole === 'A' || viewerRole === 'C';
     }
-    
+
     return false;
   }
 
@@ -632,14 +632,14 @@ export class ProfilePermissionUtils {
     isOwnProfile: boolean
   ): Partial<T> {
     const filtered: Partial<T> = {};
-    
+
     Object.keys(profile).forEach(key => {
       const field = key as keyof Profile;
       if (this.canViewField(field, viewerRole, profile.role!, isOwnProfile)) {
         (filtered as any)[key] = (profile as any)[key];
       }
     });
-    
+
     return filtered;
   }
 }
@@ -657,34 +657,28 @@ export class ProfileUrlUtils {
 
   /**
    * Generate avatar URL with fallback
+   * Handles AvatarConfig objects, JSON strings, and legacy URL strings
    */
   static getAvatarUrl(profile: Partial<Profile | PublicProfile>, size: number = 400): string {
-    // Handle new avatar system if available
-    if (profile.avatar_url && typeof profile.avatar_url === 'object' && 'type' in profile.avatar_url) {
-      try {
-        // Import AvatarUtils dynamically to avoid circular dependencies
-        const AvatarUtils = require('./avatar.utils').AvatarUtils;
-        const initials = ProfileDisplayUtils.getInitials(profile);
-        return AvatarUtils.getAvatarUrl(profile.avatar_url, initials);
-      } catch (error) {
-        console.warn('Error using new avatar system:', error);
-      }
-    }
-    
-    // Handle legacy string URLs
-    if (profile.avatar_url && typeof profile.avatar_url === 'string') {
-      return profile.avatar_url;
-    }
-    
-    // Generate initials-based avatar URL as fallback
-    const initials = ProfileDisplayUtils.getInitials(profile);
     try {
-      // Use AvatarUtils if available (dynamic import to avoid circular deps)
+      // Import AvatarUtils dynamically to avoid circular dependencies
       const AvatarUtils = require('./avatar.utils').AvatarUtils;
-      return AvatarUtils.generateInitialsAvatar(initials);
-    } catch (err) {
-      // Fallback to ui-avatars directly if AvatarUtils isn't available
-      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&size=${size}&background=random&format=png`;
+      const initials = ProfileDisplayUtils.getInitials(profile);
+
+      // Handle new avatar system if available (object or JSON string)
+      if (profile.avatar_url) {
+        // Try to get avatar URL using AvatarUtils which handles both object and JSON string
+        const result = AvatarUtils.getAvatarUrl(profile.avatar_url, initials);
+        if (result) return result;
+      }
+
+      // Fallback to initials avatar
+      return AvatarUtils.generateInitialsAvatar(initials || 'U');
+    } catch (error) {
+      console.warn('Error in getAvatarUrl:', error);
+      // Ultimate fallback - direct ui-avatars URL
+      const initials = ProfileDisplayUtils.getInitials(profile);
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(initials || 'U')}&size=${size}&background=random&format=png`;
     }
   }
 

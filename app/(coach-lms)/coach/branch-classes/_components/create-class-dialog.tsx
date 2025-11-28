@@ -64,6 +64,7 @@ import { BranchSearchSelect } from '@/components/coaching/management/branch-sear
 import { CoachingBranch } from '@/lib/schema/coaching.types';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 
 interface CreateClassDialogProps {
     open: boolean;
@@ -425,13 +426,16 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                     <div className="p-3 border rounded-lg bg-muted/50">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                {selectedTeacher.avatar_url && (
-                                                    <Image
-                                                        src={selectedTeacher.avatar_url}
-                                                        alt={selectedTeacher.full_name || selectedTeacher.username}
-                                                        className="h-10 w-10 rounded-full object-cover"
-                                                    />
-                                                )}
+                                                <Image
+                                                    src={AvatarUtils.getSafeAvatarUrl(
+                                                        selectedTeacher.avatar_url,
+                                                        selectedTeacher.full_name || selectedTeacher.username || 'U'
+                                                    )}
+                                                    alt={selectedTeacher.full_name || selectedTeacher.username || 'Teacher'}
+                                                    width={40}
+                                                    height={40}
+                                                    className="h-10 w-10 rounded-full object-cover"
+                                                />
                                                 <div>
                                                     <p className="font-medium text-sm">
                                                         {selectedTeacher.full_name || selectedTeacher.username}
@@ -495,13 +499,16 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                                         onClick={() => handleSelectTeacher(profile)}
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            {profile.avatar_url && (
-                                                                <Image
-                                                                    src={profile.avatar_url}
-                                                                    alt={profile.full_name || profile.username}
-                                                                    className="h-10 w-10 rounded-full object-cover"
-                                                                />
-                                                            )}
+                                                            <Image
+                                                                src={AvatarUtils.getSafeAvatarUrl(
+                                                                    profile.avatar_url,
+                                                                    profile.full_name || profile.username || 'U'
+                                                                )}
+                                                                alt={profile.full_name || profile.username || 'Teacher'}
+                                                                width={40}
+                                                                height={40}
+                                                                className="h-10 w-10 rounded-full object-cover"
+                                                            />
                                                             <div>
                                                                 <p className="font-medium text-sm">
                                                                     {profile.full_name || profile.username}

@@ -59,6 +59,7 @@ import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast'
 import { Loader2 } from 'lucide-react';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 
 /**
  * Edit Class Dialog Component
@@ -461,13 +462,14 @@ export function EditClassDialog() {
                                     <div className="p-3 border rounded-lg bg-muted/50">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                {selectedTeacher.avatar_url && (
-                                                    <img
-                                                        src={selectedTeacher.avatar_url}
-                                                        alt={selectedTeacher.full_name || selectedTeacher.username}
-                                                        className="h-10 w-10 rounded-full object-cover"
-                                                    />
-                                                )}
+                                                <img
+                                                    src={AvatarUtils.getSafeAvatarUrl(
+                                                        selectedTeacher.avatar_url,
+                                                        selectedTeacher.full_name || selectedTeacher.username || 'U'
+                                                    )}
+                                                    alt={selectedTeacher.full_name || selectedTeacher.username || 'Teacher'}
+                                                    className="h-10 w-10 rounded-full object-cover"
+                                                />
                                                 <div>
                                                     <p className="font-medium text-sm">
                                                         {selectedTeacher.full_name || selectedTeacher.username}
@@ -531,13 +533,14 @@ export function EditClassDialog() {
                                                         onClick={() => handleSelectTeacher(profile)}
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            {profile.avatar_url && (
-                                                                <img
-                                                                    src={profile.avatar_url}
-                                                                    alt={profile.full_name || profile.username}
-                                                                    className="h-10 w-10 rounded-full object-cover"
-                                                                />
-                                                            )}
+                                                            <img
+                                                                src={AvatarUtils.getSafeAvatarUrl(
+                                                                    profile.avatar_url,
+                                                                    profile.full_name || profile.username || 'U'
+                                                                )}
+                                                                alt={profile.full_name || profile.username || 'Teacher'}
+                                                                className="h-10 w-10 rounded-full object-cover"
+                                                            />
                                                             <div>
                                                                 <p className="font-medium text-sm">
                                                                     {profile.full_name || profile.username}

@@ -54,6 +54,7 @@ import { BranchSearchSelect } from '@/components/coaching/management/branch-sear
 import { CoachingBranch } from '@/lib/schema/coaching.types';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 
 /**
  * Enroll Student Dialog Props
@@ -270,15 +271,16 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
                                     <div className="p-3 border rounded-lg bg-muted/50">
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                {selectedStudent.avatar_url && (
-                                                    <Image
-                                                        src={selectedStudent.avatar_url}
-                                                        alt={selectedStudent.full_name || selectedStudent.username}
-                                                        width={40}
-                                                        height={40}
-                                                        className="h-10 w-10 rounded-full object-cover"
-                                                    />
-                                                )}
+                                                <Image
+                                                    src={AvatarUtils.getSafeAvatarUrl(
+                                                        selectedStudent.avatar_url,
+                                                        selectedStudent.full_name || selectedStudent.username || 'U'
+                                                    )}
+                                                    alt={selectedStudent.full_name || selectedStudent.username || 'Student'}
+                                                    width={40}
+                                                    height={40}
+                                                    className="h-10 w-10 rounded-full object-cover"
+                                                />
                                                 <div>
                                                     <p className="font-medium text-sm">
                                                         {selectedStudent.full_name || selectedStudent.username}
@@ -349,15 +351,16 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
                                                         onClick={() => handleSelectStudent(profile)}
                                                     >
                                                         <div className="flex items-center gap-3">
-                                                            {profile.avatar_url && (
-                                                                <Image
-                                                                    src={profile.avatar_url}
-                                                                    alt={profile.full_name || profile.username}
-                                                                    width={40}
-                                                                    height={40}
-                                                                    className="h-10 w-10 rounded-full object-cover"
-                                                                />
-                                                            )}
+                                                            <Image
+                                                                src={AvatarUtils.getSafeAvatarUrl(
+                                                                    profile.avatar_url,
+                                                                    profile.full_name || profile.username || 'U'
+                                                                )}
+                                                                alt={profile.full_name || profile.username || 'Student'}
+                                                                width={40}
+                                                                height={40}
+                                                                className="h-10 w-10 rounded-full object-cover"
+                                                            />
                                                             <div>
                                                                 <p className="font-medium text-sm">
                                                                     {profile.full_name || profile.username}
