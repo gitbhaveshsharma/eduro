@@ -185,7 +185,8 @@ export class AvatarUtils {
     if (!useProxy) return remoteUrl;
 
     // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
-    return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
+    // Add cache version to bust stale CDN cache entries (increment when fixing cache issues)
+    return `/api/avatar-proxy?v=2&url=${encodeURIComponent(remoteUrl)}`;
   }
 
   /**
