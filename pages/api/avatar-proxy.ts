@@ -10,6 +10,17 @@ import type { NextApiRequest, NextApiResponse } from 'next';
  *   is served with COEP/COOP.
  * - Supports Supabase storage for profile avatars and coaching center logos.
  */
+
+// Force dynamic rendering - never cache this route at build time or edge
+export const config = {
+  api: {
+    // Increase body size limit for larger images if needed
+    bodyParser: false,
+    // Ensure this runs as a serverless function, not edge
+    runtime: 'nodejs',
+  },
+};
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const { url } = req.query;
@@ -85,24 +96,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Important headers to allow embedding under COEP/COOP
     res.setHeader('Content-Type', contentType);
-    // Cache for 1 hour instead of 1 day to reduce stale cache issues
-    // Add s-maxage for CDN caching with shorter duration
-    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=1800, stale-while-revalidate=600');
     
-    // Forward ETag/Last-Modified from remote when present to support caching
+    // CRITICAL: Disable Netlify Edge caching to prevent serving wrong images
+    // Each unique URL must return its own image, not a cached one
+    // Browser can cache (max-age), but CDN/Edge must not (s-maxage=0)
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=0, must-revalidate');
+    
+    // Explicitly tell Netlify Edge to NOT cache this response
+    res.setHeader('Netlify-CDN-Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    
+    // Forward ETag/Last-Modified from remote when present to support browser caching
     const etag = remoteRes.headers.get('etag');
     const lastModified = remoteRes.headers.get('last-modified');
     if (etag) res.setHeader('ETag', etag);
     if (lastModified) res.setHeader('Last-Modified', lastModified);
 
     // Inform caches that response varies by the URL parameter and Origin
-    // This ensures different avatar URLs are cached separately
+    // This ensures different avatar URLs are cached separately (for browsers)
     res.setHeader('Vary', 'Origin, Accept');
-
-    // Add CDN-Cache-Control for Netlify Edge - cache for 1 hour at edge
-    res.setHeader('CDN-Cache-Control', 'public, max-age=3600');
-    // Add Netlify-CDN-Cache-Control for explicit Netlify control
-    res.setHeader('Netlify-CDN-Cache-Control', 'public, max-age=3600, durable');
 
     // Allow embedding on cross-origin documents (CORP)
     res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');

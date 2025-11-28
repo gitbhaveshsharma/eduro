@@ -186,7 +186,8 @@ export class AvatarUtils {
 
     // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
     // Add cache version to bust stale CDN cache entries (increment when fixing cache issues)
-    return `/api/avatar-proxy?v=2&url=${encodeURIComponent(remoteUrl)}`;
+    // v=3: Fixed Netlify Edge caching - disabled CDN cache, each URL gets unique response
+    return `/api/avatar-proxy?v=3&url=${encodeURIComponent(remoteUrl)}`;
   }
 
   /**
