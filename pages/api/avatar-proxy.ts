@@ -1,13 +1,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
 /**
- * Avatar proxy endpoint
+ * Avatar/Image proxy endpoint
  * GET /api/avatar-proxy?url=<encoded remote image url>
  *
  * Notes:
- * - Whitelist known avatar hosts to avoid creating an open proxy.
+ * - Whitelist known avatar/image hosts to avoid creating an open proxy.
  * - Add CORS/CORP headers so the browser can embed the resource when the page
  *   is served with COEP/COOP.
+ * - Supports Supabase storage for profile avatars and coaching center logos.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -20,7 +21,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const remoteUrl = decodeURIComponent(url as string);
 
     // Basic validation / whitelist
-  const allowedHosts = ['gravatar.com', 'www.gravatar.com', 'robohash.org', 'www.robohash.org', 'ui-avatars.com', 'www.ui-avatars.com'];
+    // Include avatar services and Supabase storage domains
+    const allowedHosts = [
+      // Avatar generation services
+      'gravatar.com',
+      'www.gravatar.com',
+      'robohash.org',
+      'www.robohash.org',
+      'ui-avatars.com',
+      'www.ui-avatars.com',
+      // Supabase storage - allow project-specific domain
+      'ixhlpassuqmqpzpumkuw.supabase.co',
+      // Generic Supabase storage pattern (for flexibility)
+    ];
+
+    // Also allow any *.supabase.co domain for storage
+    const supabaseStoragePattern = /^[a-z0-9]+\.supabase\.co$/i;
+
     let host;
     try {
       host = new URL(remoteUrl).hostname;
@@ -29,7 +46,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return;
     }
 
-    if (!allowedHosts.includes(host)) {
+    // Check if host is in allowed list or matches Supabase pattern
+    const isAllowed = allowedHosts.includes(host) || supabaseStoragePattern.test(host);
+
+    if (!isAllowed) {
       res.status(403).send('Host not allowed');
       return;
     }
@@ -44,22 +64,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const buffer = Buffer.from(await remoteRes.arrayBuffer());
     const contentType = remoteRes.headers.get('content-type') || 'image/png';
 
-  // Important headers to allow embedding under COEP/COOP
-  res.setHeader('Content-Type', contentType);
-  res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600'); // 1 day cache
-  // Forward ETag/Last-Modified from remote when present to support caching
-  const etag = remoteRes.headers.get('etag');
-  const lastModified = remoteRes.headers.get('last-modified');
-  if (etag) res.setHeader('ETag', etag);
-  if (lastModified) res.setHeader('Last-Modified', lastModified);
+    // Important headers to allow embedding under COEP/COOP
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=3600'); // 1 day cache
+    // Forward ETag/Last-Modified from remote when present to support caching
+    const etag = remoteRes.headers.get('etag');
+    const lastModified = remoteRes.headers.get('last-modified');
+    if (etag) res.setHeader('ETag', etag);
+    if (lastModified) res.setHeader('Last-Modified', lastModified);
 
-  // Inform caches that response varies by Origin header
-  res.setHeader('Vary', 'Origin');
+    // Inform caches that response varies by Origin header
+    res.setHeader('Vary', 'Origin');
 
-  // Allow embedding on cross-origin documents (CORP)
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
-  // Allow browser clients to fetch
-  res.setHeader('Access-Control-Allow-Origin', '*');
+    // Allow embedding on cross-origin documents (CORP)
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    // Allow browser clients to fetch
+    res.setHeader('Access-Control-Allow-Origin', '*');
 
     res.status(200).send(buffer);
   } catch (error) {

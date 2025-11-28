@@ -3,14 +3,71 @@
  * 
  * Comprehensive avatar system with support for Gravatar and RoboHash
  * Generates unique avatar options and manages avatar configurations
+ * 
+ * Note: Uses Web Crypto API for browser compatibility instead of Node.js crypto
  */
 
-import crypto from 'crypto';
 import type { AvatarType, AvatarConfig, AvatarOption } from '../schema/profile.types';
+
+/**
+ * Browser-compatible hash function using Web Crypto API
+ * Falls back to a simple hash for environments without crypto support
+ */
+async function browserMd5Hash(input: string): Promise<string> {
+  try {
+    // Use Web Crypto API (available in browsers and modern Node.js)
+    const encoder = new TextEncoder();
+    const data = encoder.encode(input);
+
+    // Check if we're in a browser or Node.js environment with crypto.subtle
+    if (typeof globalThis !== 'undefined' && globalThis.crypto?.subtle) {
+      const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Fallback for older environments - use simple hash
+    return simpleHash(input);
+  } catch (error) {
+    // Fallback to simple hash if Web Crypto API fails
+    return simpleHash(input);
+  }
+}
+
+/**
+ * Synchronous simple hash function for fallback
+ * Uses a non-cryptographic but deterministic hash
+ */
+function simpleHash(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to hex string and pad to ensure consistent length
+  const hexHash = Math.abs(hash).toString(16).padStart(8, '0');
+  // Generate more characters for variety
+  const timestamp = Date.now().toString(16);
+  const random = Math.random().toString(16).substring(2);
+  return `${hexHash}${timestamp}${random}`.substring(0, 32);
+}
+
+/**
+ * Synchronous unique string generator (doesn't use crypto)
+ * Safe to use in both browser and server environments
+ */
+function generateSyncUniqueString(): string {
+  const timestamp = Date.now().toString(36);
+  const random1 = Math.random().toString(36).substring(2, 10);
+  const random2 = Math.random().toString(36).substring(2, 10);
+  const random3 = Math.random().toString(36).substring(2, 10);
+  return `${timestamp}${random1}${random2}${random3}`.substring(0, 32);
+}
 
 export class AvatarUtils {
   private static readonly AVATAR_SIZE = 400;
-  
+
   // Avatar type configurations
   private static readonly AVATAR_CONFIGS = {
     gravatar_monster: {
@@ -47,11 +104,20 @@ export class AvatarUtils {
 
   /**
    * Generate a unique string for avatar generation
+   * Uses synchronous generation that works in both browser and server
    */
   static generateUniqueString(): string {
+    return generateSyncUniqueString();
+  }
+
+  /**
+   * Generate a unique string asynchronously using Web Crypto API
+   * Use this when you need cryptographically secure randomness
+   */
+  static async generateUniqueStringAsync(): Promise<string> {
     const timestamp = Date.now().toString();
     const random = Math.random().toString(36).substring(2);
-    return crypto.createHash('md5').update(`${timestamp}-${random}`).digest('hex');
+    return await browserMd5Hash(`${timestamp}-${random}`);
   }
 
   /**
@@ -107,18 +173,18 @@ export class AvatarUtils {
     // image embedding unless the resource has a CORP header) will load avatars
     // via the local `/api/avatar-proxy` which adds the required headers.
     // Keep the behavior client-only to avoid changing server-side image generation.
-  const isClient = typeof window !== 'undefined';
+    const isClient = typeof window !== 'undefined';
 
-  // Read runtime env variables (NEXT_PUBLIC_* are inlined for the client by Next.js)
-  const envFlag = process.env.NEXT_PUBLIC_AVATAR_PROXY;
-  const isProduction = process.env.NODE_ENV === 'production';
+    // Read runtime env variables (NEXT_PUBLIC_* are inlined for the client by Next.js)
+    const envFlag = process.env.NEXT_PUBLIC_AVATAR_PROXY;
+    const isProduction = process.env.NODE_ENV === 'production';
 
-  const useProxy = isClient && (envFlag === 'true' || (envFlag === undefined && isProduction));
+    const useProxy = isClient && (envFlag === 'true' || (envFlag === undefined && isProduction));
 
-  if (!useProxy) return remoteUrl;
+    if (!useProxy) return remoteUrl;
 
-  // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
-  return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
+    // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
+    return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
   }
 
   /**
@@ -132,20 +198,33 @@ export class AvatarUtils {
 
   /**
    * Get avatar configuration from profile avatar_url
+   * Handles both AvatarConfig objects and JSON strings from database
    */
   static getAvatarConfig(avatarUrl: string | AvatarConfig | null): AvatarConfig | null {
     if (!avatarUrl) return null;
-    
+
     // If it's already an AvatarConfig object
     if (typeof avatarUrl === 'object' && avatarUrl !== null && 'type' in avatarUrl && 'uniqueString' in avatarUrl) {
       return this.isValidAvatarConfig(avatarUrl) ? avatarUrl : null;
     }
-    
-    // If it's a legacy URL string, return null (will use fallback)
+
+    // If it's a string, try to parse it as JSON (might be serialized AvatarConfig)
     if (typeof avatarUrl === 'string') {
+      // Check if it looks like a JSON object (starts with {)
+      if (avatarUrl.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(avatarUrl);
+          if (this.isValidAvatarConfig(parsed)) {
+            return parsed;
+          }
+        } catch (e) {
+          // Not valid JSON, treat as legacy URL
+        }
+      }
+      // It's a legacy URL string, return null (will use fallback or URL directly)
       return null;
     }
-    
+
     return null;
   }
 
@@ -155,24 +234,24 @@ export class AvatarUtils {
    */
   static getAvatarUrl(avatarUrl: string | AvatarConfig | null, fallbackInitials?: string): string {
     const config = this.getAvatarConfig(avatarUrl);
-    
+
     if (config) {
       // generate remote url
       const remote = this.generateAvatarUrl(config.type, config.uniqueString, (config as any).bgset);
       // return proxied/public url if needed
       return this.getPublicAvatarUrlFromRemote(remote);
     }
-    
+
     // Legacy URL support - check if it's a string that looks like a URL
     if (typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))) {
       return this.getPublicAvatarUrlFromRemote(avatarUrl);
     }
-    
+
     // Fallback to initials avatar
     if (fallbackInitials) {
       return this.generateInitialsAvatar(fallbackInitials);
     }
-    
+
     return this.generateDefaultAvatar();
   }
 
@@ -200,7 +279,7 @@ export class AvatarUtils {
     if (!config) return [];
 
     const uniqueStrings = this.generateUniqueStrings(count);
-    
+
     return uniqueStrings.map((uniqueString, index) => ({
       id: `${type}-${index + 1}`,
       type,
@@ -216,7 +295,7 @@ export class AvatarUtils {
   static generateAllAvatarOptions(countPerType: number = 20): Record<AvatarType, AvatarOption[]> {
     const allTypes: AvatarType[] = [
       'gravatar_monster',
-      'gravatar_robohash', 
+      'gravatar_robohash',
       'gravatar_retro',
       'robohash_cat',
       'robohash_sexy_robots',
@@ -264,5 +343,56 @@ export class AvatarUtils {
       typeof config.uniqueString === 'string' &&
       this.getAvailableAvatarTypes().includes(config.type as AvatarType)
     );
+  }
+
+  /**
+   * Helper function to safely get avatar URL string from any avatar_url value
+   * This is useful when you need a guaranteed string URL for Image components
+   * 
+   * @param avatarUrl - Can be AvatarConfig object, JSON string, URL string, or null
+   * @param fallbackName - Name to use for initials fallback (optional)
+   * @returns A valid URL string
+   */
+  static getSafeAvatarUrl(avatarUrl: string | AvatarConfig | null | undefined, fallbackName?: string): string {
+    try {
+      // If null/undefined, return initials avatar
+      if (!avatarUrl) {
+        return this.generateInitialsAvatar(fallbackName || 'U');
+      }
+
+      // If it's already a valid URL string
+      if (typeof avatarUrl === 'string') {
+        // Check if it's a JSON string that needs parsing
+        if (avatarUrl.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(avatarUrl);
+            if (this.isValidAvatarConfig(parsed)) {
+              return this.getAvatarUrl(parsed, fallbackName);
+            }
+          } catch {
+            // Not valid JSON, treat as URL
+          }
+        }
+
+        // It's a URL string, apply proxy if needed
+        if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:') || avatarUrl.startsWith('/')) {
+          return this.getPublicAvatarUrlFromRemote(avatarUrl);
+        }
+
+        // Fallback for invalid strings
+        return this.generateInitialsAvatar(fallbackName || avatarUrl.substring(0, 2) || 'U');
+      }
+
+      // If it's an AvatarConfig object
+      if (this.isValidAvatarConfig(avatarUrl)) {
+        return this.getAvatarUrl(avatarUrl, fallbackName);
+      }
+
+      // Ultimate fallback
+      return this.generateInitialsAvatar(fallbackName || 'U');
+    } catch (error) {
+      console.warn('Error in getSafeAvatarUrl:', error);
+      return this.generateInitialsAvatar(fallbackName || 'U');
+    }
   }
 }

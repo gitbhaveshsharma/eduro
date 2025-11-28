@@ -22,6 +22,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { UserCheck, UserX, Clock, FileText, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
     useAttendanceActions,
@@ -148,17 +149,14 @@ export default function AttendanceTable() {
                                         <TableCell>
                                             <div className="flex items-center gap-3">
                                                 <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                                                    {record.student_avatar ? (
-                                                        <img
-                                                            src={record.student_avatar}
-                                                            alt={record.student_name}
-                                                            className="w-10 h-10 object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-sm font-medium">
-                                                            {record.student_name.charAt(0).toUpperCase()}
-                                                        </span>
-                                                    )}
+                                                    <img
+                                                        src={AvatarUtils.getSafeAvatarUrl(
+                                                            record.student_avatar,
+                                                            record.student_name || 'S'
+                                                        )}
+                                                        alt={record.student_name}
+                                                        className="w-10 h-10 object-cover"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <p className="font-medium">{record.student_name}</p>

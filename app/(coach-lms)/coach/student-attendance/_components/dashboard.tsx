@@ -21,6 +21,7 @@ import {
     AlertCircle,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
     useAttendanceActions,
@@ -306,18 +307,15 @@ export default function Dashboard() {
                                             className="flex items-center justify-between p-3 border rounded-lg"
                                         >
                                             <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                                    {record.student_avatar ? (
-                                                        <img
-                                                            src={record.student_avatar}
-                                                            alt={record.student_name}
-                                                            className="w-10 h-10 rounded-full object-cover"
-                                                        />
-                                                    ) : (
-                                                        <span className="text-sm font-medium">
-                                                            {record.student_name.charAt(0).toUpperCase()}
-                                                        </span>
-                                                    )}
+                                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+                                                    <img
+                                                        src={AvatarUtils.getSafeAvatarUrl(
+                                                            record.student_avatar,
+                                                            record.student_name || 'S'
+                                                        )}
+                                                        alt={record.student_name}
+                                                        className="w-10 h-10 rounded-full object-cover"
+                                                    />
                                                 </div>
                                                 <div>
                                                     <p className="font-medium">{record.student_name}</p>
