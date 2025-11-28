@@ -242,8 +242,16 @@ export class AvatarUtils {
       return this.getPublicAvatarUrlFromRemote(remote);
     }
 
-    // Legacy URL support - check if it's a string that looks like a URL
-    if (typeof avatarUrl === 'string' && (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:'))) {
+    // URL support - check if it's a string that looks like a URL (http, https, data:, or relative /)
+    if (typeof avatarUrl === 'string' && (
+      avatarUrl.startsWith('http') ||
+      avatarUrl.startsWith('data:') ||
+      avatarUrl.startsWith('/')
+    )) {
+      // Relative URLs (like /api/avatar-proxy?...) are already proxied, return as-is
+      if (avatarUrl.startsWith('/')) {
+        return avatarUrl;
+      }
       return this.getPublicAvatarUrlFromRemote(avatarUrl);
     }
 
@@ -374,8 +382,12 @@ export class AvatarUtils {
           }
         }
 
-        // It's a URL string, apply proxy if needed
-        if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:') || avatarUrl.startsWith('/')) {
+        // It's a URL string - handle different types
+        if (avatarUrl.startsWith('/')) {
+          // Relative URLs (like /api/avatar-proxy) are already proxied, return as-is
+          return avatarUrl;
+        }
+        if (avatarUrl.startsWith('http') || avatarUrl.startsWith('data:')) {
           return this.getPublicAvatarUrlFromRemote(avatarUrl);
         }
 
