@@ -164,7 +164,7 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
                             disabled={isLoading || !emailForm.watch('email') || !!emailForm.formState.errors.email}
                         >
                             {isLoading ? (
-                                <ButtonLoadingSpinner message="Sending code..." size="sm" />
+                                <ButtonLoadingSpinner message='Sending code...' size="sm" />
                             ) : (
                                 'Send Login Code'
                             )}
@@ -201,7 +201,7 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
                 <form onSubmit={otpForm.handleSubmit(verifyOtp)} className="space-y-6">
                     {/* OTP Input */}
                     <div className="space-y-2">
-                        <Label className="text-sm font-medium text-[#111827]">
+                        <Label className="text-sm ml-3 sm:ml-0 font-medium text-[#111827] text-center sm:text-left">
                             6-digit code
                         </Label>
                         <div className="flex justify-center">
@@ -210,14 +210,16 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
                                 value={otpForm.watch('otp') || ''}
                                 onChange={(value) => otpForm.setValue('otp', value)}
                                 disabled={isVerifying}
+                                className="px-2 sm:px-5"
                             >
-                                <InputOTPGroup className="gap-2">
-                                    <InputOTPSlot index={0} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
-                                    <InputOTPSlot index={1} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
-                                    <InputOTPSlot index={2} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
-                                    <InputOTPSlot index={3} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
-                                    <InputOTPSlot index={4} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
-                                    <InputOTPSlot index={5} className="w-12 h-12 text-lg border-[#E5E7EB] focus:border-[#1D4ED8]" />
+                                <InputOTPGroup className="gap-2 sm:gap-2">
+                                    {[...Array(6)].map((_, index) => (
+                                        <InputOTPSlot
+                                            key={index}
+                                            index={index}
+                                            className="w-10 h-10 sm:w-12 sm:h-12 text-base sm:text-lg border-[#E5E7EB] focus:border-[#1D4ED8] transition-colors"
+                                        />
+                                    ))}
                                 </InputOTPGroup>
                             </InputOTP>
                         </div>
@@ -229,7 +231,7 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
                     {/* Verify Button */}
                     <Button
                         type="submit"
-                        className="w-full bg-[#1D4ED8] hover:bg-[#1e40af] text-white font-medium py-2.5 transition-colors border-0 shadow-none"
+                        className="w-full bg-[#1D4ED8] hover:bg-[#1e40af] text-white font-medium py-2.5 sm:py-3 transition-colors border-0 shadow-none text-sm sm:text-base"
                         disabled={isVerifying || !otpForm.watch('otp') || otpForm.watch('otp')?.length !== 6}
                     >
                         {isVerifying ? (
@@ -241,7 +243,7 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
 
                     {/* Resend Code */}
                     <div className="text-center">
-                        <p className="text-sm text-[#6B7280]">
+                        <p className="text-sm text-[#6B7280] px-2">
                             Didn't receive the code?{' '}
                             {countdown > 0 ? (
                                 <span className="font-medium">Resend in {countdown}s</span>
@@ -250,15 +252,14 @@ export function OtpForm({ onSuccess, onBack, className }: OtpFormProps) {
                                     type="button"
                                     onClick={resendOtp}
                                     className="font-medium text-[#3B82F6] hover:text-[#1D4ED8] transition-colors"
+                                    disabled={isVerifying}  // Changed from isVerifying to isResending
                                 >
-                                    Resend code
+                                    {isVerifying ? 'Resending...' : 'Resend code'}
                                 </button>
                             )}
                         </p>
-                    </div>
+                        {/* Go Back Option */}
 
-                    {/* Go Back Option */}
-                    <div className="text-center">
                         <button
                             type="button"
                             onClick={goBack}

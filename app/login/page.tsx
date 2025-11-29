@@ -150,7 +150,7 @@ export default function LoginPage() {
 
                 {/* Auth Card */}
                 <Card className="bg-white border-[#E5E7EB] shadow-lg">
-                    <CardContent className="p-6">
+                    <CardContent className="p-2 sm:p-6">
                         <div className="space-y-6">
                             <OAuthProviders onSuccess={handleLoginSuccess} />
                             <Divider text="or continue with OTP" />
@@ -186,7 +186,7 @@ export default function LoginPage() {
                 </Card>
 
                 {/* Footer Links */}
-                <div className="text-center mt-6 space-y-3">
+                <div className="text-center mt-16 space-y-3">
                     <div className="text-sm text-[#6B7280]">
                         Secure login with OTP verification
                     </div>
