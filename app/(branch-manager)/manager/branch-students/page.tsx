@@ -25,12 +25,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-    Plus, 
-    LayoutDashboard, 
-    List, 
-    ArrowLeft, 
-    Building2, 
+import {
+    Plus,
+    LayoutDashboard,
+    List,
+    ArrowLeft,
+    Building2,
     AlertCircle,
     Loader2
 } from 'lucide-react';
@@ -38,11 +38,11 @@ import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-studen
 import { CoachingAPI, type CoachingBranch } from '@/lib/coaching';
 
 interface BranchWithRole extends CoachingBranch {
-    coaching_center?: { 
-        id: string; 
-        name: string; 
-        owner_id: string; 
-        manager_id: string | null 
+    coaching_center?: {
+        id: string;
+        name: string;
+        owner_id: string;
+        manager_id: string | null
     };
     role: 'owner' | 'center_manager' | 'branch_manager';
 }
@@ -53,10 +53,10 @@ interface BranchWithRole extends CoachingBranch {
 export default function BranchManagerStudentsPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    
+
     // Get branch ID from URL if present
     const urlBranchId = searchParams.get('branch');
-    
+
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
     const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
     const [branchId, setBranchId] = useState<string | null>(urlBranchId);
@@ -77,19 +77,19 @@ export default function BranchManagerStudentsPage() {
     const fetchBranches = useCallback(async () => {
         setIsLoading(true);
         setError(null);
-        
+
         try {
             const result = await CoachingAPI.getAllAccessibleBranches();
-            
+
             if (result.success && result.data) {
                 setBranches(result.data.branches);
-                
+
                 // If only one branch, auto-select it
                 if (result.data.branches.length === 1) {
                     const singleBranch = result.data.branches[0];
                     setBranchId(singleBranch.id);
                     setCurrentBranch(singleBranch);
-                } 
+                }
                 // If branch ID is in URL, set it
                 else if (urlBranchId) {
                     const selectedBranch = result.data.branches.find(b => b.id === urlBranchId);
@@ -183,7 +183,7 @@ export default function BranchManagerStudentsPage() {
                         <Building2 className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
                         <h2 className="text-2xl font-bold mb-2">No Branches Found</h2>
                         <p className="text-muted-foreground mb-6">
-                            You don&apos;t have access to any branches yet. 
+                            You don&apos;t have access to any branches yet.
                             You need to be assigned as a branch manager or own a coaching center.
                         </p>
                         <Button onClick={() => router.push('/dashboard')}>
@@ -207,8 +207,8 @@ export default function BranchManagerStudentsPage() {
                         </p>
                     </div>
 
-                    <BranchSelection 
-                        branches={branches} 
+                    <BranchSelection
+                        branches={branches}
                         onSelectBranch={handleSelectBranch}
                     />
                 </div>
@@ -225,9 +225,9 @@ export default function BranchManagerStudentsPage() {
                     <div>
                         {/* Back button if multiple branches */}
                         {branches.length > 1 && (
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={handleBackToSelection}
                                 className="mb-2 -ml-2"
                             >
@@ -235,9 +235,9 @@ export default function BranchManagerStudentsPage() {
                                 Back to Branch Selection
                             </Button>
                         )}
-                        
+
                         <h1 className="text-3xl font-bold tracking-tight">Branch Students</h1>
-                        
+
                         {currentBranch && (
                             <div className="flex items-center gap-2 mt-1">
                                 <Building2 className="h-4 w-4 text-muted-foreground" />
@@ -246,7 +246,7 @@ export default function BranchManagerStudentsPage() {
                                 </span>
                             </div>
                         )}
-                        
+
                         <p className="text-muted-foreground mt-1">
                             Manage student enrollments, track attendance, and monitor payments for your branch
                         </p>

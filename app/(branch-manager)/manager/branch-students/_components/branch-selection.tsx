@@ -10,12 +10,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { 
-    Building2, 
-    Users, 
-    MapPin, 
-    Crown, 
-    Shield, 
+import {
+    Building2,
+    Users,
+    MapPin,
+    Crown,
+    Shield,
     UserCog,
     ArrowRight,
     Briefcase
@@ -23,11 +23,11 @@ import {
 import type { CoachingBranch } from '@/lib/schema/coaching.types';
 
 interface BranchWithRole extends CoachingBranch {
-    coaching_center?: { 
-        id: string; 
-        name: string; 
-        owner_id: string; 
-        manager_id: string | null 
+    coaching_center?: {
+        id: string;
+        name: string;
+        owner_id: string;
+        manager_id: string | null
     };
     role: 'owner' | 'center_manager' | 'branch_manager';
 }
@@ -78,8 +78,8 @@ export function BranchSelection({ branches, onSelectBranch, isLoading }: BranchS
         branchList.some(b => b.role === 'owner' || b.role === 'center_manager')
     );
 
-    const assignedBranches = branches.filter(b => 
-        b.role === 'branch_manager' && 
+    const assignedBranches = branches.filter(b =>
+        b.role === 'branch_manager' &&
         !ownedOrManagedCenters.some(([_, list]) => list.some(lb => lb.id === b.id))
     );
 
@@ -113,7 +113,7 @@ export function BranchSelection({ branches, onSelectBranch, isLoading }: BranchS
                     <p className="text-muted-foreground text-sm">
                         Coaching centers you own or manage. Select a branch to manage its students.
                     </p>
-                    
+
                     {ownedOrManagedCenters.map(([centerName, branchList]) => (
                         <div key={centerName} className="space-y-3">
                             <h3 className="font-medium text-lg flex items-center gap-2">
@@ -122,10 +122,10 @@ export function BranchSelection({ branches, onSelectBranch, isLoading }: BranchS
                             </h3>
                             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                 {branchList.map((branch) => (
-                                    <BranchCard 
-                                        key={branch.id} 
-                                        branch={branch} 
-                                        onSelect={onSelectBranch} 
+                                    <BranchCard
+                                        key={branch.id}
+                                        branch={branch}
+                                        onSelect={onSelectBranch}
                                     />
                                 ))}
                             </div>
@@ -144,13 +144,13 @@ export function BranchSelection({ branches, onSelectBranch, isLoading }: BranchS
                     <p className="text-muted-foreground text-sm">
                         Branches where you have been assigned as the branch manager.
                     </p>
-                    
+
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {assignedBranches.map((branch) => (
-                            <BranchCard 
-                                key={branch.id} 
-                                branch={branch} 
-                                onSelect={onSelectBranch} 
+                            <BranchCard
+                                key={branch.id}
+                                branch={branch}
+                                onSelect={onSelectBranch}
                             />
                         ))}
                     </div>
@@ -160,11 +160,11 @@ export function BranchSelection({ branches, onSelectBranch, isLoading }: BranchS
     );
 }
 
-function BranchCard({ 
-    branch, 
-    onSelect 
-}: { 
-    branch: BranchWithRole; 
+function BranchCard({
+    branch,
+    onSelect
+}: {
+    branch: BranchWithRole;
     onSelect: (branchId: string) => void;
 }) {
     const config = roleConfig[branch.role];
@@ -209,8 +209,8 @@ function BranchCard({
                 )}
 
                 {/* Action Button */}
-                <Button 
-                    onClick={() => onSelect(branch.id)} 
+                <Button
+                    onClick={() => onSelect(branch.id)}
                     className="w-full group-hover:bg-primary/90"
                 >
                     <Users className="h-4 w-4 mr-2" />
