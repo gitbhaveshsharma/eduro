@@ -126,6 +126,8 @@ export const CoachingAPI = {
   // Branch operations
   getBranch: CoachingService.getCoachingBranch,
   getBranchesByCenter: CoachingService.getBranchesByCenter,
+  getMyManagedBranches: CoachingService.getMyManagedBranches,
+  getAllAccessibleBranches: CoachingService.getAllAccessibleBranches,
   createBranch: CoachingService.createCoachingBranch,
   updateBranch: CoachingService.updateCoachingBranch,
   deleteBranch: CoachingService.deleteCoachingBranch,
