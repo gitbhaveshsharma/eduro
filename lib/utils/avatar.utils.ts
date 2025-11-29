@@ -161,30 +161,32 @@ export class AvatarUtils {
 
   /**
    * Return a client-usage URL (proxied when configured).
-   * If NEXT_PUBLIC_AVATAR_PROXY === 'true' and running in the browser,
-   * returns an app-relative proxy route that will fetch the remote image.
+   * If NEXT_PUBLIC_AVATAR_PROXY === 'false' is NOT set, returns an app-relative 
+   * proxy route that will fetch the remote image.
    */
   static getPublicAvatarUrlFromRemote(remoteUrl: string): string {
     // Decide when to use the in-app proxy for remote avatar images.
-    // We proxy client requests when either:
-    //  - NEXT_PUBLIC_AVATAR_PROXY is explicitly set to 'true', or
-    //  - no explicit setting is provided and we're running in production.
-    // This ensures deployed sites that enable COEP/COOP (which block cross-origin
-    // image embedding unless the resource has a CORP header) will load avatars
-    // via the local `/api/avatar-proxy` which adds the required headers.
+    // We proxy client requests by default in both development and production.
+    // This ensures:
+    //  - Consistent behavior between localhost and deployed sites
+    //  - Proper CORS headers for cross-origin image embedding
+    //  - Avatar images go through `/api/avatar-proxy` which adds required headers
+    // 
+    // To disable the proxy, set NEXT_PUBLIC_AVATAR_PROXY=false
     // Keep the behavior client-only to avoid changing server-side image generation.
     const isClient = typeof window !== 'undefined';
 
     // Read runtime env variables (NEXT_PUBLIC_* are inlined for the client by Next.js)
     const envFlag = process.env.NEXT_PUBLIC_AVATAR_PROXY;
-    const isProduction = process.env.NODE_ENV === 'production';
 
-    const useProxy = isClient && (envFlag === 'true' || (envFlag === undefined && isProduction));
+    // Use proxy by default unless explicitly disabled with 'false'
+    const useProxy = isClient && envFlag !== 'false';
 
     if (!useProxy) return remoteUrl;
 
     // Proxy endpoint within the app (relative URL works in browser and SSR-rendered HTML)
-    return `/api/avatar-proxy?url=${encodeURIComponent(remoteUrl)}`;
+    // Add cache version to bust stale CDN cache entries (increment when fixing cache issues)
+    return `/api/avatar-proxy?v=2&url=${encodeURIComponent(remoteUrl)}`;
   }
 
   /**
