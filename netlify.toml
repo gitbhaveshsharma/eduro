@@ -1,0 +1,22 @@
+# Netlify configuration for Next.js deployment
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+# Ensure Netlify plugin for Next.js is used
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Configure headers for avatar-proxy API route
+# CRITICAL: Disable Netlify Edge caching for this route
+# Each unique URL parameter must return its own image
+[[headers]]
+  for = "/api/avatar-proxy*"
+  [headers.values]
+    # No caching at Netlify Edge - bypass completely
+    Netlify-CDN-Cache-Control = "no-store, no-cache, must-revalidate"
+    CDN-Cache-Control = "no-store"
+    # Let browser cache but not CDN
+    Cache-Control = "public, max-age=3600, s-maxage=0"
+
