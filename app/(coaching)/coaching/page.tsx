@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useCoachingStore } from '@/lib/store/coaching.store';
 import { useCoachingFilterPanel } from '@/components/coaching/search/coaching-filter-panel-context';
 import type {
@@ -19,12 +20,15 @@ import { Loader2 } from 'lucide-react';
  * Main page for searching and discovering coaching centers
  * Features:
  * - Integrated search in Universal Header (via CoachingSearch component with Filters button)
+ * - URL-based search query support (for navigation from subpages)
  * - Advanced filtering with CoachingFiltersPanel
  * - Infinite scroll support
  * - Result caching via Zustand store
  * - Responsive design
  */
 export default function CoachingCentersPage() {
+    const searchParams = useSearchParams();
+
     // Store hooks
     const {
         searchCoachingCenters,
@@ -41,6 +45,7 @@ export default function CoachingCentersPage() {
 
     // Local UI state
     const [currentPage, setCurrentPage] = useState(1);
+    const [hasInitialized, setHasInitialized] = useState(false);
 
     // Constants
     const perPage = 20;
@@ -76,13 +81,28 @@ export default function CoachingCentersPage() {
         }));
     }, [searchItems]);
 
-    // Initial load - only once on mount
+    // Initial load - check URL params and load
     useEffect(() => {
-        // If we don't have cached results, do initial search
-        if (!centerSearchResults) {
+        if (hasInitialized) return;
+
+        const urlQuery = searchParams.get('q');
+
+        // If there's a URL query param, use it to initialize filters
+        if (urlQuery) {
+            const filtersWithQuery: CoachingCenterFilters = {
+                ...currentCenterFilters,
+                search_query: urlQuery.trim()
+            };
+            console.log('🔷 CoachingPage - Initializing with URL query:', urlQuery);
+            updateCenterFilters(filtersWithQuery);
+            searchCoachingCenters(filtersWithQuery, currentCenterSortBy, 1, perPage);
+        } else if (!centerSearchResults) {
+            // No URL query and no cached results, do initial search
             searchCoachingCenters(currentCenterFilters, currentCenterSortBy, 1, perPage);
         }
-    }, []); // Empty deps - run only on mount
+
+        setHasInitialized(true);
+    }, [searchParams, hasInitialized]); // Only depend on searchParams and init flag
 
     // Handle filter changes (debouncing is handled in CoachingSearchHeader)
     const handleFiltersChange = useCallback((newFilters: CoachingCenterFilters) => {

@@ -40,10 +40,23 @@ export function CoachingFilterPanelProvider({ children }: { children: ReactNode 
     );
 }
 
-export function useCoachingFilterPanel() {
+/**
+ * Hook to access the coaching filter panel context
+ * Returns null if used outside CoachingFilterPanelProvider (safe fallback)
+ */
+export function useCoachingFilterPanel(): CoachingFilterPanelContextType {
     const context = useContext(CoachingFilterPanelContext);
+
+    // Return a safe default if context is not available
+    // This allows the component to work outside the provider (on subpages)
     if (context === undefined) {
-        throw new Error('useCoachingFilterPanel must be used within CoachingFilterPanelProvider');
+        return {
+            isOpen: false,
+            toggle: () => { },
+            open: () => { },
+            close: () => { },
+        };
     }
+
     return context;
 }

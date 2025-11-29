@@ -1,6 +1,10 @@
+import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/avatar'
 import type { Profile } from '@/lib/profile'
+import { ProfileUrlUtils } from '@/lib/utils/profile.utils'
+import { Eye } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 // Lazy-load AvatarManager (client-side only)
@@ -27,9 +31,12 @@ const getRoleDisplay = (role: string) => {
 
 export function DashboardHeader({ profile }: { profile: Profile }) {
     const roleInfo = getRoleDisplay(profile.role || 'S')
+    const publicProfileUrl = profile.username
+        ? ProfileUrlUtils.getProfileUrl(profile.username)
+        : null
 
     return (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-4">
                 {/* SSR-visible static avatar (renders instantly) */}
                 <div className="relative">
@@ -55,9 +62,21 @@ export function DashboardHeader({ profile }: { profile: Profile }) {
                 </div>
             </div>
 
-            <Badge className={roleInfo.color}>
-                {roleInfo.label}
-            </Badge>
+            <div className="flex items-center gap-3">
+                {/* View Public Profile Button */}
+                {publicProfileUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={publicProfileUrl}>
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Public Profile
+                        </Link>
+                    </Button>
+                )}
+
+                <Badge className={roleInfo.color}>
+                    {roleInfo.label}
+                </Badge>
+            </div>
         </div>
     )
 }
