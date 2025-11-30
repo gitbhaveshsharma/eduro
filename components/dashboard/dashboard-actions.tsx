@@ -148,7 +148,7 @@ export function DashboardActions({ role }: DashboardActionsProps) {
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     {/* Manage Classes Card */}
                     <Card className="group cursor-pointer h-full flex flex-col border-2 border-transparent hover:border-primary/20 hover:shadow-lg transition-all duration-300 bg-gradient-to-br from-white to-orange-50/30 p-0">
-                        <Link href="/coach/branch-classes" className="flex flex-col flex-1">
+                        <Link href="/lms/coach/branch-classes" className="flex flex-col flex-1">
                             <CardContent className="p-6 flex flex-col flex-1">
                                 <div className="flex items-start justify-between mb-4">
                                     <div className="p-3 bg-orange-100/80 rounded-full group-hover:bg-orange-100 transition-colors">
