@@ -14,7 +14,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar, Clock, FileText, User, Edit, Trash2 } from 'lucide-react';
 import {
     useCurrentAttendanceRecord,
-    useAttendanceActions,
+    useSetCurrentRecord,
+    useDeleteAttendance,
     formatAttendanceStatus,
     formatTime,
     formatDuration,
@@ -25,7 +26,8 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function AttendanceDetailsDialog() {
     const currentRecord = useCurrentAttendanceRecord();
-    const { setCurrentRecord, deleteAttendance } = useAttendanceActions();
+    const setCurrentRecord = useSetCurrentRecord();
+    const deleteAttendance = useDeleteAttendance();
 
     if (!currentRecord) return null;
 

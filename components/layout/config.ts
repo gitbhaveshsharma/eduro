@@ -77,19 +77,19 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
 export const LMS_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'dashboard',
-        label: 'Dashboard',
+        label: 'HOME',
         icon: Home,
         href: '/dashboard',
         platforms: ['lms'],
         devices: ['mobile', 'tablet']
     },
     {
-        id: 'courses',
-        label: 'Courses',
+        id: 'lms',
+        label: 'LMS',
         icon: BookOpen,
-        href: '/courses',
+        href: '/lms',
         platforms: ['lms'],
-        devices: ['mobile', 'tablet']
+        devices: ['mobile', 'tablet', 'desktop']
     },
     {
         id: 'assignments',
@@ -360,6 +360,96 @@ export const COACHING_HEADER_ITEMS: HeaderItem[] = [
 ];
 
 /**
+ * LMS Coach page header items (for coaching center owners)
+ */
+export const LMS_COACH_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-coach']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-coach']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-coach']
+        }
+    }
+];
+
+/**
+ * LMS Branch Manager page header items (for assigned branch managers)
+ */
+export const LMS_BRANCH_MANAGER_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-branch-manager']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-branch-manager']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-branch-manager']
+        }
+    }
+];
+
+/**
  * Profile page header items
  */
 export const PROFILE_HEADER_ITEMS: HeaderItem[] = [
@@ -468,6 +558,13 @@ export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
  * LMS Coach sidebar items (for unified coach view across all branches)
  */
 export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/lms/coach',
+        description: 'Coaching center overview',
+    },
     {
         id: 'branch-students',
         label: 'All Students',
@@ -612,9 +709,9 @@ export class LayoutUtils {
             case 'profile':
                 return PROFILE_HEADER_ITEMS;
             case 'lms-coach':
+                return LMS_COACH_HEADER_ITEMS;
             case 'lms-branch-manager':
-                // LMS pages use custom items passed via props
-                return [];
+                return LMS_BRANCH_MANAGER_HEADER_ITEMS;
             default:
                 return [];
         }

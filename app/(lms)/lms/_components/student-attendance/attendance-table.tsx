@@ -25,7 +25,9 @@ import { UserCheck, UserX, Clock, FileText, MoreVertical, Eye, Edit, Trash2 } fr
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
-    useAttendanceActions,
+    useFetchDailyAttendance,
+    useMarkAttendance,
+    useSetCurrentRecord,
     useAttendanceLoading,
     AttendanceStatus,
     formatAttendanceStatus,
@@ -41,7 +43,9 @@ export default function AttendanceTable() {
 
     const dailyRecords = useDailyAttendanceRecords();
     const loading = useAttendanceLoading();
-    const { fetchDailyAttendance, markAttendance, setCurrentRecord } = useAttendanceActions();
+    const fetchDailyAttendance = useFetchDailyAttendance();
+    const markAttendance = useMarkAttendance();
+    const setCurrentRecord = useSetCurrentRecord();
 
     useEffect(() => {
         fetchDailyAttendance(selectedClass, selectedDate);

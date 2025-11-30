@@ -1,16 +1,3 @@
-/**
- * LMS Entry Page
- * 
- * Main landing page for the LMS system that allows users to:
- * 1. Access their own coaching centers (navigate to /coach routes - unified view)
- * 2. Access assigned branches (navigate to /manager/branches/:branchId routes)
- * 
- * Flow:
- * - Coach A owns coaching center with branches → Goes to /coach (unified view)
- * - Coach B is assigned as branch manager of A's branch → Goes to /manager/branches/:branchId
- * - If B also owns a coaching center → Can choose between own center (/coach) or assigned branch (/manager)
- */
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -19,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
 import {
     Building2,
@@ -32,10 +18,17 @@ import {
     AlertCircle,
     GraduationCap,
     Users,
-    LayoutDashboard
+    LayoutDashboard,
+    ArrowLeft,
+    Bell,
+    Home
 } from 'lucide-react';
 import { CoachingAPI } from '@/lib/coaching';
 import type { CoachingCenter, CoachingBranch } from '@/lib/schema/coaching.types';
+import { UserAvatar } from '@/components/avatar';
+import { useCurrentProfile } from '@/lib/profile';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface BranchWithRole extends CoachingBranch {
     coaching_center?: {
@@ -77,11 +70,136 @@ const roleConfig = {
 };
 
 /**
+ * Simple Header Component for LMS Entry Page
+ */
+function LMSEntryHeader({
+    notificationCount = 0,
+    onNotificationClick,
+    onBackClick
+}: {
+    notificationCount?: number;
+    onNotificationClick?: () => void;
+    onBackClick?: () => void;
+}) {
+    const router = useRouter();
+    const profile = useCurrentProfile();
+
+    return (
+        <header className="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+            <div className="max-w-7xl mx-auto px-4">
+                <div className="flex items-center justify-between h-16 gap-4">
+                    {/* Left Side - Back Button */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onBackClick || (() => router.back())}
+                            className="h-10 w-full p-0 hover:bg-gray-100 rounded-lg"
+                            aria-label="Go back"
+                        >
+                            <ArrowLeft className="h-5 w-5" /> Back
+                        </Button>
+                    </div>
+                    {/* Center - Title */}
+                    <div className="flex items-center justify-center flex-grow">
+                        <h1 className="text-lg font-semibold">Tutrsy LMS</h1>
+                    </div>
+
+                    {/* Right Side - Actions */}
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                        {/* Feed/Home Button */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push('/dashboard')}
+                            className="h-10 p-0 hover:bg-gray-100 rounded-lg"
+                        >
+                            <Home className="h-5 w-5" /> Home
+                        </Button>
+
+                        {/* Notifications */}
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={onNotificationClick}
+                            className="relative h-10 w-10 p-0 hover:bg-gray-100 rounded-full"
+                            aria-label="Notifications"
+                        >
+                            <Bell className="h-5 w-5" />
+                            {notificationCount > 0 && (
+                                <Badge
+                                    variant="destructive"
+                                    className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs rounded-full"
+                                >
+                                    {notificationCount > 9 ? '9+' : notificationCount}
+                                </Badge>
+                            )}
+                        </Button>
+
+                        {/* User Avatar */}
+                        {profile && (
+                            <UserAvatar
+                                profile={profile}
+                                size="sm"
+                                showOnlineStatus
+                                className="cursor-pointer hover:ring-2 hover:ring-gray-200 transition-all"
+                                onClick={() => router.push('/dashboard')}
+                            />
+                        )}
+                    </div>
+                </div>
+            </div>
+        </header>
+    );
+}
+
+/**
+ * Skeleton Loading Component for Data Fetch
+ */
+function LMSDataSkeleton() {
+    return (
+        <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
+            <div className="max-w-6xl mx-auto space-y-6 p-6">
+                <div className="space-y-2">
+                    <Skeleton className="h-10 w-64" />
+                    <Skeleton className="h-5 w-96" />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[1, 2, 3].map((i) => (
+                        <Card key={i} className="border-2">
+                            <CardHeader className="pb-3">
+                                <div className="space-y-3">
+                                    <Skeleton className="h-6 w-3/4" />
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-4 w-2/3" />
+                                </div>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <Skeleton className="h-8 w-8 rounded-full" />
+                                    <div className="space-y-1 flex-1">
+                                        <Skeleton className="h-4 w-24" />
+                                        <Skeleton className="h-3 w-32" />
+                                    </div>
+                                </div>
+                                <Skeleton className="h-4 w-40" />
+                                <Skeleton className="h-10 w-full" />
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
  * LMS Entry Page Component
  */
 export default function LMSEntryPage() {
     const router = useRouter();
-    const [isLoading, setIsLoading] = useState(true);
+    const [isPageLoading, setIsPageLoading] = useState(true);
+    const [isDataLoading, setIsDataLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [ownedCenters, setOwnedCenters] = useState<CoachingCenterWithBranches[]>([]);
     const [assignedBranches, setAssignedBranches] = useState<BranchWithRole[]>([]);
@@ -90,7 +208,7 @@ export default function LMSEntryPage() {
      * Fetch user's coaching centers and assigned branches
      */
     const fetchData = useCallback(async () => {
-        setIsLoading(true);
+        setIsDataLoading(true);
         setError(null);
 
         try {
@@ -143,8 +261,8 @@ export default function LMSEntryPage() {
             const totalAssignedBranches = assignedBranchList.length;
 
             if (totalOwnedCenters === 1 && totalAssignedBranches === 0) {
-                // Only one coaching center owned, go directly to coach route
-                router.push('/lms/coach/branch-students');
+                // Only one coaching center owned, go directly to coach dashboard
+                router.push('/lms/coach');
             } else if (totalOwnedCenters === 0 && totalAssignedBranches === 1) {
                 // Only one assigned branch, go directly to manager route
                 router.push(`/lms/manager/branches/${assignedBranchList[0].id}/dashboard`);
@@ -153,164 +271,179 @@ export default function LMSEntryPage() {
             console.error('Error fetching LMS data:', err);
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
-            setIsLoading(false);
+            setIsDataLoading(false);
         }
     }, [router]);
 
     useEffect(() => {
-        fetchData();
+        // Initial page load - show full page spinner
+        const initializePage = async () => {
+            await fetchData();
+            setIsPageLoading(false);
+        };
+
+        initializePage();
     }, [fetchData]);
 
     /**
      * Navigate to coaching center (unified coach view)
      */
     const handleSelectCoachingCenter = (center: CoachingCenterWithBranches) => {
-        // Navigate to coach route - unified view for all branches of this center
-        router.push('/lms/coach/branch-students');
+        router.push('/lms/coach');
     };
 
     /**
      * Navigate to assigned branch (branch manager view)
      */
     const handleSelectAssignedBranch = (branch: BranchWithRole) => {
-        // Navigate to manager route with branch ID
         router.push(`/lms/manager/branches/${branch.id}/dashboard`);
     };
 
-    // Loading state
-    if (isLoading) {
+    // Initial page loading state - show full page spinner
+    if (isPageLoading) {
         return (
-            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
-                <div className="max-w-6xl mx-auto space-y-6 p-6">
-                    <div className="space-y-2">
-                        <Skeleton className="h-10 w-64" />
-                        <Skeleton className="h-5 w-96" />
-                    </div>
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {[1, 2, 3].map((i) => (
-                            <Skeleton key={i} className="h-64 rounded-lg" />
-                        ))}
-                    </div>
-                </div>
-            </div>
+            <LoadingSpinner
+                title="Loading LMS"
+                message="Setting up your learning management system..."
+                size="lg"
+                variant="primary"
+                fullscreen
+            />
+        );
+    }
+
+    // Data loading state - show skeleton with header
+    if (isDataLoading) {
+        return (
+            <>
+                <LMSEntryHeader />
+                <LMSDataSkeleton />
+            </>
         );
     }
 
     // Error state
     if (error) {
         return (
-            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
-                <div className="max-w-6xl mx-auto p-6">
-                    <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Error</AlertTitle>
-                        <AlertDescription>{error}</AlertDescription>
-                    </Alert>
-                    <Button onClick={fetchData} className="mt-4">
-                        Try Again
-                    </Button>
+            <>
+                <LMSEntryHeader />
+                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
+                    <div className="max-w-6xl mx-auto p-6">
+                        <Alert variant="destructive">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Error</AlertTitle>
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                        <Button onClick={fetchData} className="mt-4">
+                            Try Again
+                        </Button>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
     // No access state
     if (ownedCenters.length === 0 && assignedBranches.length === 0) {
         return (
-            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
-                <div className="max-w-6xl mx-auto p-6">
-                    <div className="text-center py-16">
-                        <div className="h-20 w-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-6">
-                            <GraduationCap className="h-10 w-10 text-primary" />
-                        </div>
-                        <h2 className="text-3xl font-bold mb-3">Welcome to LMS</h2>
-                        <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                            You don&apos;t have any coaching centers or branch assignments yet.
-                            Create a coaching center or get assigned to a branch to access the LMS.
-                        </p>
-                        <div className="flex gap-4 justify-center">
-                            <Button onClick={() => router.push('/coaching/create')}>
-                                <Building2 className="h-4 w-4 mr-2" />
-                                Create Coaching Center
-                            </Button>
-                            <Button variant="outline" onClick={() => router.push('/dashboard')}>
-                                Go to Dashboard
-                            </Button>
+            <>
+                <LMSEntryHeader />
+                <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
+                    <div className="max-w-6xl mx-auto p-6">
+                        <div className="text-center py-16">
+                            <div className="h-20 w-20 mx-auto rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                                <GraduationCap className="h-10 w-10 text-primary" />
+                            </div>
+                            <h2 className="text-3xl font-bold mb-3">Welcome to LMS</h2>
+                            <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+                                You don&apos;t have any coaching centers or branch assignments yet.
+                                Create a coaching center or get assigned to a branch to access the LMS.
+                            </p>
+                            <div className="flex gap-4 justify-center">
+                                <Button onClick={() => router.push('/coaching/create')}>
+                                    <Building2 className="h-4 w-4 mr-2" />
+                                    Create Coaching Center
+                                </Button>
+                                <Button variant="outline" onClick={() => router.push('/dashboard')}>
+                                    Go to Dashboard
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            </>
         );
     }
 
     return (
-        <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
-            <div className="max-w-6xl mx-auto space-y-8 p-6">
-                {/* Page Header */}
-                <div className="text-center space-y-2">
-                    <div className="flex items-center justify-center gap-3 mb-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                            <GraduationCap className="h-6 w-6 text-primary" />
-                        </div>
+        <>
+            <LMSEntryHeader
+                notificationCount={0}
+                onNotificationClick={() => router.push('/notifications')}
+            />
+            <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
+                <div className="max-w-6xl mx-auto space-y-8 p-6">
+                    {/* Page Title */}
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-bold">Learning Management System</h1>
+                        <p className="text-muted-foreground">
+                            Select a coaching center or branch to manage
+                        </p>
                     </div>
-                    <h1 className="text-3xl font-bold tracking-tight">Learning Management System</h1>
-                    <p className="text-muted-foreground max-w-lg mx-auto">
-                        Select your coaching center or assigned branch to manage students, classes, attendance, and fees.
-                    </p>
+
+                    {/* Owned/Managed Coaching Centers */}
+                    {ownedCenters.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <Briefcase className="h-5 w-5 text-primary" />
+                                <h2 className="text-xl font-semibold">Your Coaching Centers</h2>
+                            </div>
+                            <p className="text-muted-foreground text-sm">
+                                Coaching centers you own or manage. Access unified management across all branches.
+                            </p>
+
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {ownedCenters.map((center) => (
+                                    <CoachingCenterCard
+                                        key={center.id}
+                                        center={center}
+                                        onSelect={handleSelectCoachingCenter}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Separator if both sections exist */}
+                    {ownedCenters.length > 0 && assignedBranches.length > 0 && (
+                        <Separator className="my-8" />
+                    )}
+
+                    {/* Assigned Branches */}
+                    {assignedBranches.length > 0 && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2">
+                                <UserCog className="h-5 w-5 text-green-600" />
+                                <h2 className="text-xl font-semibold">Assigned Branches</h2>
+                            </div>
+                            <p className="text-muted-foreground text-sm">
+                                Branches where you are assigned as the branch manager. Manage students and operations for each branch.
+                            </p>
+
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                {assignedBranches.map((branch) => (
+                                    <AssignedBranchCard
+                                        key={branch.id}
+                                        branch={branch}
+                                        onSelect={handleSelectAssignedBranch}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
-
-                {/* Owned/Managed Coaching Centers */}
-                {ownedCenters.length > 0 && (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <Briefcase className="h-5 w-5 text-primary" />
-                            <h2 className="text-xl font-semibold">Your Coaching Centers</h2>
-                        </div>
-                        <p className="text-muted-foreground text-sm">
-                            Coaching centers you own or manage. Access unified management across all branches.
-                        </p>
-
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {ownedCenters.map((center) => (
-                                <CoachingCenterCard
-                                    key={center.id}
-                                    center={center}
-                                    onSelect={handleSelectCoachingCenter}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                {/* Separator if both sections exist */}
-                {ownedCenters.length > 0 && assignedBranches.length > 0 && (
-                    <Separator className="my-8" />
-                )}
-
-                {/* Assigned Branches */}
-                {assignedBranches.length > 0 && (
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2">
-                            <UserCog className="h-5 w-5 text-green-600" />
-                            <h2 className="text-xl font-semibold">Assigned Branches</h2>
-                        </div>
-                        <p className="text-muted-foreground text-sm">
-                            Branches where you are assigned as the branch manager. Manage students and operations for each branch.
-                        </p>
-
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                            {assignedBranches.map((branch) => (
-                                <AssignedBranchCard
-                                    key={branch.id}
-                                    branch={branch}
-                                    onSelect={handleSelectAssignedBranch}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
             </div>
-        </div>
+        </>
     );
 }
 

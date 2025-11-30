@@ -1,39 +1,28 @@
-/**
- * Coach LMS Layout
- * 
- * Layout for coaching center owner/manager routes
- * Uses ConditionalLayout with UniversalHeader for consistent UI
- * Shows coaching center branding (logo + name) for white-label experience
- * 
- * This is the unified view for coaches - they can manage ALL branches
- * of their coaching center from a single interface
- */
-
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext } from 'react';
+import { useState, useEffect, useCallback, createContext, useContext, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     Building2,
     ArrowLeft,
     AlertCircle,
 } from 'lucide-react';
-import { CoachingAPI } from '@/lib/coaching';
 import { useMyCoachingCenters, useMyCoachingCentersLoading, useCoachingStore } from '@/lib/coaching';
 import type { CoachingCenter } from '@/lib/schema/coaching.types';
 import { ConditionalLayout } from '@/components/layout/conditional-layout';
 import { LayoutUtils } from '@/components/layout/config';
 import type { BrandingConfig, SidebarItem } from '@/components/layout/types';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 /**
  * Coach Context - Provides coaching center data across coach routes
+ * Child pages should use this instead of loading data themselves
  */
 interface CoachContextType {
     coachingCenter: CoachingCenter | null;
+    coachingCenterId: string | null;
     isLoading: boolean;
     error: string | null;
     refetch: () => Promise<void>;
@@ -41,6 +30,7 @@ interface CoachContextType {
 
 const CoachContext = createContext<CoachContextType>({
     coachingCenter: null,
+    coachingCenterId: null,
     isLoading: true,
     error: null,
     refetch: async () => { },
@@ -57,74 +47,116 @@ interface CoachLayoutProps {
 export default function CoachLayout({ children }: CoachLayoutProps) {
     const router = useRouter();
 
-    // Get coaching centers from store
+    // Get coaching centers from store using stable selectors
     const myCoachingCenters = useMyCoachingCenters();
     const loading = useMyCoachingCentersLoading();
-    const { loadMyCoachingCenters } = useCoachingStore();
+    const loadMyCoachingCenters = useCoachingStore((state) => state.loadMyCoachingCenters);
 
-    const [coachingCenter, setCoachingCenter] = useState<CoachingCenter | null>(null);
-    const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
+    // Use refs to prevent duplicate API calls and infinite loops
+    const hasLoadedRef = useRef(false);
     const [error, setError] = useState<string | null>(null);
 
     /**
-     * Load coaching centers on mount
+     * Load coaching centers on mount - ONLY ONCE
      */
-    const loadCenters = useCallback(async () => {
-        if (loading || hasAttemptedLoad) return;
-
-        try {
-            await loadMyCoachingCenters();
-            setHasAttemptedLoad(true);
-        } catch (err) {
-            console.error('Error loading coaching centers:', err);
-            setError(err instanceof Error ? err.message : 'Failed to load coaching center');
-        }
-    }, [loading, hasAttemptedLoad, loadMyCoachingCenters]);
-
     useEffect(() => {
+        // If already loaded or currently loading, skip
+        if (hasLoadedRef.current) {
+            return;
+        }
+
+        const loadCenters = async () => {
+            try {
+                await loadMyCoachingCenters();
+            } catch (err) {
+                console.error('[CoachLayout] Error loading coaching centers:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load coaching center');
+            } finally {
+                // Mark as loaded regardless of success/failure
+                hasLoadedRef.current = true;
+            }
+        };
+
         loadCenters();
-    }, [loadCenters]);
+    }, [loadMyCoachingCenters]);
 
-    // Set primary coaching center when loaded
-    useEffect(() => {
-        if (myCoachingCenters && myCoachingCenters.length > 0) {
-            setCoachingCenter(myCoachingCenters[0]);
-        }
+    // Get primary coaching center - use useMemo to prevent unnecessary recalculations
+    const coachingCenter = useMemo(() => {
+        return myCoachingCenters && myCoachingCenters.length > 0 ? myCoachingCenters[0] : null;
     }, [myCoachingCenters]);
+
+    const coachingCenterId = coachingCenter?.id || null;
 
     /**
      * Refetch coaching center data
      */
     const refetch = useCallback(async () => {
-        setHasAttemptedLoad(false);
+        hasLoadedRef.current = false;
         setError(null);
-        await loadCenters();
-    }, [loadCenters]);
+        try {
+            await loadMyCoachingCenters();
+        } catch (err) {
+            console.error('[CoachLayout] Error refetching coaching centers:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load coaching center');
+        } finally {
+            hasLoadedRef.current = true;
+        }
+    }, [loadMyCoachingCenters]);
 
-    // Loading state
-    if (loading || !hasAttemptedLoad) {
+    // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
+    // Build branding config from coaching center data - MEMOIZED to prevent re-renders
+    const branding: BrandingConfig = useMemo(() => ({
+        logoUrl: coachingCenter?.logo_url || null,
+        name: coachingCenter?.name || 'Coaching Center',
+        subtitle: 'All Branches',
+    }), [coachingCenter?.logo_url, coachingCenter?.name]);
+
+    // Get sidebar items for coach view - MEMOIZED since it's static
+    const sidebarItems: SidebarItem[] = useMemo(
+        () => LayoutUtils.getSidebarItemsForPage('lms-coach'),
+        []
+    );
+
+    // Memoize the forceConfig to prevent ConditionalLayout re-renders
+    const forceConfig = useMemo(() => ({
+        page: 'lms-coach' as const,
+        headerType: 'universal' as const,
+        showBottomNav: false,
+        branding,
+        sidebar: {
+            enabled: true,
+            defaultOpen: true,
+            position: 'left' as const,
+            width: '280px',
+            collapsible: true,
+            overlay: true,
+        },
+    }), [branding]);
+
+    // Memoize context value to prevent child re-renders
+    const contextValue = useMemo(() => ({
+        coachingCenter,
+        coachingCenterId,
+        isLoading: loading,
+        error,
+        refetch,
+    }), [coachingCenter, coachingCenterId, loading, error, refetch]);
+
+    // Show loading state if:
+    // 1. Store is loading AND we haven't finished the initial load attempt
+    // 2. OR we're still loading and don't have data yet
+    const isInitialLoading = !hasLoadedRef.current || (loading && !coachingCenter && !error);
+
+    // Loading state - shows while data is being fetched
+    if (isInitialLoading) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
-                <div className="flex">
-                    {/* Sidebar Skeleton */}
-                    <div className="hidden lg:block w-64 border-r bg-background p-4 space-y-4">
-                        <Skeleton className="h-8 w-32" />
-                        <Skeleton className="h-4 w-48" />
-                        <Separator />
-                        {[1, 2, 3, 4].map((i) => (
-                            <Skeleton key={i} className="h-10 w-full" />
-                        ))}
-                    </div>
-                    {/* Content Skeleton */}
-                    <div className="flex-1 p-6">
-                        <Skeleton className="h-10 w-64 mb-6" />
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                            {[1, 2, 3, 4].map((i) => (
-                                <Skeleton key={i} className="h-32 rounded-lg" />
-                            ))}
-                        </div>
-                    </div>
-                </div>
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
+                <LoadingSpinner
+                    title={coachingCenter?.name || 'Coaching Center'}
+                    message="Loading your coaching center..."
+                    size="lg"
+                    variant="primary"
+                />
             </div>
         );
     }
@@ -151,7 +183,7 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
         );
     }
 
-    // No coaching center found
+    // No coaching center found - Only shown AFTER load completes
     if (!coachingCenter) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 p-6">
@@ -176,42 +208,11 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
         );
     }
 
-    // Build branding config from coaching center data
-    // This creates the white-label experience showing the coaching center's logo and name
-    const branding: BrandingConfig = {
-        logoUrl: coachingCenter.logo_url || null,
-        name: coachingCenter.name,
-        subtitle: 'All Branches', // Indicate unified view across branches
-    };
-
-    // Get sidebar items for coach view
-    const sidebarItems: SidebarItem[] = LayoutUtils.getSidebarItemsForPage('lms-coach');
-
     return (
-        <CoachContext.Provider
-            value={{
-                coachingCenter,
-                isLoading: loading,
-                error,
-                refetch,
-            }}
-        >
+        <CoachContext.Provider value={contextValue}>
             <ConditionalLayout
                 platform="lms"
-                forceConfig={{
-                    page: 'lms-coach',
-                    headerType: 'universal',
-                    showBottomNav: false,
-                    branding, // Pass branding for white-label header
-                    sidebar: {
-                        enabled: true,
-                        defaultOpen: true,
-                        position: 'left',
-                        width: '280px',
-                        collapsible: true,
-                        overlay: true,
-                    },
-                }}
+                forceConfig={forceConfig}
                 sidebarItems={sidebarItems}
             >
                 <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">

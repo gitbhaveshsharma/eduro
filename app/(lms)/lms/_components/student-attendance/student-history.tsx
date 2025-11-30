@@ -19,7 +19,8 @@ import { Calendar, TrendingUp, TrendingDown, Award } from 'lucide-react';
 import {
     useAttendanceRecords,
     useAttendanceSummary,
-    useAttendanceActions,
+    useFetchStudentAttendance,
+    useFetchStudentSummary,
     useAttendanceLoading,
     formatAttendanceDate,
     formatAttendanceStatus,
@@ -35,7 +36,8 @@ export default function StudentHistory() {
     const records = useAttendanceRecords();
     const summary = useAttendanceSummary();
     const loading = useAttendanceLoading();
-    const { fetchStudentAttendance, fetchStudentSummary } = useAttendanceActions();
+    const fetchStudentAttendance = useFetchStudentAttendance();
+    const fetchStudentSummary = useFetchStudentSummary();
 
     useEffect(() => {
         if (selectedStudent) {

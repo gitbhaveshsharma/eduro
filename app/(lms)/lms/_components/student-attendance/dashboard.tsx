@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -24,40 +24,82 @@ import { format } from 'date-fns';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
-    useAttendanceActions,
     useAttendanceLoading,
     useDailyAttendanceStats,
     useClassAttendanceReport,
+    useFetchCoachingCenterDailyAttendance,
+    useFetchBranchDailyAttendance,
+    useFetchClassReport,
     AttendanceStatus,
     formatAttendanceDate,
     getAttendancePerformanceColor,
     getAttendancePerformanceLevel,
 } from '@/lib/branch-system/student-attendance';
 import { showErrorToast } from '@/lib/toast';
+import { useCoachContext } from '@/app/(lms)/lms/(coach)/coach/layout';
 
-export default function Dashboard() {
+/**
+ * Dashboard Props
+ * For coach view: pass coachingCenterId
+ * For branch manager view: pass branchId
+ */
+interface DashboardProps {
+    coachingCenterId?: string;
+    branchId?: string;
+}
+
+export default function Dashboard({ coachingCenterId: propCoachingCenterId, branchId }: DashboardProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedClass, setSelectedClass] = useState<string>('default-class-id');
 
+    // Try to get coaching center from context if not provided via props
+    const coachContext = useCoachContext();
+    const coachingCenterId = propCoachingCenterId || coachContext?.coachingCenterId;
+
+    // Track if we've already fetched for this date/id combo
+    const lastFetchRef = useRef<string | null>(null);
+
+    // Use individual stable hooks instead of useAttendanceActions
     const dailyRecords = useDailyAttendanceRecords();
     const loading = useAttendanceLoading();
     const stats = useDailyAttendanceStats();
     const classReport = useClassAttendanceReport();
-    const { fetchDailyAttendance, fetchClassReport } = useAttendanceActions();
+
+    const fetchCoachingCenterDailyAttendance = useFetchCoachingCenterDailyAttendance();
+    const fetchBranchDailyAttendance = useFetchBranchDailyAttendance();
+    const fetchClassReport = useFetchClassReport();
+
+    // Determine which fetch function to use based on context
+    const isCoachView = !!coachingCenterId && !branchId;
+    const isBranchView = !!branchId;
 
     useEffect(() => {
         const dateString = format(selectedDate, 'yyyy-MM-dd');
-        fetchDailyAttendance(selectedClass, dateString).catch((error) => {
-            showErrorToast('Failed to fetch daily attendance');
-            console.error('Fetch error:', error);
-        });
-    }, [selectedDate, selectedClass, fetchDailyAttendance]);
+        const fetchKey = `${isCoachView ? coachingCenterId : branchId}-${dateString}`;
 
-    useEffect(() => {
-        fetchClassReport(selectedClass).catch((error) => {
-            console.error('Failed to fetch class report:', error);
-        });
-    }, [selectedClass, fetchClassReport]);
+        // Prevent duplicate fetches
+        if (lastFetchRef.current === fetchKey) {
+            return;
+        }
+
+        const fetchAttendance = async () => {
+            try {
+                if (isCoachView && coachingCenterId) {
+                    await fetchCoachingCenterDailyAttendance(coachingCenterId, dateString);
+                    lastFetchRef.current = fetchKey;
+                } else if (isBranchView && branchId) {
+                    await fetchBranchDailyAttendance(branchId, dateString);
+                    lastFetchRef.current = fetchKey;
+                }
+            } catch (error) {
+                showErrorToast('Failed to fetch attendance data');
+                console.error('[Dashboard] Fetch error:', error);
+            }
+        };
+
+        if (coachingCenterId || branchId) {
+            fetchAttendance();
+        }
+    }, [selectedDate, coachingCenterId, branchId, isCoachView, isBranchView, fetchCoachingCenterDailyAttendance, fetchBranchDailyAttendance]);
 
     // Calculate attendance rate
     const attendanceRate = stats.total > 0
@@ -65,6 +107,20 @@ export default function Dashboard() {
         : 0;
 
     const performanceColor = getAttendancePerformanceColor(attendanceRate);
+
+    // Show message if no context available
+    if (!coachingCenterId && !branchId) {
+        return (
+            <Card>
+                <CardContent className="py-8 text-center">
+                    <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">
+                        Unable to load attendance data. Please ensure you have access to a coaching center or branch.
+                    </p>
+                </CardContent>
+            </Card>
+        );
+    }
 
     if (loading.daily && dailyRecords.length === 0) {
         return <DashboardSkeleton />;
