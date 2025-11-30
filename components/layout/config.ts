@@ -19,7 +19,12 @@ import {
     Menu,
     X,
     Building2,
-    UserCog
+    UserCog,
+    LayoutDashboard,
+    GraduationCap,
+    DollarSign,
+    ArrowLeft,
+    MapPin
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
@@ -39,7 +44,7 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
         id: 'lms',
         label: 'LMS',
         icon: BookOpen,
-        href: '/dashboard',
+        href: '/lms',
         platforms: ['community'],
         devices: ['mobile', 'tablet', 'desktop']
     },
@@ -410,6 +415,90 @@ export const SETTINGS_SIDEBAR_ITEMS: SidebarItem[] = [
 ];
 
 /**
+ * LMS Branch Manager sidebar items
+ * These items use relative paths that will be prefixed with the branch base path
+ * Note: The actual href will be constructed dynamically based on branchId
+ */
+export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: 'dashboard',
+        description: 'Overview and analytics',
+    },
+    {
+        id: 'students',
+        label: 'Students',
+        icon: Users,
+        href: 'students',
+        description: 'Manage student enrollments',
+    },
+    {
+        id: 'teachers',
+        label: 'Teachers',
+        icon: GraduationCap,
+        href: 'teachers',
+        description: 'Manage branch teachers',
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        href: 'classes',
+        description: 'Manage classes and batches',
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: 'attendance',
+        description: 'Track student attendance',
+    },
+    {
+        id: 'fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: 'fees',
+        description: 'Manage fee collection',
+    },
+];
+
+/**
+ * LMS Coach sidebar items (for unified coach view across all branches)
+ */
+export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'branch-students',
+        label: 'All Students',
+        icon: Users,
+        href: '/lms/coach/branch-students',
+        description: 'Manage students across all branches',
+    },
+    {
+        id: 'branch-classes',
+        label: 'All Classes',
+        icon: BookOpen,
+        href: '/lms/coach/branch-classes',
+        description: 'Manage classes across all branches',
+    },
+    {
+        id: 'student-attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: '/lms/coach/student-attendance',
+        description: 'Track attendance across branches',
+    },
+    {
+        id: 'student-fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: '/lms/coach/student-fees',
+        description: 'Manage fee collection',
+    },
+];
+
+/**
  * Utility functions for layout configuration
  */
 export class LayoutUtils {
@@ -522,6 +611,10 @@ export class LayoutUtils {
                 return SETTINGS_HEADER_ITEMS;
             case 'profile':
                 return PROFILE_HEADER_ITEMS;
+            case 'lms-coach':
+            case 'lms-branch-manager':
+                // LMS pages use custom items passed via props
+                return [];
             default:
                 return [];
         }
@@ -578,9 +671,23 @@ export class LayoutUtils {
         switch (page) {
             case 'settings':
                 return SETTINGS_SIDEBAR_ITEMS;
+            case 'lms-branch-manager':
+                return LMS_BRANCH_MANAGER_SIDEBAR_ITEMS;
+            case 'lms-coach':
+                return LMS_COACH_SIDEBAR_ITEMS;
             default:
                 return [];
         }
+    }
+
+    /**
+     * Get branch manager sidebar items with dynamic hrefs based on branchId
+     */
+    static getBranchManagerSidebarItems(branchId: string): SidebarItem[] {
+        return LMS_BRANCH_MANAGER_SIDEBAR_ITEMS.map(item => ({
+            ...item,
+            href: `/lms/manager/branches/${branchId}/${item.href}`,
+        }));
     }
 
     /**

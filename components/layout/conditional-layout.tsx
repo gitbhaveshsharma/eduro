@@ -15,7 +15,8 @@ export function ConditionalLayout({
     children,
     platform,
     className = "",
-    forceConfig
+    forceConfig,
+    sidebarItems: customSidebarItems
 }: ConditionalLayoutProps) {
     // Get user profile for role-based filtering
     const profile = useCurrentProfile();
@@ -109,12 +110,15 @@ export function ConditionalLayout({
     const shouldShowBottomNav = LayoutUtils.shouldShowBottomNav(config);
 
     // Get sidebar items if sidebar is enabled
-    const sidebarItems = config.sidebar?.enabled && config.page
-        ? LayoutUtils.filterSidebarItemsByRole(
-            LayoutUtils.getSidebarItemsForPage(config.page),
-            profile?.role as 'S' | 'T' | 'C' | 'A' | 'SA' | undefined
-        )
-        : [];
+    // Use custom sidebar items if provided, otherwise get from page config
+    const sidebarItems = customSidebarItems || (
+        config.sidebar?.enabled && config.page
+            ? LayoutUtils.filterSidebarItemsByRole(
+                LayoutUtils.getSidebarItemsForPage(config.page),
+                profile?.role as 'S' | 'T' | 'C' | 'A' | 'SA' | undefined
+            )
+            : []
+    );
 
     // ✅ Show loading only for non-universal headers
     if (!isMounted && config.headerType !== 'universal') {
@@ -141,6 +145,7 @@ export function ConditionalLayout({
                         <UniversalHeader
                             config={config}
                             title={config.title}
+                            branding={config.branding}
                             sidebarOpen={sidebarOpen}
                             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
                             onNavigationClick={(item) => {
@@ -165,7 +170,12 @@ export function ConditionalLayout({
                     onOpenChange={setSidebarOpen}
                     config={config.sidebar}
                     items={sidebarItems}
-                    title={config.page === 'settings' ? 'Settings' : 'Menu'}
+                    title={
+                        config.page === 'settings' ? 'Settings' :
+                            config.page === 'lms-branch-manager' ? 'Branch Manager' :
+                                config.page === 'lms-coach' ? 'Coaching Center' :
+                                    'Menu'
+                    }
                 />
             )}
 

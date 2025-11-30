@@ -133,7 +133,7 @@ export default function BranchManagerStudentsPage() {
             setBranchId(selectedBranchId);
             setCurrentBranch(selectedBranch);
             // Update URL with branch ID
-            router.push(`/manager/branch-students?branch=${selectedBranchId}`);
+            router.push(`/lms/manager/branch-students?branch=${selectedBranchId}`);
         }
     };
 
@@ -141,7 +141,7 @@ export default function BranchManagerStudentsPage() {
     const handleBackToSelection = () => {
         setBranchId(null);
         setCurrentBranch(null);
-        router.push('/manager/branch-students');
+        router.push('/lms/manager/branch-students');
     };
 
     // Loading state

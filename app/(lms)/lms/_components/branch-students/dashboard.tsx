@@ -140,22 +140,29 @@ function RecentEnrollmentsList() {
 }
 
 interface BranchStudentsDashboardProps {
-    coachingCenterId: string;
+    /** When provided, shows stats for a single branch (branch manager view) */
+    branchId?: string;
+    /** When provided, shows stats across all branches (coach/owner view) */
+    coachingCenterId?: string;
 }
 
-export function BranchStudentsDashboard({ coachingCenterId }: BranchStudentsDashboardProps) {
+export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchStudentsDashboardProps) {
     const {
         statsLoading,
         fetchCoachingCenterStudents,
+        fetchBranchStudents,
         branchStudents,
         listLoading,
     } = useBranchStudentsStore();
 
     useEffect(() => {
-        if (coachingCenterId) {
+        // Fetch students based on whether we're viewing a single branch or entire coaching center
+        if (branchId) {
+            fetchBranchStudents(branchId);
+        } else if (coachingCenterId) {
             fetchCoachingCenterStudents(coachingCenterId);
         }
-    }, [coachingCenterId, fetchCoachingCenterStudents]);
+    }, [branchId, coachingCenterId, fetchBranchStudents, fetchCoachingCenterStudents]);
 
     const calculatedStats = useMemo(() => {
         if (branchStudents.length === 0) {

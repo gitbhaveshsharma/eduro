@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Bell, Menu, X } from "lucide-react";
+import { Search, Bell, Menu, X, Building2 } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/avatar";
 import { useCurrentProfile } from '@/lib/profile';
 import { LayoutUtils } from "@/components/layout/config";
-import type { HeaderProps, HeaderItem } from "@/components/layout/types";
+import type { HeaderProps, HeaderItem, BrandingConfig } from "@/components/layout/types";
 import { SettingsSearch } from "@/components/settings";
 import { CoachingSearch } from "@/components/coaching/search/coaching-search";
 
@@ -29,6 +30,7 @@ import { CoachingSearch } from "@/components/coaching/search/coaching-search";
  * - Integrated search with customizable behavior
  * - Sidebar toggle support
  * - Responsive design for all devices
+ * - White-label branding support for LMS (coaching center logo/name)
  * - Clean, maintainable code following project patterns
  */
 export function UniversalHeader({
@@ -37,6 +39,7 @@ export function UniversalHeader({
     showAvatar = true,
     items: customItems,
     title,
+    branding,
     searchConfig,
     sidebarOpen,
     onSidebarToggle,
@@ -52,6 +55,15 @@ export function UniversalHeader({
     const [isSearchExpanded, setIsSearchExpanded] = useState(false);
     const [searchReady, setSearchReady] = useState(false);
     const [itemsReady, setItemsReady] = useState(true); // Default to true for desktop
+
+    // Use branding from props or config
+    const effectiveBranding = branding || config.branding;
+
+    // Local search state
+    // const [searchQuery, setSearchQuery] = useState(searchConfig?.value || '');
+    // const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+    // const [searchReady, setSearchReady] = useState(false);
+    // const [itemsReady, setItemsReady] = useState(true); // Default to true for desktop
 
     // Device detection
     const isMobile = config.device === 'mobile';
@@ -269,14 +281,45 @@ export function UniversalHeader({
                             </Button>
                         )}
 
-                        {/* Title/Logo - Now visible on all screen sizes */}
-                        {title && (
+                        {/* Title/Logo/Branding - Now visible on all screen sizes */}
+                        {effectiveBranding ? (
+                            // White-label branding with coaching center logo and name
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                {/* Logo */}
+                                {effectiveBranding.logoUrl ? (
+                                    <div className="relative h-9 w-9 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                        <Image
+                                            src={effectiveBranding.logoUrl}
+                                            alt={effectiveBranding.name}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="h-9 w-9 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">
+                                        <Building2 className="h-5 w-5 text-primary" />
+                                    </div>
+                                )}
+                                {/* Name and subtitle */}
+                                <div className="min-w-0 flex-1">
+                                    <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate">
+                                        {effectiveBranding.name}
+                                    </h1>
+                                    {effectiveBranding.subtitle && (
+                                        <p className="text-xs text-muted-foreground truncate">
+                                            {effectiveBranding.subtitle}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        ) : title ? (
+                            // Regular title (no branding)
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                 <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate">
                                     {title}
                                 </h1>
                             </div>
-                        )}
+                        ) : null}
                     </div>
 
                     {/* Center - Desktop Search Bar */}
