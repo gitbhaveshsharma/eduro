@@ -17,7 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarIcon, UserCheck, UserX, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import {
-    useAttendanceActions,
+    useBulkMarkAttendance,
     AttendanceStatus,
 } from '@/lib/branch-system/student-attendance';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
@@ -32,7 +32,7 @@ export default function BulkMarkDialog({ open, onOpenChange }: BulkMarkDialogPro
     const [selectedStudents, setSelectedStudents] = useState<Set<string>>(new Set());
     const [bulkStatus, setBulkStatus] = useState<AttendanceStatus>(AttendanceStatus.PRESENT);
 
-    const { bulkMarkAttendance } = useAttendanceActions();
+    const bulkMarkAttendance = useBulkMarkAttendance();
 
     // Mock students data - replace with actual data
     const mockStudents = [

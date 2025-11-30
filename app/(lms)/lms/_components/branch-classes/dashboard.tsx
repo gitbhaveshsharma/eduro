@@ -18,6 +18,8 @@ import {
     useSearchResults,
     useClassesLoading,
     useBranchClassesStore,
+    useClassesByBranch,
+    useClassesByCoachingCenter,
     formatClassSchedule,
     getCapacityDisplay,
     formatClassStatus,
@@ -35,6 +37,7 @@ import {
 
 interface DashboardProps {
     branchId?: string;
+    coachingCenterId?: string;
 }
 
 /**
@@ -80,20 +83,23 @@ function StatCard({
 /**
  * Recent Classes List Component
  */
-function RecentClassesList({ branchId }: { branchId?: string }) {
-    const searchResults = useSearchResults();
-    const { search: isSearching } = useClassesLoading();
+function RecentClassesList({ 
+    branchId, 
+    coachingCenterId,
+    classes 
+}: { 
+    branchId?: string; 
+    coachingCenterId?: string;
+    classes: any[];
+}) {
+    const { fetchClasses: isLoading } = useClassesLoading();
 
-    // Get all classes from search results
-    const allClasses = searchResults?.classes || [];
-
-    // Filter by branch if branchId provided, then get 5 most recent
-    const recentClasses = allClasses
-        .filter(cls => !branchId || cls.branch_id === branchId)
+    // Get 5 most recent classes
+    const recentClasses = classes
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         .slice(0, 5);
 
-    if (isSearching && allClasses.length === 0) {
+    if (isLoading && classes.length === 0) {
         return (
             <div className="space-y-3">
                 {[...Array(3)].map((_, i) => (
@@ -171,37 +177,46 @@ function RecentClassesList({ branchId }: { branchId?: string }) {
 
 /**
  * Main Dashboard Component
+ * 
+ * Supports two modes:
+ * 1. Branch mode (branchId) - Shows classes for a specific branch (for branch managers)
+ * 2. Coaching Center mode (coachingCenterId) - Shows all classes across branches (for coaches)
  */
-export function BranchClassesDashboard({ branchId }: DashboardProps) {
+export function BranchClassesDashboard({ branchId, coachingCenterId }: DashboardProps) {
     const store = useBranchClassesStore();
-    const searchResults = useSearchResults();
-    const { search: isSearching } = useClassesLoading();
-    const { currentFilters, currentSort, currentPagination } = store.ui;
+    const { fetchClasses: isLoading } = useClassesLoading();
 
-    // ✅ FIX: Only search once on mount, then use cache
+    // Get classes from appropriate source based on context
+    const branchClasses = useClassesByBranch(branchId || null);
+    const coachingCenterClasses = useClassesByCoachingCenter(coachingCenterId || null);
+
+    // Determine which classes to use based on context
+    const allClasses = branchId 
+        ? branchClasses 
+        : coachingCenterId 
+            ? coachingCenterClasses 
+            : [];
+
+    // ✅ FIX: Only fetch once on mount using appropriate method
     const [hasInitialized, setHasInitialized] = useState(false);
 
     useEffect(() => {
         if (!hasInitialized) {
             console.log('📊 Dashboard: Initial load - checking cache');
 
-            // Build filters based on branchId if provided
-            const filters = branchId ? { branch_id: branchId } : {};
-
-            // This will check cache first, only fetch if needed
-            store.searchClasses(
-                filters,
-                { field: 'created_at', direction: 'desc' },
-                { page: 1, limit: 100 }, // Get more results for dashboard
-                false // Don't force refresh, use cache if available
-            );
+            if (branchId) {
+                // Branch manager context - fetch only this branch's classes
+                store.fetchClassesByBranch(branchId, false);
+            } else if (coachingCenterId) {
+                // Coach context - fetch all classes for the coaching center
+                store.fetchClassesByCoachingCenter(coachingCenterId, false);
+            }
 
             setHasInitialized(true);
         }
-    }, [hasInitialized, branchId, store]);
+    }, [hasInitialized, branchId, coachingCenterId, store]);
 
-    // ✅ Calculate stats from search results (updates automatically when cache is invalidated)
-    const allClasses = searchResults?.classes || [];
+    // ✅ Calculate stats from classes (updates automatically when cache is invalidated)
     const stats = {
         total_classes: allClasses.length,
         active_classes: allClasses.filter((c) => c.status === 'ACTIVE').length,
@@ -228,17 +243,18 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
     // ✅ Manual refresh function
     const handleRefresh = () => {
         console.log('🔄 Dashboard: Manual refresh');
-        const filters = branchId ? { branch_id: branchId } : {};
-        store.searchClasses(
-            filters,
-            { field: 'created_at', direction: 'desc' },
-            { page: 1, limit: 100 },
-            true // Force refresh, bypass cache
-        );
+        if (branchId) {
+            store.fetchClassesByBranch(branchId, true);
+        } else if (coachingCenterId) {
+            store.fetchClassesByCoachingCenter(coachingCenterId, true);
+        }
     };
 
+    // Determine context label for UI
+    const contextLabel = branchId ? 'branch' : coachingCenterId ? 'coaching center' : '';
+
     // Show loading skeletons only on initial load
-    if (isSearching && !searchResults) {
+    if (isLoading && allClasses.length === 0) {
         return (
             <div className="space-y-6">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -285,16 +301,16 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
                     <p className="text-muted-foreground">
-                        Overview of your {branchId ? 'branch' : ''} classes
+                        Overview of your {contextLabel} classes
                     </p>
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={handleRefresh}
-                    disabled={isSearching}
+                    disabled={isLoading}
                 >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isSearching ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh
                 </Button>
             </div> */}
@@ -304,7 +320,7 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                 <StatCard
                     title="Total Classes"
                     value={stats.total_classes}
-                    description="All classes in your branch"
+                    description={`All classes in your ${contextLabel}`}
                     icon={BookOpen}
                     colorClass="text-blue-600"
                 />
@@ -396,10 +412,14 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
                             </div>
                             Recent Classes
                         </CardTitle>
-                        <CardDescription>Latest classes created in your branch</CardDescription>
+                        <CardDescription>Latest classes created in your {contextLabel}</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <RecentClassesList branchId={branchId} />
+                        <RecentClassesList 
+                            branchId={branchId} 
+                            coachingCenterId={coachingCenterId}
+                            classes={allClasses}
+                        />
                     </CardContent>
                 </Card>
 
@@ -436,7 +456,7 @@ export function BranchClassesDashboard({ branchId }: DashboardProps) {
             </div>
 
             {/* ✅ Real-time update indicator */}
-            {isSearching && (
+            {isLoading && (
                 <div className="fixed bottom-4 right-4 bg-primary text-primary-foreground px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
                     <RefreshCw className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Updating...</span>

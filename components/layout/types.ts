@@ -6,7 +6,17 @@
 export type PlatformType = 'community' | 'lms';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 export type ViewType = 'webview' | 'browser';
-export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings' | 'coaching' | 'courses' | 'course-detail' | 'assignments' | 'grades' | 'messages' | 'notifications' | 'admin';
+export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings' | 'coaching' | 'courses' | 'course-detail' | 'assignments' | 'grades' | 'messages' | 'notifications' | 'admin' | 'lms-coach' | 'lms-branch-manager';
+
+/**
+ * Branding configuration for white-label LMS experience
+ * Shows coaching center's logo and name in header
+ */
+export interface BrandingConfig {
+    logoUrl?: string | null;
+    name: string;
+    subtitle?: string | null; // e.g., branch name
+}
 
 /**
  * Header item action configuration
@@ -74,6 +84,7 @@ export interface LayoutConfig {
     bottomNavType?: 'default' | 'network';
     sidebar?: SidebarConfig;
     title?: string; // Page title for header
+    branding?: BrandingConfig; // Custom branding for white-label LMS
 }
 
 export interface NavigationItem {
@@ -99,6 +110,8 @@ export interface HeaderProps {
     items?: HeaderItem[];
     // Title/branding to show in header
     title?: string;
+    // Custom branding for white-label experience (e.g., coaching center logo/name)
+    branding?: BrandingConfig;
     // Search configuration
     searchConfig?: {
         enabled?: boolean;
@@ -140,4 +153,6 @@ export interface ConditionalLayoutProps {
     platform?: PlatformType; // Made optional - can be used for public pages too
     className?: string;
     forceConfig?: Partial<LayoutConfig>;
+    // Custom sidebar items - overrides items from page config
+    sidebarItems?: SidebarItem[];
 }

@@ -33,7 +33,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import {
-    useAttendanceActions,
+    useMarkAttendance,
     AttendanceStatus,
     markAttendanceSchema,
     formatAttendanceStatus,
@@ -47,7 +47,7 @@ interface MarkAttendanceDialogProps {
 
 export default function MarkAttendanceDialog({ open, onOpenChange }: MarkAttendanceDialogProps) {
     const [date, setDate] = useState<Date>(new Date());
-    const { markAttendance } = useAttendanceActions();
+    const markAttendance = useMarkAttendance();
 
     const form = useForm({
         resolver: zodResolver(markAttendanceSchema),

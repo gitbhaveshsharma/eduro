@@ -391,6 +391,9 @@ const EmptyState = memo(function EmptyState() {
  * Props for Students Table Component
  */
 interface StudentsTableProps {
+    /** When provided, shows students for a single branch (branch manager view) */
+    branchId?: string;
+    /** When provided, shows students across all branches (coach/owner view) */
     coachingCenterId?: string;
     onViewStudent?: (studentId: string) => void;
     onEditStudent?: (studentId: string) => void;
@@ -402,6 +405,7 @@ interface StudentsTableProps {
  * Optimized: Uses existing data from store, no API calls
  */
 export function StudentsTable({
+    branchId,
     coachingCenterId,
     onViewStudent,
     onEditStudent,

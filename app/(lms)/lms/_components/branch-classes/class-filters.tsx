@@ -2,18 +2,24 @@
  * Class Filters Component
  * 
  * Provides filtering and search functionality for branch classes
+ * 
+ * Supports two modes:
+ * 1. Branch mode (branchId) - For branch managers, branch filter is locked
+ * 2. Coaching Center mode (coachingCenterId) - For coaches, can filter across branches
+ * 
  * Features:
  * - Search by name, subject, description
  * - Filter by status (Active, Inactive, Full, Completed)
  * - Filter by grade level
  * - Filter by subject
+ * - Filter by branch (only in coaching center mode)
  * - Filter by availability
  * - Clear all filters button
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import {
@@ -46,29 +52,45 @@ interface Branch {
     name: string;
 }
 
+interface ClassFiltersProps {
+    /** Branch ID - locks filtering to a specific branch (for branch managers) */
+    branchId?: string;
+    /** Coaching Center ID - allows filtering across all branches of a coaching center (for coaches) */
+    coachingCenterId?: string;
+    /** Callback when filter state changes */
+    onFilterChange?: (hasActiveFilters: boolean) => void;
+}
+
 /**
  * Main Class Filters Component
  */
-export function ClassFilters() {
+export function ClassFilters({ branchId, coachingCenterId, onFilterChange }: ClassFiltersProps) {
     const store = useBranchClassesStore();
     const currentFilters = store.ui.currentFilters;
+
+    // Determine the mode
+    const isBranchMode = !!branchId;
+    const isCoachingCenterMode = !!coachingCenterId;
 
     // Local state for immediate UI updates
     const [searchQuery, setSearchQuery] = useState(currentFilters.search_query || '');
     const [selectedStatus, setSelectedStatus] = useState<ClassStatus | 'all'>('all');
     const [selectedGrade, setSelectedGrade] = useState<string | 'all'>('all');
     const [selectedSubject, setSelectedSubject] = useState<string | 'all'>('all');
-    const [selectedBranch, setSelectedBranch] = useState<string | 'all'>('all');
+    const [selectedBranch, setSelectedBranch] = useState<string | 'all'>(branchId || 'all');
     const [showAvailableOnly, setShowAvailableOnly] = useState(false);
     const [branches, setBranches] = useState<Branch[]>([]);
     const [loadingBranches, setLoadingBranches] = useState(false);
 
-    // Fetch user's branches on mount
+    // Fetch branches only in coaching center mode
     useEffect(() => {
+        if (!isCoachingCenterMode) return;
+
         const fetchBranches = async () => {
             setLoadingBranches(true);
             try {
-                const result = await CoachingService.searchBranchesByName('', 100);
+                // Fetch branches for this coaching center only
+                const result = await CoachingService.getBranchesByCenter(coachingCenterId);
                 if (result.success && result.data) {
                     setBranches(result.data.map((b: any) => ({ id: b.id, name: b.name })));
                 }
@@ -79,11 +101,24 @@ export function ClassFilters() {
             }
         };
         fetchBranches();
-    }, []);
+    }, [coachingCenterId, isCoachingCenterMode]);
 
     // Apply filters to the store and trigger search
-    const applyFilters = () => {
+    const applyFilters = useCallback(() => {
         const filters: BranchClassFilters = {};
+
+        // Always include branch_id if in branch mode
+        if (isBranchMode && branchId) {
+            filters.branch_id = branchId;
+        }
+
+        // In coaching center mode, include coaching_center_id and optionally branch filter
+        if (isCoachingCenterMode && coachingCenterId) {
+            filters.coaching_center_id = coachingCenterId;
+            if (selectedBranch !== 'all') {
+                filters.branch_id = selectedBranch;
+            }
+        }
 
         if (searchQuery.trim()) {
             filters.search_query = searchQuery.trim();
@@ -101,28 +136,38 @@ export function ClassFilters() {
             filters.subject = selectedSubject;
         }
 
-        if (selectedBranch !== 'all') {
-            filters.branch_id = selectedBranch;
-        }
-
         if (showAvailableOnly) {
             filters.has_available_seats = true;
         }
 
         store.setFilters(filters);
         BranchClassesAPI.search(filters);
-    };
+    }, [
+        branchId, coachingCenterId, isBranchMode, isCoachingCenterMode,
+        searchQuery, selectedStatus, selectedGrade, selectedSubject, 
+        selectedBranch, showAvailableOnly, store
+    ]);
 
-    // Clear all filters
+    // Clear all filters (except locked branch filter)
     const clearFilters = () => {
         setSearchQuery('');
         setSelectedStatus('all');
         setSelectedGrade('all');
         setSelectedSubject('all');
-        setSelectedBranch('all');
+        setSelectedBranch(branchId || 'all'); // Keep branch if locked
         setShowAvailableOnly(false);
-        store.setFilters({});
-        BranchClassesAPI.search({});
+        
+        // Build base filters
+        const baseFilters: BranchClassFilters = {};
+        if (isBranchMode && branchId) {
+            baseFilters.branch_id = branchId;
+        }
+        if (isCoachingCenterMode && coachingCenterId) {
+            baseFilters.coaching_center_id = coachingCenterId;
+        }
+        
+        store.setFilters(baseFilters);
+        BranchClassesAPI.search(baseFilters);
     };
 
     // Debounced search
@@ -132,16 +177,21 @@ export function ClassFilters() {
         }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [searchQuery]);
+    }, [searchQuery, applyFilters]);
 
-    // Check if any filters are active
+    // Check if any filters are active (beyond the locked context filters)
     const hasActiveFilters =
         searchQuery !== '' ||
         selectedStatus !== 'all' ||
         selectedGrade !== 'all' ||
         selectedSubject !== 'all' ||
-        selectedBranch !== 'all' ||
+        (isCoachingCenterMode && selectedBranch !== 'all') ||
         showAvailableOnly;
+
+    // Notify parent of filter state changes
+    useEffect(() => {
+        onFilterChange?.(hasActiveFilters);
+    }, [hasActiveFilters, onFilterChange]);
 
     return (
         <div className="space-y-4">
@@ -181,34 +231,37 @@ export function ClassFilters() {
 
             {/* Filter Controls */}
             <div className="flex flex-wrap gap-3">
-                {/* Branch Filter */}
-                <Select
-                    value={selectedBranch}
-                    onValueChange={(value) => {
-                        setSelectedBranch(value);
-                        applyFilters();
-                    }}
-                    disabled={loadingBranches}
-                >
-                    <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder={loadingBranches ? "Loading branches..." : "All Branches"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">All Branches</SelectItem>
-                        {branches.map((branch) => (
-                            <SelectItem key={branch.id} value={branch.id}>
-                                {branch.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                {/* Branch Filter - Only show in coaching center mode */}
+                {isCoachingCenterMode && (
+                    <Select
+                        value={selectedBranch}
+                        onValueChange={(value) => {
+                            setSelectedBranch(value);
+                            // Apply immediately
+                            setTimeout(() => applyFilters(), 0);
+                        }}
+                        disabled={loadingBranches}
+                    >
+                        <SelectTrigger className="w-[200px]">
+                            <SelectValue placeholder={loadingBranches ? "Loading branches..." : "All Branches"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Branches</SelectItem>
+                            {branches.map((branch) => (
+                                <SelectItem key={branch.id} value={branch.id}>
+                                    {branch.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
 
                 {/* Status Filter */}
                 <Select
                     value={selectedStatus}
                     onValueChange={(value) => {
                         setSelectedStatus(value as ClassStatus | 'all');
-                        applyFilters();
+                        setTimeout(() => applyFilters(), 0);
                     }}
                 >
                     <SelectTrigger className="w-[180px]">
@@ -229,7 +282,7 @@ export function ClassFilters() {
                     value={selectedGrade}
                     onValueChange={(value) => {
                         setSelectedGrade(value);
-                        applyFilters();
+                        setTimeout(() => applyFilters(), 0);
                     }}
                 >
                     <SelectTrigger className="w-[180px]">
@@ -250,7 +303,7 @@ export function ClassFilters() {
                     value={selectedSubject}
                     onValueChange={(value) => {
                         setSelectedSubject(value);
-                        applyFilters();
+                        setTimeout(() => applyFilters(), 0);
                     }}
                 >
                     <SelectTrigger className="w-[180px]">
@@ -271,7 +324,7 @@ export function ClassFilters() {
                     variant={showAvailableOnly ? 'default' : 'outline'}
                     onClick={() => {
                         setShowAvailableOnly(!showAvailableOnly);
-                        applyFilters();
+                        setTimeout(() => applyFilters(), 0);
                     }}
                     className="gap-2"
                 >
@@ -295,14 +348,14 @@ export function ClassFilters() {
                         </Badge>
                     )}
 
-                    {selectedBranch !== 'all' && (
+                    {isCoachingCenterMode && selectedBranch !== 'all' && (
                         <Badge variant="secondary" className="gap-1">
                             Branch: {branches.find(b => b.id === selectedBranch)?.name || selectedBranch}
                             <X
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => {
                                     setSelectedBranch('all');
-                                    applyFilters();
+                                    setTimeout(() => applyFilters(), 0);
                                 }}
                             />
                         </Badge>
@@ -315,7 +368,7 @@ export function ClassFilters() {
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => {
                                     setSelectedStatus('all');
-                                    applyFilters();
+                                    setTimeout(() => applyFilters(), 0);
                                 }}
                             />
                         </Badge>
@@ -328,7 +381,7 @@ export function ClassFilters() {
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => {
                                     setSelectedGrade('all');
-                                    applyFilters();
+                                    setTimeout(() => applyFilters(), 0);
                                 }}
                             />
                         </Badge>
@@ -341,7 +394,7 @@ export function ClassFilters() {
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => {
                                     setSelectedSubject('all');
-                                    applyFilters();
+                                    setTimeout(() => applyFilters(), 0);
                                 }}
                             />
                         </Badge>
@@ -354,7 +407,7 @@ export function ClassFilters() {
                                 className="h-3 w-3 cursor-pointer"
                                 onClick={() => {
                                     setShowAvailableOnly(false);
-                                    applyFilters();
+                                    setTimeout(() => applyFilters(), 0);
                                 }}
                             />
                         </Badge>

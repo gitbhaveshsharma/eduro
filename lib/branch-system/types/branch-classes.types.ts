@@ -223,6 +223,7 @@ export interface UpdateBranchClassInput {
  */
 export interface BranchClassFilters {
     branch_id?: string;
+    coaching_center_id?: string;
     teacher_id?: string;
     subject?: string;
     grade_level?: string;

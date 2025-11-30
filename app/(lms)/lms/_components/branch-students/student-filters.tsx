@@ -28,14 +28,17 @@ import { Search, X, Filter, RefreshCw } from 'lucide-react';
  * Props for Student Filters Component
  */
 interface StudentFiltersProps {
-    coachingCenterId?: string; // Coaching center ID for fetching students
+    /** When provided, filters for a single branch (branch manager view) */
+    branchId?: string;
+    /** When provided, filters across all branches (coach/owner view) */
+    coachingCenterId?: string;
 }
 
 /**
  * Main Student Filters Component - Same style as ClassFilters
  */
-export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
-    const { filters, setFilters, fetchCoachingCenterStudents } = useBranchStudentsStore();
+export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersProps = {}) {
+    const { filters, setFilters, fetchCoachingCenterStudents, fetchBranchStudents } = useBranchStudentsStore();
 
     // Local state for immediate UI updates
     const [searchQuery, setSearchQuery] = useState(filters?.search_query || '');
@@ -75,8 +78,10 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
 
         setFilters(Object.keys(newFilters).length > 0 ? newFilters : null);
 
-        // Re-fetch coaching center students with new filters
-        if (coachingCenterId) {
+        // Re-fetch students with new filters based on view type
+        if (branchId) {
+            fetchBranchStudents(branchId, newFilters);
+        } else if (coachingCenterId) {
             fetchCoachingCenterStudents(coachingCenterId, newFilters);
         }
     };
@@ -100,8 +105,10 @@ export function StudentFilters({ coachingCenterId }: StudentFiltersProps = {}) {
         setShowOverdueOnly(false);
         setFilters(null);
 
-        // Re-fetch all coaching center students without filters
-        if (coachingCenterId) {
+        // Re-fetch all students without filters
+        if (branchId) {
+            fetchBranchStudents(branchId);
+        } else if (coachingCenterId) {
             fetchCoachingCenterStudents(coachingCenterId);
         }
     };

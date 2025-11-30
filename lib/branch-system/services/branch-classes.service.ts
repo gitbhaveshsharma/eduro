@@ -396,6 +396,68 @@ export class BranchClassesService {
     }
 
     /**
+     * Gets all classes for a coaching center (across all branches)
+     * @param coachingCenterId - Coaching Center UUID
+     * @param includeInactive - Whether to include inactive classes
+     * @returns Operation result with classes array
+     */
+    async getClassesByCoachingCenter(
+        coachingCenterId: string,
+        includeInactive: boolean = false
+    ): Promise<BranchClassOperationResult<BranchClass[]>> {
+        try {
+            console.log('🔵 [getClassesByCoachingCenter] Fetching classes for coaching center:', {
+                coachingCenterId,
+                includeInactive,
+            });
+
+            // Join with coaching_branches to filter by coaching_center_id
+            let query = this.supabase
+                .from('branch_classes')
+                .select(`
+                    *,
+                    branch:coaching_branches!inner(id, name, coaching_center_id)
+                `)
+                .eq('branch.coaching_center_id', coachingCenterId);
+
+            if (!includeInactive) {
+                query = query.eq('status', 'ACTIVE');
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('❌ [getClassesByCoachingCenter] Supabase error:', {
+                    message: error.message,
+                    details: error.details,
+                    hint: error.hint,
+                    code: error.code,
+                });
+                return {
+                    success: false,
+                    error: `Failed to fetch classes: ${error.message}`,
+                };
+            }
+
+            console.log('✅ [getClassesByCoachingCenter] Classes fetched:', {
+                coachingCenterId,
+                count: data?.length || 0,
+            });
+
+            return {
+                success: true,
+                data: data || [],
+            };
+        } catch (error) {
+            console.error('❌ [getClassesByCoachingCenter] Unexpected error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
      * Searches and filters classes with pagination
      * @param filters - Filter criteria
      * @param sort - Sort options
@@ -446,6 +508,12 @@ export class BranchClassesService {
             if (filters.branch_id) {
                 console.log('🔍 [searchClasses] Applying branch_id filter:', filters.branch_id);
                 query = query.eq('branch_id', filters.branch_id);
+            }
+
+            // Filter by coaching center ID (joins with coaching_branches table)
+            if (filters.coaching_center_id) {
+                console.log('🔍 [searchClasses] Applying coaching_center_id filter:', filters.coaching_center_id);
+                query = query.eq('branch.coaching_center_id', filters.coaching_center_id);
             }
 
             if (filters.teacher_id) {

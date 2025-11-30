@@ -11,6 +11,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
+import { useMemo } from 'react';
 import {
     studentAttendanceService,
     type AttendanceOperationResult,
@@ -195,6 +196,18 @@ interface StudentAttendanceState {
      * Fetches attendance for a specific branch
      */
     fetchBranchAttendance: (branchId: string, params?: Omit<AttendanceListParams, 'branch_id'>) => Promise<void>;
+
+    /**
+     * Fetches daily attendance for a coaching center (all branches)
+     * For coach view - aggregates attendance across all branches
+     */
+    fetchCoachingCenterDailyAttendance: (coachingCenterId: string, date?: string) => Promise<void>;
+
+    /**
+     * Fetches daily attendance for a specific branch
+     * For branch manager view
+     */
+    fetchBranchDailyAttendance: (branchId: string, date?: string) => Promise<void>;
 
     // ============================================================
     // ACTIONS - STATE MANAGEMENT
@@ -672,6 +685,54 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     return get().fetchAttendanceList({ ...params, branch_id: branchId });
                 },
 
+                fetchCoachingCenterDailyAttendance: async (coachingCenterId: string, date?: string) => {
+                    set((state) => {
+                        state.loading.daily = true;
+                        state.error = null;
+                    });
+
+                    const result = await studentAttendanceService.getCoachingCenterDailyAttendance(
+                        coachingCenterId,
+                        date || getCurrentDateString()
+                    );
+
+                    if (result.success && result.data) {
+                        set((state) => {
+                            state.loading.daily = false;
+                            state.dailyRecords = result.data!;
+                        });
+                    } else {
+                        set((state) => {
+                            state.loading.daily = false;
+                            state.error = result.error || 'Failed to fetch coaching center attendance';
+                        });
+                    }
+                },
+
+                fetchBranchDailyAttendance: async (branchId: string, date?: string) => {
+                    set((state) => {
+                        state.loading.daily = true;
+                        state.error = null;
+                    });
+
+                    const result = await studentAttendanceService.getBranchDailyAttendance(
+                        branchId,
+                        date || getCurrentDateString()
+                    );
+
+                    if (result.success && result.data) {
+                        set((state) => {
+                            state.loading.daily = false;
+                            state.dailyRecords = result.data!;
+                        });
+                    } else {
+                        set((state) => {
+                            state.loading.daily = false;
+                            state.error = result.error || 'Failed to fetch branch attendance';
+                        });
+                    }
+                },
+
                 // ============================================================
                 // STATE MANAGEMENT
                 // ============================================================
@@ -838,16 +899,59 @@ export const useAttendanceError = () => useStudentAttendanceStore((state) => sta
 export const useAttendanceSuccessMessage = () => useStudentAttendanceStore((state) => state.successMessage);
 
 /**
- * Hook for daily statistics
+ * Hook for daily statistics - STABLE: uses useMemo to cache object
  */
-export const useDailyAttendanceStats = () => useStudentAttendanceStore((state) => state.getDailyStats());
+export const useDailyAttendanceStats = () => {
+    const dailyRecords = useStudentAttendanceStore((state) => state.dailyRecords);
+
+    // Use useMemo to create a stable object reference
+    return useMemo(() => {
+        const total = dailyRecords.length;
+        const marked = dailyRecords.filter(r => r.is_marked).length;
+        const unmarked = total - marked;
+        const present = dailyRecords.filter(r => r.attendance_status === 'PRESENT').length;
+        const absent = dailyRecords.filter(r => r.attendance_status === 'ABSENT').length;
+        const late = dailyRecords.filter(r => r.attendance_status === 'LATE').length;
+        const excused = dailyRecords.filter(r => r.attendance_status === 'EXCUSED').length;
+
+        return { total, present, absent, late, excused, marked, unmarked };
+    }, [dailyRecords]);
+};
 
 // ============================================================
-// ACTION HOOK EXPORTS
+// INDIVIDUAL ACTION HOOKS - STABLE REFERENCES
 // ============================================================
 
 /**
- * Hook for attendance actions
+ * Individual action hooks for stable references (prevent infinite loops)
+ */
+export const useMarkAttendance = () => useStudentAttendanceStore((state) => state.markAttendance);
+export const useBulkMarkAttendance = () => useStudentAttendanceStore((state) => state.bulkMarkAttendance);
+export const useUpdateAttendance = () => useStudentAttendanceStore((state) => state.updateAttendance);
+export const useDeleteAttendance = () => useStudentAttendanceStore((state) => state.deleteAttendance);
+export const useFetchAttendanceList = () => useStudentAttendanceStore((state) => state.fetchAttendanceList);
+export const useFetchDailyAttendance = () => useStudentAttendanceStore((state) => state.fetchDailyAttendance);
+export const useFetchAttendanceById = () => useStudentAttendanceStore((state) => state.fetchAttendanceById);
+export const useFetchStudentSummary = () => useStudentAttendanceStore((state) => state.fetchStudentSummary);
+export const useFetchClassReport = () => useStudentAttendanceStore((state) => state.fetchClassReport);
+export const useFetchTeacherAttendance = () => useStudentAttendanceStore((state) => state.fetchTeacherAttendance);
+export const useFetchStudentAttendance = () => useStudentAttendanceStore((state) => state.fetchStudentAttendance);
+export const useFetchClassAttendance = () => useStudentAttendanceStore((state) => state.fetchClassAttendance);
+export const useFetchBranchAttendance = () => useStudentAttendanceStore((state) => state.fetchBranchAttendance);
+export const useFetchCoachingCenterDailyAttendance = () => useStudentAttendanceStore((state) => state.fetchCoachingCenterDailyAttendance);
+export const useFetchBranchDailyAttendance = () => useStudentAttendanceStore((state) => state.fetchBranchDailyAttendance);
+export const useSetCurrentRecord = () => useStudentAttendanceStore((state) => state.setCurrentRecord);
+export const useSetAttendanceFilters = () => useStudentAttendanceStore((state) => state.setFilters);
+export const useResetAttendanceFilters = () => useStudentAttendanceStore((state) => state.resetFilters);
+export const useSetAttendancePagination = () => useStudentAttendanceStore((state) => state.setPagination);
+export const useSetAttendanceSort = () => useStudentAttendanceStore((state) => state.setSort);
+export const useClearAttendanceError = () => useStudentAttendanceStore((state) => state.clearError);
+export const useClearAttendanceSuccessMessage = () => useStudentAttendanceStore((state) => state.clearSuccessMessage);
+export const useResetAttendanceStore = () => useStudentAttendanceStore((state) => state.reset);
+
+/**
+ * @deprecated Use individual action hooks instead to prevent infinite loops
+ * Hook for attendance actions - Returns object (can cause re-renders)
  */
 export const useAttendanceActions = () => useStudentAttendanceStore((state) => ({
     markAttendance: state.markAttendance,

@@ -31,7 +31,8 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
     useCurrentAttendanceRecord,
-    useAttendanceActions,
+    useSetCurrentRecord,
+    useUpdateAttendance,
     AttendanceStatus,
     updateAttendanceSchema,
     formatAttendanceStatus,
@@ -40,7 +41,8 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function EditAttendanceDialog() {
     const currentRecord = useCurrentAttendanceRecord();
-    const { setCurrentRecord, updateAttendance } = useAttendanceActions();
+    const setCurrentRecord = useSetCurrentRecord();
+    const updateAttendance = useUpdateAttendance();
 
     const form = useForm({
         resolver: zodResolver(updateAttendanceSchema),

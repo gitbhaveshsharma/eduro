@@ -1,15 +1,19 @@
 /**
  * Classes Table Component - FIXED VERSION
  * 
+ * Supports two modes:
+ * 1. Branch mode (branchId) - Shows only classes for a specific branch
+ * 2. Coaching Center mode (coachingCenterId) - Shows all classes across branches
+ * 
  * Key fixes:
- * 1. Only calls searchClasses() once on mount
+ * 1. Uses appropriate data source based on context
  * 2. Uses cached results on subsequent renders
  * 3. Automatically updates when classes are created/updated/deleted
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo, useCallback } from 'react';
 import {
     Table,
     TableBody,
@@ -39,6 +43,8 @@ import {
     useSearchResults,
     useClassesLoading,
     useClassesUI,
+    useClassesByBranch,
+    useClassesByCoachingCenter,
     useBranchClassesStore,
     formatClassSchedule,
     getCapacityDisplay,
@@ -59,7 +65,13 @@ import {
     ArrowUp,
     ArrowDown,
 } from 'lucide-react';
-import { memo, useCallback } from 'react';
+
+interface ClassesTableProps {
+    /** Branch ID - shows only classes for this specific branch */
+    branchId?: string;
+    /** Coaching Center ID - shows all classes across all branches of this coaching center */
+    coachingCenterId?: string;
+}
 
 /**
  * Table Header Cell with Sorting
@@ -194,36 +206,73 @@ function EmptyState() {
 /**
  * Main Classes Table Component
  */
-export function ClassesTable() {
+export function ClassesTable({ branchId, coachingCenterId }: ClassesTableProps) {
     const searchResults = useSearchResults();
-    const { search: isSearching } = useClassesLoading();
+    const { search: isSearching, fetchClasses: isLoading } = useClassesLoading();
     const { currentSort, currentFilters, currentPagination } = useClassesUI();
     const store = useBranchClassesStore();
+
+    // Get classes from appropriate source based on context
+    const branchClasses = useClassesByBranch(branchId || null);
+    const coachingCenterClasses = useClassesByCoachingCenter(coachingCenterId || null);
+
+    // Determine which classes to display
+    // Priority: searchResults (when actively filtering) > context-specific classes
+    const hasActiveSearch = searchResults && (
+        currentFilters.search_query ||
+        currentFilters.status ||
+        currentFilters.grade_level ||
+        currentFilters.subject ||
+        currentFilters.has_available_seats
+    );
+
+    const contextClasses = branchId 
+        ? branchClasses 
+        : coachingCenterId 
+            ? coachingCenterClasses 
+            : [];
+
+    // Use search results when filtering, otherwise use context-specific classes
+    const classes = hasActiveSearch 
+        ? (searchResults?.classes || []) 
+        : contextClasses;
 
     const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({
         field: currentSort?.field || 'created_at',
         direction: currentSort?.direction || 'desc',
     });
 
-    // ✅ FIX: Only search once on mount, then use cache
+    // ✅ FIX: Initialize data fetch based on context
     const [hasInitialized, setHasInitialized] = useState(false);
 
     useEffect(() => {
         if (!hasInitialized) {
-            console.log('🔍 Initial search - checking cache first');
-            // This will check cache first, only fetch if needed
-            store.searchClasses(currentFilters, currentSort, currentPagination, false);
+            console.log('🔍 ClassesTable: Initial load');
+            
+            if (branchId) {
+                // Branch manager context - fetch branch-specific classes
+                store.fetchClassesByBranch(branchId, false);
+                store.setFilters({ branch_id: branchId });
+            } else if (coachingCenterId) {
+                // Coach context - fetch coaching center classes
+                store.fetchClassesByCoachingCenter(coachingCenterId, false);
+                store.setFilters({ coaching_center_id: coachingCenterId });
+            } else {
+                // Fallback to search (for generic usage)
+                store.searchClasses(currentFilters, currentSort, currentPagination, false);
+            }
+            
             setHasInitialized(true);
         }
-    }, [hasInitialized, store, currentFilters, currentSort, currentPagination]);
+    }, [hasInitialized, branchId, coachingCenterId, store, currentFilters, currentSort, currentPagination]);
 
-    // ✅ When filters/sort/pagination change, trigger new search
+    // ✅ When filters/sort/pagination change AND we have active search, trigger new search
     useEffect(() => {
-        if (hasInitialized) {
+        if (hasInitialized && hasActiveSearch) {
             console.log('🔍 Filters/Sort/Pagination changed - searching');
             store.searchClasses(currentFilters, currentSort, currentPagination, false);
         }
-    }, [currentFilters, currentSort, currentPagination, hasInitialized, store]);
+    }, [currentFilters, currentSort, currentPagination, hasInitialized, hasActiveSearch, store]);
 
     // Handle column sorting
     const handleSort = (field: string) => {
@@ -242,18 +291,22 @@ export function ClassesTable() {
     // Manual refresh function
     const handleRefresh = () => {
         console.log('🔄 Manual refresh - bypassing cache');
-        store.searchClasses(currentFilters, currentSort, currentPagination, true);
+        if (branchId) {
+            store.fetchClassesByBranch(branchId, true);
+        } else if (coachingCenterId) {
+            store.fetchClassesByCoachingCenter(coachingCenterId, true);
+        } else {
+            store.searchClasses(currentFilters, currentSort, currentPagination, true);
+        }
     };
 
     // Show loading state only on initial load
-    if (isSearching && !searchResults) {
+    const isLoadingData = isSearching || isLoading;
+    if (isLoadingData && classes.length === 0) {
         return <TableSkeleton />;
     }
 
-    // Get classes from search results
-    const classes = searchResults?.classes || [];
-
-    if (classes.length === 0 && !isSearching) {
+    if (classes.length === 0 && !isLoadingData) {
         return <EmptyState />;
     }
 
@@ -262,15 +315,15 @@ export function ClassesTable() {
             {/* Header with refresh button */}
             <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                    {searchResults?.total_count || 0} classes found
+                    {classes.length} classes found
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={handleRefresh}
-                    disabled={isSearching}
+                    disabled={isLoadingData}
                 >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isSearching ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
                     Refresh
                 </Button>
             </div>
