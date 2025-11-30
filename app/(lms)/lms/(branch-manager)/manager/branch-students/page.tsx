@@ -12,15 +12,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { BranchStudentsDashboard } from './_components/dashboard';
 import { StudentsTable } from './_components/students-table';
 import { BranchSelection } from './_components/branch-selection';
-import { EnrollStudentDialog } from '../../../(coach-lms)/coach/branch-students/_components/enroll-student-dialog';
-import { EditEnrollmentDialog } from '../../../(coach-lms)/coach/branch-students/_components/edit-enrollment-dialog';
-import { StudentDetailsDialog } from '../../../(coach-lms)/coach/branch-students/_components/student-details-dialog';
+import { EnrollStudentDialog } from '../../../_components/branch-students/enroll-student-dialog';
+import { EditEnrollmentDialog } from '../../../_components/branch-students/edit-enrollment-dialog';
+import { StudentDetailsDialog } from '../../../_components/branch-students/student-details-dialog';
 import { StudentFilters } from './_components/student-filters';
-import { DeleteEnrollmentDialog } from '../../../(coach-lms)/coach/branch-students/_components/delete-enrollment-dialog';
+import { DeleteEnrollmentDialog } from '../../../_components/branch-students/delete-enrollment-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -52,14 +52,14 @@ interface BranchWithRole extends CoachingBranch {
  */
 export default function BranchManagerStudentsPage() {
     const router = useRouter();
-    const searchParams = useSearchParams();
 
-    // Get branch ID from URL if present
-    const urlBranchId = searchParams.get('branch');
+    // We'll read the `branch` param from the URL on the client using
+    // `window.location.search` inside effects. Avoids `useSearchParams()`
+    // which can trigger Next's CSR-bailout/prerender warnings.
 
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
     const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
-    const [branchId, setBranchId] = useState<string | null>(urlBranchId);
+    const [branchId, setBranchId] = useState<string | null>(null);
     const [branches, setBranches] = useState<BranchWithRole[]>([]);
     const [currentBranch, setCurrentBranch] = useState<BranchWithRole | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -90,16 +90,25 @@ export default function BranchManagerStudentsPage() {
                     setBranchId(singleBranch.id);
                     setCurrentBranch(singleBranch);
                 }
-                // If branch ID is in URL, set it
-                else if (urlBranchId) {
-                    const selectedBranch = result.data.branches.find(b => b.id === urlBranchId);
-                    if (selectedBranch) {
-                        setBranchId(selectedBranch.id);
-                        setCurrentBranch(selectedBranch);
-                    } else {
-                        // Invalid branch ID in URL, clear it
-                        setBranchId(null);
-                        setCurrentBranch(null);
+                // If branch ID is in URL, set it (read from window.search at runtime)
+                else {
+                    try {
+                        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+                        const urlBranchId = params?.get('branch');
+
+                        if (urlBranchId) {
+                            const selectedBranch = result.data.branches.find(b => b.id === urlBranchId);
+                            if (selectedBranch) {
+                                setBranchId(selectedBranch.id);
+                                setCurrentBranch(selectedBranch);
+                            } else {
+                                // Invalid branch ID in URL, clear it
+                                setBranchId(null);
+                                setCurrentBranch(null);
+                            }
+                        }
+                    } catch (err) {
+                        // ignore URL parsing errors
                     }
                 }
             } else {
@@ -111,7 +120,7 @@ export default function BranchManagerStudentsPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [urlBranchId]);
+    }, []);
 
     useEffect(() => {
         fetchBranches();

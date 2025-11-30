@@ -4,13 +4,13 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Calendar, UserCheck, Users } from 'lucide-react';
-import Dashboard from './_components/dashboard';
-import AttendanceTable from './_components/attendance-table';
-import MarkAttendanceDialog from './_components/mark-attendance-dialog';
-import BulkMarkDialog from './_components/bulk-mark-dialog';
-import AttendanceDetailsDialog from './_components/attendance-details-dialog';
-import EditAttendanceDialog from './_components/edit-attendance-dialog';
-import StudentHistory from './_components/student-history';
+import Dashboard from '../../../_components/student-attendance/dashboard';
+import AttendanceTable from '../../../_components/student-attendance/attendance-table';
+import MarkAttendanceDialog from '../../../_components/student-attendance/mark-attendance-dialog';
+import BulkMarkDialog from '../../../_components/student-attendance/bulk-mark-dialog';
+import AttendanceDetailsDialog from '../../../_components/student-attendance/attendance-details-dialog';
+import EditAttendanceDialog from '../../../_components/student-attendance/edit-attendance-dialog';
+import StudentHistory from '../../../_components/student-attendance/student-history';
 
 export default function StudentAttendancePage() {
     const [activeTab, setActiveTab] = useState('dashboard');
