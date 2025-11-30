@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,16 +11,31 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, X } from 'lucide-react';
+import { Calendar as CalendarIcon, X, Search } from 'lucide-react';
 import { format } from 'date-fns';
-import { useState } from 'react';
+import {
+    useBranchClassesStore,
+    useClassesByBranch,
+    useClassesByCoachingCenter,
+} from '@/lib/branch-system/branch-classes';
 
+/**
+ * AttendanceFilters Props
+ * For branch manager view: pass branchId
+ * For coach view: pass coachingCenterId
+ */
 interface AttendanceFiltersProps {
     selectedDate: string;
     onDateChange: (date: string) => void;
     selectedClass: string;
     onClassChange: (classId: string) => void;
+    branchId?: string;
+    coachingCenterId?: string;
+    /** Optional: Filter by student username (partial match) */
+    studentUsername?: string;
+    onStudentUsernameChange?: (username: string) => void;
 }
 
 export default function AttendanceFilters({
@@ -27,9 +43,55 @@ export default function AttendanceFilters({
     onDateChange,
     selectedClass,
     onClassChange,
+    branchId,
+    coachingCenterId,
+    studentUsername = '',
+    onStudentUsernameChange,
 }: AttendanceFiltersProps) {
     const [date, setDate] = useState<Date>(new Date(selectedDate));
+    const [usernameSearch, setUsernameSearch] = useState(studentUsername);
     const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+    // Get classes based on context
+    // Destructure fetch functions from the store so we can call them without
+    // causing the effect to re-run on every render (avoids unstable store ref)
+    const { fetchClassesByBranch, fetchClassesByCoachingCenter } = useBranchClassesStore();
+    const branchClasses = useClassesByBranch(branchId || '');
+    const coachingCenterClasses = useClassesByCoachingCenter(coachingCenterId || '');
+
+    // Determine which classes to show
+    const isBranchView = !!branchId;
+    const classes = isBranchView ? branchClasses : coachingCenterClasses;
+
+    // Fetch classes on mount / when context changes
+    useEffect(() => {
+        if (branchId) {
+            fetchClassesByBranch(branchId);
+        } else if (coachingCenterId) {
+            fetchClassesByCoachingCenter(coachingCenterId);
+        }
+    }, [branchId, coachingCenterId, fetchClassesByBranch, fetchClassesByCoachingCenter]);
+
+    // Update active filters display (only update state when filters actually change)
+    useEffect(() => {
+        const filters: string[] = [];
+        if (selectedClass && selectedClass !== 'all') {
+            const classInfo = classes.find(c => c.id === selectedClass);
+            if (classInfo) {
+                filters.push(`Class: ${classInfo.class_name}`);
+            }
+        }
+        if (usernameSearch) {
+            filters.push(`Username: ${usernameSearch}`);
+        }
+
+        // shallow compare to avoid unnecessary state updates that can trigger re-renders
+        const same = filters.length === activeFilters.length && filters.every((f, i) => f === activeFilters[i]);
+        if (!same) {
+            setActiveFilters(filters);
+        }
+        // Include activeFilters so the comparator works correctly and prevents loops
+    }, [selectedClass, usernameSearch, classes, activeFilters]);
 
     const handleDateSelect = (newDate: Date | undefined) => {
         if (newDate) {
@@ -38,9 +100,17 @@ export default function AttendanceFilters({
         }
     };
 
+    const handleUsernameSearch = (value: string) => {
+        setUsernameSearch(value);
+        onStudentUsernameChange?.(value);
+    };
+
     const clearFilters = () => {
         setDate(new Date());
         onDateChange(format(new Date(), 'yyyy-MM-dd'));
+        onClassChange('all');
+        setUsernameSearch('');
+        onStudentUsernameChange?.('');
         setActiveFilters([]);
     };
 
@@ -71,11 +141,28 @@ export default function AttendanceFilters({
                         <SelectValue placeholder="Select Class" />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="default-class-id">All Classes</SelectItem>
-                        <SelectItem value="class-1">Class 1A</SelectItem>
-                        <SelectItem value="class-2">Class 2B</SelectItem>
+                        <SelectItem value="all">All Classes</SelectItem>
+                        {classes.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.id}>
+                                {cls.class_name}
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
+
+                {/* Username Search */}
+                {onStudentUsernameChange && (
+                    <div className="relative">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            type="text"
+                            placeholder="Search by username..."
+                            value={usernameSearch}
+                            onChange={(e) => handleUsernameSearch(e.target.value)}
+                            className="pl-8 w-[180px] h-10"
+                        />
+                    </div>
+                )}
 
                 {/* Clear Filters */}
                 {activeFilters.length > 0 && (
@@ -94,7 +181,13 @@ export default function AttendanceFilters({
                         <Badge key={index} variant="secondary" className="gap-1">
                             {filter}
                             <X className="w-3 h-3 cursor-pointer" onClick={() => {
-                                setActiveFilters(prev => prev.filter((_, i) => i !== index));
+                                // Remove specific filter
+                                if (filter.startsWith('Class:')) {
+                                    onClassChange('all');
+                                } else if (filter.startsWith('Username:')) {
+                                    setUsernameSearch('');
+                                    onStudentUsernameChange?.('');
+                                }
                             }} />
                         </Badge>
                     ))}

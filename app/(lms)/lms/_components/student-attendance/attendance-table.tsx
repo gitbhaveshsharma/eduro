@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
 import {
     Table,
@@ -26,30 +26,95 @@ import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
     useFetchDailyAttendance,
+    useFetchBranchDailyAttendance,
+    useFetchCoachingCenterDailyAttendance,
     useMarkAttendance,
     useSetCurrentRecord,
     useAttendanceLoading,
     AttendanceStatus,
     formatAttendanceStatus,
     formatTime,
+    DailyAttendanceRecord,
 } from '@/lib/branch-system/student-attendance';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import AttendanceFilters from './attendance-filters';
 
-export default function AttendanceTable() {
+/**
+ * AttendanceTable Props
+ * For branch manager view: pass branchId
+ * For coach view: pass coachingCenterId
+ */
+interface AttendanceTableProps {
+    branchId?: string;
+    coachingCenterId?: string;
+}
+
+export default function AttendanceTable({ branchId, coachingCenterId }: AttendanceTableProps) {
     const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [selectedClass, setSelectedClass] = useState('default-class-id');
+    const [selectedClass, setSelectedClass] = useState('all');
+    const [studentUsername, setStudentUsername] = useState('');
     const [checkInTimes, setCheckInTimes] = useState<Record<string, string>>({});
+
+    // Track if we've already fetched
+    const lastFetchRef = useRef<string | null>(null);
 
     const dailyRecords = useDailyAttendanceRecords();
     const loading = useAttendanceLoading();
     const fetchDailyAttendance = useFetchDailyAttendance();
+    const fetchBranchDailyAttendance = useFetchBranchDailyAttendance();
+    const fetchCoachingCenterDailyAttendance = useFetchCoachingCenterDailyAttendance();
     const markAttendance = useMarkAttendance();
     const setCurrentRecord = useSetCurrentRecord();
 
+    // Determine which fetch function to use based on context
+    const isBranchView = !!branchId;
+    const isCoachView = !!coachingCenterId && !branchId;
+
     useEffect(() => {
-        fetchDailyAttendance(selectedClass, selectedDate);
-    }, [selectedClass, selectedDate, fetchDailyAttendance]);
+        const fetchKey = `${branchId || coachingCenterId || selectedClass}-${selectedDate}`;
+
+        // Prevent duplicate fetches
+        if (lastFetchRef.current === fetchKey) {
+            return;
+        }
+
+        const fetchAttendance = async () => {
+            if (isBranchView && branchId) {
+                await fetchBranchDailyAttendance(branchId, selectedDate);
+                lastFetchRef.current = fetchKey;
+            } else if (isCoachView && coachingCenterId) {
+                await fetchCoachingCenterDailyAttendance(coachingCenterId, selectedDate);
+                lastFetchRef.current = fetchKey;
+            } else if (selectedClass && selectedClass !== 'all') {
+                // Fallback to class-based fetch
+                await fetchDailyAttendance(selectedClass, selectedDate);
+                lastFetchRef.current = fetchKey;
+            }
+        };
+
+        fetchAttendance();
+    }, [selectedDate, selectedClass, branchId, coachingCenterId, isBranchView, isCoachView, fetchDailyAttendance, fetchBranchDailyAttendance, fetchCoachingCenterDailyAttendance]);
+
+    // Client-side filtering for username and class
+    const filteredRecords = useMemo(() => {
+        let records = dailyRecords;
+
+        // Filter by class if selected (not 'all')
+        if (selectedClass && selectedClass !== 'all') {
+            records = records.filter(r => r.class_name); // Keep records that match the class context
+        }
+
+        // Filter by username (partial match, case-insensitive)
+        if (studentUsername) {
+            const searchTerm = studentUsername.toLowerCase();
+            records = records.filter(r =>
+                r.student_username?.toLowerCase().includes(searchTerm) ||
+                r.student_name?.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        return records;
+    }, [dailyRecords, selectedClass, studentUsername]);
 
     const handleQuickMark = async (
         studentId: string,
@@ -59,11 +124,14 @@ export default function AttendanceTable() {
         const checkInTime = checkInTimes[studentId] || format(new Date(), 'HH:mm');
         const lateMinutes = status === AttendanceStatus.LATE ? 15 : 0;
 
+        // Use the branchId from props if available
+        const effectiveBranchId = branchId || 'current-branch-id';
+
         const success = await markAttendance({
             student_id: studentId,
-            class_id: selectedClass,
+            class_id: selectedClass !== 'all' ? selectedClass : '',
             teacher_id: 'current-teacher-id', // Replace with actual teacher ID from auth
-            branch_id: 'current-branch-id', // Replace with actual branch ID
+            branch_id: effectiveBranchId,
             attendance_date: selectedDate,
             attendance_status: status,
             check_in_time: checkInTime,
@@ -78,7 +146,7 @@ export default function AttendanceTable() {
         }
     };
 
-    const handleViewDetails = (record: typeof dailyRecords[0]) => {
+    const handleViewDetails = (record: DailyAttendanceRecord) => {
         // This would set the current record for the details dialog
         // The actual attendance record ID would need to be fetched
         console.log('View details for:', record);
@@ -114,6 +182,10 @@ export default function AttendanceTable() {
                 onDateChange={setSelectedDate}
                 selectedClass={selectedClass}
                 onClassChange={setSelectedClass}
+                branchId={branchId}
+                coachingCenterId={coachingCenterId}
+                studentUsername={studentUsername}
+                onStudentUsernameChange={setStudentUsername}
             />
 
             {/* Attendance Table */}
@@ -124,6 +196,7 @@ export default function AttendanceTable() {
                             <TableRow>
                                 <TableHead className="w-[50px]">#</TableHead>
                                 <TableHead>Student</TableHead>
+                                <TableHead>Class / Branch</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Check In</TableHead>
                                 <TableHead>Check Out</TableHead>
@@ -133,19 +206,22 @@ export default function AttendanceTable() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {dailyRecords.length === 0 ? (
+                            {filteredRecords.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-12">
+                                    <TableCell colSpan={9} className="text-center py-12">
                                         <div className="text-muted-foreground">
                                             <p className="text-lg font-semibold">No students found</p>
                                             <p className="text-sm mt-1">
-                                                Add students to this class to start marking attendance
+                                                {studentUsername
+                                                    ? `No students match "${studentUsername}"`
+                                                    : 'Add students to this class to start marking attendance'
+                                                }
                                             </p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                dailyRecords.map((record, index) => (
+                                filteredRecords.map((record, index) => (
                                     <TableRow key={record.student_id}>
                                         <TableCell className="font-medium">{index + 1}</TableCell>
 
@@ -164,10 +240,29 @@ export default function AttendanceTable() {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium">{record.student_name}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        ID: {record.student_id.slice(0, 8)}
-                                                    </p>
+                                                    {record.student_username ? (
+                                                        <p className="text-xs text-muted-foreground">@{record.student_username}</p>
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            ID: {record.student_id.slice(0, 8)}
+                                                        </p>
+                                                    )}
                                                 </div>
+                                            </div>
+                                        </TableCell>
+
+                                        {/* Class / Branch Info */}
+                                        <TableCell>
+                                            <div className="text-sm">
+                                                {record.class_name && (
+                                                    <p className="font-medium">{record.class_name}</p>
+                                                )}
+                                                {record.branch_name && (
+                                                    <p className="text-xs text-muted-foreground">{record.branch_name}</p>
+                                                )}
+                                                {!record.class_name && !record.branch_name && (
+                                                    <span className="text-muted-foreground">-</span>
+                                                )}
                                             </div>
                                         </TableCell>
 
@@ -300,18 +395,23 @@ export default function AttendanceTable() {
                 <div className="flex gap-6 text-sm">
                     <div>
                         <span className="text-muted-foreground">Total: </span>
-                        <span className="font-semibold">{dailyRecords.length}</span>
+                        <span className="font-semibold">{filteredRecords.length}</span>
+                        {filteredRecords.length !== dailyRecords.length && (
+                            <span className="text-xs text-muted-foreground ml-1">
+                                (of {dailyRecords.length})
+                            </span>
+                        )}
                     </div>
                     <div>
                         <span className="text-muted-foreground">Marked: </span>
                         <span className="font-semibold text-green-600">
-                            {dailyRecords.filter(r => r.is_marked).length}
+                            {filteredRecords.filter(r => r.is_marked).length}
                         </span>
                     </div>
                     <div>
                         <span className="text-muted-foreground">Unmarked: </span>
                         <span className="font-semibold text-orange-600">
-                            {dailyRecords.filter(r => !r.is_marked).length}
+                            {filteredRecords.filter(r => !r.is_marked).length}
                         </span>
                     </div>
                 </div>
