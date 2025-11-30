@@ -163,6 +163,7 @@ export {
     useClass,
     useClassesByBranch,
     useClassesByTeacher,
+    useClassesByCoachingCenter,
     useSearchResults,
     useBranchStats,
     useClassesLoading,
@@ -196,6 +197,9 @@ export const BranchClassesAPI = {
     fetchTeacherClasses: (teacherId: string, forceRefresh = false) =>
         useBranchClassesStore.getState().fetchClassesByTeacher(teacherId, forceRefresh),
 
+    fetchCoachingCenterClasses: (coachingCenterId: string, forceRefresh = false) =>
+        useBranchClassesStore.getState().fetchClassesByCoachingCenter(coachingCenterId, forceRefresh),
+
     search: (filters = {}, sort = undefined, pagination = undefined) =>
         useBranchClassesStore.getState().searchClasses(filters, sort, pagination),
 
@@ -227,6 +231,8 @@ export const BranchClassesAPI = {
         useBranchClassesStore.getState().clearBranchCache(branchId),
     clearTeacherCache: (teacherId: string) =>
         useBranchClassesStore.getState().clearTeacherCache(teacherId),
+    clearCoachingCenterCache: (coachingCenterId: string) =>
+        useBranchClassesStore.getState().clearCoachingCenterCache(coachingCenterId),
     invalidateClass: (classId: string) =>
         useBranchClassesStore.getState().invalidateClass(classId),
 } as const;

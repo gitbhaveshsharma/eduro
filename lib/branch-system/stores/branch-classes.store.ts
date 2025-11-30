@@ -49,6 +49,7 @@ interface BranchClassesState {
     classesById: Record<string, BranchClass>;
     classesByBranch: Record<string, string[]>;
     classesByTeacher: Record<string, string[]>;
+    classesByCoachingCenter: Record<string, string[]>;
 
     // NEW: Cache search results by search parameters
     searchCache: Record<string, {
@@ -112,6 +113,7 @@ interface BranchClassesState {
     fetchClassById: (classId: string, forceRefresh?: boolean) => Promise<void>;
     fetchClassesByBranch: (branchId: string, forceRefresh?: boolean) => Promise<void>;
     fetchClassesByTeacher: (teacherId: string, forceRefresh?: boolean) => Promise<void>;
+    fetchClassesByCoachingCenter: (coachingCenterId: string, forceRefresh?: boolean) => Promise<void>;
     searchClasses: (
         filters?: BranchClassFilters,
         sort?: BranchClassSort,
@@ -147,6 +149,7 @@ interface BranchClassesState {
     clearSearchCache: () => void;
     clearBranchCache: (branchId: string) => void;
     clearTeacherCache: (teacherId: string) => void;
+    clearCoachingCenterCache: (coachingCenterId: string) => void;
     invalidateClass: (classId: string) => void;
 }
 
@@ -182,6 +185,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             classesById: {},
             classesByBranch: {},
             classesByTeacher: {},
+            classesByCoachingCenter: {},
             searchCache: {},
             currentSearchResults: null,
             currentSearchKey: null,
@@ -336,6 +340,51 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                             });
 
                             draft.classesByTeacher[teacherId] = classIds;
+                            draft.loading.fetchClasses = false;
+                        });
+                    } else {
+                        set((draft) => {
+                            draft.errors.fetchClasses = result.error || 'Failed to fetch classes';
+                            draft.loading.fetchClasses = false;
+                        });
+                    }
+                } catch (error) {
+                    set((draft) => {
+                        draft.errors.fetchClasses = error instanceof Error ? error.message : 'Unknown error';
+                        draft.loading.fetchClasses = false;
+                    });
+                }
+            },
+
+            fetchClassesByCoachingCenter: async (coachingCenterId: string, forceRefresh = false) => {
+                const state = get();
+
+                // ✅ Check cache first
+                if (!forceRefresh && state.classesByCoachingCenter[coachingCenterId]) {
+                    console.log(`[Cache Hit] Coaching center ${coachingCenterId} classes loaded from cache`);
+                    return;
+                }
+
+                console.log(`[Cache Miss] Fetching coaching center ${coachingCenterId} classes from API`);
+
+                set((draft) => {
+                    draft.loading.fetchClasses = true;
+                    draft.errors.fetchClasses = null;
+                });
+
+                try {
+                    const result = await branchClassesService.getClassesByCoachingCenter(coachingCenterId);
+
+                    if (result.success && result.data) {
+                        set((draft) => {
+                            const classIds: string[] = [];
+
+                            result.data!.forEach((cls) => {
+                                draft.classesById[cls.id] = cls;
+                                classIds.push(cls.id);
+                            });
+
+                            draft.classesByCoachingCenter[coachingCenterId] = classIds;
                             draft.loading.fetchClasses = false;
                         });
                     } else {
@@ -793,6 +842,14 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 console.log(`🗑️ Teacher ${teacherId} cache cleared`);
             },
 
+            clearCoachingCenterCache: (coachingCenterId: string) => {
+                set((draft) => {
+                    delete draft.classesByCoachingCenter[coachingCenterId];
+                    draft.searchCache = {};
+                });
+                console.log(`🗑️ Coaching center ${coachingCenterId} cache cleared`);
+            },
+
             invalidateClass: (classId: string) => {
                 set((draft) => {
                     delete draft.classesById[classId];
@@ -829,6 +886,16 @@ export const useClassesByTeacher = (teacherId: string | null) => {
     const classesById = useBranchClassesStore((state) => state.classesById);
 
     if (!classIds || !teacherId) return [];
+    return classIds.map((id) => classesById[id]).filter(Boolean);
+};
+
+export const useClassesByCoachingCenter = (coachingCenterId: string | null) => {
+    const classIds = useBranchClassesStore((state) =>
+        coachingCenterId ? state.classesByCoachingCenter[coachingCenterId] : undefined
+    );
+    const classesById = useBranchClassesStore((state) => state.classesById);
+
+    if (!classIds || !coachingCenterId) return [];
     return classIds.map((id) => classesById[id]).filter(Boolean);
 };
 
