@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Search, Filter, Users, Bell, Settings, X, Home } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { LayoutUtils } from '@/components/layout/config';
 import type { HeaderProps } from '@/components/layout/types';
 import { Button } from '@/components/ui/button';
@@ -128,6 +128,12 @@ export function NetworkHeader({
 
     const [localSearchQuery, setLocalSearchQuery] = useState(searchQuery);
     const router = useRouter();
+    const pathname = usePathname();
+    const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Check if we're on the main network page (context is available)
+    const isOnNetworkPage = pathname === '/network' || pathname.startsWith('/network/');
+    const hasContext = contextFilters !== null;
 
     // Sync local search query with external changes
     useEffect(() => {
@@ -152,11 +158,41 @@ export function NetworkHeader({
         created_at: profile.created_at || null,
     } as FollowerProfile : null;
 
-    // Integrated SearchBar logic
-    const handleSearchChange = (value: string) => {
+    // Navigate to network page with search query when not on network page
+    const navigateToNetworkWithSearch = useCallback((query: string) => {
+        if (query.trim()) {
+            router.push(`/network?q=${encodeURIComponent(query.trim())}`);
+        } else {
+            router.push('/network');
+        }
+    }, [router]);
+
+    // Integrated SearchBar logic with smart navigation
+    const handleSearchChange = useCallback((value: string) => {
         setLocalSearchQuery(value);
-        onSearchChange?.(value);
-    };
+
+        // If context is available, use it (we're on network page)
+        if (hasContext && onSearchChange) {
+            onSearchChange(value);
+        } else {
+            // Not on network page - debounce and navigate
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+            debounceTimerRef.current = setTimeout(() => {
+                navigateToNetworkWithSearch(value);
+            }, 500);
+        }
+    }, [hasContext, onSearchChange, navigateToNetworkWithSearch]);
+
+    // Cleanup debounce timer
+    useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, []);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -164,7 +200,13 @@ export function NetworkHeader({
     };
 
     const clearSearch = () => {
-        handleSearchChange('');
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+        setLocalSearchQuery('');
+        if (hasContext && onSearchChange) {
+            onSearchChange('');
+        }
     };
 
     const handleRoleSelect = (role: string) => {
@@ -176,7 +218,8 @@ export function NetworkHeader({
             onRoleChange(role);
             console.log('🔵 NetworkHeader - Role change called');
         } else {
-            console.warn('🔵 NetworkHeader - No onRoleChange function available');
+            // Navigate to network page with role filter
+            router.push(`/network?role=${role}`);
         }
     };
 
@@ -189,7 +232,8 @@ export function NetworkHeader({
             onSortChange(sort);
             console.log('🔵 NetworkHeader - Sort change called');
         } else {
-            console.warn('🔵 NetworkHeader - No onSortChange function available');
+            // Navigate to network page with sort filter
+            router.push(`/network?sort=${sort}`);
         }
     };
 

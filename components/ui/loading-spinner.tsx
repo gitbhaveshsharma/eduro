@@ -143,7 +143,6 @@ export function PageLoadingSpinner({ component }: { component?: string }) {
         </div>
     )
 }
-
 export function ButtonLoadingSpinner({
     message = 'Please wait...',
     size = 'sm'
@@ -152,12 +151,16 @@ export function ButtonLoadingSpinner({
     size?: 'sm' | 'md'
 }) {
     return (
-        <LoadingSpinner
-            message={message}
-            size={size}
-            variant="primary"
-            inline
-        />
+        <div className="inline-flex items-center gap-2">
+            <div
+                className={cn(
+                    'animate-spin rounded-full border-2 border-t-transparent',
+                    sizeClasses[size],
+                    'border-current'
+                )}
+            />
+            <span>{message}</span>
+        </div>
     )
 }
 

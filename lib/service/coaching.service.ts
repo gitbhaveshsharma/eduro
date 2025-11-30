@@ -536,6 +536,164 @@ export class CoachingService {
   }
 
   /**
+   * Get all branches where user is a manager (assigned as branch manager)
+   * This returns branches where user is specifically set as the branch manager
+   */
+  static async getMyManagedBranches(): Promise<CoachingOperationResult<(CoachingBranch & { coaching_center?: { id: string; name: string; owner_id: string } })[]>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Get branches where user is the branch manager
+      const { data, error } = await supabase
+        .from('coaching_branches')
+        .select(`
+          *,
+          coaching_center:coaching_centers(id, name, owner_id)
+        `)
+        .eq('manager_id', user.id)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get all accessible branches for current user
+   * This includes:
+   * 1. Branches where user is the branch manager (assigned)
+   * 2. Branches from coaching centers where user is the owner
+   * 3. Branches from coaching centers where user is the center manager
+   * 
+   * Returns branches with their coaching center info and user's role
+   */
+  static async getAllAccessibleBranches(): Promise<CoachingOperationResult<{
+    branches: (CoachingBranch & { 
+      coaching_center?: { id: string; name: string; owner_id: string; manager_id: string | null };
+      role: 'owner' | 'center_manager' | 'branch_manager';
+    })[];
+    summary: {
+      total_branches: number;
+      owned_branches: number;
+      managed_as_center_manager: number;
+      managed_as_branch_manager: number;
+    };
+  }>> {
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      // Get coaching centers where user is owner or center manager
+      const { data: centers, error: centersError } = await supabase
+        .from('coaching_centers')
+        .select('id, name, owner_id, manager_id')
+        .or(`owner_id.eq.${user.id},manager_id.eq.${user.id}`);
+
+      if (centersError) {
+        return { success: false, error: centersError.message };
+      }
+
+      // Get branches where user is branch manager (not owner or center manager)
+      const { data: assignedBranches, error: assignedError } = await supabase
+        .from('coaching_branches')
+        .select(`
+          *,
+          coaching_center:coaching_centers(id, name, owner_id, manager_id)
+        `)
+        .eq('manager_id', user.id)
+        .eq('is_active', true);
+
+      if (assignedError) {
+        return { success: false, error: assignedError.message };
+      }
+
+      // Get all branches from owned/managed centers
+      const centerIds = centers?.map(c => c.id) || [];
+      let ownedCenterBranches: any[] = [];
+
+      if (centerIds.length > 0) {
+        const { data: centerBranches, error: branchesError } = await supabase
+          .from('coaching_branches')
+          .select(`
+            *,
+            coaching_center:coaching_centers(id, name, owner_id, manager_id)
+          `)
+          .in('coaching_center_id', centerIds)
+          .eq('is_active', true);
+
+        if (branchesError) {
+          return { success: false, error: branchesError.message };
+        }
+
+        ownedCenterBranches = centerBranches || [];
+      }
+
+      // Combine and deduplicate branches, assigning roles
+      const branchMap = new Map<string, any>();
+      
+      // Add branches from owned/managed centers first
+      for (const branch of ownedCenterBranches) {
+        const center = branch.coaching_center;
+        let role: 'owner' | 'center_manager' | 'branch_manager' = 'branch_manager';
+        
+        if (center?.owner_id === user.id) {
+          role = 'owner';
+        } else if (center?.manager_id === user.id) {
+          role = 'center_manager';
+        }
+        
+        branchMap.set(branch.id, { ...branch, role });
+      }
+
+      // Add assigned branches (only if not already added with higher role)
+      for (const branch of assignedBranches || []) {
+        if (!branchMap.has(branch.id)) {
+          branchMap.set(branch.id, { ...branch, role: 'branch_manager' });
+        }
+      }
+
+      const allBranches = Array.from(branchMap.values());
+
+      // Calculate summary
+      const summary = {
+        total_branches: allBranches.length,
+        owned_branches: allBranches.filter(b => b.role === 'owner').length,
+        managed_as_center_manager: allBranches.filter(b => b.role === 'center_manager').length,
+        managed_as_branch_manager: allBranches.filter(b => b.role === 'branch_manager').length,
+      };
+
+      return { 
+        success: true, 
+        data: {
+          branches: allBranches,
+          summary
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Create a new coaching branch
    */
   static async createCoachingBranch(branchData: CoachingBranchCreate): Promise<CoachingOperationResult<CoachingBranch>> {

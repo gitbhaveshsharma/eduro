@@ -52,8 +52,8 @@ export default function NetworkPageClient({ initialProfiles }: { initialProfiles
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
-            <div className="max-w-7xl mx-auto sm:py-6 lg:py-8 px-2 sm:px-4 space-y-4 sm:space-y-6">
-                <div className={cn("transition-all duration-300", isSticky && "sticky top-15 z-40 py-3 -mx-4 sm:-mx-6 px-4 sm:px-6")}>
+            <div className="max-w-7xl mx-auto sm:py-8 lg:py-8 px-2 sm:px-4 space-y-6 sm:space-y-6 lg:space-y-8">
+                <div className={cn("transition-all duration-300", isSticky && "sticky top-17 z-40 py-8 sm:py-0")}>
                     {/* Updated Tab System */}
                     <div className="flex bg-white p-1 rounded-lg shadow-sm border border-border max-w-md">
                         <button

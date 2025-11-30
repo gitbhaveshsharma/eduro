@@ -3,11 +3,16 @@
  * 
  * Integrated search bar that appears in the universal header on coaching pages
  * Similar to SettingsSearch but for coaching centers
+ * 
+ * Smart behavior:
+ * - On main /coaching page: Updates store and triggers search
+ * - On subpages (branch, center details): Navigates to /coaching with search query
  */
 
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -34,6 +39,9 @@ export function CoachingSearch({
     className,
     debounceDelay = 500
 }: CoachingSearchProps) {
+    const router = useRouter();
+    const pathname = usePathname();
+
     const {
         currentCenterFilters,
         currentCenterSortBy,
@@ -41,17 +49,29 @@ export function CoachingSearch({
         searchCoachingCenters
     } = useCoachingStore();
 
-    // Use context to control filter panel
+    // Use context to control filter panel (returns safe defaults on subpages)
     const { isOpen: isFiltersPanelOpen, toggle: toggleFiltersPanel } = useCoachingFilterPanel();
 
     // Local state for input value (before debounce)
     const [searchValue, setSearchValue] = useState(currentCenterFilters.search_query || '');
     const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Check if we're on the main coaching page (where results are displayed)
+    const isOnMainCoachingPage = pathname === '/coaching';
+
     // Sync with store when filters change externally
     useEffect(() => {
         setSearchValue(currentCenterFilters.search_query || '');
     }, [currentCenterFilters.search_query]);
+
+    // Navigate to coaching page with search query (for subpages)
+    const navigateToCoachingWithSearch = useCallback((query: string) => {
+        if (query.trim()) {
+            router.push(`/coaching?q=${encodeURIComponent(query.trim())}`);
+        } else {
+            router.push('/coaching');
+        }
+    }, [router]);
 
     // Handle search input change with debouncing
     const handleSearchChange = useCallback((value: string) => {
@@ -64,14 +84,28 @@ export function CoachingSearch({
 
         // Set new timer
         debounceTimerRef.current = setTimeout(() => {
-            const newFilters: CoachingCenterFilters = {
-                ...currentCenterFilters,
-                search_query: value.trim() || undefined
-            };
-            updateCenterFilters(newFilters);
-            searchCoachingCenters(newFilters, currentCenterSortBy, 1, 20);
+            if (isOnMainCoachingPage) {
+                // On main page: update store and trigger search
+                const newFilters: CoachingCenterFilters = {
+                    ...currentCenterFilters,
+                    search_query: value.trim() || undefined
+                };
+                updateCenterFilters(newFilters);
+                searchCoachingCenters(newFilters, currentCenterSortBy, 1, 20);
+            } else {
+                // On subpage: navigate to main coaching page with search query
+                navigateToCoachingWithSearch(value);
+            }
         }, debounceDelay);
-    }, [currentCenterFilters, currentCenterSortBy, debounceDelay, searchCoachingCenters, updateCenterFilters]);
+    }, [
+        isOnMainCoachingPage,
+        currentCenterFilters,
+        currentCenterSortBy,
+        debounceDelay,
+        searchCoachingCenters,
+        updateCenterFilters,
+        navigateToCoachingWithSearch
+    ]);
 
     // Cleanup debounce timer
     useEffect(() => {

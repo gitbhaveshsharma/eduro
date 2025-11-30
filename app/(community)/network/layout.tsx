@@ -1,19 +1,49 @@
 'use client';
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { ConditionalLayout } from "@/components/layout";
 import { NetworkFilterContext } from './network-context';
 import type { NetworkFilterContextType } from './network-context';
 
 export default function NetworkLayout({ children }: { children: React.ReactNode }) {
+    const searchParams = useSearchParams();
+
+    // Initialize filter state from URL params (for navigation from other pages)
+    const initialQuery = searchParams?.get('q') ?? '';
+    const initialRole = searchParams?.get('role') ?? 'all';
+    const initialSort = searchParams?.get('sort') ?? 'created_at:desc';
+
     // Shared filter state - managed at layout level so header can access it
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedRole, setSelectedRole] = useState('all');
-    const [selectedSort, setSelectedSort] = useState('created_at:desc');
+    const [searchQuery, setSearchQuery] = useState(initialQuery);
+    const [selectedRole, setSelectedRole] = useState(initialRole);
+    const [selectedSort, setSelectedSort] = useState(initialSort);
     const [showVerifiedOnly, setShowVerifiedOnly] = useState(false);
     const [showOnlineOnly, setShowOnlineOnly] = useState(false);
     const [totalCount, setTotalCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
+
+    // Sync with URL params when they change (e.g., user navigates with search query)
+    useEffect(() => {
+        if (!searchParams) return;
+
+        const q = searchParams.get('q');
+        const role = searchParams.get('role');
+        const sort = searchParams.get('sort');
+
+        if (q !== null && q !== searchQuery) {
+            console.log('🟣 NetworkLayout - Syncing search from URL:', q);
+            setSearchQuery(q);
+        }
+        if (role !== null && role !== selectedRole) {
+            console.log('🟣 NetworkLayout - Syncing role from URL:', role);
+            setSelectedRole(role);
+        }
+        if (sort !== null && sort !== selectedSort) {
+            console.log('🟣 NetworkLayout - Syncing sort from URL:', sort);
+            setSelectedSort(sort);
+        }
+    }, [searchParams]);
 
     // ✅ Memoize ALL callbacks with useCallback
     const onSearchChange = useCallback((value: string) => {
