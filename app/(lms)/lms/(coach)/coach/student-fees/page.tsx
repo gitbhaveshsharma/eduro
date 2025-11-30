@@ -16,14 +16,14 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 
 // Import components
-import Dashboard from './_components/dashboard';
-import ReceiptsTable from './_components/receipts-table';
-import ReceiptFilters from './_components/receipt-filters';
-import CreateReceiptDialog from './_components/create-receipt-dialog';
-import RecordPaymentDialog from './_components/record-payment-dialog';
-import ReceiptDetailsDialog from './_components/receipt-details-dialog';
-import EditReceiptDialog from './_components/edit-receipt-dialog';
-import CancelReceiptDialog from './_components/cancel-receipt-dialog';
+import Dashboard from '../../../_components/student-fees/dashboard';
+import ReceiptsTable from '../../../_components/student-fees/receipts-table';
+import ReceiptFilters from '../../../_components/student-fees/receipt-filters';
+import CreateReceiptDialog from '../../../_components/student-fees/create-receipt-dialog';
+import RecordPaymentDialog from '../../../_components/student-fees/record-payment-dialog';
+import ReceiptDetailsDialog from '../../../_components/student-fees/receipt-details-dialog';
+import EditReceiptDialog from '../../../_components/student-fees/edit-receipt-dialog';
+import CancelReceiptDialog from '../../../_components/student-fees/cancel-receipt-dialog';
 
 export default function StudentFeesPage() {
     const [activeTab, setActiveTab] = useState('dashboard');

@@ -9,13 +9,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { BranchStudentsDashboard } from './_components/dashboard';
-import { StudentsTable } from './_components/students-table';
-import { EnrollStudentDialog } from './_components/enroll-student-dialog';
-import { EditEnrollmentDialog } from './_components/edit-enrollment-dialog';
-import { StudentDetailsDialog } from './_components/student-details-dialog';
-import { StudentFilters } from './_components/student-filters';
-import { DeleteEnrollmentDialog } from './_components/delete-enrollment-dialog';
+import { BranchStudentsDashboard } from '../../../_components/branch-students/dashboard';
+import { StudentsTable } from '../../../_components/branch-students/students-table';
+import { EnrollStudentDialog } from '../../../_components/branch-students/enroll-student-dialog';
+import { EditEnrollmentDialog } from '../../../_components/branch-students/edit-enrollment-dialog';
+import { StudentDetailsDialog } from '../../../_components/branch-students/student-details-dialog';
+import { StudentFilters } from '../../../_components/branch-students/student-filters';
+import { DeleteEnrollmentDialog } from '../../../_components/branch-students/delete-enrollment-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';

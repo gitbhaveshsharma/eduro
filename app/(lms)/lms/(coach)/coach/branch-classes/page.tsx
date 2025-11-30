@@ -8,13 +8,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BranchClassesDashboard } from './_components/dashboard';
-import { ClassesTable } from './_components/classes-table';
-import { CreateClassDialog } from './_components/create-class-dialog';
-import { EditClassDialog } from './_components/edit-class-dialog';
-import { ClassDetailsDialog } from './_components/class-details-dialog';
-import { ClassFilters } from './_components/class-filters';
-import { DeleteClassDialog } from './_components/delete-class-dialog';
+import { BranchClassesDashboard } from '../../../_components/branch-classes/dashboard';
+import { ClassesTable } from '../../../_components/branch-classes/classes-table';
+import { CreateClassDialog } from '../../../_components/branch-classes/create-class-dialog';
+import { EditClassDialog } from '../../../_components/branch-classes/edit-class-dialog';
+import { ClassDetailsDialog } from '../../../_components/branch-classes/class-details-dialog';
+import { ClassFilters } from '../../../_components/branch-classes/class-filters';
+import { DeleteClassDialog } from '../../../_components/branch-classes/delete-class-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, LayoutDashboard, List } from 'lucide-react';
