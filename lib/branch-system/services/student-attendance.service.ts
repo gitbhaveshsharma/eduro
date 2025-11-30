@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase/client';
 import type {
     StudentAttendance,
     StudentAttendanceRow,
+    AttendanceDetailsView,
     MarkAttendanceDTO,
     BulkMarkAttendanceDTO,
     UpdateAttendanceDTO,
@@ -42,6 +43,7 @@ import {
     calculateAttendanceSummary,
     calculateClassAttendanceReport,
     buildAttendanceQueryFilters,
+    buildAttendanceViewFilters,
     validateAttendanceDate,
     validateAttendanceTimes,
     createDailyAttendanceRecord,
@@ -71,6 +73,77 @@ export interface AttendanceOperationResult<T = unknown> {
 export interface AttendanceValidationError {
     field: string;
     message: string;
+}
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+/**
+ * Transforms attendance_details view row to StudentAttendance format
+ * This allows consistent data structure when using the view for reads
+ */
+function viewToStudentAttendance(viewRow: AttendanceDetailsView): StudentAttendance {
+    return {
+        id: viewRow.attendance_id,
+        student_id: viewRow.student_id,
+        class_id: viewRow.class_id,
+        teacher_id: viewRow.teacher_id,
+        branch_id: viewRow.branch_id,
+        attendance_date: viewRow.attendance_date,
+        attendance_status: viewRow.attendance_status,
+        check_in_time: viewRow.check_in_time,
+        check_out_time: viewRow.check_out_time,
+        total_duration: viewRow.total_duration,
+        late_by_minutes: viewRow.late_by_minutes,
+        early_leave_minutes: viewRow.early_leave_minutes,
+        teacher_remarks: viewRow.teacher_remarks,
+        excuse_reason: viewRow.excuse_reason,
+        metadata: {},
+        created_at: viewRow.created_at,
+        updated_at: viewRow.updated_at,
+        // Nested relations from view
+        student: {
+            id: viewRow.student_id,
+            full_name: viewRow.student_name,
+            username: viewRow.student_username,
+            avatar_url: null, // View doesn't include avatar
+        },
+        class: viewRow.class_id ? {
+            id: viewRow.class_id,
+            class_name: viewRow.class_name || '',
+            subject: viewRow.subject || '',
+            grade_level: viewRow.grade_level || '',
+        } : undefined,
+        teacher: {
+            id: viewRow.teacher_id,
+            full_name: viewRow.teacher_name,
+        },
+        branch: {
+            id: viewRow.branch_id,
+            name: viewRow.branch_name || '',
+        },
+    };
+}
+
+/**
+ * Transforms view row to DailyAttendanceRecord for daily views
+ */
+function viewToDailyRecord(viewRow: AttendanceDetailsView): DailyAttendanceRecord {
+    return {
+        student_id: viewRow.student_id,
+        student_name: viewRow.student_name || 'Unknown Student',
+        student_username: viewRow.student_username,
+        student_avatar: null, // View doesn't include avatar
+        attendance_status: viewRow.attendance_status,
+        check_in_time: viewRow.check_in_time,
+        check_out_time: viewRow.check_out_time,
+        late_by_minutes: viewRow.late_by_minutes,
+        teacher_remarks: viewRow.teacher_remarks,
+        is_marked: true,
+        branch_name: viewRow.branch_name,
+        class_name: viewRow.class_name,
+    };
 }
 
 // ============================================================
@@ -489,6 +562,8 @@ export class StudentAttendanceService {
 
     /**
      * Lists attendance records with filtering and pagination
+     * Uses the attendance_details view for optimized queries with pre-joined data
+     * Supports filtering by student_username for user-friendly search
      * 
      * @param params - List parameters
      * @returns Operation result with attendance list
@@ -512,22 +587,36 @@ export class StudentAttendanceService {
             const validatedParams = validationResult.data;
             const { page, limit, sort_by, sort_order, ...filters } = validatedParams;
 
-            // Build query
+            // Use attendance_details view for optimized reads with pre-joined data
             let query = this.supabase
-                .from('student_attendance')
-                .select(`
-                    *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
-                `, { count: 'exact' });
+                .from('attendance_details')
+                .select('*', { count: 'exact' });
 
-            // Apply filters
-            const queryFilters = buildAttendanceQueryFilters(filters);
+            // Apply filters using view column names
+            const queryFilters = buildAttendanceViewFilters(filters);
             Object.entries(queryFilters).forEach(([key, value]) => {
                 query = query.eq(key, value);
             });
+
+            // Apply student_username filter with ilike for partial match
+            if (filters.student_username) {
+                query = query.ilike('student_username', `%${filters.student_username}%`);
+            }
+
+            // Apply coaching_center_id filter if provided
+            // Need to get branches for the coaching center first
+            if (filters.coaching_center_id) {
+                const { data: branches } = await this.supabase
+                    .from('coaching_branches')
+                    .select('id')
+                    .eq('coaching_center_id', filters.coaching_center_id)
+                    .eq('is_active', true);
+
+                if (branches && branches.length > 0) {
+                    const branchIds = branches.map((b: { id: string }) => b.id);
+                    query = query.in('branch_id', branchIds);
+                }
+            }
 
             // Apply date range filters
             if (filters.date_from) {
@@ -537,7 +626,7 @@ export class StudentAttendanceService {
                 query = query.lte('attendance_date', filters.date_to);
             }
 
-            // Apply sorting
+            // Apply sorting (map to view column names)
             const ascending = sort_order === 'asc';
             query = query.order(sort_by, { ascending });
 
@@ -561,7 +650,8 @@ export class StudentAttendanceService {
             return {
                 success: true,
                 data: {
-                    data: data.map(toPublicAttendanceRecord),
+                    // Transform view data to StudentAttendance format
+                    data: (data as AttendanceDetailsView[]).map(viewToStudentAttendance),
                     total: totalCount,
                     page,
                     limit,
@@ -596,12 +686,25 @@ export class StudentAttendanceService {
                 };
             }
 
-            // Get all enrolled students in the class
+            // Get class and branch info
+            const { data: classInfo } = await this.supabase
+                .from('branch_classes')
+                .select(`
+                    class_name,
+                    branch:branch_id(id, name)
+                `)
+                .eq('id', classId)
+                .single();
+
+            const className: string = classInfo?.class_name || 'Unknown Class';
+            const branchName: string = (classInfo?.branch as any)?.name || 'Unknown Branch';
+
+            // Get all enrolled students in the class with username
             const { data: students, error: studentsError } = await this.supabase
                 .from('branch_students')
                 .select(`
                     student_id,
-                    student:student_id(id, full_name, avatar_url)
+                    student:student_id(id, full_name, username, avatar_url)
                 `)
                 .eq('class_id', classId)
                 .eq('enrollment_status', 'ENROLLED');
@@ -613,16 +716,10 @@ export class StudentAttendanceService {
                 };
             }
 
-            // Get attendance records for the date
+            // Use attendance_details view for attendance records
             const { data: attendanceRecords, error: attendanceError } = await this.supabase
-                .from('student_attendance')
-                .select(`
-                    *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
-                `)
+                .from('attendance_details')
+                .select('*')
                 .eq('class_id', classId)
                 .eq('attendance_date', date);
 
@@ -636,17 +733,40 @@ export class StudentAttendanceService {
             // Create daily attendance records
             const dailyRecords: DailyAttendanceRecord[] = students.map((studentRecord: any) => {
                 const student = studentRecord.student;
-                const attendanceRecord = attendanceRecords.find(
-                    (record: any) => record.student_id === student.id
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === student.id
                 );
 
+                if (attendanceFromView) {
+                    // Use view data directly (already has username)
+                    return {
+                        student_id: student.id,
+                        student_name: attendanceFromView.student_name || student.full_name || 'Unknown Student',
+                        student_username: attendanceFromView.student_username || student.username || null,
+                        student_avatar: student.avatar_url,
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: className,
+                    };
+                }
+
+                // No attendance marked yet
                 return createDailyAttendanceRecord(
                     {
                         id: student.id,
                         full_name: student.full_name,
+                        username: student.username,
                         avatar_url: student.avatar_url,
                     },
-                    attendanceRecord ? toPublicAttendanceRecord(attendanceRecord) : null
+                    null,
+                    { branch_name: branchName, class_name: className }
                 );
             });
 
@@ -894,7 +1014,7 @@ export class StudentAttendanceService {
 
     /**
      * Gets daily attendance for a coaching center (all branches)
-     * Fetches all enrolled students across all branches and their attendance for a date
+     * Uses attendance_details view for marked records and branch_students for enrolled students
      * 
      * @param coachingCenterId - Coaching Center UUID
      * @param date - Date in YYYY-MM-DD format
@@ -915,7 +1035,7 @@ export class StudentAttendanceService {
             // Get all branches for this coaching center
             const { data: branches, error: branchesError } = await this.supabase
                 .from('coaching_branches')
-                .select('id')
+                .select('id, name')
                 .eq('coaching_center_id', coachingCenterId)
                 .eq('is_active', true);
 
@@ -934,15 +1054,17 @@ export class StudentAttendanceService {
             }
 
             const branchIds = branches.map((b: { id: string }) => b.id);
+            const branchMap = new Map<string, string>(branches.map((b: { id: string; name: string }) => [b.id, b.name]));
 
-            // Get all enrolled students across all branches
+            // Get all enrolled students across all branches with username
             const { data: students, error: studentsError } = await this.supabase
                 .from('branch_students')
                 .select(`
                     student_id,
                     branch_id,
-                    student:student_id(id, full_name, avatar_url),
-                    branch:branch_id(id, name)
+                    class_id,
+                    student:student_id(id, full_name, username, avatar_url),
+                    class:class_id(id, class_name)
                 `)
                 .in('branch_id', branchIds)
                 .eq('enrollment_status', 'ENROLLED');
@@ -961,19 +1083,11 @@ export class StudentAttendanceService {
                 };
             }
 
-            // Get attendance records for all students for the date
-            const studentIds = [...new Set(students.map((s: any) => s.student_id))];
-
+            // Use attendance_details view for attendance records (includes username)
             const { data: attendanceRecords, error: attendanceError } = await this.supabase
-                .from('student_attendance')
-                .select(`
-                    *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
-                `)
-                .in('student_id', studentIds)
+                .from('attendance_details')
+                .select('*')
+                .in('branch_id', branchIds)
                 .eq('attendance_date', date);
 
             if (attendanceError) {
@@ -986,26 +1100,43 @@ export class StudentAttendanceService {
             // Create daily attendance records
             const dailyRecords: DailyAttendanceRecord[] = students.map((studentRecord: any) => {
                 const student = studentRecord.student;
-                const branch = studentRecord.branch;
-                const attendanceRecord = attendanceRecords?.find(
-                    (record: any) => record.student_id === student.id
+                const branchName: string = branchMap.get(studentRecord.branch_id) || 'Unknown Branch';
+                const className: string | null = studentRecord.class?.class_name || null;
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === student.id
                 );
 
-                const baseRecord = createDailyAttendanceRecord(
+                if (attendanceFromView) {
+                    // Use view data directly (already has username)
+                    return {
+                        student_id: student.id,
+                        student_name: attendanceFromView.student_name || student.full_name || 'Unknown Student',
+                        student_username: attendanceFromView.student_username || student.username || null,
+                        student_avatar: student.avatar_url,
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: attendanceFromView.class_name || className,
+                    };
+                }
+
+                // No attendance marked yet
+                return createDailyAttendanceRecord(
                     {
                         id: student.id,
                         full_name: student.full_name,
+                        username: student.username,
                         avatar_url: student.avatar_url,
                     },
-                    attendanceRecord ? toPublicAttendanceRecord(attendanceRecord) : null
+                    null,
+                    { branch_name: branchName, class_name: className }
                 );
-
-                // Add branch info for coach view
-                return {
-                    ...baseRecord,
-                    branch_id: studentRecord.branch_id,
-                    branch_name: branch?.name || 'Unknown Branch',
-                };
             });
 
             return {
@@ -1040,12 +1171,23 @@ export class StudentAttendanceService {
                 };
             }
 
-            // Get all enrolled students in the branch
+            // Get branch name
+            const { data: branch } = await this.supabase
+                .from('coaching_branches')
+                .select('name')
+                .eq('id', branchId)
+                .single();
+
+            const branchName: string = branch?.name || 'Unknown Branch';
+
+            // Get all enrolled students in the branch with username
             const { data: students, error: studentsError } = await this.supabase
                 .from('branch_students')
                 .select(`
                     student_id,
-                    student:student_id(id, full_name, avatar_url)
+                    class_id,
+                    student:student_id(id, full_name, username, avatar_url),
+                    class:class_id(id, class_name)
                 `)
                 .eq('branch_id', branchId)
                 .eq('enrollment_status', 'ENROLLED');
@@ -1064,19 +1206,11 @@ export class StudentAttendanceService {
                 };
             }
 
-            // Get attendance records for the date
-            const studentIds = students.map((s: any) => s.student_id);
-
+            // Use attendance_details view for attendance records (includes username)
             const { data: attendanceRecords, error: attendanceError } = await this.supabase
-                .from('student_attendance')
-                .select(`
-                    *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
-                `)
-                .in('student_id', studentIds)
+                .from('attendance_details')
+                .select('*')
+                .eq('branch_id', branchId)
                 .eq('attendance_date', date);
 
             if (attendanceError) {
@@ -1089,17 +1223,41 @@ export class StudentAttendanceService {
             // Create daily attendance records
             const dailyRecords: DailyAttendanceRecord[] = students.map((studentRecord: any) => {
                 const student = studentRecord.student;
-                const attendanceRecord = attendanceRecords?.find(
-                    (record: any) => record.student_id === student.id
+                const className: string | null = studentRecord.class?.class_name || null;
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === student.id
                 );
 
+                if (attendanceFromView) {
+                    // Use view data directly (already has username)
+                    return {
+                        student_id: student.id,
+                        student_name: attendanceFromView.student_name || student.full_name || 'Unknown Student',
+                        student_username: attendanceFromView.student_username || student.username || null,
+                        student_avatar: student.avatar_url,
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: attendanceFromView.class_name || className,
+                    };
+                }
+
+                // No attendance marked yet
                 return createDailyAttendanceRecord(
                     {
                         id: student.id,
                         full_name: student.full_name,
+                        username: student.username,
                         avatar_url: student.avatar_url,
                     },
-                    attendanceRecord ? toPublicAttendanceRecord(attendanceRecord) : null
+                    null,
+                    { branch_name: branchName, class_name: className }
                 );
             });
 

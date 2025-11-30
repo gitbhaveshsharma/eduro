@@ -79,9 +79,11 @@ export const updateAttendanceSchema = z.object({
 // Filter schema
 export const attendanceFiltersSchema = z.object({
   student_id: z.string().uuid().optional(),
+  student_username: z.string().min(1).max(50).optional(),  // Filter by username (more user-friendly)
   class_id: z.string().uuid().optional(),
   teacher_id: z.string().uuid().optional(),
   branch_id: z.string().uuid().optional(),
+  coaching_center_id: z.string().uuid().optional(),  // Filter by coaching center
   attendance_status: attendanceStatusSchema.optional(),
   date_from: z.string().date().optional(),
   date_to: z.string().date().optional(),
@@ -100,9 +102,11 @@ export const attendanceFiltersSchema = z.object({
 // List params schema
 export const attendanceListParamsSchema = z.object({
   student_id: z.string().uuid().optional(),
+  student_username: z.string().min(1).max(50).optional(),  // Filter by username
   class_id: z.string().uuid().optional(),
   teacher_id: z.string().uuid().optional(),
   branch_id: z.string().uuid().optional(),
+  coaching_center_id: z.string().uuid().optional(),  // Filter by coaching center
   attendance_status: attendanceStatusSchema.optional(),
   date_from: z.string().date().optional(),
   date_to: z.string().date().optional(),

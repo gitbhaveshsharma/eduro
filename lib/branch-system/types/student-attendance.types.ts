@@ -101,12 +101,42 @@ export interface UpdateAttendanceDTO {
   excuse_reason?: string;
 }
 
+// Type for attendance_details view (from 016_create_branch_student_system.sql)
+export interface AttendanceDetailsView {
+  attendance_id: string;
+  attendance_date: string;
+  student_id: string;
+  student_name: string | null;
+  student_username: string | null;
+  class_id: string;
+  class_name: string | null;
+  subject: string | null;
+  grade_level: string | null;
+  teacher_id: string;
+  teacher_name: string | null;
+  branch_id: string;
+  branch_name: string | null;
+  coaching_center_name: string | null;
+  attendance_status: AttendanceStatus;
+  check_in_time: string | null;
+  check_out_time: string | null;
+  total_duration: string | null;
+  late_by_minutes: number;
+  early_leave_minutes: number;
+  teacher_remarks: string | null;
+  excuse_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // Filter types
 export interface AttendanceFilters {
   student_id?: string;
+  student_username?: string;  // Filter by student username (more user-friendly than UUID)
   class_id?: string;
   teacher_id?: string;
   branch_id?: string;
+  coaching_center_id?: string;  // Filter by coaching center
   attendance_status?: AttendanceStatus;
   date_from?: string;
   date_to?: string;
@@ -153,6 +183,7 @@ export interface ClassAttendanceReport {
 export interface DailyAttendanceRecord {
   student_id: string;
   student_name: string;
+  student_username: string | null;  // Added for easier identification
   student_avatar: string | null;
   attendance_status: AttendanceStatus | null;
   check_in_time: string | null;
@@ -160,4 +191,7 @@ export interface DailyAttendanceRecord {
   late_by_minutes: number;
   teacher_remarks: string | null;
   is_marked: boolean;
+  // Optional additional context from view
+  branch_name?: string | null;
+  class_name?: string | null;
 }

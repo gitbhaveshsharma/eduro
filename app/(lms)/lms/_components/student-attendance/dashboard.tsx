@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -36,7 +36,6 @@ import {
     getAttendancePerformanceLevel,
 } from '@/lib/branch-system/student-attendance';
 import { showErrorToast } from '@/lib/toast';
-import { useCoachContext } from '@/app/(lms)/lms/(coach)/coach/layout';
 
 /**
  * Dashboard Props
@@ -48,12 +47,8 @@ interface DashboardProps {
     branchId?: string;
 }
 
-export default function Dashboard({ coachingCenterId: propCoachingCenterId, branchId }: DashboardProps) {
+export default function Dashboard({ coachingCenterId, branchId }: DashboardProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-
-    // Try to get coaching center from context if not provided via props
-    const coachContext = useCoachContext();
-    const coachingCenterId = propCoachingCenterId || coachContext?.coachingCenterId;
 
     // Track if we've already fetched for this date/id combo
     const lastFetchRef = useRef<string | null>(null);
@@ -375,14 +370,26 @@ export default function Dashboard({ coachingCenterId: propCoachingCenterId, bran
                                                 </div>
                                                 <div>
                                                     <p className="font-medium">{record.student_name}</p>
-                                                    {record.teacher_remarks && (
+                                                    {record.student_username ? (
+                                                        <p className="text-xs text-muted-foreground">
+                                                            @{record.student_username}
+                                                            {record.class_name && ` • ${record.class_name}`}
+                                                        </p>
+                                                    ) : record.teacher_remarks ? (
                                                         <p className="text-xs text-muted-foreground line-clamp-1">
                                                             {record.teacher_remarks}
                                                         </p>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                             </div>
-                                            <Badge variant="destructive">Absent</Badge>
+                                            <div className="flex items-center gap-2">
+                                                {record.branch_name && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {record.branch_name}
+                                                    </Badge>
+                                                )}
+                                                <Badge variant="destructive">Absent</Badge>
+                                            </div>
                                         </div>
                                     ))}
                             </div>

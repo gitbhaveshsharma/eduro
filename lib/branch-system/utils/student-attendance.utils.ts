@@ -299,13 +299,19 @@ export function createDailyAttendanceRecord(
     studentInfo: {
         id: string;
         full_name: string | null;
+        username?: string | null;
         avatar_url: string | null;
     },
-    attendanceRecord?: StudentAttendance | null
+    attendanceRecord?: StudentAttendance | null,
+    additionalInfo?: {
+        branch_name?: string | null;
+        class_name?: string | null;
+    }
 ): DailyAttendanceRecord {
     return {
         student_id: studentInfo.id,
         student_name: studentInfo.full_name || 'Unknown Student',
+        student_username: studentInfo.username || null,
         student_avatar: studentInfo.avatar_url,
         attendance_status: attendanceRecord?.attendance_status || null,
         check_in_time: attendanceRecord?.check_in_time || null,
@@ -313,6 +319,8 @@ export function createDailyAttendanceRecord(
         late_by_minutes: attendanceRecord?.late_by_minutes || 0,
         teacher_remarks: attendanceRecord?.teacher_remarks || null,
         is_marked: !!attendanceRecord,
+        branch_name: additionalInfo?.branch_name || null,
+        class_name: additionalInfo?.class_name || null,
     };
 }
 
@@ -490,6 +498,28 @@ export function buildAttendanceQueryFilters(filters: AttendanceFilters) {
     const queryFilters: Record<string, unknown> = {};
 
     if (filters.student_id) queryFilters.student_id = filters.student_id;
+    if (filters.class_id) queryFilters.class_id = filters.class_id;
+    if (filters.teacher_id) queryFilters.teacher_id = filters.teacher_id;
+    if (filters.branch_id) queryFilters.branch_id = filters.branch_id;
+    if (filters.attendance_status) queryFilters.attendance_status = filters.attendance_status;
+    if (filters.attendance_date) queryFilters.attendance_date = filters.attendance_date;
+
+    return queryFilters;
+}
+
+/**
+ * Builds query filters specifically for the attendance_details view
+ * Maps filter keys to the view column names
+ * 
+ * @param filters - Attendance filters object
+ * @returns Query filter object for Supabase view queries
+ */
+export function buildAttendanceViewFilters(filters: AttendanceFilters) {
+    const queryFilters: Record<string, unknown> = {};
+
+    // Direct field mappings
+    if (filters.student_id) queryFilters.student_id = filters.student_id;
+    if (filters.student_username) queryFilters.student_username = filters.student_username;
     if (filters.class_id) queryFilters.class_id = filters.class_id;
     if (filters.teacher_id) queryFilters.teacher_id = filters.teacher_id;
     if (filters.branch_id) queryFilters.branch_id = filters.branch_id;
