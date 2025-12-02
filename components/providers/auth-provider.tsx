@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import type { Session, AuthChangeEvent } from '@supabase/supabase-js'
 import { useAuthStore } from '@/lib/auth-store'
 import { useProfileStore } from '@/lib/store/profile.store'
 import { authSessionManager } from '@/lib/auth-session'
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Get initial session
         const getInitialSession = async () => {
             try {
-                const session = await authSessionManager.getSession()
+                const session: Session | null = await authSessionManager.getSession()
 
                 if (!mounted) return
 
@@ -76,7 +77,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         // CRITICAL: Non-blocking auth state listener
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            (event, session) => {
+            (event: AuthChangeEvent, session: Session | null) => {
                 if (!mounted) return
 
                 // Don't interfere on OAuth callback page
