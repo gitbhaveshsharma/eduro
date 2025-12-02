@@ -83,7 +83,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 const isCallbackPage = window.location.pathname === '/auth/callback'
                 if (isCallbackPage) return
 
-                console.log('[AUTH-PROVIDER] Auth event:', event)
+                // console.log('[AUTH-PROVIDER] Auth event:', event)
 
                 const newToken = session?.access_token || null
 
@@ -91,13 +91,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     case 'SIGNED_IN':
                         // OPTIMIZATION: Skip if same token (visibility spam)
                         if (newToken === currentTokenRef.current) {
-                            console.log('[AUTH-PROVIDER] Token unchanged, skipping')
+                            // console.log('[AUTH-PROVIDER] Token unchanged, skipping')
                             return
                         }
 
                         // CRITICAL: Prevent concurrent processing
                         if (isProcessingRef.current) {
-                            console.log('[AUTH-PROVIDER] Already processing, skipping')
+                            //console.log('[AUTH-PROVIDER] Already processing, skipping')
                             return
                         }
 
@@ -117,7 +117,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                                 }
 
                                 try {
-                                    console.log('[AUTH-PROVIDER] Loading profile after SIGNED_IN')
+                                    //console.log('[AUTH-PROVIDER] Loading profile after SIGNED_IN')
                                     await loadCurrentProfile()
                                 } catch (error) {
                                     console.error('[AUTH-PROVIDER] Error loading profile on SIGNED_IN:', error)
@@ -133,7 +133,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                         if (session?.user) {
                             currentTokenRef.current = newToken
                             setAuth(session.user, session)
-                            console.log('[AUTH-PROVIDER] Token refreshed')
+                            //console.log('[AUTH-PROVIDER] Token refreshed')
                         }
                         break
 
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
                                 if (!mounted) return
 
                                 try {
-                                    console.log('[AUTH-PROVIDER] Loading profile after USER_UPDATED')
+                                    //console.log('[AUTH-PROVIDER] Loading profile after USER_UPDATED')
                                     await loadCurrentProfile()
                                 } catch (error) {
                                     console.error('[AUTH-PROVIDER] Error loading profile on USER_UPDATED:', error)
@@ -161,11 +161,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
                         isProcessingRef.current = false
                         clearAuth()
                         clearCurrentProfile()
-                        console.log('[AUTH-PROVIDER] User signed out')
+                        // console.log('[AUTH-PROVIDER] User signed out')
                         break
 
                     default:
-                        console.log('[AUTH-PROVIDER] Unhandled event:', event)
+                    // console.log('[AUTH-PROVIDER] Unhandled event:', event)
                 }
             }
         )

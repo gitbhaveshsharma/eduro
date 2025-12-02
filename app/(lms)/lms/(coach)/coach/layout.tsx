@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, createContext, useContext, useRef, useMemo } from 'react';
+import { useState, useEffect, createContext, useContext, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -9,7 +9,7 @@ import {
     ArrowLeft,
     AlertCircle,
 } from 'lucide-react';
-import { useMyCoachingCenters, useMyCoachingCentersLoading, useCoachingStore } from '@/lib/coaching';
+import { useCoachingStore } from '@/lib/coaching';
 import type { CoachingCenter } from '@/lib/schema/coaching.types';
 import { ConditionalLayout } from '@/components/layout/conditional-layout';
 import { LayoutUtils } from '@/components/layout/config';
@@ -18,7 +18,6 @@ import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 /**
  * Coach Context - Provides coaching center data across coach routes
- * Child pages should use this instead of loading data themselves
  */
 interface CoachContextType {
     coachingCenter: CoachingCenter | null;
@@ -47,40 +46,42 @@ interface CoachLayoutProps {
 export default function CoachLayout({ children }: CoachLayoutProps) {
     const router = useRouter();
 
-    // Get coaching centers from store using stable selectors
-    const myCoachingCenters = useMyCoachingCenters();
-    const loading = useMyCoachingCentersLoading();
-    const loadMyCoachingCenters = useCoachingStore((state) => state.loadMyCoachingCenters);
-
-    // Use refs to prevent duplicate API calls and infinite loops
-    const hasLoadedRef = useRef(false);
+    // Local state for loading and error
+    const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const hasLoadedRef = useRef(false);
+
+    // Subscribe to store state directly - no selectors
+    const myCoachingCenters = useCoachingStore((state) => state.myCoachingCenters);
 
     /**
      * Load coaching centers on mount - ONLY ONCE
      */
     useEffect(() => {
-        // If already loaded or currently loading, skip
         if (hasLoadedRef.current) {
             return;
         }
 
+        hasLoadedRef.current = true;
+
         const loadCenters = async () => {
+            setIsLoading(true);
+            setError(null);
+
             try {
+                const loadMyCoachingCenters = useCoachingStore.getState().loadMyCoachingCenters;
                 await loadMyCoachingCenters();
             } catch (err) {
-                console.error('[CoachLayout] Error loading coaching centers:', err);
                 setError(err instanceof Error ? err.message : 'Failed to load coaching center');
             } finally {
-                // Mark as loaded regardless of success/failure
-                hasLoadedRef.current = true;
+                setIsLoading(false);
             }
         };
 
         loadCenters();
-    }, [loadMyCoachingCenters]);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Get primary coaching center - use useMemo to prevent unnecessary recalculations
+    // Get primary coaching center
     const coachingCenter = useMemo(() => {
         return myCoachingCenters && myCoachingCenters.length > 0 ? myCoachingCenters[0] : null;
     }, [myCoachingCenters]);
@@ -90,34 +91,36 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
     /**
      * Refetch coaching center data
      */
-    const refetch = useCallback(async () => {
+    const refetch = async () => {
         hasLoadedRef.current = false;
+        setIsLoading(true);
         setError(null);
+
         try {
+            const loadMyCoachingCenters = useCoachingStore.getState().loadMyCoachingCenters;
             await loadMyCoachingCenters();
         } catch (err) {
-            console.error('[CoachLayout] Error refetching coaching centers:', err);
             setError(err instanceof Error ? err.message : 'Failed to load coaching center');
         } finally {
+            setIsLoading(false);
             hasLoadedRef.current = true;
         }
-    }, [loadMyCoachingCenters]);
+    };
 
-    // ALL HOOKS MUST BE CALLED BEFORE ANY EARLY RETURNS
-    // Build branding config from coaching center data - MEMOIZED to prevent re-renders
+    // Build branding config
     const branding: BrandingConfig = useMemo(() => ({
         logoUrl: coachingCenter?.logo_url || null,
         name: coachingCenter?.name || 'Coaching Center',
         subtitle: 'All Branches',
     }), [coachingCenter?.logo_url, coachingCenter?.name]);
 
-    // Get sidebar items for coach view - MEMOIZED since it's static
+    // Get sidebar items
     const sidebarItems: SidebarItem[] = useMemo(
         () => LayoutUtils.getSidebarItemsForPage('lms-coach'),
         []
     );
 
-    // Memoize the forceConfig to prevent ConditionalLayout re-renders
+    // Memoize forceConfig
     const forceConfig = useMemo(() => ({
         page: 'lms-coach' as const,
         headerType: 'universal' as const,
@@ -133,26 +136,21 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
         },
     }), [branding]);
 
-    // Memoize context value to prevent child re-renders
+    // Memoize context value
     const contextValue = useMemo(() => ({
         coachingCenter,
         coachingCenterId,
-        isLoading: loading,
+        isLoading,
         error,
         refetch,
-    }), [coachingCenter, coachingCenterId, loading, error, refetch]);
+    }), [coachingCenter, coachingCenterId, isLoading, error]);
 
-    // Show loading state if:
-    // 1. Store is loading AND we haven't finished the initial load attempt
-    // 2. OR we're still loading and don't have data yet
-    const isInitialLoading = !hasLoadedRef.current || (loading && !coachingCenter && !error);
-
-    // Loading state - shows while data is being fetched
-    if (isInitialLoading) {
+    // Loading state
+    if (isLoading) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
                 <LoadingSpinner
-                    title={coachingCenter?.name || 'Coaching Center'}
+                    title="Coaching Center"
                     message="Loading your coaching center..."
                     size="lg"
                     variant="primary"
@@ -183,7 +181,7 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
         );
     }
 
-    // No coaching center found - Only shown AFTER load completes
+    // No coaching center found
     if (!coachingCenter) {
         return (
             <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 p-6">
