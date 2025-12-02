@@ -49,6 +49,11 @@ interface DashboardProps {
 
 export default function Dashboard({ coachingCenterId, branchId }: DashboardProps) {
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [debugInfo, setDebugInfo] = useState<{
+        fetchType: 'coaching' | 'branch' | 'none';
+        lastFetch: string | null;
+        dataSource: string;
+    }>({ fetchType: 'none', lastFetch: null, dataSource: '' });
 
     // Track if we've already fetched for this date/id combo
     const lastFetchRef = useRef<string | null>(null);
@@ -67,6 +72,28 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
     const isCoachView = !!coachingCenterId && !branchId;
     const isBranchView = !!branchId;
 
+    // Log data whenever it changes
+    useEffect(() => {
+        console.group('📊 Dashboard Data Log');
+        console.log('🔍 Current Context:', {
+            coachingCenterId,
+            branchId,
+            isCoachView,
+            isBranchView
+        });
+
+        console.log('📈 Daily Records:', {
+            count: dailyRecords.length,
+            records: dailyRecords,
+            sample: dailyRecords.length > 0 ? dailyRecords[0] : 'No records'
+        });
+
+        console.log('📊 Stats:', stats);
+        console.log('🏫 Class Report:', classReport);
+        console.log('⏳ Loading States:', loading);
+        console.groupEnd();
+    }, [dailyRecords, stats, classReport, loading, coachingCenterId, branchId]);
+
     useEffect(() => {
         const dateString = format(selectedDate, 'yyyy-MM-dd');
         const fetchKey = `${isCoachView ? coachingCenterId : branchId}-${dateString}`;
@@ -79,20 +106,62 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
         const fetchAttendance = async () => {
             try {
                 if (isCoachView && coachingCenterId) {
-                    await fetchCoachingCenterDailyAttendance(coachingCenterId, dateString);
+                    console.group('🎯 Fetching Coaching Center Data');
+                    console.log('📅 Date:', dateString);
+                    console.log('🏢 Coaching Center ID:', coachingCenterId);
+                    console.log('🔄 Fetch Key:', fetchKey);
+
+                    const result = await fetchCoachingCenterDailyAttendance(coachingCenterId, dateString);
+
+                    console.log('✅ Fetch Result:', result);
+                    console.log('📊 Records after fetch:', dailyRecords.length);
+                    console.log('📈 Stats after fetch:', stats);
+                    console.groupEnd();
+
                     lastFetchRef.current = fetchKey;
+                    setDebugInfo({
+                        fetchType: 'coaching',
+                        lastFetch: fetchKey,
+                        dataSource: `coaching-center-${coachingCenterId}`
+                    });
+
                 } else if (isBranchView && branchId) {
-                    await fetchBranchDailyAttendance(branchId, dateString);
+                    console.group('🏢 Fetching Branch Data');
+                    console.log('📅 Date:', dateString);
+                    console.log('🏢 Branch ID:', branchId);
+                    console.log('🔄 Fetch Key:', fetchKey);
+
+                    const result = await fetchBranchDailyAttendance(branchId, dateString);
+
+                    console.log('✅ Fetch Result:', result);
+                    console.log('📊 Records after fetch:', dailyRecords.length);
+                    console.log('📈 Stats after fetch:', stats);
+                    console.groupEnd();
+
                     lastFetchRef.current = fetchKey;
+                    setDebugInfo({
+                        fetchType: 'branch',
+                        lastFetch: fetchKey,
+                        dataSource: `branch-${branchId}`
+                    });
                 }
             } catch (error) {
+                console.error('❌ Fetch Error:', error);
                 showErrorToast('Failed to fetch attendance data');
                 console.error('[Dashboard] Fetch error:', error);
             }
         };
 
         if (coachingCenterId || branchId) {
+            console.log('🚀 Triggering fetch for:', {
+                date: dateString,
+                coachingCenterId,
+                branchId,
+                previousFetchKey: lastFetchRef.current
+            });
             fetchAttendance();
+        } else {
+            console.warn('⚠️ No ID provided for fetch - both coachingCenterId and branchId are undefined');
         }
     }, [selectedDate, coachingCenterId, branchId, isCoachView, isBranchView, fetchCoachingCenterDailyAttendance, fetchBranchDailyAttendance]);
 
@@ -105,6 +174,7 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
 
     // Show message if no context available
     if (!coachingCenterId && !branchId) {
+        console.warn('❌ No context provided to Dashboard component');
         return (
             <Card>
                 <CardContent className="py-8 text-center">
@@ -117,12 +187,55 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
         );
     }
 
+    // Debug panel (can be removed in production)
+    const showDebugPanel = process.env.NODE_ENV === 'development';
+    if (showDebugPanel) {
+        console.log('🔧 Debug Info:', debugInfo);
+    }
+
     if (loading.daily && dailyRecords.length === 0) {
+        console.log('⏳ Showing skeleton loader');
         return <DashboardSkeleton />;
     }
 
     return (
         <div className="space-y-6">
+            {/* Debug Panel (Development Only) */}
+            {showDebugPanel && (
+                <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20">
+                    <CardContent className="pt-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
+                                    Debug Information
+                                </h3>
+                                <div className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
+                                    <p>Fetch Type: <Badge variant="outline">{debugInfo.fetchType}</Badge></p>
+                                    <p>Data Source: {debugInfo.dataSource || 'None'}</p>
+                                    <p>Records: {dailyRecords.length}</p>
+                                    <p>Stats: {JSON.stringify(stats)}</p>
+                                </div>
+                            </div>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                    console.log('🔄 Manual Refresh Triggered');
+                                    console.log('Current State:', {
+                                        dailyRecords,
+                                        stats,
+                                        classReport,
+                                        debugInfo
+                                    });
+                                }}
+                            >
+                                Refresh Data
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Date Selector */}
             <div className="flex items-center justify-between">
                 <div>
@@ -131,6 +244,11 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         Overview of today's attendance statistics
+                        {debugInfo.dataSource && (
+                            <span className="ml-2 text-xs text-blue-600">
+                                ({debugInfo.dataSource})
+                            </span>
+                        )}
                     </p>
                 </div>
 
@@ -145,7 +263,12 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
                         <Calendar
                             mode="single"
                             selected={selectedDate}
-                            onSelect={(date) => date && setSelectedDate(date)}
+                            onSelect={(date) => {
+                                if (date) {
+                                    console.log('📅 Date changed to:', date);
+                                    setSelectedDate(date);
+                                }
+                            }}
                             initialFocus
                         />
                     </PopoverContent>

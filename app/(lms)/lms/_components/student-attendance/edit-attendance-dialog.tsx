@@ -88,7 +88,7 @@ export default function EditAttendanceDialog() {
 
     return (
         <Dialog open={!!currentRecord} onOpenChange={() => setCurrentRecord(null)}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="  max-w-3xl max-h-[95vh] flex flex-col ">
                 <DialogHeader>
                     <DialogTitle>Edit Attendance</DialogTitle>
                     <DialogDescription>
@@ -96,7 +96,7 @@ export default function EditAttendanceDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[600px]">
+                <ScrollArea className=" flex-1 min-h-0 p-4 overflow-x-auto">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pr-4">
                             {/* Attendance Status */}

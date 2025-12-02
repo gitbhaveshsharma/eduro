@@ -243,7 +243,7 @@ export class BranchStudentsService {
                 .from('branch_students')
                 .select(`
                     *,
-                    student:student_id (
+                    profiles    :student_id (
                         id,
                         full_name,
                         username,
@@ -251,13 +251,13 @@ export class BranchStudentsService {
                         avatar_url,
                         phone
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name,
                         coaching_center_id,
                         address
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject,

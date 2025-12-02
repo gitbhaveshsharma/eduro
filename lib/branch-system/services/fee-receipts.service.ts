@@ -142,23 +142,23 @@ class FeeReceiptsService {
                 .insert(insertData)
                 .select(`
                     *,
-                    student:student_id (
+                    profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status
@@ -278,23 +278,23 @@ class FeeReceiptsService {
                 .eq('id', data.receipt_id)
                 .select(`
                     *,
-                    student:student_id (
+                    profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status
@@ -420,23 +420,23 @@ class FeeReceiptsService {
                 .eq('id', data.id)
                 .select(`
                     *,
-                    student:student_id (
+                    profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status
@@ -531,23 +531,23 @@ class FeeReceiptsService {
                 .eq('id', data.receipt_id)
                 .select(`
                     *,
-                    student:student_id (
+                    profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status
@@ -598,23 +598,23 @@ class FeeReceiptsService {
                 .from('fee_receipts')
                 .select(`
                     *,
-                    student:student_id (
+                        profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status
@@ -682,23 +682,23 @@ class FeeReceiptsService {
                 .select(
                     `
                     *,
-                    student:student_id (
+                    profiles:student_id (
                         id,
                         full_name,
                         username,
                         avatar_url,
                         email
                     ),
-                    branch:branch_id (
+                    coaching_branches:branch_id (
                         id,
                         name
                     ),
-                    class:class_id (
+                    branch_classes:class_id (
                         id,
                         class_name,
                         subject
                     ),
-                    enrollment:enrollment_id (
+                    branch_students:enrollment_id (
                         id,
                         enrollment_date,
                         enrollment_status

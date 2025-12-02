@@ -94,119 +94,120 @@ export default function BulkMarkDialog({ open, onOpenChange }: BulkMarkDialogPro
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col ">
                 <DialogHeader>
                     <DialogTitle>Bulk Mark Attendance</DialogTitle>
                     <DialogDescription>
                         Select students and mark attendance for multiple students at once
                     </DialogDescription>
                 </DialogHeader>
-
-                <div className="space-y-4">
-                    {/* Date Picker */}
-                    <div className="flex items-center gap-4">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="gap-2">
-                                    <CalendarIcon className="w-4 h-4" />
-                                    {format(date, 'PPP')}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                                <Calendar
-                                    mode="single"
-                                    selected={date}
-                                    onSelect={(d) => d && setDate(d)}
-                                    initialFocus
-                                />
-                            </PopoverContent>
-                        </Popover>
-
-                        <div className="flex gap-2">
-                            <Button size="sm" variant="outline" onClick={selectAll}>
-                                Select All
-                            </Button>
-                            <Button size="sm" variant="outline" onClick={deselectAll}>
-                                Deselect All
-                            </Button>
-                        </div>
-                    </div>
-
-                    {/* Quick Status Buttons */}
-                    <div className="flex gap-2">
-                        <Button
-                            size="sm"
-                            variant={bulkStatus === AttendanceStatus.PRESENT ? 'default' : 'outline'}
-                            onClick={() => setBulkStatus(AttendanceStatus.PRESENT)}
-                            className="gap-2"
-                        >
-                            <UserCheck className="w-4 h-4" />
-                            Present
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={bulkStatus === AttendanceStatus.ABSENT ? 'default' : 'outline'}
-                            onClick={() => setBulkStatus(AttendanceStatus.ABSENT)}
-                            className="gap-2"
-                        >
-                            <UserX className="w-4 h-4" />
-                            Absent
-                        </Button>
-                        <Button
-                            size="sm"
-                            variant={bulkStatus === AttendanceStatus.LATE ? 'default' : 'outline'}
-                            onClick={() => setBulkStatus(AttendanceStatus.LATE)}
-                            className="gap-2"
-                        >
-                            <Clock className="w-4 h-4" />
-                            Late
-                        </Button>
-                    </div>
-
-                    {/* Student List */}
-                    <ScrollArea className="h-[400px] border rounded-lg p-4">
-                        <div className="space-y-2">
-                            {mockStudents.map((student) => (
-                                <div
-                                    key={student.id}
-                                    className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
-                                    onClick={() => toggleStudent(student.id)}
-                                >
-                                    <Checkbox
-                                        checked={selectedStudents.has(student.id)}
-                                        onCheckedChange={() => toggleStudent(student.id)}
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
+                    <div className="space-y-4">
+                        {/* Date Picker */}
+                        <div className="flex items-center gap-4">
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="outline" className="gap-2">
+                                        <CalendarIcon className="w-4 h-4" />
+                                        {format(date, 'PPP')}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={date}
+                                        onSelect={(d) => d && setDate(d)}
+                                        initialFocus
                                     />
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
-                                        <span className="text-sm font-medium">
-                                            {student.name.charAt(0).toUpperCase()}
-                                        </span>
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="font-medium">{student.name}</p>
-                                        <p className="text-xs text-muted-foreground">ID: {student.id}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                </PopoverContent>
+                            </Popover>
+
+                            <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={selectAll}>
+                                    Select All
+                                </Button>
+                                <Button size="sm" variant="outline" onClick={deselectAll}>
+                                    Deselect All
+                                </Button>
+                            </div>
                         </div>
-                    </ScrollArea>
 
-                    {/* Selected Count */}
-                    <div className="flex items-center justify-between">
-                        <Badge variant="secondary">
-                            {selectedStudents.size} student{selectedStudents.size !== 1 ? 's' : ''} selected
-                        </Badge>
-                    </div>
+                        {/* Quick Status Buttons */}
+                        <div className="flex gap-2">
+                            <Button
+                                size="sm"
+                                variant={bulkStatus === AttendanceStatus.PRESENT ? 'default' : 'outline'}
+                                onClick={() => setBulkStatus(AttendanceStatus.PRESENT)}
+                                className="gap-2"
+                            >
+                                <UserCheck className="w-4 h-4" />
+                                Present
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={bulkStatus === AttendanceStatus.ABSENT ? 'default' : 'outline'}
+                                onClick={() => setBulkStatus(AttendanceStatus.ABSENT)}
+                                className="gap-2"
+                            >
+                                <UserX className="w-4 h-4" />
+                                Absent
+                            </Button>
+                            <Button
+                                size="sm"
+                                variant={bulkStatus === AttendanceStatus.LATE ? 'default' : 'outline'}
+                                onClick={() => setBulkStatus(AttendanceStatus.LATE)}
+                                className="gap-2"
+                            >
+                                <Clock className="w-4 h-4" />
+                                Late
+                            </Button>
+                        </div>
 
-                    {/* Actions */}
-                    <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => onOpenChange(false)}>
-                            Cancel
-                        </Button>
-                        <Button onClick={handleBulkMark}>
-                            Mark Attendance
-                        </Button>
+                        {/* Student List */}
+                        <ScrollArea className="h-[400px] border rounded-lg p-4">
+                            <div className="space-y-2">
+                                {mockStudents.map((student) => (
+                                    <div
+                                        key={student.id}
+                                        className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted/50 cursor-pointer"
+                                        onClick={() => toggleStudent(student.id)}
+                                    >
+                                        <Checkbox
+                                            checked={selectedStudents.has(student.id)}
+                                            onCheckedChange={() => toggleStudent(student.id)}
+                                        />
+                                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                            <span className="text-sm font-medium">
+                                                {student.name.charAt(0).toUpperCase()}
+                                            </span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="font-medium">{student.name}</p>
+                                            <p className="text-xs text-muted-foreground">ID: {student.id}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+
+                        {/* Selected Count */}
+                        <div className="flex items-center justify-between">
+                            <Badge variant="secondary">
+                                {selectedStudents.size} student{selectedStudents.size !== 1 ? 's' : ''} selected
+                            </Badge>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={() => onOpenChange(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleBulkMark}>
+                                Mark Attendance
+                            </Button>
+                        </div>
                     </div>
-                </div>
+                </ScrollArea>
             </DialogContent>
         </Dialog>
     );

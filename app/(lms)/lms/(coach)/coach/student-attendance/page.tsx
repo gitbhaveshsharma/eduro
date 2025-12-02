@@ -3,19 +3,39 @@
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Calendar, UserCheck, Users } from 'lucide-react';
+import { UserCheck, Users, LayoutDashboard, List, Plus } from 'lucide-react';
+import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import Dashboard from '../../../_components/student-attendance/dashboard';
 import AttendanceTable from '../../../_components/student-attendance/attendance-table';
 import MarkAttendanceDialog from '../../../_components/student-attendance/mark-attendance-dialog';
 import BulkMarkDialog from '../../../_components/student-attendance/bulk-mark-dialog';
 import AttendanceDetailsDialog from '../../../_components/student-attendance/attendance-details-dialog';
 import EditAttendanceDialog from '../../../_components/student-attendance/edit-attendance-dialog';
-import StudentHistory from '../../../_components/student-attendance/student-history';
+import { useCoachContext } from '../layout';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 export default function StudentAttendancePage() {
-    const [activeTab, setActiveTab] = useState('dashboard');
-    const [showMarkDialog, setShowMarkDialog] = useState(false);
-    const [showBulkDialog, setShowBulkDialog] = useState(false);
+    const [activeTab, setActiveTab] = useState<'dashboard' | 'attendance'>('dashboard');
+    const [isMarkDialogOpen, setIsMarkDialogOpen] = useState(false);
+    const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false);
+
+    // Get coaching center ID from layout context
+    const { coachingCenterId, isLoading } = useCoachContext();
+
+    // Show loading state while context is loading
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <LoadingSpinner message="Loading attendance data..." />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -28,67 +48,67 @@ export default function StudentAttendancePage() {
                     </p>
                 </div>
 
-                <div className="flex gap-2">
-                    <Button
-                        onClick={() => setShowMarkDialog(true)}
-                        className="gap-2"
-                    >
-                        <UserCheck className="w-4 h-4" />
-                        Mark Attendance
-                    </Button>
-                    <Button
-                        onClick={() => setShowBulkDialog(true)}
-                        variant="outline"
-                        className="gap-2"
-                    >
-                        <Users className="w-4 h-4" />
-                        Bulk Mark
-                    </Button>
-                </div>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button size="lg" className="gap-2">
+                            <Plus className="h-5 w-5" />
+                            Mark Attendance
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => setIsMarkDialogOpen(true)}>
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            Mark Individual
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setIsBulkDialogOpen(true)}>
+                            <Users className="h-4 w-4 mr-2" />
+                            Bulk Mark Attendance
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
-            {/* Tabs Navigation */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full max-w-md grid-cols-3">
-                    <TabsTrigger value="dashboard" className="gap-2">
-                        <Calendar className="w-4 h-4" />
-                        Dashboard
+            {/* Main Content with Tabs */}
+            <Tabs
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as 'dashboard' | 'attendance')}
+                className="w-full"
+            >
+                <TabsList className="grid w-full grid-cols-2 max-w-md">
+                    <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        <span>Dashboard</span>
                     </TabsTrigger>
-                    <TabsTrigger value="attendance" className="gap-2">
-                        <UserCheck className="w-4 h-4" />
-                        Daily Attendance
-                    </TabsTrigger>
-                    <TabsTrigger value="history" className="gap-2">
-                        <Users className="w-4 h-4" />
-                        Student History
+                    <TabsTrigger value="attendance" className="flex items-center gap-2">
+                        <List className="h-4 w-4" />
+                        <span>Daily Attendance</span>
                     </TabsTrigger>
                 </TabsList>
 
                 {/* Dashboard Tab */}
-                <TabsContent value="dashboard" className="space-y-6">
-                    <Dashboard />
+                <TabsContent value="dashboard" className="mt-6">
+                    <Dashboard coachingCenterId={coachingCenterId ?? undefined} />
                 </TabsContent>
 
                 {/* Daily Attendance Tab */}
-                <TabsContent value="attendance" className="space-y-6">
-                    <AttendanceTable />
-                </TabsContent>
-
-                {/* Student History Tab */}
-                <TabsContent value="history" className="space-y-6">
-                    <StudentHistory />
+                <TabsContent value="attendance" className="mt-6">
+                    <Card>
+                        <CardContent className="pt-6">
+                            <AttendanceTable coachingCenterId={coachingCenterId ?? undefined} />
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
 
             {/* Dialogs */}
             <MarkAttendanceDialog
-                open={showMarkDialog}
-                onOpenChange={setShowMarkDialog}
+                open={isMarkDialogOpen}
+                onOpenChange={setIsMarkDialogOpen}
             />
 
             <BulkMarkDialog
-                open={showBulkDialog}
-                onOpenChange={setShowBulkDialog}
+                open={isBulkDialogOpen}
+                onOpenChange={setIsBulkDialogOpen}
             />
 
             <AttendanceDetailsDialog />
