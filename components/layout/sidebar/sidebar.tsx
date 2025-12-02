@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -52,15 +52,10 @@ export function Sidebar({
         return () => document.removeEventListener('keydown', handleEscape);
     }, [open, collapsible, onOpenChange]);
 
-    // Prevent body scroll when sidebar overlay is open on mobile
-    useEffect(() => {
-        if (open && overlay) {
-            document.body.style.overflow = 'hidden';
-            return () => {
-                document.body.style.overflow = '';
-            };
-        }
-    }, [open, overlay]);
+    // NOTE: We no longer lock body scrolling when the overlay is open.
+    // Instead we forward wheel/touch events from the backdrop to the window
+    // so the underlying page can still be scrolled while the sidebar is open.
+    const touchStartRef = useRef<number | null>(null);
 
     if (!config.enabled) return null;
 
@@ -90,6 +85,31 @@ export function Sidebar({
                     )}
                     onClick={() => collapsible && onOpenChange(false)}
                     aria-hidden="true"
+                    // Forward wheel events to allow scrolling the underlying page
+                    onWheel={(e) => {
+                        // Prevent the overlay from swallowing the wheel; scroll the window instead
+                        try {
+                            window.scrollBy({ top: e.deltaY });
+                        } catch (err) {
+                            // ignore in non-browser env
+                        }
+                    }}
+                    // Touch handlers: forward vertical touch movement to window scroll
+                    onTouchStart={(e) => {
+                        touchStartRef.current = e.touches?.[0]?.clientY ?? null;
+                    }}
+                    onTouchMove={(e) => {
+                        const t = e.touches?.[0];
+                        if (!t) return;
+                        const prev = touchStartRef.current ?? t.clientY;
+                        const delta = prev - t.clientY;
+                        touchStartRef.current = t.clientY;
+                        try {
+                            window.scrollBy({ top: delta });
+                        } catch (err) {
+                            // ignore in non-browser env
+                        }
+                    }}
                 />
             )}
 

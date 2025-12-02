@@ -297,7 +297,7 @@ export default function CoachDashboardPage() {
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="text-xl font-semibold">Your Branches</h2>
-                    <Badge variant="outline">{branches.length} Total</Badge>
+                    <Badge variant="success">{branches.length} Total</Badge>
                 </div>
 
                 {branches.length === 0 ? (
