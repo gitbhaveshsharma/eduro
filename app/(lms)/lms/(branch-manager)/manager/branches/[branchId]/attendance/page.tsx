@@ -130,10 +130,12 @@ export default function BranchAttendancePage() {
             <MarkAttendanceDialog
                 open={isMarkDialogOpen}
                 onOpenChange={setIsMarkDialogOpen}
+                branchId={branch.id}
             />
             <BulkMarkDialog
                 open={isBulkDialogOpen}
                 onOpenChange={setIsBulkDialogOpen}
+                branchId={branch.id}
             />
             <EditAttendanceDialog />
             <AttendanceDetailsDialog />

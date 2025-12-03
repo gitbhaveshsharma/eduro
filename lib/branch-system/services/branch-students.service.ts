@@ -1,8 +1,8 @@
 /**
- * Branch Students Service
+ * Branch Students Service (Optimized with View)
  * 
+ * Uses student_enrollment_details view for fast, efficient queries
  * Handles all branch student enrollment database operations and API interactions
- * Provides a clean, type-safe interface for CRUD operations
  * 
  * @module branch-system/services/branch-students
  */
@@ -23,9 +23,9 @@ import type {
     BranchStudentStats,
     BranchStudentOperationResult,
     StudentEnrollmentSummary,
-    StudentFinancialSummary,
-    StudentAcademicSummary,
-    EnrollmentResult,
+    // StudentFinancialSummary,
+    // StudentAcademicSummary,
+    // EnrollmentResult,
 } from '../types/branch-students.types';
 import {
     enrollStudentSchema,
@@ -48,12 +48,15 @@ import {
 } from '../utils/branch-students.utils';
 
 /**
- * Branch Students Service
+ * Branch Students Service (View-Optimized)
  * Singleton service for managing branch student enrollments
  */
 export class BranchStudentsService {
     private static instance: BranchStudentsService;
     private supabase = createClient();
+
+    // View name for optimized queries
+    private readonly ENROLLMENT_VIEW = 'student_enrollment_details';
 
     private constructor() { }
 
@@ -106,11 +109,11 @@ export class BranchStudentsService {
                     });
 
                 if (!rpcError && rpcResult?.success) {
-                    // Fetch the created enrollment
+                    // Fetch the created enrollment from the view for complete data
                     const { data: enrollment, error: fetchError } = await this.supabase
-                        .from('branch_students')
+                        .from(this.ENROLLMENT_VIEW)
                         .select('*')
-                        .eq('id', rpcResult.enrollment_id)
+                        .eq('enrollment_id', rpcResult.enrollment_id)
                         .single();
 
                     if (fetchError || !enrollment) {
@@ -141,7 +144,7 @@ export class BranchStudentsService {
 
                     return {
                         success: true,
-                        data: enrollment,
+                        data: enrollment as unknown as BranchStudent,
                     };
                 }
             } catch (rpcError) {
@@ -184,89 +187,23 @@ export class BranchStudentsService {
     }
 
     // ============================================================
-    // READ OPERATIONS
+    // READ OPERATIONS (USING VIEW)
     // ============================================================
 
     /**
-     * Gets an enrollment by ID
-     * 
-     * @param enrollmentId - Enrollment UUID
-     * @returns Operation result with enrollment data
-     */
-    async getEnrollmentById(
-        enrollmentId: string
-    ): Promise<BranchStudentOperationResult<BranchStudent>> {
-        try {
-            const { data, error } = await this.supabase
-                .from('branch_students')
-                .select('*')
-                .eq('id', enrollmentId)
-                .single();
-
-            if (error) {
-                return {
-                    success: false,
-                    error: `Failed to fetch enrollment: ${error.message}`,
-                };
-            }
-
-            if (!data) {
-                return {
-                    success: false,
-                    error: 'Enrollment not found',
-                };
-            }
-
-            return {
-                success: true,
-                data,
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
-
-    /**
-     * Gets an enrollment with related data (student, branch, class)
+     * Gets an enrollment by ID from the optimized view
      * 
      * @param enrollmentId - Enrollment UUID
      * @returns Operation result with enriched enrollment data
      */
-    async getEnrollmentWithRelations(
+    async getEnrollmentById(
         enrollmentId: string
     ): Promise<BranchStudentOperationResult<BranchStudentWithRelations>> {
         try {
             const { data, error } = await this.supabase
-                .from('branch_students')
-                .select(`
-                    *,
-                    profiles    :student_id (
-                        id,
-                        full_name,
-                        username,
-                        email,
-                        avatar_url,
-                        phone
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name,
-                        coaching_center_id,
-                        address
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject,
-                        grade_level,
-                        batch_name,
-                        teacher_id
-                    )
-                `)
-                .eq('id', enrollmentId)
+                .from(this.ENROLLMENT_VIEW)
+                .select('*')
+                .eq('enrollment_id', enrollmentId)
                 .single();
 
             if (error) {
@@ -285,7 +222,7 @@ export class BranchStudentsService {
 
             return {
                 success: true,
-                data: data as BranchStudentWithRelations,
+                data: this.mapViewToBranchStudent(data),
             };
         } catch (error) {
             return {
@@ -305,10 +242,10 @@ export class BranchStudentsService {
     async getStudentEnrollmentInBranch(
         studentId: string,
         branchId: string
-    ): Promise<BranchStudentOperationResult<BranchStudent>> {
+    ): Promise<BranchStudentOperationResult<BranchStudentWithRelations>> {
         try {
             const { data, error } = await this.supabase
-                .from('branch_students')
+                .from(this.ENROLLMENT_VIEW)
                 .select('*')
                 .eq('student_id', studentId)
                 .eq('branch_id', branchId)
@@ -330,7 +267,7 @@ export class BranchStudentsService {
 
             return {
                 success: true,
-                data,
+                data: this.mapViewToBranchStudent(data),
             };
         } catch (error) {
             return {
@@ -348,10 +285,10 @@ export class BranchStudentsService {
      */
     async getStudentEnrollments(
         studentId: string
-    ): Promise<BranchStudentOperationResult<BranchStudent[]>> {
+    ): Promise<BranchStudentOperationResult<BranchStudentWithRelations[]>> {
         try {
             const { data, error } = await this.supabase
-                .from('branch_students')
+                .from(this.ENROLLMENT_VIEW)
                 .select('*')
                 .eq('student_id', studentId)
                 .order('enrollment_date', { ascending: false });
@@ -365,7 +302,7 @@ export class BranchStudentsService {
 
             return {
                 success: true,
-                data: data || [],
+                data: (data || []).map(this.mapViewToBranchStudent),
             };
         } catch (error) {
             return {
@@ -396,18 +333,11 @@ export class BranchStudentsService {
             const validatedSort = sort ? branchStudentSortSchema.parse(sort) : { field: 'enrollment_date', direction: 'desc' };
             const validatedPagination = pagination ? paginationSchema.parse(pagination) : { page: 1, limit: 20 };
 
-            // Build query - join with coaching_branches to filter by coaching_center_id
+            // Build query using the optimized view
             let query = this.supabase
-                .from('branch_students')
-                .select(`
-                    *,
-                    branch:branch_id!inner (
-                        id,
-                        name,
-                        coaching_center_id
-                    )
-                `, { count: 'exact' })
-                .eq('branch.coaching_center_id', coachingCenterId);
+                .from(this.ENROLLMENT_VIEW)
+                .select('*', { count: 'exact' })
+                .eq('coaching_center_id', coachingCenterId);
 
             // Apply filters
             if (validatedFilters.student_id) {
@@ -482,13 +412,10 @@ export class BranchStudentsService {
             const totalCount = count || 0;
             const totalPages = Math.ceil(totalCount / validatedPagination.limit);
 
-            // Extract the main student data (remove branch relation for clean response)
-            const students = (data || []).map(({ branch, ...student }: any) => student);
-
             return {
                 success: true,
                 data: {
-                    students: toPublicBranchStudents(students),
+                    students: toPublicBranchStudents((data || []).map(this.mapViewToBranchStudent)),
                     total_count: totalCount,
                     page: validatedPagination.page,
                     limit: validatedPagination.limit,
@@ -525,9 +452,9 @@ export class BranchStudentsService {
             const validatedSort = sort ? branchStudentSortSchema.parse(sort) : { field: 'enrollment_date', direction: 'desc' };
             const validatedPagination = pagination ? paginationSchema.parse(pagination) : { page: 1, limit: 20 };
 
-            // Build query
+            // Build query using the optimized view
             let query = this.supabase
-                .from('branch_students')
+                .from(this.ENROLLMENT_VIEW)
                 .select('*', { count: 'exact' })
                 .eq('branch_id', branchId);
 
@@ -602,7 +529,7 @@ export class BranchStudentsService {
             return {
                 success: true,
                 data: {
-                    students: toPublicBranchStudents(data || []),
+                    students: toPublicBranchStudents((data || []).map(this.mapViewToBranchStudent)),
                     total_count: totalCount,
                     page: validatedPagination.page,
                     limit: validatedPagination.limit,
@@ -630,16 +557,16 @@ export class BranchStudentsService {
         classId: string,
         filters?: Omit<BranchStudentFilters, 'class_id'>,
         sort?: BranchStudentSort
-    ): Promise<BranchStudentOperationResult<BranchStudent[]>> {
+    ): Promise<BranchStudentOperationResult<BranchStudentWithRelations[]>> {
         try {
             const validatedSort = sort ? branchStudentSortSchema.parse(sort) : { field: 'enrollment_date', direction: 'desc' };
 
             let query = this.supabase
-                .from('branch_students')
+                .from(this.ENROLLMENT_VIEW)
                 .select('*')
                 .eq('class_id', classId);
 
-            // Apply filters (similar to getBranchStudents)
+            // Apply filters
             if (filters?.enrollment_status) {
                 if (Array.isArray(filters.enrollment_status)) {
                     query = query.in('enrollment_status', filters.enrollment_status);
@@ -672,7 +599,7 @@ export class BranchStudentsService {
 
             return {
                 success: true,
-                data: data || [],
+                data: (data || []).map(this.mapViewToBranchStudent),
             };
         } catch (error) {
             return {
@@ -683,7 +610,216 @@ export class BranchStudentsService {
     }
 
     // ============================================================
-    // UPDATE OPERATIONS
+    // HELPER METHODS
+    // ============================================================
+
+    /**
+     * Maps view data to BranchStudentWithRelations type
+     */
+    private mapViewToBranchStudent(viewData: any): BranchStudentWithRelations {
+        return {
+            id: viewData.enrollment_id,
+            student_id: viewData.student_id,
+            branch_id: viewData.branch_id,
+            class_id: viewData.class_id,
+            enrollment_date: viewData.enrollment_date,
+            expected_completion_date: viewData.expected_completion_date,
+            actual_completion_date: viewData.actual_completion_date,
+            enrollment_status: viewData.enrollment_status,
+            payment_status: viewData.payment_status,
+            attendance_percentage: viewData.attendance_percentage,
+            current_grade: viewData.current_grade ?? null,
+            performance_notes: viewData.performance_notes ?? null,
+            total_fees_due: viewData.total_fees_due ?? 0,
+            total_fees_paid: viewData.total_fees_paid ?? 0,
+            last_payment_date: viewData.last_payment_date ?? null,
+            next_payment_due: viewData.next_payment_due,
+            emergency_contact_name: viewData.emergency_contact_name,
+            emergency_contact_phone: viewData.emergency_contact_phone,
+            parent_guardian_name: viewData.parent_guardian_name,
+            parent_guardian_phone: viewData.parent_guardian_phone,
+            preferred_batch: viewData.preferred_batch,
+            special_requirements: viewData.special_requirements,
+            student_notes: viewData.student_notes,
+            metadata: viewData.metadata,
+            created_at: viewData.created_at,
+            updated_at: viewData.updated_at,
+            student: {
+                id: viewData.student_id,
+                full_name: viewData.student_name ?? '',
+                username: viewData.student_username ?? '',
+                email: viewData.student_email ?? '',
+                avatar_url: viewData.student_avatar_url ?? null,
+                phone: viewData.student_phone ?? null,
+            },
+            branch: {
+                id: viewData.branch_id,
+                name: viewData.branch_name ?? '',
+                coaching_center_id: viewData.coaching_center_id ?? '',
+                address: viewData.branch_address ?? null,
+            },
+            class: viewData.class_id ? {
+                id: viewData.class_id,
+                class_name: viewData.class_name ?? '',
+                subject: viewData.subject ?? '',
+                grade_level: viewData.grade_level ?? '',
+                batch_name: viewData.batch_name ?? null,
+                teacher_id: viewData.teacher_id ?? null,
+            } : undefined,
+        };
+    }
+
+    /**
+     * Gets student enrollment summary from view
+     * 
+     * @param studentId - Student UUID
+     * @returns Operation result with summary
+     */
+    async getStudentEnrollmentSummary(
+        studentId: string
+    ): Promise<BranchStudentOperationResult<StudentEnrollmentSummary>> {
+        try {
+            // Get all enrollments for the student
+            const enrollmentsResult = await this.getStudentEnrollments(studentId);
+
+            if (!enrollmentsResult.success || !enrollmentsResult.data) {
+                return {
+                    success: false,
+                    error: 'Failed to fetch enrollments',
+                };
+            }
+
+            const summary = calculateStudentEnrollmentSummary(enrollmentsResult.data);
+
+            return {
+                success: true,
+                data: summary,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets branch student statistics from view
+     * 
+     * @param branchId - Branch UUID
+     * @returns Operation result with statistics
+     */
+    async getBranchStudentStats(
+        branchId: string
+    ): Promise<BranchStudentOperationResult<BranchStudentStats>> {
+        try {
+            const { data, error } = await this.supabase
+                .from(this.ENROLLMENT_VIEW)
+                .select('*')
+                .eq('branch_id', branchId);
+
+            if (error) {
+                return {
+                    success: false,
+                    error: `Failed to fetch statistics: ${error.message}`,
+                };
+            }
+
+            const stats = calculateBranchStudentStats((data || []).map(this.mapViewToBranchStudent));
+
+            return {
+                success: true,
+                data: stats,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets students needing attention for a branch
+     * 
+     * @param branchId - Branch UUID
+     * @returns Operation result with students array
+     */
+    async getStudentsNeedingAttention(
+        branchId: string
+    ): Promise<BranchStudentOperationResult<PublicBranchStudent[]>> {
+        try {
+            const { data, error } = await this.supabase
+                .from(this.ENROLLMENT_VIEW)
+                .select('*')
+                .eq('branch_id', branchId);
+
+            if (error) {
+                return {
+                    success: false,
+                    error: `Failed to fetch students: ${error.message}`,
+                };
+            }
+
+            const studentsNeedingAttention = filterStudentsNeedingAttention(
+                (data || []).map(this.mapViewToBranchStudent)
+            );
+
+            return {
+                success: true,
+                data: toPublicBranchStudents(studentsNeedingAttention),
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets students with upcoming payments for a branch
+     * 
+     * @param branchId - Branch UUID
+     * @param daysAhead - Number of days to look ahead (default: 7)
+     * @returns Operation result with students array
+     */
+    async getStudentsWithUpcomingPayments(
+        branchId: string,
+        daysAhead: number = 7
+    ): Promise<BranchStudentOperationResult<PublicBranchStudent[]>> {
+        try {
+            const { data, error } = await this.supabase
+                .from(this.ENROLLMENT_VIEW)
+                .select('*')
+                .eq('branch_id', branchId);
+
+            if (error) {
+                return {
+                    success: false,
+                    error: `Failed to fetch students: ${error.message}`,
+                };
+            }
+
+            const studentsWithUpcoming = filterStudentsWithUpcomingPayments(
+                (data || []).map(this.mapViewToBranchStudent),
+                daysAhead
+            );
+
+            return {
+                success: true,
+                data: toPublicBranchStudents(studentsWithUpcoming),
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    // ============================================================
+    // UPDATE OPERATIONS (Keep as is - these operate on the base table)
     // ============================================================
 
     /**
@@ -873,7 +1009,7 @@ export class BranchStudentsService {
     }
 
     // ============================================================
-    // DELETE OPERATIONS
+    // DELETE OPERATIONS (Keep as is - these operate on the base table)
     // ============================================================
 
     /**
@@ -904,171 +1040,6 @@ export class BranchStudentsService {
 
             return {
                 success: true,
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
-
-    // ============================================================
-    // STATISTICS & ANALYTICS
-    // ============================================================
-
-    /**
-     * Gets student enrollment summary
-     * 
-     * @param studentId - Student UUID
-     * @returns Operation result with summary
-     */
-    async getStudentEnrollmentSummary(
-        studentId: string
-    ): Promise<BranchStudentOperationResult<StudentEnrollmentSummary>> {
-        try {
-            // Try using RPC function first
-            try {
-                const { data: rpcResult, error: rpcError } = await this.supabase
-                    .rpc('get_student_enrollment_summary', {
-                        student_uuid: studentId,
-                    });
-
-                if (!rpcError && rpcResult) {
-                    return {
-                        success: true,
-                        data: rpcResult as StudentEnrollmentSummary,
-                    };
-                }
-            } catch (rpcError) {
-                console.warn('RPC function not available, calculating manually');
-            }
-
-            // Fallback: Calculate manually
-            const enrollmentsResult = await this.getStudentEnrollments(studentId);
-
-            if (!enrollmentsResult.success || !enrollmentsResult.data) {
-                return {
-                    success: false,
-                    error: 'Failed to fetch enrollments',
-                };
-            }
-
-            const summary = calculateStudentEnrollmentSummary(enrollmentsResult.data);
-
-            return {
-                success: true,
-                data: summary,
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
-
-    /**
-     * Gets branch student statistics
-     * 
-     * @param branchId - Branch UUID
-     * @returns Operation result with statistics
-     */
-    async getBranchStudentStats(
-        branchId: string
-    ): Promise<BranchStudentOperationResult<BranchStudentStats>> {
-        try {
-            const { data, error } = await this.supabase
-                .from('branch_students')
-                .select('*')
-                .eq('branch_id', branchId);
-
-            if (error) {
-                return {
-                    success: false,
-                    error: `Failed to fetch statistics: ${error.message}`,
-                };
-            }
-
-            const stats = calculateBranchStudentStats(data || []);
-
-            return {
-                success: true,
-                data: stats,
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
-
-    /**
-     * Gets students needing attention for a branch
-     * 
-     * @param branchId - Branch UUID
-     * @returns Operation result with students array
-     */
-    async getStudentsNeedingAttention(
-        branchId: string
-    ): Promise<BranchStudentOperationResult<PublicBranchStudent[]>> {
-        try {
-            const { data, error } = await this.supabase
-                .from('branch_students')
-                .select('*')
-                .eq('branch_id', branchId);
-
-            if (error) {
-                return {
-                    success: false,
-                    error: `Failed to fetch students: ${error.message}`,
-                };
-            }
-
-            const studentsNeedingAttention = filterStudentsNeedingAttention(data || []);
-
-            return {
-                success: true,
-                data: toPublicBranchStudents(studentsNeedingAttention),
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
-
-    /**
-     * Gets students with upcoming payments for a branch
-     * 
-     * @param branchId - Branch UUID
-     * @param daysAhead - Number of days to look ahead (default: 7)
-     * @returns Operation result with students array
-     */
-    async getStudentsWithUpcomingPayments(
-        branchId: string,
-        daysAhead: number = 7
-    ): Promise<BranchStudentOperationResult<PublicBranchStudent[]>> {
-        try {
-            const { data, error } = await this.supabase
-                .from('branch_students')
-                .select('*')
-                .eq('branch_id', branchId);
-
-            if (error) {
-                return {
-                    success: false,
-                    error: `Failed to fetch students: ${error.message}`,
-                };
-            }
-
-            const studentsWithUpcoming = filterStudentsWithUpcomingPayments(data || [], daysAhead);
-
-            return {
-                success: true,
-                data: toPublicBranchStudents(studentsWithUpcoming),
             };
         } catch (error) {
             return {

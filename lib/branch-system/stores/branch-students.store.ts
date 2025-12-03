@@ -33,10 +33,12 @@ import { branchStudentsService } from '../services/branch-students.service';
 interface BranchStudentsState {
     // Data state
     enrollments: Record<string, BranchStudent>; // Keyed by enrollment ID
+    enrollmentsWithRelations: Record<string, BranchStudentWithRelations>; // Keyed by enrollment ID
     currentEnrollment: BranchStudent | null;
     currentEnrollmentWithRelations: BranchStudentWithRelations | null;
     branchStudents: PublicBranchStudent[]; // Current list view
     studentEnrollments: BranchStudent[]; // For specific student
+    studentEnrollmentsWithRelations: BranchStudentWithRelations[]; // For specific student with relations
     searchResult: BranchStudentSearchResult | null;
     stats: BranchStudentStats | null;
     summary: StudentEnrollmentSummary | null;
@@ -76,7 +78,7 @@ interface BranchStudentsState {
     fetchEnrollment: (enrollmentId: string) => Promise<void>;
 
     /**
-     * Fetches enrollment with relations
+     * Fetches enrollment with relations (using view)
      */
     fetchEnrollmentWithRelations: (enrollmentId: string) => Promise<void>;
 
@@ -89,6 +91,11 @@ interface BranchStudentsState {
      * Fetches all enrollments for a student
      */
     fetchStudentEnrollments: (studentId: string) => Promise<void>;
+
+    /**
+     * Fetches all enrollments for a student with relations
+     */
+    fetchStudentEnrollmentsWithRelations: (studentId: string) => Promise<void>;
 
     /**
      * Fetches all students in a branch
@@ -183,9 +190,14 @@ interface BranchStudentsState {
     setCurrentEnrollment: (enrollment: BranchStudent | null) => void;
 
     /**
+     * Sets current enrollment with relations
+     */
+    setCurrentEnrollmentWithRelations: (enrollment: BranchStudentWithRelations | null) => void;
+
+    /**
      * Opens the details dialog for the current enrollment
      */
-    openDetailsDialog: () => void;
+    openDetailsDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => void;
 
     /**
      * Closes the details dialog
@@ -195,7 +207,7 @@ interface BranchStudentsState {
     /**
      * Opens the edit dialog for the current enrollment
      */
-    openEditDialog: () => void;
+    openEditDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => void;
 
     /**
      * Closes the edit dialog
@@ -205,7 +217,7 @@ interface BranchStudentsState {
     /**
      * Opens the delete dialog for the current enrollment
      */
-    openDeleteDialog: () => void;
+    openDeleteDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => void;
 
     /**
      * Closes the delete dialog
@@ -247,12 +259,46 @@ interface BranchStudentsState {
 // INITIAL STATE
 // ============================================================
 
-const initialState = {
+const initialState: Omit<BranchStudentsState, 
+    | 'enrollStudent'
+    | 'fetchEnrollment'
+    | 'fetchEnrollmentWithRelations'
+    | 'fetchStudentEnrollmentInBranch'
+    | 'fetchStudentEnrollments'
+    | 'fetchStudentEnrollmentsWithRelations'
+    | 'fetchBranchStudents'
+    | 'fetchCoachingCenterStudents'
+    | 'fetchClassStudents'
+    | 'updateEnrollmentByStudent'
+    | 'updateEnrollmentByTeacher'
+    | 'updateEnrollmentByManager'
+    | 'deleteEnrollment'
+    | 'fetchStudentSummary'
+    | 'fetchBranchStats'
+    | 'fetchStudentsNeedingAttention'
+    | 'fetchStudentsWithUpcomingPayments'
+    | 'setCurrentEnrollment'
+    | 'setCurrentEnrollmentWithRelations'
+    | 'openDetailsDialog'
+    | 'closeDetailsDialog'
+    | 'openEditDialog'
+    | 'closeEditDialog'
+    | 'openDeleteDialog'
+    | 'closeDeleteDialog'
+    | 'closeAllDialogs'
+    | 'setFilters'
+    | 'setSort'
+    | 'setPagination'
+    | 'clearError'
+    | 'reset'
+> = {
     enrollments: {},
+    enrollmentsWithRelations: {},
     currentEnrollment: null,
     currentEnrollmentWithRelations: null,
     branchStudents: [],
     studentEnrollments: [],
+    studentEnrollmentsWithRelations: [],
     searchResult: null,
     stats: null,
     summary: null,
@@ -327,6 +373,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                                 [result.data!.id]: result.data!,
                             },
                             currentEnrollment: result.data!,
+                            currentEnrollmentWithRelations: result.data as BranchStudentWithRelations,
                         }));
                     } else {
                         set({
@@ -339,14 +386,18 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                 fetchEnrollmentWithRelations: async (enrollmentId: string) => {
                     set({ enrollmentLoading: true, error: null });
 
-                    const result = await branchStudentsService.getEnrollmentWithRelations(enrollmentId);
+                    const result = await branchStudentsService.getEnrollmentById(enrollmentId);
 
                     if (result.success && result.data) {
-                        set({
+                        set((state) => ({
                             enrollmentLoading: false,
+                            enrollmentsWithRelations: {
+                                ...state.enrollmentsWithRelations,
+                                [result.data!.id]: result.data!,
+                            },
+                            currentEnrollment: result.data!,
                             currentEnrollmentWithRelations: result.data,
-                            currentEnrollment: result.data,
-                        });
+                        }));
                     } else {
                         set({
                             enrollmentLoading: false,
@@ -366,17 +417,19 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                     if (result.success && result.data) {
                         set((state) => ({
                             enrollmentLoading: false,
-                            enrollments: {
-                                ...state.enrollments,
+                            enrollmentsWithRelations: {
+                                ...state.enrollmentsWithRelations,
                                 [result.data!.id]: result.data!,
                             },
                             currentEnrollment: result.data!,
+                            currentEnrollmentWithRelations: result.data,
                         }));
                     } else {
                         set({
                             enrollmentLoading: false,
                             error: result.error || 'Student not enrolled in this branch',
                             currentEnrollment: null,
+                            currentEnrollmentWithRelations: null,
                         });
                     }
                 },
@@ -395,6 +448,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         set({
                             listLoading: false,
                             studentEnrollments: result.data,
+                            studentEnrollmentsWithRelations: result.data as BranchStudentWithRelations[],
                             enrollments: enrollmentsMap,
                         });
                     } else {
@@ -402,6 +456,34 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                             listLoading: false,
                             error: result.error || 'Failed to fetch enrollments',
                             studentEnrollments: [],
+                            studentEnrollmentsWithRelations: [],
+                        });
+                    }
+                },
+
+                fetchStudentEnrollmentsWithRelations: async (studentId: string) => {
+                    set({ listLoading: true, error: null });
+
+                    const result = await branchStudentsService.getStudentEnrollments(studentId);
+
+                    if (result.success && result.data) {
+                        const enrollmentsMap: Record<string, BranchStudentWithRelations> = {};
+                        result.data.forEach((enrollment) => {
+                            enrollmentsMap[enrollment.id] = enrollment as BranchStudentWithRelations;
+                        });
+
+                        set({
+                            listLoading: false,
+                            studentEnrollments: result.data,
+                            studentEnrollmentsWithRelations: result.data as BranchStudentWithRelations[],
+                            enrollmentsWithRelations: enrollmentsMap,
+                        });
+                    } else {
+                        set({
+                            listLoading: false,
+                            error: result.error || 'Failed to fetch enrollments',
+                            studentEnrollments: [],
+                            studentEnrollmentsWithRelations: [],
                         });
                     }
                 },
@@ -482,7 +564,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                     const result = await branchStudentsService.getClassStudents(classId, filters, sort);
 
                     if (result.success && result.data) {
-                        const enrollmentsMap: Record<string, BranchStudent> = {};
+                        const enrollmentsMap: Record<string, BranchStudentWithRelations> = {};
                         result.data.forEach((enrollment) => {
                             enrollmentsMap[enrollment.id] = enrollment;
                         });
@@ -490,13 +572,15 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         set({
                             listLoading: false,
                             studentEnrollments: result.data,
-                            enrollments: enrollmentsMap,
+                            studentEnrollmentsWithRelations: result.data,
+                            enrollmentsWithRelations: enrollmentsMap,
                         });
                     } else {
                         set({
                             listLoading: false,
                             error: result.error || 'Failed to fetch class students',
                             studentEnrollments: [],
+                            studentEnrollmentsWithRelations: [],
                         });
                     }
                 },
@@ -523,6 +607,10 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                             },
                             currentEnrollment:
                                 state.currentEnrollment?.id === enrollmentId ? result.data! : state.currentEnrollment,
+                            currentEnrollmentWithRelations:
+                                state.currentEnrollmentWithRelations?.id === enrollmentId 
+                                    ? { ...state.currentEnrollmentWithRelations, ...result.data! } as BranchStudentWithRelations
+                                    : state.currentEnrollmentWithRelations,
                         }));
                         return true;
                     } else {
@@ -560,6 +648,10 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                             },
                             currentEnrollment:
                                 state.currentEnrollment?.id === enrollmentId ? result.data! : state.currentEnrollment,
+                            currentEnrollmentWithRelations:
+                                state.currentEnrollmentWithRelations?.id === enrollmentId 
+                                    ? { ...state.currentEnrollmentWithRelations, ...result.data! } as BranchStudentWithRelations
+                                    : state.currentEnrollmentWithRelations,
                         }));
                         return true;
                     } else {
@@ -597,6 +689,10 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                             },
                             currentEnrollment:
                                 state.currentEnrollment?.id === enrollmentId ? result.data! : state.currentEnrollment,
+                            currentEnrollmentWithRelations:
+                                state.currentEnrollmentWithRelations?.id === enrollmentId 
+                                    ? { ...state.currentEnrollmentWithRelations, ...result.data! } as BranchStudentWithRelations
+                                    : state.currentEnrollmentWithRelations,
                         }));
                         return true;
                     } else {
@@ -622,13 +718,18 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                     if (result.success) {
                         set((state) => {
                             const newEnrollments = { ...state.enrollments };
+                            const newEnrollmentsWithRelations = { ...state.enrollmentsWithRelations };
                             delete newEnrollments[enrollmentId];
+                            delete newEnrollmentsWithRelations[enrollmentId];
 
                             return {
                                 loading: false,
                                 enrollments: newEnrollments,
+                                enrollmentsWithRelations: newEnrollmentsWithRelations,
                                 currentEnrollment:
                                     state.currentEnrollment?.id === enrollmentId ? null : state.currentEnrollment,
+                                currentEnrollmentWithRelations:
+                                    state.currentEnrollmentWithRelations?.id === enrollmentId ? null : state.currentEnrollmentWithRelations,
                             };
                         });
                         return true;
@@ -728,31 +829,67 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                     set({ currentEnrollment: enrollment });
                 },
 
-                openDetailsDialog: () => {
-                    set({ isDetailsDialogOpen: true });
+                setCurrentEnrollmentWithRelations: (enrollment: BranchStudentWithRelations | null) => {
+                    set({ 
+                        currentEnrollment: enrollment,
+                        currentEnrollmentWithRelations: enrollment 
+                    });
+                },
+
+                openDetailsDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => {
+                    if (enrollment) {
+                        set({ 
+                            currentEnrollment: enrollment,
+                            currentEnrollmentWithRelations: enrollment as BranchStudentWithRelations,
+                            isDetailsDialogOpen: true 
+                        });
+                    } else {
+                        set({ isDetailsDialogOpen: true });
+                    }
                 },
 
                 closeDetailsDialog: () => {
-                    // Only close the details dialog. Keep `currentEnrollment` intact
-                    // so we can transition to other dialogs (edit/delete) without
-                    // refetching the enrollment.
                     set({ isDetailsDialogOpen: false });
                 },
 
-                openEditDialog: () => {
-                    set({ isEditDialogOpen: true });
+                openEditDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => {
+                    if (enrollment) {
+                        set({ 
+                            currentEnrollment: enrollment,
+                            currentEnrollmentWithRelations: enrollment as BranchStudentWithRelations,
+                            isEditDialogOpen: true 
+                        });
+                    } else {
+                        set({ isEditDialogOpen: true });
+                    }
                 },
 
                 closeEditDialog: () => {
-                    set({ isEditDialogOpen: false, currentEnrollment: null });
+                    set({ 
+                        isEditDialogOpen: false,
+                        currentEnrollment: null,
+                        currentEnrollmentWithRelations: null 
+                    });
                 },
 
-                openDeleteDialog: () => {
-                    set({ isDeleteDialogOpen: true });
+                openDeleteDialog: (enrollment?: BranchStudent | BranchStudentWithRelations) => {
+                    if (enrollment) {
+                        set({ 
+                            currentEnrollment: enrollment,
+                            currentEnrollmentWithRelations: enrollment as BranchStudentWithRelations,
+                            isDeleteDialogOpen: true 
+                        });
+                    } else {
+                        set({ isDeleteDialogOpen: true });
+                    }
                 },
 
                 closeDeleteDialog: () => {
-                    set({ isDeleteDialogOpen: false, currentEnrollment: null });
+                    set({ 
+                        isDeleteDialogOpen: false,
+                        currentEnrollment: null,
+                        currentEnrollmentWithRelations: null 
+                    });
                 },
 
                 closeAllDialogs: () => {
@@ -760,7 +897,8 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         isDetailsDialogOpen: false,
                         isEditDialogOpen: false,
                         isDeleteDialogOpen: false,
-                        currentEnrollment: null
+                        currentEnrollment: null,
+                        currentEnrollmentWithRelations: null
                     });
                 },
 
@@ -791,6 +929,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                     pagination: state.pagination,
                     filters: state.filters,
                     sort: state.sort,
+                    enrollments: state.enrollments, // Optional: cache enrollments
                 }),
             }
         ),
@@ -811,9 +950,20 @@ export const selectEnrollmentById = (enrollmentId: string) => (state: BranchStud
     state.enrollments[enrollmentId] || null;
 
 /**
+ * Gets enrollment with relations by ID from store
+ */
+export const selectEnrollmentWithRelationsById = (enrollmentId: string) => (state: BranchStudentsState) =>
+    state.enrollmentsWithRelations[enrollmentId] || null;
+
+/**
  * Gets current enrollment
  */
 export const selectCurrentEnrollment = (state: BranchStudentsState) => state.currentEnrollment;
+
+/**
+ * Gets current enrollment with relations
+ */
+export const selectCurrentEnrollmentWithRelations = (state: BranchStudentsState) => state.currentEnrollmentWithRelations;
 
 /**
  * Gets branch students list
@@ -821,14 +971,39 @@ export const selectCurrentEnrollment = (state: BranchStudentsState) => state.cur
 export const selectBranchStudents = (state: BranchStudentsState) => state.branchStudents;
 
 /**
+ * Gets student enrollments
+ */
+export const selectStudentEnrollments = (state: BranchStudentsState) => state.studentEnrollments;
+
+/**
+ * Gets student enrollments with relations
+ */
+export const selectStudentEnrollmentsWithRelations = (state: BranchStudentsState) => state.studentEnrollmentsWithRelations;
+
+/**
+ * Gets search result
+ */
+export const selectSearchResult = (state: BranchStudentsState) => state.searchResult;
+
+/**
  * Gets loading state
  */
 export const selectLoading = (state: BranchStudentsState) => state.loading;
 
 /**
+ * Gets enrollment loading state
+ */
+export const selectEnrollmentLoading = (state: BranchStudentsState) => state.enrollmentLoading;
+
+/**
  * Gets list loading state
  */
 export const selectListLoading = (state: BranchStudentsState) => state.listLoading;
+
+/**
+ * Gets stats loading state
+ */
+export const selectStatsLoading = (state: BranchStudentsState) => state.statsLoading;
 
 /**
  * Gets error
@@ -849,3 +1024,27 @@ export const selectStats = (state: BranchStudentsState) => state.stats;
  * Gets summary
  */
 export const selectSummary = (state: BranchStudentsState) => state.summary;
+
+/**
+ * Gets dialog states
+ */
+export const selectDialogs = (state: BranchStudentsState) => ({
+    isDetailsDialogOpen: state.isDetailsDialogOpen,
+    isEditDialogOpen: state.isEditDialogOpen,
+    isDeleteDialogOpen: state.isDeleteDialogOpen,
+});
+
+/**
+ * Gets filters
+ */
+export const selectFilters = (state: BranchStudentsState) => state.filters;
+
+/**
+ * Gets sort
+ */
+export const selectSort = (state: BranchStudentsState) => state.sort;
+
+/**
+ * Gets pagination
+ */
+export const selectPagination = (state: BranchStudentsState) => state.pagination;

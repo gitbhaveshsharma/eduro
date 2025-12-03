@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
@@ -30,7 +30,8 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarIcon, Building2, GraduationCap, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     useMarkAttendance,
@@ -40,23 +41,67 @@ import {
 } from '@/lib/branch-system/student-attendance';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useCurrentProfile } from '@/lib/profile';
+import { CoachingAPI } from '@/lib/coaching';
+import { useClassesByBranch, useBranchClassesStore } from '@/lib/branch-system/branch-classes';
+import type { CoachingBranch } from '@/lib/schema/coaching.types';
+import StudentSearch from './student-search';
 
 interface MarkAttendanceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    coachingCenterId?: string;
+    branchId?: string;
 }
 
-export default function MarkAttendanceDialog({ open, onOpenChange }: MarkAttendanceDialogProps) {
+interface SelectedStudent {
+    enrollment_id: string;
+    student_id: string;
+    student_name: string | null;
+    student_username: string | null;
+    branch_id: string;
+    branch_name: string | null;
+    coaching_center_name: string | null;
+    class_id: string | null;
+    class_name: string | null;
+    subject: string | null;
+    enrollment_status: string;
+    avatar_url?: string | null;
+}
+
+export default function MarkAttendanceDialog({
+    open,
+    onOpenChange,
+    coachingCenterId,
+    branchId: propBranchId
+}: MarkAttendanceDialogProps) {
     const [date, setDate] = useState<Date>(new Date());
+    const [selectedStudent, setSelectedStudent] = useState<SelectedStudent | null>(null);
+
+    // Branch and class selection state
+    const [branches, setBranches] = useState<CoachingBranch[]>([]);
+    const [selectedBranchId, setSelectedBranchId] = useState<string>(propBranchId || '');
+    const [selectedClassId, setSelectedClassId] = useState<string>('');
+    const [loadingBranches, setLoadingBranches] = useState(false);
+    const [loadingClasses, setLoadingClasses] = useState(false);
+
+    // Hooks
     const markAttendance = useMarkAttendance();
+    const currentProfile = useCurrentProfile();
+    const classes = useClassesByBranch(selectedBranchId || null);
+    const { fetchClassesByBranch } = useBranchClassesStore();
+
+    // Determine view mode
+    const isCoachView = !!coachingCenterId && !propBranchId;
+    const isBranchView = !!propBranchId;
 
     const form = useForm({
         resolver: zodResolver(markAttendanceSchema),
         defaultValues: {
             student_id: '',
-            class_id: 'default-class-id',
-            teacher_id: 'current-teacher-id',
-            branch_id: 'current-branch-id',
+            class_id: '',
+            teacher_id: '',
+            branch_id: '',
             attendance_date: format(new Date(), 'yyyy-MM-dd'),
             attendance_status: AttendanceStatus.PRESENT,
             check_in_time: format(new Date(), 'HH:mm'),
@@ -66,20 +111,114 @@ export default function MarkAttendanceDialog({ open, onOpenChange }: MarkAttenda
         },
     });
 
+    // Fetch branches when dialog opens (for coach view)
+    useEffect(() => {
+        if (!open) return;
+
+        const loadBranches = async () => {
+            if (isCoachView && coachingCenterId) {
+                setLoadingBranches(true);
+                try {
+                    const result = await CoachingAPI.getBranchesByCenter(coachingCenterId);
+                    if (result.success && result.data) {
+                        setBranches(result.data);
+                    }
+                } catch (error) {
+                    console.error('Failed to load branches:', error);
+                } finally {
+                    setLoadingBranches(false);
+                }
+            }
+        };
+
+        loadBranches();
+    }, [open, isCoachView, coachingCenterId]);
+
+    // For branch view, auto-set the branch ID
+    useEffect(() => {
+        if (isBranchView && propBranchId && open) {
+            setSelectedBranchId(propBranchId);
+        }
+    }, [isBranchView, propBranchId, open]);
+
+    // Fetch classes when branch is selected
+    useEffect(() => {
+        if (!selectedBranchId) return;
+
+        const loadClasses = async () => {
+            setLoadingClasses(true);
+            setSelectedClassId('');
+
+            try {
+                await fetchClassesByBranch(selectedBranchId);
+            } catch (error) {
+                console.error('Failed to load classes:', error);
+            } finally {
+                setLoadingClasses(false);
+            }
+        };
+
+        loadClasses();
+    }, [selectedBranchId, fetchClassesByBranch]);
+
+    // Update form when student is selected
+    useEffect(() => {
+        if (selectedStudent) {
+            form.setValue('student_id', selectedStudent.student_id);
+            if (selectedStudent.branch_id) {
+                form.setValue('branch_id', selectedStudent.branch_id);
+                setSelectedBranchId(selectedStudent.branch_id);
+            }
+            if (selectedStudent.class_id) {
+                form.setValue('class_id', selectedStudent.class_id);
+                setSelectedClassId(selectedStudent.class_id);
+            }
+        } else {
+            form.setValue('student_id', '');
+        }
+    }, [selectedStudent, form]);
+
+    // Reset state when dialog closes
+    useEffect(() => {
+        if (!open) {
+            setSelectedStudent(null);
+            form.reset();
+            if (!propBranchId) {
+                setSelectedBranchId('');
+            }
+            setSelectedClassId('');
+        }
+    }, [open, propBranchId, form]);
+
     const onSubmit = async (data: any) => {
+        if (!selectedStudent) {
+            showErrorToast('Please select a student');
+            return;
+        }
+
         const success = await markAttendance({
             ...data,
+            student_id: selectedStudent.student_id,
+            class_id: selectedClassId || selectedStudent.class_id || '',
+            teacher_id: currentProfile?.id || '',
+            branch_id: selectedBranchId || selectedStudent.branch_id,
             attendance_date: format(date, 'yyyy-MM-dd'),
         });
 
         if (success) {
             showSuccessToast('Attendance marked successfully');
             form.reset();
+            setSelectedStudent(null);
             onOpenChange(false);
         } else {
             showErrorToast('Failed to mark attendance');
         }
     };
+
+    // Get selected class info
+    const selectedClass = useMemo(() => {
+        return classes.find(c => c.id === selectedClassId);
+    }, [classes, selectedClassId]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -87,27 +226,103 @@ export default function MarkAttendanceDialog({ open, onOpenChange }: MarkAttenda
                 <DialogHeader>
                     <DialogTitle>Mark Attendance</DialogTitle>
                     <DialogDescription>
-                        Mark attendance for a student with detailed information
+                        Search for a student by username or name and mark their attendance
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
 
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-2">
-                            {/* Student ID */}
-                            <FormField
-                                control={form.control}
-                                name="student_id"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Student ID *</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Enter student UUID" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+
+                            {/* Branch Selection (only for coach view) */}
+                            {isCoachView && (
+                                <div className="space-y-2">
+                                    <FormLabel className="flex items-center gap-2">
+                                        <Building2 className="w-4 h-4" />
+                                        Select Branch
+                                    </FormLabel>
+                                    <Select
+                                        value={selectedBranchId}
+                                        onValueChange={(value) => {
+                                            setSelectedBranchId(value);
+                                            setSelectedStudent(null);
+                                        }}
+                                        disabled={loadingBranches}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Select a branch"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {branches.map((branch) => (
+                                                <SelectItem key={branch.id} value={branch.id}>
+                                                    {branch.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {/* Class Selection (optional - to filter student search) */}
+                            {selectedBranchId && (
+                                <div className="space-y-2">
+                                    <FormLabel className="flex items-center gap-2">
+                                        <GraduationCap className="w-4 h-4" />
+                                        Select Class (Optional)
+                                    </FormLabel>
+                                    <Select
+                                        value={selectedClassId}
+                                        onValueChange={(value) => {
+                                            // Radix Select disallows SelectItem with empty string value.
+                                            // Use sentinel 'ALL' for "All Classes" option and map it
+                                            // back to empty string internally to represent no specific class.
+                                            if (value === 'ALL') {
+                                                setSelectedClassId('');
+                                            } else {
+                                                setSelectedClassId(value);
+                                            }
+                                            setSelectedStudent(null);
+                                        }}
+                                        disabled={loadingClasses}
+                                    >
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue placeholder={loadingClasses ? "Loading branches..." : "All classes"} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="ALL">All Classes</SelectItem>
+                                            {classes.map((cls) => (
+                                                <SelectItem key={cls.id} value={cls.id}>
+                                                    <div className="flex items-center gap-2">
+                                                        <span>{cls.class_name}</span>
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {cls.subject}
+                                                        </Badge>
+                                                    </div>
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            {/* Student Search */}
+                            <div className="space-y-2">
+                                <FormLabel>Student *</FormLabel>
+                                <StudentSearch
+                                    coachingCenterId={coachingCenterId}
+                                    branchId={selectedBranchId || propBranchId}
+                                    classId={selectedClassId || undefined}
+                                    selectedStudent={selectedStudent}
+                                    onSelect={(student) => setSelectedStudent(student as SelectedStudent | null)}
+                                    placeholder="Search by username or name..."
+                                    disabled={!selectedBranchId && !propBranchId}
+                                />
+                                {!selectedBranchId && !propBranchId && isCoachView && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Please select a branch first to search for students
+                                    </p>
                                 )}
-                            />
+                            </div>
 
                             {/* Date Picker */}
                             <div className="space-y-2">
@@ -227,11 +442,16 @@ export default function MarkAttendanceDialog({ open, onOpenChange }: MarkAttenda
                             />
 
                             {/* Actions */}
-                            <div className="flex justify-end gap-2 pt-4">
+                            <div className="flex justify-end gap-2 pt-4 border-t">
                                 <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                                     Cancel
                                 </Button>
-                                <Button type="submit">Mark Attendance</Button>
+                                <Button
+                                    type="submit"
+                                    disabled={!selectedStudent}
+                                >
+                                    Mark Attendance
+                                </Button>
                             </div>
                         </form>
                     </Form>

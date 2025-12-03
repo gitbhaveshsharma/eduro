@@ -104,11 +104,13 @@ export default function StudentAttendancePage() {
             <MarkAttendanceDialog
                 open={isMarkDialogOpen}
                 onOpenChange={setIsMarkDialogOpen}
+                coachingCenterId={coachingCenterId ?? undefined}
             />
 
             <BulkMarkDialog
                 open={isBulkDialogOpen}
                 onOpenChange={setIsBulkDialogOpen}
+                coachingCenterId={coachingCenterId ?? undefined}
             />
 
             <AttendanceDetailsDialog />
