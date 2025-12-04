@@ -237,10 +237,10 @@ export class StudentAttendanceService {
                 })
                 .select(`
                     *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name, subject, grade_level),
+                    profiles:teacher_id(id, full_name),
+                    coaching_branches:branch_id(id, name)
                 `)
                 .single();
 
@@ -327,10 +327,10 @@ export class StudentAttendanceService {
                 .insert(attendanceRecords)
                 .select(`
                     *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name, subject, grade_level),
+                    profiles:teacher_id(id, full_name),
+                    coaching_branches:branch_id(id, name)
                 `);
 
             if (error) {
@@ -416,10 +416,10 @@ export class StudentAttendanceService {
                 .eq('id', validatedInput.id)
                 .select(`
                     *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name, subject, grade_level),
+                    profiles:teacher_id(id, full_name),
+                    coaching_branches :branch_id(id, name)
                 `)
                 .single();
 
@@ -526,10 +526,10 @@ export class StudentAttendanceService {
                 .from('student_attendance')
                 .select(`
                     *,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name, subject, grade_level),
-                    teacher:teacher_id(id, full_name),
-                    branch:branch_id(id, name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name, subject, grade_level),
+                    profiles:teacher_id(id, full_name),
+                    coaching_branches :branch_id(id, name)
                 `)
                 .eq('id', attendanceId)
                 .single();
@@ -704,7 +704,7 @@ export class StudentAttendanceService {
                 .from('branch_students')
                 .select(`
                     student_id,
-                    student:student_id(id, full_name, username, avatar_url)
+                    profiles:student_id(id, full_name, username, avatar_url)
                 `)
                 .eq('class_id', classId)
                 .eq('enrollment_status', 'ENROLLED');
@@ -1063,8 +1063,8 @@ export class StudentAttendanceService {
                     student_id,
                     branch_id,
                     class_id,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name)
                 `)
                 .in('branch_id', branchIds)
                 .eq('enrollment_status', 'ENROLLED');
@@ -1186,8 +1186,8 @@ export class StudentAttendanceService {
                 .select(`
                     student_id,
                     class_id,
-                    student:student_id(id, full_name, username, avatar_url),
-                    class:class_id(id, class_name)
+                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_classes:class_id(id, class_name)
                 `)
                 .eq('branch_id', branchId)
                 .eq('enrollment_status', 'ENROLLED');
