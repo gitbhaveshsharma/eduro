@@ -327,7 +327,7 @@ export class StudentAttendanceService {
                 .insert(attendanceRecords)
                 .select(`
                     *,
-                    profiles:student_id(id, full_name, username, avatar_url),
+                    branch_students:student_id(student_id, student_name),
                     branch_classes:class_id(id, class_name, subject, grade_level),
                     profiles:teacher_id(id, full_name),
                     coaching_branches:branch_id(id, name)

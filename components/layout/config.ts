@@ -580,6 +580,13 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
         description: 'Manage classes across all branches',
     },
     {
+        id: 'branch-teachers',
+        label: 'All Teachers',
+        icon: GraduationCap,
+        href: '/lms/coach/branch-teachers',
+        description: 'Manage teachers across all branches',
+    },
+    {
         id: 'student-attendance',
         label: 'Attendance',
         icon: Calendar,
