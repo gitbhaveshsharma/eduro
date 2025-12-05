@@ -161,7 +161,8 @@ interface CoachingActions {
     filters?: CoachingCenterFilters,
     sortBy?: 'recent' | 'rating_high' | 'rating_low' | 'distance',
     page?: number,
-    perPage?: number
+    perPage?: number,
+    timeoutMs?: number
   ) => Promise<void>;
   updateCenterFilters: (filters: Partial<CoachingCenterFilters>) => void;
   updateCenterSortBy: (sortBy: 'recent' | 'rating_high' | 'rating_low' | 'distance') => void;
@@ -722,7 +723,8 @@ export const useCoachingStore = create<CoachingStore>()(
           filters: CoachingCenterFilters = {},
           sortBy: CoachingCenterSortBy = 'recent',
           page: number = 1,
-          perPage: number = 20
+          perPage: number = 20,
+          timeoutMs: number = 10000 // 10 second timeout
         ) => {
           const cacheKey = generateSearchCacheKey(filters, sortBy, page, perPage);
           const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
@@ -752,7 +754,18 @@ export const useCoachingStore = create<CoachingStore>()(
             state.currentCenterSortBy = sortBy;
           });
 
-          const result = await CoachingService.searchCoachingCenters(filters, sortBy, page, perPage);
+          // Create a timeout promise
+          const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) => {
+            setTimeout(() => {
+              resolve({ success: false, error: 'Request timed out. Please try again.' });
+            }, timeoutMs);
+          });
+
+          // Race between the actual request and timeout
+          const result = await Promise.race([
+            CoachingService.searchCoachingCenters(filters, sortBy, page, perPage),
+            timeoutPromise
+          ]);
 
           set((state) => {
             state.centerSearchLoading = false;
