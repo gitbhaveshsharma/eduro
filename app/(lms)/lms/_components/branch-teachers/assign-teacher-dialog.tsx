@@ -634,8 +634,6 @@ export function AssignTeacherDialog({ open, onOpenChange, branchId }: AssignTeac
 
                             {/* Availability Schedule */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold">Availability</h3>
-
                                 <FormField
                                     control={form.control}
                                     name="available_days"
@@ -744,7 +742,6 @@ export function AssignTeacherDialog({ open, onOpenChange, branchId }: AssignTeac
 
                             {/* Notes */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold">Additional Notes</h3>
 
                                 <FormField
                                     control={form.control}
