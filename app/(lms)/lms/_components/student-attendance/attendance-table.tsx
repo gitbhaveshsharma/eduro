@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo, useCallback, memo } from 'react';
 import { format } from 'date-fns';
 import {
     Table,
@@ -13,15 +13,32 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { UserCheck, UserX, Clock, FileText, MoreVertical, Eye, Edit, Trash2 } from 'lucide-react';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+    UserCheck,
+    UserX,
+    Clock,
+    FileText,
+    MoreVertical,
+    Eye,
+    Edit,
+    Trash2,
+    User,
+    Calendar
+} from 'lucide-react';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     useDailyAttendanceRecords,
@@ -40,118 +57,194 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import AttendanceFilters from './attendance-filters';
 
 /**
- * AttendanceTable Props
- * For branch manager view: pass branchId
- * For coach view: pass coachingCenterId
+ * Student Info with Tooltip Component
  */
-interface AttendanceTableProps {
-    branchId?: string;
-    coachingCenterId?: string;
+interface StudentInfoTooltipProps {
+    studentId: string;
+    studentName: string;
+    studentUsername?: string | null;
+    studentAvatar?: string | null;
 }
 
-export default function AttendanceTable({ branchId, coachingCenterId }: AttendanceTableProps) {
-    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-    const [selectedClass, setSelectedClass] = useState('all');
-    const [studentUsername, setStudentUsername] = useState('');
-    const [checkInTimes, setCheckInTimes] = useState<Record<string, string>>({});
+const StudentInfoTooltip = memo(function StudentInfoTooltip({
+    studentId,
+    studentName,
+    studentUsername,
+    studentAvatar
+}: StudentInfoTooltipProps) {
+    return (
+        <TooltipProvider>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center gap-3 cursor-help">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            <img
+                                src={AvatarUtils.getSafeAvatarUrl(
+                                    studentAvatar,
+                                    studentName || 'S'
+                                )}
+                                alt={studentName}
+                                className="w-10 h-10 object-cover"
+                            />
+                        </div>
+                        <div className="min-w-0 text-left">
+                            <p className="font-medium text-sm leading-none">{studentName}</p>
+                            {studentUsername ? (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    @{studentUsername}
+                                </p>
+                            ) : (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    ID: {studentId.slice(0, 8)}...
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <div className="text-xs">
+                        <p className="font-medium">Student ID:</p>
+                        <p className="font-mono">{studentId}</p>
+                    </div>
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+});
 
-    // Track if we've already fetched
-    const lastFetchRef = useRef<string | null>(null);
+/**
+ * Quick Mark Actions Component
+ */
+interface QuickMarkActionsProps {
+    studentId: string;
+    studentName: string;
+    checkInTime: string;
+    onCheckInChange: (time: string) => void;
+    onMark: (status: AttendanceStatus) => void;
+}
 
-    const dailyRecords = useDailyAttendanceRecords();
-    const loading = useAttendanceLoading();
-    const fetchDailyAttendance = useFetchDailyAttendance();
-    const fetchBranchDailyAttendance = useFetchBranchDailyAttendance();
-    const fetchCoachingCenterDailyAttendance = useFetchCoachingCenterDailyAttendance();
-    const markAttendance = useMarkAttendance();
-    const setCurrentRecord = useSetCurrentRecord();
+const QuickMarkActions = memo(function QuickMarkActions({
+    studentId,
+    studentName,
+    checkInTime,
+    onCheckInChange,
+    onMark
+}: QuickMarkActionsProps) {
+    return (
+        <div className="space-y-2">
+            <div className="flex gap-1 flex-wrap">
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs gap-1"
+                    onClick={() => onMark(AttendanceStatus.PRESENT)}
+                >
+                    <UserCheck className="w-3 h-3" />
+                    Present
+                </Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs gap-1"
+                    onClick={() => onMark(AttendanceStatus.ABSENT)}
+                >
+                    <UserX className="w-3 h-3" />
+                    Absent
+                </Button>
+                <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-3 text-xs gap-1"
+                    onClick={() => onMark(AttendanceStatus.LATE)}
+                >
+                    <Clock className="w-3 h-3" />
+                    Late
+                </Button>
+            </div>
+            <Input
+                type="time"
+                className="w-32 h-7 text-xs"
+                value={checkInTime}
+                onChange={(e) => onCheckInChange(e.target.value)}
+            />
+        </div>
+    );
+});
 
-    // Determine which fetch function to use based on context
-    const isBranchView = !!branchId;
-    const isCoachView = !!coachingCenterId && !branchId;
+/**
+ * Attendance Row Actions Component
+ */
+interface AttendanceRowActionsProps {
+    record: DailyAttendanceRecord;
+    onView: (record: DailyAttendanceRecord) => void;
+    onEdit: (record: DailyAttendanceRecord) => void;
+    onDelete: (record: DailyAttendanceRecord) => void;
+}
 
-    useEffect(() => {
-        const fetchKey = `${branchId || coachingCenterId || selectedClass}-${selectedDate}`;
+const AttendanceRowActions = memo(function AttendanceRowActions({
+    record,
+    onView,
+    onEdit,
+    onDelete
+}: AttendanceRowActionsProps) {
+    const handleView = useCallback(() => onView(record), [record, onView]);
+    const handleEdit = useCallback(() => onEdit(record), [record, onEdit]);
+    const handleDelete = useCallback(() => onDelete(record), [record, onDelete]);
 
-        // Prevent duplicate fetches
-        if (lastFetchRef.current === fetchKey) {
-            return;
-        }
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreVertical className="h-4 w-4" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleView}>
+                    <Eye className="mr-2 h-4 w-4" />
+                    View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Attendance
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-destructive focus:text-destructive"
+                >
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+});
 
-        const fetchAttendance = async () => {
-            if (isBranchView && branchId) {
-                await fetchBranchDailyAttendance(branchId, selectedDate);
-                lastFetchRef.current = fetchKey;
-            } else if (isCoachView && coachingCenterId) {
-                await fetchCoachingCenterDailyAttendance(coachingCenterId, selectedDate);
-                lastFetchRef.current = fetchKey;
-            } else if (selectedClass && selectedClass !== 'all') {
-                // Fallback to class-based fetch
-                await fetchDailyAttendance(selectedClass, selectedDate);
-                lastFetchRef.current = fetchKey;
-            }
-        };
+/**
+ * Attendance Row Component
+ */
+interface AttendanceRowProps {
+    record: DailyAttendanceRecord;
+    index: number;
+    checkInTime: string;
+    onCheckInChange: (studentId: string, time: string) => void;
+    onQuickMark: (studentId: string, studentName: string, status: AttendanceStatus) => void;
+    onView: (record: DailyAttendanceRecord) => void;
+    onEdit: (record: DailyAttendanceRecord) => void;
+    onDelete: (record: DailyAttendanceRecord) => void;
+}
 
-        fetchAttendance();
-    }, [selectedDate, selectedClass, branchId, coachingCenterId, isBranchView, isCoachView, fetchDailyAttendance, fetchBranchDailyAttendance, fetchCoachingCenterDailyAttendance]);
-
-    // Client-side filtering for username and class
-    const filteredRecords = useMemo(() => {
-        let records = dailyRecords;
-
-        // Filter by class if selected (not 'all')
-        if (selectedClass && selectedClass !== 'all') {
-            records = records.filter(r => r.class_name); // Keep records that match the class context
-        }
-
-        // Filter by username (partial match, case-insensitive)
-        if (studentUsername) {
-            const searchTerm = studentUsername.toLowerCase();
-            records = records.filter(r =>
-                r.student_username?.toLowerCase().includes(searchTerm) ||
-                r.student_name?.toLowerCase().includes(searchTerm)
-            );
-        }
-
-        return records;
-    }, [dailyRecords, selectedClass, studentUsername]);
-
-    const handleQuickMark = async (
-        studentId: string,
-        studentName: string,
-        status: AttendanceStatus
-    ) => {
-        const checkInTime = checkInTimes[studentId] || format(new Date(), 'HH:mm');
-        const lateMinutes = status === AttendanceStatus.LATE ? 15 : 0;
-
-        // Use the branchId from props if available
-        const effectiveBranchId = branchId || 'current-branch-id';
-
-        const success = await markAttendance({
-            student_id: studentId,
-            class_id: selectedClass !== 'all' ? selectedClass : '',
-            teacher_id: 'current-teacher-id', // Replace with actual teacher ID from auth
-            branch_id: effectiveBranchId,
-            attendance_date: selectedDate,
-            attendance_status: status,
-            check_in_time: checkInTime,
-            late_by_minutes: lateMinutes,
-            teacher_remarks: `Quick marked as ${formatAttendanceStatus(status)}`,
-        });
-
-        if (success) {
-            showSuccessToast(`${studentName} marked as ${formatAttendanceStatus(status)}`);
-        } else {
-            showErrorToast(`Failed to mark attendance for ${studentName}`);
-        }
-    };
-
-    const handleViewDetails = (record: DailyAttendanceRecord) => {
-        // This would set the current record for the details dialog
-        // The actual attendance record ID would need to be fetched
-        console.log('View details for:', record);
-    };
-
+const AttendanceRow = memo(function AttendanceRow({
+    record,
+    index,
+    checkInTime,
+    onCheckInChange,
+    onQuickMark,
+    onView,
+    onEdit,
+    onDelete
+}: AttendanceRowProps) {
     const getStatusBadge = (status: AttendanceStatus | null) => {
         if (!status) return <Badge variant="outline">Unmarked</Badge>;
 
@@ -169,6 +262,263 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
             </Badge>
         );
     };
+
+    return (
+        <TableRow>
+            {/* Index */}
+            <TableCell className="font-medium">{index + 1}</TableCell>
+
+            {/* Student Info */}
+            <TableCell>
+                <StudentInfoTooltip
+                    studentId={record.student_id}
+                    studentName={record.student_name}
+                    studentUsername={record.student_username}
+                    studentAvatar={record.student_avatar}
+                />
+            </TableCell>
+
+            {/* Class / Branch */}
+            <TableCell>
+                <div className="text-sm space-y-0.5">
+                    {record.class_name && (
+                        <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="font-medium">{record.class_name}</p>
+                        </div>
+                    )}
+                    {record.branch_name && (
+                        <p className="text-xs text-muted-foreground pl-4">
+                            {record.branch_name}
+                        </p>
+                    )}
+                    {!record.class_name && !record.branch_name && (
+                        <span className="text-muted-foreground">-</span>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Status / Quick Actions */}
+            <TableCell>
+                {record.is_marked ? (
+                    getStatusBadge(record.attendance_status)
+                ) : (
+                    <QuickMarkActions
+                        studentId={record.student_id}
+                        studentName={record.student_name}
+                        checkInTime={checkInTime}
+                        onCheckInChange={(time) => onCheckInChange(record.student_id, time)}
+                        onMark={(status) => onQuickMark(record.student_id, record.student_name, status)}
+                    />
+                )}
+            </TableCell>
+
+            {/* Check In/Out Times */}
+            <TableCell>
+                <div className="space-y-1 text-sm">
+                    <div>
+                        <span className="text-muted-foreground text-xs">In: </span>
+                        <span className="font-medium">{formatTime(record.check_in_time)}</span>
+                    </div>
+                    {record.check_out_time && (
+                        <div>
+                            <span className="text-muted-foreground text-xs">Out: </span>
+                            <span className="font-medium">{formatTime(record.check_out_time)}</span>
+                        </div>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Late Minutes */}
+            <TableCell>
+                {record.late_by_minutes > 0 && (
+                    <Badge variant="outline" className="text-orange-600">
+                        <Clock className="w-3 h-3 mr-1" />
+                        {record.late_by_minutes}m
+                    </Badge>
+                )}
+            </TableCell>
+
+            {/* Remarks */}
+            <TableCell>
+                {record.teacher_remarks && (
+                    <div className="flex items-start gap-1.5 text-xs text-muted-foreground max-w-[250px]">
+                        <FileText className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-2">{record.teacher_remarks}</span>
+                    </div>
+                )}
+            </TableCell>
+
+            {/* Actions */}
+            <TableCell className="text-right">
+                {record.is_marked && (
+                    <AttendanceRowActions
+                        record={record}
+                        onView={onView}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                    />
+                )}
+            </TableCell>
+        </TableRow>
+    );
+});
+
+/**
+ * Table Skeleton
+ */
+const TableSkeleton = memo(function TableSkeleton() {
+    return (
+        <div className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center gap-4 p-4 border rounded-lg">
+                    <Skeleton className="h-10 w-10 rounded-full" />
+                    <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-[200px]" />
+                        <Skeleton className="h-3 w-[150px]" />
+                    </div>
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-6 w-[80px]" />
+                    <Skeleton className="h-8 w-[60px]" />
+                </div>
+            ))}
+        </div>
+    );
+});
+
+/**
+ * Empty State
+ */
+const EmptyState = memo(function EmptyState({ studentUsername }: { studentUsername?: string }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+            <Calendar className="h-16 w-16 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-semibold mb-2">No Students Found</h3>
+            <p className="text-sm text-muted-foreground max-w-sm">
+                {studentUsername
+                    ? `No students match "${studentUsername}"`
+                    : 'Add students to this class to start marking attendance'
+                }
+            </p>
+        </div>
+    );
+});
+
+/**
+ * AttendanceTable Props
+ */
+interface AttendanceTableProps {
+    branchId?: string;
+    coachingCenterId?: string;
+}
+
+/**
+ * Main Attendance Table Component
+ */
+export default function AttendanceTable({ branchId, coachingCenterId }: AttendanceTableProps) {
+    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [selectedClass, setSelectedClass] = useState('all');
+    const [studentUsername, setStudentUsername] = useState('');
+    const [checkInTimes, setCheckInTimes] = useState<Record<string, string>>({});
+
+    const lastFetchRef = useRef<string | null>(null);
+
+    const dailyRecords = useDailyAttendanceRecords();
+    const loading = useAttendanceLoading();
+    const fetchDailyAttendance = useFetchDailyAttendance();
+    const fetchBranchDailyAttendance = useFetchBranchDailyAttendance();
+    const fetchCoachingCenterDailyAttendance = useFetchCoachingCenterDailyAttendance();
+    const markAttendance = useMarkAttendance();
+    const setCurrentRecord = useSetCurrentRecord();
+
+    const isBranchView = !!branchId;
+    const isCoachView = !!coachingCenterId && !branchId;
+
+    // Fetch attendance data
+    useEffect(() => {
+        const fetchKey = `${branchId || coachingCenterId || selectedClass}-${selectedDate}`;
+
+        if (lastFetchRef.current === fetchKey) return;
+
+        const fetchAttendance = async () => {
+            if (isBranchView && branchId) {
+                await fetchBranchDailyAttendance(branchId, selectedDate);
+                lastFetchRef.current = fetchKey;
+            } else if (isCoachView && coachingCenterId) {
+                await fetchCoachingCenterDailyAttendance(coachingCenterId, selectedDate);
+                lastFetchRef.current = fetchKey;
+            } else if (selectedClass && selectedClass !== 'all') {
+                await fetchDailyAttendance(selectedClass, selectedDate);
+                lastFetchRef.current = fetchKey;
+            }
+        };
+
+        fetchAttendance();
+    }, [selectedDate, selectedClass, branchId, coachingCenterId, isBranchView, isCoachView, fetchDailyAttendance, fetchBranchDailyAttendance, fetchCoachingCenterDailyAttendance]);
+
+    // Filter records
+    const filteredRecords = useMemo(() => {
+        let records = dailyRecords;
+
+        if (selectedClass && selectedClass !== 'all') {
+            records = records.filter(r => r.class_name);
+        }
+
+        if (studentUsername) {
+            const searchTerm = studentUsername.toLowerCase();
+            records = records.filter(r =>
+                r.student_username?.toLowerCase().includes(searchTerm) ||
+                r.student_name?.toLowerCase().includes(searchTerm)
+            );
+        }
+
+        return records;
+    }, [dailyRecords, selectedClass, studentUsername]);
+
+    // Handlers
+    const handleCheckInChange = useCallback((studentId: string, time: string) => {
+        setCheckInTimes(prev => ({ ...prev, [studentId]: time }));
+    }, []);
+
+    const handleQuickMark = useCallback(async (
+        studentId: string,
+        studentName: string,
+        status: AttendanceStatus
+    ) => {
+        const checkInTime = checkInTimes[studentId] || format(new Date(), 'HH:mm');
+        const lateMinutes = status === AttendanceStatus.LATE ? 15 : 0;
+        const effectiveBranchId = branchId || 'current-branch-id';
+
+        const success = await markAttendance({
+            student_id: studentId,
+            class_id: selectedClass !== 'all' ? selectedClass : '',
+            teacher_id: 'current-teacher-id',
+            branch_id: effectiveBranchId,
+            attendance_date: selectedDate,
+            attendance_status: status,
+            check_in_time: checkInTime,
+            late_by_minutes: lateMinutes,
+            teacher_remarks: `Quick marked as ${formatAttendanceStatus(status)}`,
+        });
+
+        if (success) {
+            showSuccessToast(`${studentName} marked as ${formatAttendanceStatus(status)}`);
+        } else {
+            showErrorToast(`Failed to mark attendance for ${studentName}`);
+        }
+    }, [checkInTimes, branchId, selectedClass, selectedDate, markAttendance]);
+
+    const handleView = useCallback((record: DailyAttendanceRecord) => {
+        console.log('View details for:', record);
+    }, []);
+
+    const handleEdit = useCallback((record: DailyAttendanceRecord) => {
+        console.log('Edit record:', record);
+    }, []);
+
+    const handleDelete = useCallback((record: DailyAttendanceRecord) => {
+        console.log('Delete record:', record);
+    }, []);
 
     if (loading.daily && dailyRecords.length === 0) {
         return <TableSkeleton />;
@@ -189,210 +539,49 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
             />
 
             {/* Attendance Table */}
-            <div className="border rounded-lg">
-                <ScrollArea className="h-[600px]">
-                    <Table>
-                        <TableHeader className="sticky top-0 bg-background z-10">
+            <div className="rounded-md border">
+                <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead className="w-[50px]">#</TableHead>
+                            <TableHead className="w-[240px]">Student</TableHead>
+                            <TableHead className="w-[180px]">Class / Branch</TableHead>
+                            <TableHead className="w-[200px]">Status</TableHead>
+                            <TableHead className="w-[130px]">Time</TableHead>
+                            <TableHead className="w-[100px]">Late By</TableHead>
+                            <TableHead className="w-[250px]">Remarks</TableHead>
+                            <TableHead className="w-[80px] text-right">Actions</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {filteredRecords.length === 0 ? (
                             <TableRow>
-                                <TableHead className="w-[50px]">#</TableHead>
-                                <TableHead>Student</TableHead>
-                                <TableHead>Class / Branch</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Check In</TableHead>
-                                <TableHead>Check Out</TableHead>
-                                <TableHead>Late By</TableHead>
-                                <TableHead>Remarks</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
+                                <TableCell colSpan={8}>
+                                    <EmptyState studentUsername={studentUsername} />
+                                </TableCell>
                             </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredRecords.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={9} className="text-center py-12">
-                                        <div className="text-muted-foreground">
-                                            <p className="text-lg font-semibold">No students found</p>
-                                            <p className="text-sm mt-1">
-                                                {studentUsername
-                                                    ? `No students match "${studentUsername}"`
-                                                    : 'Add students to this class to start marking attendance'
-                                                }
-                                            </p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredRecords.map((record, index) => (
-                                    <TableRow key={record.student_id}>
-                                        <TableCell className="font-medium">{index + 1}</TableCell>
-
-                                        {/* Student Info */}
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
-                                                    <img
-                                                        src={AvatarUtils.getSafeAvatarUrl(
-                                                            record.student_avatar,
-                                                            record.student_name || 'S'
-                                                        )}
-                                                        alt={record.student_name}
-                                                        className="w-10 h-10 object-cover"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">{record.student_name}</p>
-                                                    {record.student_username ? (
-                                                        <p className="text-xs text-muted-foreground">@{record.student_username}</p>
-                                                    ) : (
-                                                        <p className="text-xs text-muted-foreground">
-                                                            ID: {record.student_id.slice(0, 8)}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </TableCell>
-
-                                        {/* Class / Branch Info */}
-                                        <TableCell>
-                                            <div className="text-sm">
-                                                {record.class_name && (
-                                                    <p className="font-medium">{record.class_name}</p>
-                                                )}
-                                                {record.branch_name && (
-                                                    <p className="text-xs text-muted-foreground">{record.branch_name}</p>
-                                                )}
-                                                {!record.class_name && !record.branch_name && (
-                                                    <span className="text-muted-foreground">-</span>
-                                                )}
-                                            </div>
-                                        </TableCell>
-
-                                        {/* Status Badge */}
-                                        <TableCell>
-                                            {record.is_marked ? (
-                                                getStatusBadge(record.attendance_status)
-                                            ) : (
-                                                <div className="flex gap-1">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="h-7 px-2 text-xs gap-1"
-                                                        onClick={() => handleQuickMark(
-                                                            record.student_id,
-                                                            record.student_name,
-                                                            AttendanceStatus.PRESENT
-                                                        )}
-                                                    >
-                                                        <UserCheck className="w-3 h-3" />
-                                                        Present
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="h-7 px-2 text-xs gap-1"
-                                                        onClick={() => handleQuickMark(
-                                                            record.student_id,
-                                                            record.student_name,
-                                                            AttendanceStatus.ABSENT
-                                                        )}
-                                                    >
-                                                        <UserX className="w-3 h-3" />
-                                                        Absent
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="h-7 px-2 text-xs gap-1"
-                                                        onClick={() => handleQuickMark(
-                                                            record.student_id,
-                                                            record.student_name,
-                                                            AttendanceStatus.LATE
-                                                        )}
-                                                    >
-                                                        <Clock className="w-3 h-3" />
-                                                        Late
-                                                    </Button>
-                                                </div>
-                                            )}
-                                        </TableCell>
-
-                                        {/* Check In Time */}
-                                        <TableCell>
-                                            {record.is_marked ? (
-                                                <span className="text-sm">{formatTime(record.check_in_time)}</span>
-                                            ) : (
-                                                <Input
-                                                    type="time"
-                                                    className="w-24 h-7 text-xs"
-                                                    value={checkInTimes[record.student_id] || format(new Date(), 'HH:mm')}
-                                                    onChange={(e) => setCheckInTimes(prev => ({
-                                                        ...prev,
-                                                        [record.student_id]: e.target.value
-                                                    }))}
-                                                />
-                                            )}
-                                        </TableCell>
-
-                                        {/* Check Out Time */}
-                                        <TableCell>
-                                            <span className="text-sm">{formatTime(record.check_out_time)}</span>
-                                        </TableCell>
-
-                                        {/* Late Minutes */}
-                                        <TableCell>
-                                            {record.late_by_minutes > 0 && (
-                                                <Badge variant="outline" className="text-orange-600">
-                                                    {record.late_by_minutes}m
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-
-                                        {/* Remarks */}
-                                        <TableCell>
-                                            {record.teacher_remarks && (
-                                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                                    <FileText className="w-3 h-3" />
-                                                    <span className="line-clamp-1">{record.teacher_remarks}</span>
-                                                </div>
-                                            )}
-                                        </TableCell>
-
-                                        {/* Actions */}
-                                        <TableCell className="text-right">
-                                            {record.is_marked && (
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
-                                                            <MoreVertical className="w-4 h-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleViewDetails(record)}>
-                                                            <Eye className="w-4 h-4 mr-2" />
-                                                            View Details
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem>
-                                                            <Edit className="w-4 h-4 mr-2" />
-                                                            Edit
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-red-600">
-                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                            Delete
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            )}
-                                        </TableCell>
-                                    </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </ScrollArea>
+                        ) : (
+                            filteredRecords.map((record, index) => (
+                                <AttendanceRow
+                                    key={record.student_id}
+                                    record={record}
+                                    index={index}
+                                    checkInTime={checkInTimes[record.student_id] || format(new Date(), 'HH:mm')}
+                                    onCheckInChange={handleCheckInChange}
+                                    onQuickMark={handleQuickMark}
+                                    onView={handleView}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
+                            ))
+                        )}
+                    </TableBody>
+                </Table>
             </div>
 
             {/* Summary Footer */}
             <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/50">
-                <div className="flex gap-6 text-sm">
+                <div className="flex gap-6 text-sm flex-wrap">
                     <div>
                         <span className="text-muted-foreground">Total: </span>
                         <span className="font-semibold">{filteredRecords.length}</span>
@@ -415,23 +604,6 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
                         </span>
                     </div>
                 </div>
-            </div>
-        </div>
-    );
-}
-
-// Table Skeleton
-function TableSkeleton() {
-    return (
-        <div className="space-y-4">
-            <div className="flex gap-2">
-                <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-10 w-32" />
-            </div>
-            <div className="border rounded-lg p-4 space-y-3">
-                {[...Array(8)].map((_, i) => (
-                    <Skeleton key={i} className="h-14 w-full" />
-                ))}
             </div>
         </div>
     );

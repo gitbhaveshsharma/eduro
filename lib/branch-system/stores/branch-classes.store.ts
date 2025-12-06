@@ -57,6 +57,9 @@ interface BranchClassesState {
         timestamp: number;
     }>;
 
+    // Track inflight requests to prevent duplicate calls
+    inflightRequests: Record<string, Promise<void> | undefined>;
+
     // Current search results (for convenience)
     currentSearchResults: BranchClassSearchResult | null;
     currentSearchKey: string | null;
@@ -187,6 +190,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             classesByTeacher: {},
             classesByCoachingCenter: {},
             searchCache: {},
+            inflightRequests: {},
             currentSearchResults: null,
             currentSearchKey: null,
             stats: {},
@@ -233,11 +237,8 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                 // ✅ Check cache first
                 if (!forceRefresh && state.classesById[classId]) {
-                    console.log(`[Cache Hit] Class ${classId} loaded from cache`);
                     return;
                 }
-
-                console.log(`[Cache Miss] Fetching class ${classId} from API`);
 
                 set((draft) => {
                     draft.loading.fetchClass = true;
@@ -271,11 +272,8 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                 // ✅ Check cache first
                 if (!forceRefresh && state.classesByBranch[branchId]) {
-                    console.log(`[Cache Hit] Branch ${branchId} classes loaded from cache`);
                     return;
                 }
-
-                console.log(`[Cache Miss] Fetching branch ${branchId} classes from API`);
 
                 set((draft) => {
                     draft.loading.fetchClasses = true;
@@ -316,11 +314,8 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                 // ✅ Check cache first
                 if (!forceRefresh && state.classesByTeacher[teacherId]) {
-                    console.log(`[Cache Hit] Teacher ${teacherId} classes loaded from cache`);
                     return;
                 }
-
-                console.log(`[Cache Miss] Fetching teacher ${teacherId} classes from API`);
 
                 set((draft) => {
                     draft.loading.fetchClasses = true;
@@ -361,11 +356,8 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                 // ✅ Check cache first
                 if (!forceRefresh && state.classesByCoachingCenter[coachingCenterId]) {
-                    console.log(`[Cache Hit] Coaching center ${coachingCenterId} classes loaded from cache`);
                     return;
                 }
-
-                console.log(`[Cache Miss] Fetching coaching center ${coachingCenterId} classes from API`);
 
                 set((draft) => {
                     draft.loading.fetchClasses = true;
@@ -409,6 +401,12 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             ) => {
                 const cacheKey = generateSearchCacheKey(filters, sort, pagination);
                 const state = get();
+
+                // ✅ Check if there's already an inflight request for this search
+                if (state.inflightRequests[cacheKey]) {
+                    return state.inflightRequests[cacheKey];
+                }
+
                 const cached = state.searchCache[cacheKey];
 
                 // ✅ Check cache first
@@ -416,8 +414,6 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     const age = Date.now() - cached.timestamp;
 
                     if (age < CACHE_TTL) {
-                        console.log(`[Cache Hit] Search results loaded from cache (age: ${Math.round(age / 1000)}s)`);
-
                         set((draft) => {
                             draft.currentSearchResults = cached.result;
                             draft.currentSearchKey = cacheKey;
@@ -425,53 +421,64 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                             draft.ui.currentSort = sort;
                             draft.ui.currentPagination = pagination;
                         });
-
                         return;
                     }
                 }
 
-                console.log(`[Cache Miss] Fetching search results from API`);
+                // Create the request promise
+                const requestPromise = (async () => {
+                    set((draft) => {
+                        draft.loading.search = true;
+                        draft.errors.search = null;
+                        draft.ui.currentFilters = filters;
+                        draft.ui.currentSort = sort;
+                        draft.ui.currentPagination = pagination;
+                    });
 
-                set((draft) => {
-                    draft.loading.search = true;
-                    draft.errors.search = null;
-                    draft.ui.currentFilters = filters;
-                    draft.ui.currentSort = sort;
-                    draft.ui.currentPagination = pagination;
-                });
+                    try {
+                        const result = await branchClassesService.searchClasses(filters, sort, pagination);
 
-                try {
-                    const result = await branchClassesService.searchClasses(filters, sort, pagination);
+                        if (result.success && result.data) {
+                            set((draft) => {
+                                // Cache classes in normalized store
+                                result.data!.classes.forEach((cls) => {
+                                    draft.classesById[cls.id] = cls as unknown as BranchClass;
+                                });
 
-                    if (result.success && result.data) {
-                        set((draft) => {
-                            // Cache classes in normalized store
-                            result.data!.classes.forEach((cls) => {
-                                draft.classesById[cls.id] = cls as unknown as BranchClass;
+                                // Cache search results
+                                draft.searchCache[cacheKey] = {
+                                    result: result.data!,
+                                    timestamp: Date.now(),
+                                };
+
+                                draft.currentSearchResults = result.data!;
+                                draft.currentSearchKey = cacheKey;
+                                draft.loading.search = false;
+                                // Remove from inflight
+                                delete draft.inflightRequests[cacheKey];
                             });
-
-                            // Cache search results
-                            draft.searchCache[cacheKey] = {
-                                result: result.data!,
-                                timestamp: Date.now(),
-                            };
-
-                            draft.currentSearchResults = result.data!;
-                            draft.currentSearchKey = cacheKey;
-                            draft.loading.search = false;
-                        });
-                    } else {
+                        } else {
+                            set((draft) => {
+                                draft.errors.search = result.error || 'Failed to search classes';
+                                draft.loading.search = false;
+                                delete draft.inflightRequests[cacheKey];
+                            });
+                        }
+                    } catch (error) {
                         set((draft) => {
-                            draft.errors.search = result.error || 'Failed to search classes';
+                            draft.errors.search = error instanceof Error ? error.message : 'Unknown error';
                             draft.loading.search = false;
+                            delete draft.inflightRequests[cacheKey];
                         });
                     }
-                } catch (error) {
-                    set((draft) => {
-                        draft.errors.search = error instanceof Error ? error.message : 'Unknown error';
-                        draft.loading.search = false;
-                    });
-                }
+                })();
+
+                // Store the inflight request
+                set((draft) => {
+                    draft.inflightRequests[cacheKey] = requestPromise;
+                });
+
+                return requestPromise;
             },
 
             fetchBranchStats: async (branchId: string, forceRefresh = false) => {
@@ -479,11 +486,8 @@ export const useBranchClassesStore = create<BranchClassesState>()(
 
                 // ✅ Check cache first
                 if (!forceRefresh && state.stats[branchId]) {
-                    console.log(`[Cache Hit] Branch ${branchId} stats loaded from cache`);
                     return;
                 }
-
-                console.log(`[Cache Miss] Fetching branch ${branchId} stats from API`);
 
                 set((draft) => {
                     draft.loading.stats = true;
@@ -560,7 +564,6 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                             draft.ui.createFormData = {};
                         });
 
-                        console.log('✅ Class created and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -609,7 +612,6 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                             draft.ui.editFormData = {};
                         });
 
-                        console.log('✅ Class updated and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -671,7 +673,6 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                             draft.loading.deleteClass = false;
                         });
 
-                        console.log('✅ Class deleted and cache invalidated');
                         return true;
                     } else {
                         set((draft) => {
@@ -805,20 +806,20 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     draft.classesByBranch = {};
                     draft.classesByTeacher = {};
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                     draft.currentSearchResults = null;
                     draft.currentSearchKey = null;
                     draft.stats = {};
                 });
-                console.log('🗑️ All cache cleared');
             },
 
             clearSearchCache: () => {
                 set((draft) => {
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                     draft.currentSearchResults = null;
                     draft.currentSearchKey = null;
                 });
-                console.log('🗑️ Search cache cleared');
             },
 
             clearBranchCache: (branchId: string) => {
@@ -830,32 +831,32 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     delete draft.classesByBranch[branchId];
                     delete draft.stats[branchId];
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                 });
-                console.log(`🗑️ Branch ${branchId} cache cleared`);
             },
 
             clearTeacherCache: (teacherId: string) => {
                 set((draft) => {
                     delete draft.classesByTeacher[teacherId];
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                 });
-                console.log(`🗑️ Teacher ${teacherId} cache cleared`);
             },
 
             clearCoachingCenterCache: (coachingCenterId: string) => {
                 set((draft) => {
                     delete draft.classesByCoachingCenter[coachingCenterId];
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                 });
-                console.log(`🗑️ Coaching center ${coachingCenterId} cache cleared`);
             },
 
             invalidateClass: (classId: string) => {
                 set((draft) => {
                     delete draft.classesById[classId];
                     draft.searchCache = {};
+                    draft.inflightRequests = {};
                 });
-                console.log(`🗑️ Class ${classId} invalidated`);
             },
         })),
         { name: 'BranchClassesStore' }
