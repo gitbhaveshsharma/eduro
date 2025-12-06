@@ -161,7 +161,8 @@ interface CoachingActions {
     filters?: CoachingCenterFilters,
     sortBy?: 'recent' | 'rating_high' | 'rating_low' | 'distance',
     page?: number,
-    perPage?: number
+    perPage?: number,
+    timeoutMs?: number
   ) => Promise<void>;
   updateCenterFilters: (filters: Partial<CoachingCenterFilters>) => void;
   updateCenterSortBy: (sortBy: 'recent' | 'rating_high' | 'rating_low' | 'distance') => void;
@@ -181,7 +182,7 @@ interface CoachingActions {
   updateBranchFilters: (filters: Partial<CoachingBranchFilters>) => void;
   updateBranchSort: (sort: CoachingBranchSort) => void;
   clearBranchSearch: () => void;
-  
+
   // ADD: Search branches by name
   searchBranchesByName: (searchQuery: string, limit?: number) => Promise<CoachingBranch[]>;
 
@@ -430,10 +431,10 @@ export const useCoachingStore = create<CoachingStore>()(
               state.myCoachingCenters.unshift(result.data!);
               state.currentCoachingCenter = result.data!;
             });
-            
+
             // Invalidate search cache
             get().invalidateCenterSearchCache();
-            
+
             return true;
           }
 
@@ -461,10 +462,10 @@ export const useCoachingStore = create<CoachingStore>()(
 
               state.editFormData = null;
             });
-            
+
             // Invalidate cache for this center
             get().invalidateCenterSearchCache(centerId);
-            
+
             return true;
           } else {
             if (currentCenter && currentCenter.id === centerId) {
@@ -509,10 +510,10 @@ export const useCoachingStore = create<CoachingStore>()(
               state.coachingCenterCacheErrors.delete(centerId);
               state.coachingCenterCacheLoading.delete(centerId);
             });
-            
+
             // Invalidate cache
             get().invalidateCenterSearchCache(centerId);
-            
+
             return true;
           }
 
@@ -722,15 +723,16 @@ export const useCoachingStore = create<CoachingStore>()(
           filters: CoachingCenterFilters = {},
           sortBy: CoachingCenterSortBy = 'recent',
           page: number = 1,
-          perPage: number = 20
+          perPage: number = 20,
+          timeoutMs: number = 10000 // 10 second timeout
         ) => {
           const cacheKey = generateSearchCacheKey(filters, sortBy, page, perPage);
           const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-          
+
           // Check cache first
           const cached = get().centerSearchCache.get(cacheKey);
           const now = Date.now();
-          
+
           if (cached && cached.expiresAt > now) {
             console.log('[CoachingStore] Using cached search results');
             set((state) => {
@@ -742,7 +744,7 @@ export const useCoachingStore = create<CoachingStore>()(
             });
             return;
           }
-          
+
           // Cache miss or expired - fetch fresh data
           console.log('[CoachingStore] Cache miss or expired, fetching fresh results');
           set((state) => {
@@ -752,20 +754,31 @@ export const useCoachingStore = create<CoachingStore>()(
             state.currentCenterSortBy = sortBy;
           });
 
-          const result = await CoachingService.searchCoachingCenters(filters, sortBy, page, perPage);
+          // Create a timeout promise
+          const timeoutPromise = new Promise<{ success: false; error: string }>((resolve) => {
+            setTimeout(() => {
+              resolve({ success: false, error: 'Request timed out. Please try again.' });
+            }, timeoutMs);
+          });
+
+          // Race between the actual request and timeout
+          const result = await Promise.race([
+            CoachingService.searchCoachingCenters(filters, sortBy, page, perPage),
+            timeoutPromise
+          ]);
 
           set((state) => {
             state.centerSearchLoading = false;
             if (result.success && result.data) {
               state.centerSearchResults = result.data;
-              
+
               // Store in cache with timestamp
               state.centerSearchCache.set(cacheKey, {
                 result: result.data,
                 timestamp: now,
                 expiresAt: now + CACHE_DURATION
               });
-              
+
               // Cache individual center items
               result.data.results.forEach((item: CoachingCenterSearchItem) => {
                 state.coachingCenterCache.set(item.center_id, {
@@ -870,7 +883,7 @@ export const useCoachingStore = create<CoachingStore>()(
         // ADD: Search branches by name
         searchBranchesByName: async (searchQuery: string, limit: number = 10) => {
           console.log('[CoachingStore] Searching branches by name:', searchQuery);
-          
+
           if (!searchQuery || searchQuery.trim().length === 0) {
             return [];
           }

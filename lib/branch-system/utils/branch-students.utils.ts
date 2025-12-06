@@ -9,6 +9,7 @@
 
 import type {
     BranchStudent,
+    BranchStudentWithRelations,
     PublicBranchStudent,
     StudentEnrollmentSummary,
     StudentFinancialSummary,
@@ -34,7 +35,7 @@ import {
  * @param student - Full branch student record
  * @returns Public-facing student data
  */
-export function toPublicBranchStudent(student: BranchStudent): PublicBranchStudent {
+export function toPublicBranchStudent(student: BranchStudent | BranchStudentWithRelations): PublicBranchStudent {
     const outstandingBalance = calculateOutstandingBalance(
         student.total_fees_due,
         student.total_fees_paid
@@ -47,9 +48,14 @@ export function toPublicBranchStudent(student: BranchStudent): PublicBranchStude
         student.actual_completion_date
     );
 
+    // Get student name from relations if available
+    const studentWithRelations = student as BranchStudentWithRelations;
+    const studentName = studentWithRelations.student?.full_name || 'Unknown Student';
+
     return {
         id: student.id,
         student_id: student.student_id,
+        student_name: studentName,
         branch_id: student.branch_id,
         class_id: student.class_id,
         enrollment_date: student.enrollment_date,

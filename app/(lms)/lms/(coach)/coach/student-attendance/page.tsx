@@ -11,6 +11,7 @@ import MarkAttendanceDialog from '../../../_components/student-attendance/mark-a
 import BulkMarkDialog from '../../../_components/student-attendance/bulk-mark-dialog';
 import AttendanceDetailsDialog from '../../../_components/student-attendance/attendance-details-dialog';
 import EditAttendanceDialog from '../../../_components/student-attendance/edit-attendance-dialog';
+import { DeleteAttendanceDialog } from '../../../_components/student-attendance/delete-attendance-dialog';
 import { useCoachContext } from '../layout';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -116,6 +117,8 @@ export default function StudentAttendancePage() {
             <AttendanceDetailsDialog />
 
             <EditAttendanceDialog />
+
+            <DeleteAttendanceDialog />
         </div>
     );
 }

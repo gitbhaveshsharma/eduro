@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback, useState, useMemo } from 'react';
+import { useEffect, useCallback, useState, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useCoachingStore } from '@/lib/store/coaching.store';
 import { useCoachingFilterPanel } from '@/components/coaching/search/coaching-filter-panel-context';
@@ -12,7 +12,8 @@ import type {
 import { CoachingCenterGrid } from '@/components/coaching/public/coaching-center-card';
 import { CoachingFiltersPanel } from '@/components/coaching/search/coaching-filters-panel';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 
 /**
  * Coaching Centers Search Page
@@ -34,6 +35,7 @@ export default function CoachingCentersPage() {
         searchCoachingCenters,
         centerSearchResults,
         centerSearchLoading,
+        centerSearchError,
         currentCenterFilters,
         currentCenterSortBy,
         updateCenterFilters,
@@ -46,9 +48,16 @@ export default function CoachingCentersPage() {
     // Local UI state
     const [currentPage, setCurrentPage] = useState(1);
     const [hasInitialized, setHasInitialized] = useState(false);
+    const searchAbortRef = useRef<AbortController | null>(null);
 
     // Constants
     const perPage = 20;
+    const SEARCH_TIMEOUT_MS = 10000; // 10 seconds timeout
+
+    // Retry search function
+    const handleRetry = useCallback(() => {
+        searchCoachingCenters(currentCenterFilters, currentCenterSortBy, currentPage, perPage, SEARCH_TIMEOUT_MS);
+    }, [searchCoachingCenters, currentCenterFilters, currentCenterSortBy, currentPage, perPage]);
 
     // Get results from store
     const searchItems = centerSearchResults?.results || [];
@@ -85,7 +94,7 @@ export default function CoachingCentersPage() {
     useEffect(() => {
         if (hasInitialized) return;
 
-        const urlQuery = searchParams.get('q');
+        const urlQuery = searchParams?.get('q');
 
         // If there's a URL query param, use it to initialize filters
         if (urlQuery) {
@@ -95,10 +104,10 @@ export default function CoachingCentersPage() {
             };
             console.log('🔷 CoachingPage - Initializing with URL query:', urlQuery);
             updateCenterFilters(filtersWithQuery);
-            searchCoachingCenters(filtersWithQuery, currentCenterSortBy, 1, perPage);
+            searchCoachingCenters(filtersWithQuery, currentCenterSortBy, 1, perPage, SEARCH_TIMEOUT_MS);
         } else if (!centerSearchResults) {
             // No URL query and no cached results, do initial search
-            searchCoachingCenters(currentCenterFilters, currentCenterSortBy, 1, perPage);
+            searchCoachingCenters(currentCenterFilters, currentCenterSortBy, 1, perPage, SEARCH_TIMEOUT_MS);
         }
 
         setHasInitialized(true);
@@ -108,21 +117,21 @@ export default function CoachingCentersPage() {
     const handleFiltersChange = useCallback((newFilters: CoachingCenterFilters) => {
         updateCenterFilters(newFilters);
         setCurrentPage(1); // Reset to first page
-        searchCoachingCenters(newFilters, currentCenterSortBy, 1, perPage);
+        searchCoachingCenters(newFilters, currentCenterSortBy, 1, perPage, SEARCH_TIMEOUT_MS);
     }, [currentCenterSortBy, perPage, searchCoachingCenters, updateCenterFilters]);
 
     // Handle sort change
     const handleSortChange = useCallback((newSortBy: CoachingCenterSortBy) => {
         updateCenterSortBy(newSortBy);
         setCurrentPage(1); // Reset to first page
-        searchCoachingCenters(currentCenterFilters, newSortBy, 1, perPage);
+        searchCoachingCenters(currentCenterFilters, newSortBy, 1, perPage, SEARCH_TIMEOUT_MS);
     }, [currentCenterFilters, perPage, searchCoachingCenters, updateCenterSortBy]);
 
     // Handle load more
     const handleLoadMore = useCallback(() => {
         const nextPage = currentPage + 1;
         setCurrentPage(nextPage);
-        searchCoachingCenters(currentCenterFilters, currentCenterSortBy, nextPage, perPage);
+        searchCoachingCenters(currentCenterFilters, currentCenterSortBy, nextPage, perPage, SEARCH_TIMEOUT_MS);
     }, [currentPage, currentCenterFilters, currentCenterSortBy, perPage, searchCoachingCenters]);
 
     return (
@@ -172,11 +181,31 @@ export default function CoachingCentersPage() {
 
                     {/* Results Grid */}
                     <main className={showFiltersPanel ? 'lg:col-span-9' : 'lg:col-span-12'}>
+                        {/* Error State */}
+                        {centerSearchError && !centerSearchLoading && (
+                            <Alert variant="destructive" className="mb-6">
+                                <AlertCircle className="h-4 w-4" />
+                                <AlertTitle>Unable to load coaching centers</AlertTitle>
+                                <AlertDescription className="flex flex-col gap-3">
+                                    <span>{centerSearchError}</span>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleRetry}
+                                        className="w-fit"
+                                    >
+                                        <RefreshCw className="h-4 w-4 mr-2" />
+                                        Try Again
+                                    </Button>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
                         <CoachingCenterGrid
                             centers={results}
                             searchItems={searchItems}
                             loading={centerSearchLoading && results.length === 0}
-                            emptyMessage="No coaching centers match your filters. Try adjusting your search criteria."
+                            emptyMessage={centerSearchError ? "Could not load coaching centers. Please try again." : "No coaching centers match your filters. Try adjusting your search criteria."}
                         />
 
                         {/* Load More Button */}

@@ -93,6 +93,7 @@ export interface BranchStudent {
 export interface PublicBranchStudent {
     id: string;
     student_id: string;
+    student_name: string;  // Student's display name from profile
     branch_id: string;
     class_id: string | null;
     enrollment_date: string;
@@ -300,6 +301,7 @@ export interface BranchStudentFilters {
  */
 export interface BranchStudentSort {
     field:
+    | 'student_name'
     | 'enrollment_date'
     | 'enrollment_status'
     | 'payment_status'
