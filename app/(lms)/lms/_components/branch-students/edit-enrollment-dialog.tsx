@@ -66,12 +66,33 @@ export function EditEnrollmentDialog() {
     // Initialize form
     const form = useForm<UpdateStudentByManagerInput>({
         resolver: zodResolver(updateStudentByManagerSchema),
+        defaultValues: {
+            class_id: undefined,
+            expected_completion_date: undefined,
+            actual_completion_date: undefined,
+            enrollment_status: undefined,
+            payment_status: undefined,
+            attendance_percentage: undefined,
+            current_grade: undefined,
+            performance_notes: undefined,
+            total_fees_due: undefined,
+            total_fees_paid: undefined,
+            last_payment_date: undefined,
+            next_payment_due: undefined,
+            emergency_contact_name: undefined,
+            emergency_contact_phone: undefined,
+            parent_guardian_name: undefined,
+            parent_guardian_phone: undefined,
+            preferred_batch: undefined,
+            special_requirements: undefined,
+            metadata: undefined,
+        },
     });
 
     // Load enrollment data when dialog opens
     useEffect(() => {
         if (currentEnrollment) {
-            form.reset({
+            const formData = {
                 class_id: currentEnrollment.class_id,
                 expected_completion_date: currentEnrollment.expected_completion_date,
                 actual_completion_date: currentEnrollment.actual_completion_date,
@@ -91,9 +112,10 @@ export function EditEnrollmentDialog() {
                 preferred_batch: currentEnrollment.preferred_batch,
                 special_requirements: currentEnrollment.special_requirements,
                 metadata: currentEnrollment.metadata,
-            });
+            };
+            form.reset(formData, { keepDefaultValues: false });
         }
-    }, [currentEnrollment, form]);
+    }, [currentEnrollment]);
 
     // Handle form submission
     const onSubmit = async (data: UpdateStudentByManagerInput) => {
@@ -120,7 +142,7 @@ export function EditEnrollmentDialog() {
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && closeEditDialog()}>
-            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto" key={currentEnrollment?.id}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Edit className="h-5 w-5" />

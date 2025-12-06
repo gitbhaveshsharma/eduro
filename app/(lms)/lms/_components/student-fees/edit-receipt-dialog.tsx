@@ -63,7 +63,7 @@ export default function EditReceiptDialog() {
     // Load current receipt data
     useEffect(() => {
         if (currentReceipt) {
-            form.reset({
+            const formData = {
                 id: currentReceipt.id,
                 due_date: currentReceipt.due_date,
                 base_fee_amount: currentReceipt.base_fee_amount,
@@ -72,9 +72,10 @@ export default function EditReceiptDialog() {
                 tax_amount: currentReceipt.tax_amount,
                 description: currentReceipt.description || '',
                 internal_notes: currentReceipt.internal_notes || '',
-            });
+            };
+            form.reset(formData, { keepDefaultValues: false });
         }
-    }, [currentReceipt, form]);
+    }, [currentReceipt]);
 
     const handleSubmit = async (data: UpdateReceiptInput) => {
         const result = await updateReceipt(data);
@@ -117,7 +118,7 @@ export default function EditReceiptDialog() {
 
     return (
         <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="max-w-2xl max-h-[90vh]" key={currentReceipt?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Receipt</DialogTitle>
                     <DialogDescription>

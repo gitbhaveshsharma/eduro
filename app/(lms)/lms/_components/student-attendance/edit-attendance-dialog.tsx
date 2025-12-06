@@ -60,18 +60,19 @@ export default function EditAttendanceDialog() {
 
     useEffect(() => {
         if (currentRecord) {
-            form.reset({
+            const formData = {
                 id: currentRecord.id,
                 attendance_status: currentRecord.attendance_status,
                 check_in_time: currentRecord.check_in_time || '',
                 check_out_time: currentRecord.check_out_time || '',
-                late_by_minutes: currentRecord.late_by_minutes,
-                early_leave_minutes: currentRecord.early_leave_minutes,
+                late_by_minutes: currentRecord.late_by_minutes || 0,
+                early_leave_minutes: currentRecord.early_leave_minutes || 0,
                 teacher_remarks: currentRecord.teacher_remarks || '',
                 excuse_reason: currentRecord.excuse_reason || '',
-            });
+            };
+            form.reset(formData, { keepDefaultValues: false });
         }
-    }, [currentRecord, form]);
+    }, [currentRecord]);
 
     const onSubmit = async (data: any) => {
         const success = await updateAttendance(data);
@@ -88,7 +89,7 @@ export default function EditAttendanceDialog() {
 
     return (
         <Dialog open={!!currentRecord} onOpenChange={() => setCurrentRecord(null)}>
-            <DialogContent className="  max-w-3xl max-h-[95vh] flex flex-col ">
+            <DialogContent className="  max-w-3xl max-h-[95vh] flex flex-col " key={currentRecord?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Attendance</DialogTitle>
                     <DialogDescription>

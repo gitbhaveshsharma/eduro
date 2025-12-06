@@ -156,7 +156,7 @@ export function EditClassDialog() {
     // Load class data into form when editing
     useEffect(() => {
         if (isEditing && classData) {
-            form.reset({
+            const formData = {
                 class_name: classData.class_name,
                 subject: classData.subject,
                 grade_level: classData.grade_level,
@@ -173,9 +173,10 @@ export function EditClassDialog() {
                 status: classData.status,
                 is_visible: classData.is_visible,
                 teacher_id: classData.teacher_id,
-            });
+            };
+            form.reset(formData, { keepDefaultValues: false });
         }
-    }, [isEditing, classData, form]);
+    }, [isEditing, classData]);
 
     // Load teacher info when editing
     useEffect(() => {
@@ -327,7 +328,7 @@ export function EditClassDialog() {
 
     return (
         <Dialog open={isEditing} onOpenChange={handleClose}>
-            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" key={editingClassId}>
                 <DialogHeader>
                     <DialogTitle>Edit Class</DialogTitle>
                     <DialogDescription>

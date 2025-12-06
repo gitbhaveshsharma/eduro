@@ -99,8 +99,8 @@ export function EditTeacherDialog({ open, onOpenChange, assignmentId }: EditTeac
 
     // Reset form when dialog opens or currentAssignment changes
     useEffect(() => {
-        if (open && currentAssignment) {
-            form.reset({
+        if (isOpen && currentAssignment) {
+            const formData = {
                 teaching_subjects: currentAssignment.teaching_subjects || [],
                 teaching_experience_years: currentAssignment.teaching_experience_years,
                 hourly_rate: currentAssignment.hourly_rate,
@@ -112,10 +112,11 @@ export function EditTeacherDialog({ open, onOpenChange, assignmentId }: EditTeac
                 assignment_notes: currentAssignment.assignment_notes,
                 performance_notes: currentAssignment.performance_notes,
                 metadata: currentAssignment.metadata,
-            });
+            };
+            form.reset(formData, { keepDefaultValues: false });
             setSubjectsInput('');
         }
-    }, [open, currentAssignment, form]);
+    }, [isOpen, currentAssignment]);
 
     // Handle form submission
     const onSubmit = async (data: UpdateTeacherByManagerInput) => {
@@ -179,7 +180,7 @@ export function EditTeacherDialog({ open, onOpenChange, assignmentId }: EditTeac
 
     return (
         <Dialog open={isOpen} onOpenChange={handleClose}>
-            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto" key={currentAssignment?.id}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Edit2 className="h-5 w-5" />

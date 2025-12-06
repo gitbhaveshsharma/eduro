@@ -200,41 +200,6 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
 
     return (
         <div className="space-y-6">
-            {/* Debug Panel (Development Only) */}
-            {showDebugPanel && (
-                <Card className="bg-yellow-50 border-yellow-200 dark:bg-yellow-950/20">
-                    <CardContent className="pt-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h3 className="font-semibold text-yellow-800 dark:text-yellow-200">
-                                    Debug Information
-                                </h3>
-                                <div className="text-sm text-yellow-700 dark:text-yellow-300 mt-1 space-y-1">
-                                    <p>Fetch Type: <Badge variant="outline">{debugInfo.fetchType}</Badge></p>
-                                    <p>Data Source: {debugInfo.dataSource || 'None'}</p>
-                                    <p>Records: {dailyRecords.length}</p>
-                                    <p>Stats: {JSON.stringify(stats)}</p>
-                                </div>
-                            </div>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    console.log('🔄 Manual Refresh Triggered');
-                                    console.log('Current State:', {
-                                        dailyRecords,
-                                        stats,
-                                        classReport,
-                                        debugInfo
-                                    });
-                                }}
-                            >
-                                Refresh Data
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
 
             {/* Date Selector */}
             <div className="flex items-center justify-between">
@@ -244,11 +209,7 @@ export default function Dashboard({ coachingCenterId, branchId }: DashboardProps
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
                         Overview of today's attendance statistics
-                        {debugInfo.dataSource && (
-                            <span className="ml-2 text-xs text-blue-600">
-                                ({debugInfo.dataSource})
-                            </span>
-                        )}
+
                     </p>
                 </div>
 
