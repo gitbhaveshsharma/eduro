@@ -3,7 +3,7 @@
  * 
  * Zustand store for managing student attendance state in React components.
  * Provides actions for CRUD operations, filtering, pagination, and caching.
- * Implements devtools integration and persistence for improved developer experience.
+ * Implements devtools integration, persistence, and intelligent cache management.
  * 
  * @module branch-system/stores/student-attendance
  */
@@ -30,6 +30,41 @@ import type {
     AttendanceStatus,
 } from '../types/student-attendance.types';
 import { getCurrentDateString } from '../utils/student-attendance.utils';
+
+// ============================================================
+// CACHE CONFIGURATION
+// ============================================================
+
+/**
+ * Cache duration in milliseconds
+ */
+const CACHE_DURATION = {
+    LIST: 2 * 60 * 1000,        // 2 minutes for list data
+    DAILY: 1 * 60 * 1000,       // 1 minute for daily attendance (more frequent updates)
+    SUMMARY: 5 * 60 * 1000,     // 5 minutes for summary (less frequent changes)
+    REPORT: 5 * 60 * 1000,      // 5 minutes for reports
+    SINGLE: 3 * 60 * 1000,      // 3 minutes for single record
+} as const;
+
+/**
+ * Cache entry interface
+ */
+interface CacheEntry<T> {
+    data: T;
+    timestamp: number;
+    key: string;
+}
+
+/**
+ * Cache metadata for tracking
+ */
+interface CacheMetadata {
+    lastListFetch: number | null;
+    lastDailyFetch: Record<string, number>; // classId/branchId -> timestamp
+    lastSummaryFetch: Record<string, number>; // studentId -> timestamp
+    lastReportFetch: Record<string, number>; // classId -> timestamp
+    lastRecordFetch: Record<string, number>; // recordId -> timestamp
+}
 
 // ============================================================
 // STATE INTERFACE
@@ -111,6 +146,16 @@ interface StudentAttendanceState {
      */
     successMessage: string | null;
 
+    /**
+     * Cache metadata for intelligent cache management
+     */
+    _cacheMetadata: CacheMetadata;
+
+    /**
+     * Last query params hash for cache invalidation
+     */
+    _lastQueryHash: string | null;
+
     // ============================================================
     // ACTIONS - CRUD OPERATIONS
     // ============================================================
@@ -142,17 +187,17 @@ interface StudentAttendanceState {
     /**
      * Fetches attendance records with filtering and pagination
      */
-    fetchAttendanceList: (params?: AttendanceListParams) => Promise<void>;
+    fetchAttendanceList: (params?: AttendanceListParams, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches daily attendance for teacher's class view
      */
-    fetchDailyAttendance: (classId: string, date?: string) => Promise<void>;
+    fetchDailyAttendance: (classId: string, date?: string, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches attendance record by ID
      */
-    fetchAttendanceById: (attendanceId: string) => Promise<void>;
+    fetchAttendanceById: (attendanceId: string, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches student attendance summary
@@ -161,7 +206,8 @@ interface StudentAttendanceState {
         studentId: string,
         classId?: string,
         fromDate?: string,
-        toDate?: string
+        toDate?: string,
+        forceRefresh?: boolean
     ) => Promise<void>;
 
     /**
@@ -170,7 +216,8 @@ interface StudentAttendanceState {
     fetchClassReport: (
         classId: string,
         fromDate?: string,
-        toDate?: string
+        toDate?: string,
+        forceRefresh?: boolean
     ) => Promise<void>;
 
     // ============================================================
@@ -180,34 +227,34 @@ interface StudentAttendanceState {
     /**
      * Fetches attendance for a specific teacher
      */
-    fetchTeacherAttendance: (teacherId: string, params?: Omit<AttendanceListParams, 'teacher_id'>) => Promise<void>;
+    fetchTeacherAttendance: (teacherId: string, params?: Omit<AttendanceListParams, 'teacher_id'>, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches attendance for a specific student
      */
-    fetchStudentAttendance: (studentId: string, params?: Omit<AttendanceListParams, 'student_id'>) => Promise<void>;
+    fetchStudentAttendance: (studentId: string, params?: Omit<AttendanceListParams, 'student_id'>, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches attendance for a specific class
      */
-    fetchClassAttendance: (classId: string, params?: Omit<AttendanceListParams, 'class_id'>) => Promise<void>;
+    fetchClassAttendance: (classId: string, params?: Omit<AttendanceListParams, 'class_id'>, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches attendance for a specific branch
      */
-    fetchBranchAttendance: (branchId: string, params?: Omit<AttendanceListParams, 'branch_id'>) => Promise<void>;
+    fetchBranchAttendance: (branchId: string, params?: Omit<AttendanceListParams, 'branch_id'>, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches daily attendance for a coaching center (all branches)
      * For coach view - aggregates attendance across all branches
      */
-    fetchCoachingCenterDailyAttendance: (coachingCenterId: string, date?: string) => Promise<void>;
+    fetchCoachingCenterDailyAttendance: (coachingCenterId: string, date?: string, forceRefresh?: boolean) => Promise<void>;
 
     /**
      * Fetches daily attendance for a specific branch
      * For branch manager view
      */
-    fetchBranchDailyAttendance: (branchId: string, date?: string) => Promise<void>;
+    fetchBranchDailyAttendance: (branchId: string, date?: string, forceRefresh?: boolean) => Promise<void>;
 
     // ============================================================
     // ACTIONS - STATE MANAGEMENT
@@ -249,6 +296,16 @@ interface StudentAttendanceState {
     clearSuccessMessage: () => void;
 
     /**
+     * Invalidates all caches
+     */
+    invalidateCache: () => void;
+
+    /**
+     * Invalidates specific cache by key
+     */
+    invalidateCacheByKey: (key: 'list' | 'daily' | 'summary' | 'report' | 'record', identifier?: string) => void;
+
+    /**
      * Resets entire store to initial state
      */
     reset: () => void;
@@ -284,6 +341,30 @@ interface StudentAttendanceState {
         marked: number;
         unmarked: number;
     };
+
+    /**
+     * Checks if cache is valid for a given key
+     */
+    _isCacheValid: (key: string, duration: number) => boolean;
+}
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+/**
+ * Generates a hash for query parameters to detect changes
+ */
+function generateQueryHash(params: Record<string, any>): string {
+    return JSON.stringify(params, Object.keys(params).sort());
+}
+
+/**
+ * Checks if cache entry is still valid
+ */
+function isCacheValid(timestamp: number | null, duration: number): boolean {
+    if (!timestamp) return false;
+    return Date.now() - timestamp < duration;
 }
 
 // ============================================================
@@ -318,6 +399,14 @@ const initialState = {
     },
     error: null,
     successMessage: null,
+    _cacheMetadata: {
+        lastListFetch: null,
+        lastDailyFetch: {},
+        lastSummaryFetch: {},
+        lastReportFetch: {},
+        lastRecordFetch: {},
+    },
+    _lastQueryHash: null,
 };
 
 // ============================================================
@@ -361,6 +450,7 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
 
                             if (matchesFilters) {
                                 state.attendanceRecords.unshift(result.data!);
+                                state.pagination.total += 1;
                             }
 
                             // Update daily records if applicable
@@ -377,6 +467,18 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                                     teacher_remarks: result.data!.teacher_remarks,
                                     is_marked: true,
                                 };
+                            }
+
+                            // Invalidate relevant caches
+                            state._cacheMetadata.lastListFetch = null;
+                            if (result.data!.class_id) {
+                                delete state._cacheMetadata.lastDailyFetch[result.data!.class_id];
+                            }
+                            if (result.data!.student_id) {
+                                delete state._cacheMetadata.lastSummaryFetch[result.data!.student_id];
+                            }
+                            if (result.data!.class_id) {
+                                delete state._cacheMetadata.lastReportFetch[result.data!.class_id];
                             }
                         });
                         return true;
@@ -410,6 +512,7 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                                     state.attendanceRecords[existingIndex] = record;
                                 } else {
                                     state.attendanceRecords.unshift(record);
+                                    state.pagination.total += 1;
                                 }
                             });
 
@@ -429,6 +532,15 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                                         is_marked: true,
                                     };
                                 }
+                            });
+
+                            // Invalidate relevant caches
+                            state._cacheMetadata.lastListFetch = null;
+                            delete state._cacheMetadata.lastDailyFetch[input.class_id];
+                            delete state._cacheMetadata.lastReportFetch[input.class_id];
+                            // Invalidate all student summaries for affected students
+                            input.attendance_records.forEach(record => {
+                                delete state._cacheMetadata.lastSummaryFetch[record.student_id];
                             });
                         });
                         return true;
@@ -481,6 +593,16 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                                     is_marked: true,
                                 };
                             }
+
+                            // Invalidate relevant caches
+                            delete state._cacheMetadata.lastRecordFetch[input.id];
+                            if (result.data!.class_id) {
+                                delete state._cacheMetadata.lastDailyFetch[result.data!.class_id];
+                                delete state._cacheMetadata.lastReportFetch[result.data!.class_id];
+                            }
+                            if (result.data!.student_id) {
+                                delete state._cacheMetadata.lastSummaryFetch[result.data!.student_id];
+                            }
                         });
                         return true;
                     } else {
@@ -499,6 +621,9 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         state.successMessage = null;
                     });
 
+                    // Get the record before deletion for cache invalidation
+                    const recordToDelete = get().attendanceRecords.find(r => r.id === attendanceId);
+
                     const result = await studentAttendanceService.deleteAttendance(attendanceId);
 
                     if (result.success) {
@@ -508,10 +633,25 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
 
                             // Remove from records
                             state.attendanceRecords = state.attendanceRecords.filter(r => r.id !== attendanceId);
+                            state.pagination.total = Math.max(0, state.pagination.total - 1);
 
                             // Clear current record if it's the deleted one
                             if (state.currentRecord?.id === attendanceId) {
                                 state.currentRecord = null;
+                            }
+
+                            // Invalidate relevant caches
+                            state._cacheMetadata.lastListFetch = null;
+                            delete state._cacheMetadata.lastRecordFetch[attendanceId];
+
+                            if (recordToDelete) {
+                                if (recordToDelete.class_id) {
+                                    delete state._cacheMetadata.lastDailyFetch[recordToDelete.class_id];
+                                    delete state._cacheMetadata.lastReportFetch[recordToDelete.class_id];
+                                }
+                                if (recordToDelete.student_id) {
+                                    delete state._cacheMetadata.lastSummaryFetch[recordToDelete.student_id];
+                                }
                             }
                         });
                         return true;
@@ -525,15 +665,10 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                 },
 
                 // ============================================================
-                // FETCH ACTIONS
+                // FETCH ACTIONS WITH CACHING
                 // ============================================================
 
-                fetchAttendanceList: async (params?: AttendanceListParams) => {
-                    set((state) => {
-                        state.loading.list = true;
-                        state.error = null;
-                    });
-
+                fetchAttendanceList: async (params?: AttendanceListParams, forceRefresh: boolean = false) => {
                     const currentState = get();
                     const queryParams = {
                         ...currentState.filters,
@@ -542,6 +677,25 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         limit: currentState.pagination.limit,
                         ...params,
                     };
+
+                    const queryHash = generateQueryHash(queryParams);
+                    const isSameQuery = currentState._lastQueryHash === queryHash;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        isSameQuery &&
+                        currentState.attendanceRecords.length > 0 &&
+                        isCacheValid(currentState._cacheMetadata.lastListFetch, CACHE_DURATION.LIST)
+                    ) {
+                        console.log('[Cache] Using cached attendance list');
+                        return;
+                    }
+
+                    set((state) => {
+                        state.loading.list = true;
+                        state.error = null;
+                    });
 
                     const result = await studentAttendanceService.listAttendance(queryParams);
 
@@ -555,6 +709,8 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                                 total: result.data!.total,
                                 has_more: result.data!.has_more,
                             };
+                            state._cacheMetadata.lastListFetch = Date.now();
+                            state._lastQueryHash = queryHash;
                         });
                     } else {
                         set((state) => {
@@ -564,21 +720,33 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     }
                 },
 
-                fetchDailyAttendance: async (classId: string, date?: string) => {
+                fetchDailyAttendance: async (classId: string, date?: string, forceRefresh: boolean = false) => {
+                    const currentState = get();
+                    const effectiveDate = date || getCurrentDateString();
+                    const cacheKey = `${classId}_${effectiveDate}`;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        currentState.dailyRecords.length > 0 &&
+                        isCacheValid(currentState._cacheMetadata.lastDailyFetch[cacheKey], CACHE_DURATION.DAILY)
+                    ) {
+                        console.log('[Cache] Using cached daily attendance for class:', classId);
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.daily = true;
                         state.error = null;
                     });
 
-                    const result = await studentAttendanceService.getDailyAttendance(
-                        classId,
-                        date || getCurrentDateString()
-                    );
+                    const result = await studentAttendanceService.getDailyAttendance(classId, effectiveDate);
 
                     if (result.success && result.data) {
                         set((state) => {
                             state.loading.daily = false;
                             state.dailyRecords = result.data!;
+                            state._cacheMetadata.lastDailyFetch[cacheKey] = Date.now();
                         });
                     } else {
                         set((state) => {
@@ -588,7 +756,23 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     }
                 },
 
-                fetchAttendanceById: async (attendanceId: string) => {
+                fetchAttendanceById: async (attendanceId: string, forceRefresh: boolean = false) => {
+                    const currentState = get();
+
+                    // Check if we already have this record and it's fresh
+                    const cachedRecord = currentState.attendanceRecords.find(r => r.id === attendanceId);
+                    if (
+                        !forceRefresh &&
+                        cachedRecord &&
+                        isCacheValid(currentState._cacheMetadata.lastRecordFetch[attendanceId], CACHE_DURATION.SINGLE)
+                    ) {
+                        console.log('[Cache] Using cached attendance record:', attendanceId);
+                        set((state) => {
+                            state.currentRecord = cachedRecord;
+                        });
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.list = true;
                         state.error = null;
@@ -600,6 +784,13 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         set((state) => {
                             state.loading.list = false;
                             state.currentRecord = result.data!;
+                            state._cacheMetadata.lastRecordFetch[attendanceId] = Date.now();
+
+                            // Update in records list if exists
+                            const recordIndex = state.attendanceRecords.findIndex(r => r.id === attendanceId);
+                            if (recordIndex >= 0) {
+                                state.attendanceRecords[recordIndex] = result.data!;
+                            }
                         });
                     } else {
                         set((state) => {
@@ -613,8 +804,22 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     studentId: string,
                     classId?: string,
                     fromDate?: string,
-                    toDate?: string
+                    toDate?: string,
+                    forceRefresh: boolean = false
                 ) => {
+                    const currentState = get();
+                    const cacheKey = `${studentId}_${classId || 'all'}_${fromDate || ''}_${toDate || ''}`;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        currentState.studentSummary &&
+                        isCacheValid(currentState._cacheMetadata.lastSummaryFetch[cacheKey], CACHE_DURATION.SUMMARY)
+                    ) {
+                        console.log('[Cache] Using cached student summary:', studentId);
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.summary = true;
                         state.error = null;
@@ -631,6 +836,7 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         set((state) => {
                             state.loading.summary = false;
                             state.studentSummary = result.data!;
+                            state._cacheMetadata.lastSummaryFetch[cacheKey] = Date.now();
                         });
                     } else {
                         set((state) => {
@@ -640,7 +846,25 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     }
                 },
 
-                fetchClassReport: async (classId: string, fromDate?: string, toDate?: string) => {
+                fetchClassReport: async (
+                    classId: string,
+                    fromDate?: string,
+                    toDate?: string,
+                    forceRefresh: boolean = false
+                ) => {
+                    const currentState = get();
+                    const cacheKey = `${classId}_${fromDate || ''}_${toDate || ''}`;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        currentState.classReport &&
+                        isCacheValid(currentState._cacheMetadata.lastReportFetch[cacheKey], CACHE_DURATION.REPORT)
+                    ) {
+                        console.log('[Cache] Using cached class report:', classId);
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.report = true;
                         state.error = null;
@@ -656,6 +880,7 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         set((state) => {
                             state.loading.report = false;
                             state.classReport = result.data!;
+                            state._cacheMetadata.lastReportFetch[cacheKey] = Date.now();
                         });
                     } else {
                         set((state) => {
@@ -669,23 +894,37 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                 // CONVENIENCE METHODS
                 // ============================================================
 
-                fetchTeacherAttendance: async (teacherId: string, params?: Omit<AttendanceListParams, 'teacher_id'>) => {
-                    return get().fetchAttendanceList({ ...params, teacher_id: teacherId });
+                fetchTeacherAttendance: async (teacherId: string, params?: Omit<AttendanceListParams, 'teacher_id'>, forceRefresh: boolean = false) => {
+                    return get().fetchAttendanceList({ ...params, teacher_id: teacherId }, forceRefresh);
                 },
 
-                fetchStudentAttendance: async (studentId: string, params?: Omit<AttendanceListParams, 'student_id'>) => {
-                    return get().fetchAttendanceList({ ...params, student_id: studentId });
+                fetchStudentAttendance: async (studentId: string, params?: Omit<AttendanceListParams, 'student_id'>, forceRefresh: boolean = false) => {
+                    return get().fetchAttendanceList({ ...params, student_id: studentId }, forceRefresh);
                 },
 
-                fetchClassAttendance: async (classId: string, params?: Omit<AttendanceListParams, 'class_id'>) => {
-                    return get().fetchAttendanceList({ ...params, class_id: classId });
+                fetchClassAttendance: async (classId: string, params?: Omit<AttendanceListParams, 'class_id'>, forceRefresh: boolean = false) => {
+                    return get().fetchAttendanceList({ ...params, class_id: classId }, forceRefresh);
                 },
 
-                fetchBranchAttendance: async (branchId: string, params?: Omit<AttendanceListParams, 'branch_id'>) => {
-                    return get().fetchAttendanceList({ ...params, branch_id: branchId });
+                fetchBranchAttendance: async (branchId: string, params?: Omit<AttendanceListParams, 'branch_id'>, forceRefresh: boolean = false) => {
+                    return get().fetchAttendanceList({ ...params, branch_id: branchId }, forceRefresh);
                 },
 
-                fetchCoachingCenterDailyAttendance: async (coachingCenterId: string, date?: string) => {
+                fetchCoachingCenterDailyAttendance: async (coachingCenterId: string, date?: string, forceRefresh: boolean = false) => {
+                    const currentState = get();
+                    const effectiveDate = date || getCurrentDateString();
+                    const cacheKey = `center_${coachingCenterId}_${effectiveDate}`;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        currentState.dailyRecords.length > 0 &&
+                        isCacheValid(currentState._cacheMetadata.lastDailyFetch[cacheKey], CACHE_DURATION.DAILY)
+                    ) {
+                        console.log('[Cache] Using cached coaching center daily attendance:', coachingCenterId);
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.daily = true;
                         state.error = null;
@@ -693,13 +932,14 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
 
                     const result = await studentAttendanceService.getCoachingCenterDailyAttendance(
                         coachingCenterId,
-                        date || getCurrentDateString()
+                        effectiveDate
                     );
 
                     if (result.success && result.data) {
                         set((state) => {
                             state.loading.daily = false;
                             state.dailyRecords = result.data!;
+                            state._cacheMetadata.lastDailyFetch[cacheKey] = Date.now();
                         });
                     } else {
                         set((state) => {
@@ -709,7 +949,21 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     }
                 },
 
-                fetchBranchDailyAttendance: async (branchId: string, date?: string) => {
+                fetchBranchDailyAttendance: async (branchId: string, date?: string, forceRefresh: boolean = false) => {
+                    const currentState = get();
+                    const effectiveDate = date || getCurrentDateString();
+                    const cacheKey = `branch_${branchId}_${effectiveDate}`;
+
+                    // Check cache validity
+                    if (
+                        !forceRefresh &&
+                        currentState.dailyRecords.length > 0 &&
+                        isCacheValid(currentState._cacheMetadata.lastDailyFetch[cacheKey], CACHE_DURATION.DAILY)
+                    ) {
+                        console.log('[Cache] Using cached branch daily attendance:', branchId);
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.daily = true;
                         state.error = null;
@@ -717,13 +971,14 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
 
                     const result = await studentAttendanceService.getBranchDailyAttendance(
                         branchId,
-                        date || getCurrentDateString()
+                        effectiveDate
                     );
 
                     if (result.success && result.data) {
                         set((state) => {
                             state.loading.daily = false;
                             state.dailyRecords = result.data!;
+                            state._cacheMetadata.lastDailyFetch[cacheKey] = Date.now();
                         });
                     } else {
                         set((state) => {
@@ -747,6 +1002,9 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     set((state) => {
                         state.filters = { ...state.filters, ...filters };
                         state.pagination.page = 1; // Reset to first page when filters change
+                        // Invalidate list cache when filters change
+                        state._cacheMetadata.lastListFetch = null;
+                        state._lastQueryHash = null;
                     });
                 },
 
@@ -754,14 +1012,20 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     set((state) => {
                         state.filters = {};
                         state.pagination.page = 1;
+                        // Invalidate list cache when filters reset
+                        state._cacheMetadata.lastListFetch = null;
+                        state._lastQueryHash = null;
                     });
                 },
 
                 setPagination: (page: number, limit?: number) => {
                     set((state) => {
                         state.pagination.page = page;
-                        if (limit) {
+                        if (limit && limit !== state.pagination.limit) {
                             state.pagination.limit = limit;
+                            // Invalidate cache when page size changes
+                            state._cacheMetadata.lastListFetch = null;
+                            state._lastQueryHash = null;
                         }
                     });
                 },
@@ -771,6 +1035,9 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         state.sort.sort_by = sortBy;
                         state.sort.sort_order = sortOrder;
                         state.pagination.page = 1; // Reset to first page when sort changes
+                        // Invalidate list cache when sort changes
+                        state._cacheMetadata.lastListFetch = null;
+                        state._lastQueryHash = null;
                     });
                 },
 
@@ -784,6 +1051,60 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     set((state) => {
                         state.successMessage = null;
                     });
+                },
+
+                invalidateCache: () => {
+                    set((state) => {
+                        state._cacheMetadata = {
+                            lastListFetch: null,
+                            lastDailyFetch: {},
+                            lastSummaryFetch: {},
+                            lastReportFetch: {},
+                            lastRecordFetch: {},
+                        };
+                        state._lastQueryHash = null;
+                    });
+                    console.log('[Cache] All caches invalidated');
+                },
+
+                invalidateCacheByKey: (key: 'list' | 'daily' | 'summary' | 'report' | 'record', identifier?: string) => {
+                    set((state) => {
+                        switch (key) {
+                            case 'list':
+                                state._cacheMetadata.lastListFetch = null;
+                                state._lastQueryHash = null;
+                                break;
+                            case 'daily':
+                                if (identifier) {
+                                    delete state._cacheMetadata.lastDailyFetch[identifier];
+                                } else {
+                                    state._cacheMetadata.lastDailyFetch = {};
+                                }
+                                break;
+                            case 'summary':
+                                if (identifier) {
+                                    delete state._cacheMetadata.lastSummaryFetch[identifier];
+                                } else {
+                                    state._cacheMetadata.lastSummaryFetch = {};
+                                }
+                                break;
+                            case 'report':
+                                if (identifier) {
+                                    delete state._cacheMetadata.lastReportFetch[identifier];
+                                } else {
+                                    state._cacheMetadata.lastReportFetch = {};
+                                }
+                                break;
+                            case 'record':
+                                if (identifier) {
+                                    delete state._cacheMetadata.lastRecordFetch[identifier];
+                                } else {
+                                    state._cacheMetadata.lastRecordFetch = {};
+                                }
+                                break;
+                        }
+                    });
+                    console.log(`[Cache] Cache invalidated for key: ${key}${identifier ? ` (${identifier})` : ''}`);
                 },
 
                 reset: () => {
@@ -827,10 +1148,14 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                         unmarked,
                     };
                 },
+
+                _isCacheValid: (key: string, duration: number) => {
+                    return isCacheValid(get()._cacheMetadata.lastListFetch, duration);
+                },
             })),
             {
                 name: 'student-attendance-store',
-                // Only persist filters and pagination, not data
+                // Only persist filters, pagination, and sort - not data or cache metadata
                 partialize: (state) => ({
                     filters: state.filters,
                     pagination: state.pagination,
@@ -947,6 +1272,8 @@ export const useSetAttendancePagination = () => useStudentAttendanceStore((state
 export const useSetAttendanceSort = () => useStudentAttendanceStore((state) => state.setSort);
 export const useClearAttendanceError = () => useStudentAttendanceStore((state) => state.clearError);
 export const useClearAttendanceSuccessMessage = () => useStudentAttendanceStore((state) => state.clearSuccessMessage);
+export const useInvalidateAttendanceCache = () => useStudentAttendanceStore((state) => state.invalidateCache);
+export const useInvalidateAttendanceCacheByKey = () => useStudentAttendanceStore((state) => state.invalidateCacheByKey);
 export const useResetAttendanceStore = () => useStudentAttendanceStore((state) => state.reset);
 
 /**
@@ -974,6 +1301,8 @@ export const useAttendanceActions = () => useStudentAttendanceStore((state) => (
     setSort: state.setSort,
     clearError: state.clearError,
     clearSuccessMessage: state.clearSuccessMessage,
+    invalidateCache: state.invalidateCache,
+    invalidateCacheByKey: state.invalidateCacheByKey,
     reset: state.reset,
 }));
 
