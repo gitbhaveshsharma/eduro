@@ -338,6 +338,7 @@ export const useBranchTeacherStore = create<BranchTeacherState>()(
                 // ============================================================
 
                 assignTeacher: async (input: AssignTeacherInput) => {
+                    console.log('🚀 Assigning teacher with input:', input);
                     set({ loading: true, error: null, validationErrors: null });
 
                     const result = await branchTeacherService.assignTeacher(input);
@@ -354,7 +355,7 @@ export const useBranchTeacherStore = create<BranchTeacherState>()(
                         }));
                         return true;
                     }
-
+                    console.log('⚠️ Assignment failed with result:', result);
                     // Handle validation errors
                     if (result.validation_errors) {
                         const validationErrors: Record<string, string> = {};

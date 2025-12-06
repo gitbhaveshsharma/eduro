@@ -8,33 +8,11 @@ import { LOCATION_PERMISSION } from "@/lib/permissions";
 import { useCoachingStore } from "@/lib/store/coaching.store";
 import { Card, CardContent } from "@/components/ui/card";
 
-// Skeleton component for preloading state
-function CoachingPageSkeleton() {
+// Loading spinner component for initial page load
+function CoachingPageLoader() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
-            <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 space-y-6">
-                {/* Header Skeleton */}
-                <div className="space-y-4">
-                    <div className="h-10 w-64 bg-muted rounded animate-pulse" />
-                    <div className="h-5 w-96 bg-muted rounded animate-pulse" />
-                </div>
-
-                {/* Grid Skeleton */}
-                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {[...Array(6)].map((_, i) => (
-                        <Card key={i} className="h-[320px] animate-pulse">
-                            <CardContent className="p-0">
-                                <div className="h-32 bg-muted" />
-                                <div className="p-4 space-y-3">
-                                    <div className="h-4 bg-muted rounded w-3/4" />
-                                    <div className="h-3 bg-muted rounded w-1/2" />
-                                    <div className="h-16 bg-muted rounded" />
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            </div>
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center">
+            <LoadingSpinner size="lg" title="Loading Coaching centers..." message="Discover coaching centers near you" />
         </div>
     );
 }
@@ -44,25 +22,38 @@ export default function CoachingLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const [isLoading, setIsLoading] = useState(true);
+    const [isDataLoading, setIsDataLoading] = useState(true);
     const hasPrefetchedRef = useRef(false);
     const { searchCoachingCenters, centerSearchResults } = useCoachingStore();
 
-    // Prefetch data while waiting for permissions (in parallel)
+    // Prefetch data immediately on mount
     useEffect(() => {
-        if (hasPrefetchedRef.current || centerSearchResults) return;
+        if (hasPrefetchedRef.current) return;
         hasPrefetchedRef.current = true;
 
-        // Start prefetching coaching centers in background with timeout
+        // Start prefetching coaching centers in background
         console.log('🚀 CoachingLayout - Prefetching coaching centers...');
-        searchCoachingCenters({}, 'recent', 1, 20, 10000).catch(() => {
-            // Silently handle prefetch errors - the page will retry
-            console.log('⚠️ CoachingLayout - Prefetch failed, will retry on page load');
-        });
+
+        // If we already have data, don't show loading
+        if (centerSearchResults) {
+            setIsDataLoading(false);
+            return;
+        }
+
+        searchCoachingCenters({}, 'recent', 1, 20, 10000)
+            .then(() => {
+                console.log('✅ CoachingLayout - Data loaded successfully');
+                setIsDataLoading(false);
+            })
+            .catch(() => {
+                console.log('⚠️ CoachingLayout - Prefetch failed');
+                setIsDataLoading(false);
+            });
     }, [searchCoachingCenters, centerSearchResults]);
 
     return (
         <CoachingFilterPanelProvider>
+            {/* PermissionGuard shows notification but doesn't block page load */}
             <PermissionGuard
                 permissions={[{
                     ...LOCATION_PERMISSION,
@@ -73,11 +64,9 @@ export default function CoachingLayout({
                 autoRequest
                 strictMode={false}
                 showLoading={false}
-                onAllGranted={() => setIsLoading(false)}
-                onDenied={() => setIsLoading(false)}
             >
-                {isLoading ? (
-                    <CoachingPageSkeleton />
+                {isDataLoading ? (
+                    <CoachingPageLoader />
                 ) : (
                     <ConditionalLayout
                         forceConfig={{

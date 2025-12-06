@@ -76,11 +76,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Populate teacher snapshot from profiles table
+
+-- Update the trigger function to handle NULL values properly
 CREATE OR REPLACE FUNCTION populate_teacher_snapshot()
 RETURNS TRIGGER AS $$
 DECLARE
     teacher_profile profiles;
+    teacher_user auth.users;
 BEGIN
     -- Get teacher profile information
     SELECT * INTO teacher_profile
@@ -94,21 +96,51 @@ BEGIN
         RAISE EXCEPTION 'Only active teachers, coaches, or admins can be assigned to branches';
     END IF;
     
-    -- Auto-populate teacher details from profile
-    NEW.teacher_name := teacher_profile.full_name;
-    NEW.teacher_email := teacher_profile.email;
-    NEW.teacher_phone := teacher_profile.phone;
-    NEW.teacher_username := teacher_profile.username;
-    NEW.teacher_qualification := teacher_profile.qualification;
+    -- Get user information from auth.users for email
+    SELECT * INTO teacher_user
+    FROM auth.users 
+    WHERE id = NEW.teacher_id;
     
-    -- Set specialization from profile if available
-    IF teacher_profile.specialization IS NOT NULL THEN
-        NEW.teacher_specialization := teacher_profile.specialization;
+    -- Auto-populate teacher details from profile with fallbacks for NULL values
+    -- Use COALESCE to provide fallback values when profile data is NULL
+    NEW.teacher_name := COALESCE(
+        teacher_profile.full_name, 
+        teacher_user.raw_user_meta_data->>'full_name',
+        teacher_user.email,
+        'Unnamed Teacher'
+    );
+    
+    NEW.teacher_username := teacher_profile.username; -- Can be null
+    
+    NEW.teacher_email := COALESCE(
+        teacher_profile.email, 
+        teacher_user.email,
+        'no-email@example.com'
+    );
+    
+    NEW.teacher_phone := teacher_profile.phone; -- Can be null
+    NEW.teacher_qualification := NULL;
+    
+    -- Set specialization from expertise_areas if available
+    IF teacher_profile.expertise_areas IS NOT NULL AND array_length(teacher_profile.expertise_areas, 1) > 0 THEN
+        NEW.teacher_specialization := teacher_profile.expertise_areas;
+    ELSE
+        NEW.teacher_specialization := NULL;
+    END IF;
+    
+    -- Populate teaching_experience_years from profiles if not already set
+    IF NEW.teaching_experience_years IS NULL THEN
+        NEW.teaching_experience_years := teacher_profile.years_of_experience;
+    END IF;
+    
+    -- Populate hourly_rate from profiles if not already set
+    IF NEW.hourly_rate IS NULL THEN
+        NEW.hourly_rate := teacher_profile.hourly_rate;
     END IF;
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
 -- TRIGGERS FOR BRANCH TEACHER
@@ -241,40 +273,6 @@ CREATE POLICY teachers_update_own_availability ON branch_teacher
         AND teacher_id = auth.uid()
     );
 
--- TEACHERS: Can update specific fields only (not all fields)
--- This ensures teachers can only update their availability, not assignment details
-CREATE OR REPLACE FUNCTION check_teacher_update_fields()
-RETURNS TRIGGER AS $$
-BEGIN
-    -- If user is a teacher updating their own record
-    IF public.get_user_role(auth.uid()) = 'T' AND OLD.teacher_id = auth.uid() THEN
-        -- Teachers can only update these fields
-        IF (
-            NEW.teacher_id != OLD.teacher_id OR
-            NEW.branch_id != OLD.branch_id OR
-            NEW.teacher_name != OLD.teacher_name OR
-            NEW.teacher_email != OLD.teacher_email OR
-            NEW.teacher_phone != OLD.teacher_phone OR
-            NEW.teacher_qualification != OLD.teacher_qualification OR
-            NEW.assignment_date != OLD.assignment_date OR
-            NEW.assignment_end_date != OLD.assignment_end_date OR
-            NEW.is_active != OLD.is_active OR
-            NEW.assignment_notes != OLD.assignment_notes OR
-            NEW.performance_notes != OLD.performance_notes
-        ) THEN
-            RAISE EXCEPTION 'Teachers can only update availability and teaching subjects, not assignment details';
-        END IF;
-    END IF;
-    
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Create trigger for teacher field validation
-CREATE TRIGGER validate_teacher_update_fields
-    BEFORE UPDATE ON branch_teacher
-    FOR EACH ROW
-    EXECUTE FUNCTION check_teacher_update_fields();
 
 -- STUDENTS: Can view teachers assigned to their enrolled branches
 CREATE POLICY students_view_branch_teachers ON branch_teacher
