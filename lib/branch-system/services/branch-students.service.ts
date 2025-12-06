@@ -333,11 +333,43 @@ export class BranchStudentsService {
             const validatedSort = sort ? branchStudentSortSchema.parse(sort) : { field: 'enrollment_date', direction: 'desc' };
             const validatedPagination = pagination ? paginationSchema.parse(pagination) : { page: 1, limit: 20 };
 
-            // Build query using the optimized view
+            // First, get all branch IDs for this coaching center
+            // The view doesn't have coaching_center_id, so we need to query branches first
+            const { data: branches, error: branchError } = await this.supabase
+                .from('coaching_branches')
+                .select('id')
+                .eq('coaching_center_id', coachingCenterId);
+
+            if (branchError) {
+                console.error('Error fetching branches for coaching center:', branchError);
+                return {
+                    success: false,
+                    error: `Failed to fetch branches: ${branchError.message}`,
+                };
+            }
+
+            // If no branches found, return empty result
+            if (!branches || branches.length === 0) {
+                return {
+                    success: true,
+                    data: {
+                        students: [],
+                        total_count: 0,
+                        page: validatedPagination.page,
+                        limit: validatedPagination.limit,
+                        total_pages: 0,
+                        has_more: false,
+                    },
+                };
+            }
+
+            const branchIds = branches.map((b: { id: string }) => b.id);
+
+            // Build query using the optimized view with branch IDs filter
             let query = this.supabase
                 .from(this.ENROLLMENT_VIEW)
                 .select('*', { count: 'exact' })
-                .eq('coaching_center_id', coachingCenterId);
+                .in('branch_id', branchIds);
 
             // Apply filters
             if (validatedFilters.student_id) {

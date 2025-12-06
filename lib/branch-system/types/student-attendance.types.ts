@@ -194,4 +194,17 @@ export interface DailyAttendanceRecord {
   // Optional additional context from view
   branch_name?: string | null;
   class_name?: string | null;
+  // Additional fields for dialog interactions
+  attendance_id?: string | null;  // ID of the attendance record if marked
+  class_id?: string | null;
+  branch_id?: string | null;
+  teacher_id?: string | null;
+  teacher_name?: string | null;
+  attendance_date?: string;
+  early_leave_minutes?: number;
+  excuse_reason?: string | null;
+  subject?: string | null;
+  grade_level?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }

@@ -495,6 +495,7 @@ export const branchStudentFilterSchema = z.object({
  */
 export const branchStudentSortSchema = z.object({
     field: z.enum([
+        'student_name',
         'enrollment_date',
         'enrollment_status',
         'payment_status',

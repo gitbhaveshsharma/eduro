@@ -937,7 +937,7 @@ export class StudentAttendanceService {
                 );
 
                 if (attendanceFromView) {
-                    // Use view data directly
+                    // Use view data directly with all fields for dialog interactions
                     return {
                         student_id: studentRecord.student_id,
                         student_name: attendanceFromView.student_name || studentRecord.student_name || 'Unknown Student',
@@ -951,6 +951,19 @@ export class StudentAttendanceService {
                         is_marked: true,
                         branch_name: branchName,
                         class_name: className,
+                        // Additional fields for dialog interactions
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
                     };
                 }
 
@@ -968,6 +981,19 @@ export class StudentAttendanceService {
                     is_marked: false,
                     branch_name: branchName,
                     class_name: className,
+                    // Additional fields (null for unmarked records)
+                    attendance_id: null,
+                    class_id: classId,
+                    branch_id: null,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
                 };
             }) || [];
 
@@ -1342,6 +1368,19 @@ export class StudentAttendanceService {
                         is_marked: true,
                         branch_name: branchName,
                         class_name: attendanceFromView.class_name || className,
+                        // Additional fields for dialog interactions
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
                     };
                 }
 
@@ -1359,6 +1398,19 @@ export class StudentAttendanceService {
                     is_marked: false,
                     branch_name: branchName,
                     class_name: className,
+                    // Additional fields (null for unmarked records)
+                    attendance_id: null,
+                    class_id: studentRecord.class_id || null,
+                    branch_id: studentRecord.branch_id || null,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
                 };
             });
 
@@ -1470,6 +1522,19 @@ export class StudentAttendanceService {
                         is_marked: true,
                         branch_name: branchName,
                         class_name: attendanceFromView.class_name || className,
+                        // Additional fields for dialog interactions
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
                     };
                 }
 
@@ -1487,6 +1552,19 @@ export class StudentAttendanceService {
                     is_marked: false,
                     branch_name: branchName,
                     class_name: className,
+                    // Additional fields (null for unmarked records)
+                    attendance_id: null,
+                    class_id: studentRecord.class_id || null,
+                    branch_id: branchId,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
                 };
             });
 

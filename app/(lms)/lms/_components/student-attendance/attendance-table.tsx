@@ -47,6 +47,7 @@ import {
     useFetchCoachingCenterDailyAttendance,
     useMarkAttendance,
     useSetCurrentRecord,
+    useOpenDeleteDialog,
     useAttendanceLoading,
     AttendanceStatus,
     formatAttendanceStatus,
@@ -430,6 +431,7 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     const fetchCoachingCenterDailyAttendance = useFetchCoachingCenterDailyAttendance();
     const markAttendance = useMarkAttendance();
     const setCurrentRecord = useSetCurrentRecord();
+    const openDeleteDialog = useOpenDeleteDialog();
 
     const isBranchView = !!branchId;
     const isCoachView = !!coachingCenterId && !branchId;
@@ -509,16 +511,127 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, [checkInTimes, branchId, selectedClass, selectedDate, markAttendance]);
 
     const handleView = useCallback((record: DailyAttendanceRecord) => {
-        console.log('View details for:', record);
-    }, []);
+        // Set the current record to open the details dialog
+        if (record.attendance_id) {
+            setCurrentRecord({
+                id: record.attendance_id,
+                student_id: record.student_id,
+                class_id: record.class_id || '',
+                teacher_id: record.teacher_id || '',
+                branch_id: record.branch_id || '',
+                attendance_date: record.attendance_date || selectedDate,
+                attendance_status: record.attendance_status || AttendanceStatus.PRESENT,
+                check_in_time: record.check_in_time,
+                check_out_time: record.check_out_time,
+                total_duration: null,
+                late_by_minutes: record.late_by_minutes || 0,
+                early_leave_minutes: record.early_leave_minutes || 0,
+                teacher_remarks: record.teacher_remarks,
+                excuse_reason: record.excuse_reason ?? null,
+                metadata: {},
+                created_at: record.created_at || new Date().toISOString(),
+                updated_at: record.updated_at || new Date().toISOString(),
+                student: {
+                    id: record.student_id,
+                    full_name: record.student_name,
+                    username: record.student_username || null,
+                    avatar_url: record.student_avatar || null,
+                },
+                class: record.class_id ? {
+                    id: record.class_id,
+                    class_name: record.class_name || '',
+                    subject: record.subject || '',
+                    grade_level: record.grade_level || '',
+                } : undefined,
+                teacher: record.teacher_id ? {
+                    id: record.teacher_id,
+                    full_name: record.teacher_name || '',
+                } : undefined,
+            });
+        }
+    }, [setCurrentRecord, selectedDate]);
 
     const handleEdit = useCallback((record: DailyAttendanceRecord) => {
-        console.log('Edit record:', record);
-    }, []);
+        // Set the current record to open the edit dialog
+        if (record.attendance_id) {
+            setCurrentRecord({
+                id: record.attendance_id,
+                student_id: record.student_id,
+                class_id: record.class_id || '',
+                teacher_id: record.teacher_id || '',
+                branch_id: record.branch_id || '',
+                attendance_date: record.attendance_date || selectedDate,
+                attendance_status: record.attendance_status || AttendanceStatus.PRESENT,
+                check_in_time: record.check_in_time,
+                check_out_time: record.check_out_time,
+                total_duration: null,
+                late_by_minutes: record.late_by_minutes || 0,
+                early_leave_minutes: record.early_leave_minutes || 0,
+                teacher_remarks: record.teacher_remarks,
+                excuse_reason: record.excuse_reason ?? null,
+                metadata: {},
+                created_at: record.created_at || new Date().toISOString(),
+                updated_at: record.updated_at || new Date().toISOString(),
+                student: {
+                    id: record.student_id,
+                    full_name: record.student_name,
+                    username: record.student_username || null,
+                    avatar_url: record.student_avatar || null,
+                },
+                class: record.class_id ? {
+                    id: record.class_id,
+                    class_name: record.class_name || '',
+                    subject: record.subject || '',
+                    grade_level: record.grade_level || '',
+                } : undefined,
+                teacher: record.teacher_id ? {
+                    id: record.teacher_id,
+                    full_name: record.teacher_name || '',
+                } : undefined,
+            });
+        }
+    }, [setCurrentRecord, selectedDate]);
 
     const handleDelete = useCallback((record: DailyAttendanceRecord) => {
-        console.log('Delete record:', record);
-    }, []);
+        // Open delete dialog with the record to delete
+        if (record.attendance_id) {
+            openDeleteDialog({
+                id: record.attendance_id,
+                student_id: record.student_id,
+                class_id: record.class_id || '',
+                teacher_id: record.teacher_id || '',
+                branch_id: record.branch_id || '',
+                attendance_date: record.attendance_date || selectedDate,
+                attendance_status: record.attendance_status || AttendanceStatus.PRESENT,
+                check_in_time: record.check_in_time,
+                check_out_time: record.check_out_time,
+                total_duration: null,
+                late_by_minutes: record.late_by_minutes || 0,
+                early_leave_minutes: record.early_leave_minutes || 0,
+                teacher_remarks: record.teacher_remarks,
+                excuse_reason: record.excuse_reason ?? null,
+                metadata: {},
+                created_at: record.created_at || new Date().toISOString(),
+                updated_at: record.updated_at || new Date().toISOString(),
+                student: {
+                    id: record.student_id,
+                    full_name: record.student_name,
+                    username: record.student_username || null,
+                    avatar_url: record.student_avatar || null,
+                },
+                class: record.class_id ? {
+                    id: record.class_id,
+                    class_name: record.class_name || '',
+                    subject: record.subject || '',
+                    grade_level: record.grade_level || '',
+                } : undefined,
+                teacher: record.teacher_id ? {
+                    id: record.teacher_id,
+                    full_name: record.teacher_name || '',
+                } : undefined,
+            });
+        }
+    }, [openDeleteDialog, selectedDate]);
 
     if (loading.daily && dailyRecords.length === 0) {
         return <TableSkeleton />;

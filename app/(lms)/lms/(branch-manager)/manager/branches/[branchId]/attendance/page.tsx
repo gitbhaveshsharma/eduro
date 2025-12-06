@@ -17,6 +17,7 @@ import MarkAttendanceDialog from '@/app/(lms)/lms/_components/student-attendance
 import BulkMarkDialog from '@/app/(lms)/lms/_components/student-attendance/bulk-mark-dialog';
 import EditAttendanceDialog from '@/app/(lms)/lms/_components/student-attendance/edit-attendance-dialog';
 import AttendanceDetailsDialog from '@/app/(lms)/lms/_components/student-attendance/attendance-details-dialog';
+import { DeleteAttendanceDialog } from '@/app/(lms)/lms/_components/student-attendance/delete-attendance-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -139,6 +140,7 @@ export default function BranchAttendancePage() {
             />
             <EditAttendanceDialog />
             <AttendanceDetailsDialog />
+            <DeleteAttendanceDialog />
         </div>
     );
 }

@@ -91,6 +91,16 @@ interface StudentAttendanceState {
     currentRecord: StudentAttendance | null;
 
     /**
+     * Record to delete (for delete confirmation dialog)
+     */
+    recordToDelete: StudentAttendance | null;
+
+    /**
+     * Delete dialog open state
+     */
+    isDeleteDialogOpen: boolean;
+
+    /**
      * Student attendance summary
      */
     studentSummary: StudentAttendanceSummary | null;
@@ -266,6 +276,16 @@ interface StudentAttendanceState {
     setCurrentRecord: (record: StudentAttendance | null) => void;
 
     /**
+     * Opens delete confirmation dialog
+     */
+    openDeleteDialog: (record: StudentAttendance) => void;
+
+    /**
+     * Closes delete confirmation dialog
+     */
+    closeDeleteDialog: () => void;
+
+    /**
      * Sets filters
      */
     setFilters: (filters: Partial<AttendanceFilters>) => void;
@@ -375,6 +395,8 @@ const initialState = {
     attendanceRecords: [],
     dailyRecords: [],
     currentRecord: null,
+    recordToDelete: null,
+    isDeleteDialogOpen: false,
     studentSummary: null,
     classReport: null,
     filters: {},
@@ -998,6 +1020,20 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     });
                 },
 
+                openDeleteDialog: (record: StudentAttendance) => {
+                    set((state) => {
+                        state.recordToDelete = record;
+                        state.isDeleteDialogOpen = true;
+                    });
+                },
+
+                closeDeleteDialog: () => {
+                    set((state) => {
+                        state.recordToDelete = null;
+                        state.isDeleteDialogOpen = false;
+                    });
+                },
+
                 setFilters: (filters: Partial<AttendanceFilters>) => {
                     set((state) => {
                         state.filters = { ...state.filters, ...filters };
@@ -1187,6 +1223,26 @@ export const useDailyAttendanceRecords = () => useStudentAttendanceStore((state)
  * Hook for accessing current attendance record
  */
 export const useCurrentAttendanceRecord = () => useStudentAttendanceStore((state) => state.currentRecord);
+
+/**
+ * Hook for accessing record to delete
+ */
+export const useRecordToDelete = () => useStudentAttendanceStore((state) => state.recordToDelete);
+
+/**
+ * Hook for accessing delete dialog open state
+ */
+export const useIsDeleteDialogOpen = () => useStudentAttendanceStore((state) => state.isDeleteDialogOpen);
+
+/**
+ * Hook for opening delete dialog
+ */
+export const useOpenDeleteDialog = () => useStudentAttendanceStore((state) => state.openDeleteDialog);
+
+/**
+ * Hook for closing delete dialog
+ */
+export const useCloseDeleteDialog = () => useStudentAttendanceStore((state) => state.closeDeleteDialog);
 
 /**
  * Hook for accessing attendance summary

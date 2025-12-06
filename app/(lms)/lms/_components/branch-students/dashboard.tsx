@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import {
     ENROLLMENT_STATUS_OPTIONS,
@@ -149,20 +149,13 @@ interface BranchStudentsDashboardProps {
 export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchStudentsDashboardProps) {
     const {
         statsLoading,
-        fetchCoachingCenterStudents,
-        fetchBranchStudents,
         branchStudents,
         listLoading,
     } = useBranchStudentsStore();
 
-    useEffect(() => {
-        // Fetch students based on whether we're viewing a single branch or entire coaching center
-        if (branchId) {
-            fetchBranchStudents(branchId);
-        } else if (coachingCenterId) {
-            fetchCoachingCenterStudents(coachingCenterId);
-        }
-    }, [branchId, coachingCenterId, fetchBranchStudents, fetchCoachingCenterStudents]);
+    // NOTE: Students are fetched by the parent page component (page.tsx)
+    // This dashboard component only reads from the store to display statistics
+    // This prevents duplicate API calls when switching tabs
 
     const calculatedStats = useMemo(() => {
         if (branchStudents.length === 0) {
