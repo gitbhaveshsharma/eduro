@@ -348,6 +348,23 @@ export interface CoachingCenterStats {
   total_branches: number;
   active_branches: number;
   average_branches_per_center: number;
+   comprehensive_stats?: CoachingCenterRPCStats;
+}
+
+/**
+ * RPC Stats Response from get_coaching_center_stats function
+ * These are the detailed stats returned by the database function
+ */
+export interface CoachingCenterRPCStats {
+  total_students: number;
+  total_teachers: number;
+  total_classes: number;
+  active_branches: number;
+  total_branches: number;
+  pending_fees: number;
+  attendance_rate: number;
+  avg_rating: number;
+  total_reviews: number;
 }
 
 // Detailed coaching center with branches
@@ -398,6 +415,8 @@ export interface CoachingCenterDashboard {
     main_branch?: CoachingBranch;
   };
   permissions: CoachingCenterPermissions;
+  /** Detailed stats from RPC function (optional, loaded async) */
+  detailedStats?: CoachingCenterRPCStats;
 }
 
 // Category groupings for UI

@@ -26,6 +26,7 @@ export type {
   CoachingCenterSearchResult,
   CoachingBranchSearchResult,
   CoachingCenterStats,
+  CoachingCenterRPCStats,
   CoachingCenterWithBranches,
   CoachingCenterDashboard,
   CoachingCenterPermissions,
@@ -135,6 +136,7 @@ export const CoachingAPI = {
   // Statistics
   getStats: CoachingService.getCoachingCenterStats,
   getCenterStats: CoachingService.getCoachingCenterStatsFromFunction,
+  getCenterDetailedStats: CoachingService.getCoachingCenterDetailedStats,
 
   // Permissions
   getCenterPermissions: CoachingService.getCoachingCenterPermissions,
@@ -145,8 +147,7 @@ export const CoachingAPI = {
   uploadCover: CoachingService.uploadCoachingCover,
 
   // Utilities
-  isSlugAvailable: CoachingService.isSlugAvailable,
-  searchWithFunction: CoachingService.searchCoachingCentersWithFunction
+  isSlugAvailable: CoachingService.isSlugAvailable
 };
 
 // Store API (for easy store access)

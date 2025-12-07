@@ -468,6 +468,13 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                 // ============================================================
 
                 markAttendance: async (input: MarkAttendanceDTO) => {
+                    // Debug log: confirm action invocation
+                    try {
+                        console.log('[student-attendance.store] markAttendance called with:', input);
+                    } catch (e) {
+                        /* ignore logging errors in non-browser env */
+                    }
+
                     set((state) => {
                         state.loading.create = true;
                         state.error = null;
@@ -475,6 +482,11 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     });
 
                     const result = await studentAttendanceService.markAttendance(input);
+                    try {
+                        console.log('[student-attendance.store] markAttendance service result:', result);
+                    } catch (e) {
+                        /* ignore */
+                    }
 
                     if (result.success && result.data) {
                         set((state) => {

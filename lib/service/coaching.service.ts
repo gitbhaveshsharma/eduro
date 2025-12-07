@@ -10,7 +10,7 @@ import { SupabaseRequestWrapper } from '../api-interceptor';
 
 // Initialize Supabase client
 const supabase = createClient();
-import type {
+import {
   CoachingCenter,
   CoachingBranch,
   PublicCoachingCenter,
@@ -34,6 +34,7 @@ import type {
   CoachingCategory,
   CoachingStatus
 } from '../schema/coaching.types';
+import { COACHING_CATEGORIES } from '../schema/coaching.types';
 
 export class CoachingService {
 
@@ -437,8 +438,8 @@ export class CoachingService {
       };
 
       // Calculate stats
-      const activeBranches = branches.filter(b => b.is_active);
-      const mainBranch = branches.find(b => b.is_main_branch);
+      const activeBranches = branches.filter((b: CoachingBranch) => b.is_active);
+      const mainBranch = branches.find((b: CoachingBranch) => b.is_main_branch);
 
       const dashboard: CoachingCenterDashboard = {
         center: centerResult.data,
@@ -624,7 +625,7 @@ export class CoachingService {
       }
 
       // Get all branches from owned/managed centers
-      const centerIds = centers?.map(c => c.id) || [];
+      const centerIds = centers?.map((c: { id: string }) => c.id) || [];
       let ownedCenterBranches: any[] = [];
 
       if (centerIds.length > 0) {
@@ -798,49 +799,111 @@ export class CoachingService {
   /**
    * Get coaching center statistics
    */
-  static async getCoachingCenterStats(): Promise<CoachingOperationResult<CoachingCenterStats>> {
-    try {
-      const { data, error } = await supabase
-        .from('coaching_centers')
-        .select('category, status, is_verified, is_featured')
-        .eq('status', 'ACTIVE');
+static async getCoachingCenterStats(): Promise<CoachingOperationResult<CoachingCenterStats>> {
+  try {
+    // Get basic coaching center overview
+    const { data: centersData, error: centersError } = await supabase
+      .from('coaching_centers')
+      .select('id, category, status, is_verified, is_featured')
+      .eq('status', 'ACTIVE');
 
-      if (error) {
-        return { success: false, error: error.message };
-      }
+    if (centersError) {
+      return { success: false, error: centersError.message };
+    }
 
-      // Get branch statistics
-      const { data: branchData, error: branchError } = await supabase
-        .from('coaching_branches')
-        .select('is_active');
-
-      if (branchError) {
-        return { success: false, error: branchError.message };
-      }
-
-      const stats: CoachingCenterStats = {
-        total_centers: data.length,
-        active_centers: data.filter(c => c.status === 'ACTIVE').length,
-        verified_centers: data.filter(c => c.is_verified).length,
-        featured_centers: data.filter(c => c.is_featured).length,
-        centers_by_category: data.reduce((acc, center) => {
-          const category = center.category as CoachingCategory;
-          acc[category] = (acc[category] || 0) + 1;
-          return acc;
-        }, {} as Record<CoachingCategory, number>),
-        total_branches: branchData.length,
-        active_branches: branchData.filter(b => b.is_active).length,
-        average_branches_per_center: data.length > 0 ? branchData.length / data.length : 0
-      };
-
-      return { success: true, data: stats };
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+    if (!centersData || centersData.length === 0) {
+      return { 
+        success: true, 
+        data: {
+          total_centers: 0,
+          active_centers: 0,
+          verified_centers: 0,
+          featured_centers: 0,
+          centers_by_category: Object.values(COACHING_CATEGORIES).reduce((acc, c) => {
+            acc[c as CoachingCategory] = 0;
+            return acc;
+          }, {} as Record<CoachingCategory, number>),
+          total_branches: 0,
+          active_branches: 0,
+          average_branches_per_center: 0,
+          comprehensive_stats: undefined
+        }
       };
     }
+
+    // Get comprehensive stats by calling RPC for first center (sample) and aggregate basics
+    const sampleCenterId = centersData[0].id;
+    const { data: sampleStats, error: statsError } = await supabase
+      .rpc('get_coaching_center_stats', { center_id: sampleCenterId });
+
+    if (statsError) {
+      console.warn('Sample center stats failed:', statsError.message);
+    }
+
+    // Get branch statistics for aggregation
+    const { data: branchData, error: branchError } = await supabase
+      .from('coaching_branches')
+      .select('id, is_active, coaching_center_id')
+      .eq('is_active', true);
+
+    if (branchError) {
+      return { success: false, error: branchError.message };
+    }
+
+    // Define centersData row type
+    type CenterRow = { id: string; category: string; status: string; is_verified: boolean; is_featured: boolean };
+    type BranchRow = { id: string; is_active: boolean; coaching_center_id: string };
+
+    const stats: CoachingCenterStats = {
+      total_centers: centersData.length,
+      active_centers: centersData.filter((c: CenterRow) => c.status === 'ACTIVE').length,
+      verified_centers: centersData.filter((c: CenterRow) => c.is_verified).length,
+      featured_centers: centersData.filter((c: CenterRow) => c.is_featured).length,
+      centers_by_category: centersData.reduce((acc: Record<CoachingCategory, number>, center: CenterRow) => {
+        const category = center.category as CoachingCategory;
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<CoachingCategory, number>),
+      
+      // Enhanced branch stats from actual data
+      total_branches: branchData.length,
+      active_branches: branchData.filter((b: BranchRow) => b.is_active).length,
+      average_branches_per_center: centersData.length > 0 ? 
+        branchData.length / centersData.length : 0,
+      
+      // Add comprehensive stats from RPC (sample center as representative)
+      comprehensive_stats: sampleStats || undefined
+    };
+
+    return { success: true, data: stats };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
   }
+}
+
+/**
+ * Get detailed statistics for specific coaching center using RPC
+ */
+static async getCoachingCenterDetailedStats(centerId: string): Promise<CoachingOperationResult<any>> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_coaching_center_stats', { center_id: centerId });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
 
   /**
    * Get coaching center statistics using database function
@@ -1329,8 +1392,8 @@ export class CoachingService {
       }
 
       // Combine all accessible coaching center IDs
-      const centerIdsFromCenters = centers?.map(c => c.id) || [];
-      const centerIdsFromBranches = managedBranches?.map(b => b.coaching_center_id) || [];
+      const centerIdsFromCenters = centers?.map((c: { id: string }) => c.id) || [];
+      const centerIdsFromBranches = managedBranches?.map((b: { coaching_center_id: string }) => b.coaching_center_id) || [];
 
       const allAccessibleCenterIds = [
         ...new Set([...centerIdsFromCenters, ...centerIdsFromBranches])

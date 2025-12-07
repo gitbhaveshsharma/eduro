@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { useState, useEffect, useMemo } from 'react';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import {
     Dialog,
     DialogContent,
@@ -31,12 +30,12 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Building2, GraduationCap, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Building2, GraduationCap } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     useMarkAttendance,
     AttendanceStatus,
-    markAttendanceSchema,
+    type MarkAttendanceDTO,
     formatAttendanceStatus,
 } from '@/lib/branch-system/student-attendance';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
@@ -73,7 +72,7 @@ export default function MarkAttendanceDialog({
     open,
     onOpenChange,
     coachingCenterId,
-    branchId: propBranchId
+    branchId: propBranchId,
 }: MarkAttendanceDialogProps) {
     const [date, setDate] = useState<Date>(new Date());
     const [selectedStudent, setSelectedStudent] = useState<SelectedStudent | null>(null);
@@ -95,8 +94,10 @@ export default function MarkAttendanceDialog({
     const isCoachView = !!coachingCenterId && !propBranchId;
     const isBranchView = !!propBranchId;
 
-    const form = useForm({
-        resolver: zodResolver(markAttendanceSchema),
+    type FormValues = MarkAttendanceDTO;
+
+    // No zodResolver — we build the final payload with dynamic IDs in onSubmit
+    const form = useForm<FormValues>({
         defaultValues: {
             student_id: '',
             class_id: '',
@@ -124,7 +125,7 @@ export default function MarkAttendanceDialog({
                         setBranches(result.data);
                     }
                 } catch (error) {
-                    console.error('Failed to load branches:', error);
+                    // Error handled silently
                 } finally {
                     setLoadingBranches(false);
                 }
@@ -152,7 +153,7 @@ export default function MarkAttendanceDialog({
             try {
                 await fetchClassesByBranch(selectedBranchId);
             } catch (error) {
-                console.error('Failed to load classes:', error);
+                // Error handled silently
             } finally {
                 setLoadingClasses(false);
             }
@@ -190,35 +191,61 @@ export default function MarkAttendanceDialog({
         }
     }, [open, propBranchId, form]);
 
-    const onSubmit = async (data: any) => {
+    const onSubmit: SubmitHandler<FormValues> = async (data) => {
         if (!selectedStudent) {
             showErrorToast('Please select a student');
             return;
         }
 
-        const success = await markAttendance({
+        // Get effective IDs
+        const effectiveClassId = selectedClassId || selectedStudent.class_id;
+        const effectiveBranchId = selectedBranchId || selectedStudent.branch_id;
+        const effectiveTeacherId = currentProfile?.id;
+
+        // Validate required UUIDs
+        if (!effectiveClassId) {
+            showErrorToast('Please select a class for the student');
+            return;
+        }
+        if (!effectiveBranchId) {
+            showErrorToast('Please select a branch');
+            return;
+        }
+        if (!effectiveTeacherId) {
+            showErrorToast('Unable to identify teacher. Please ensure you are logged in.');
+            return;
+        }
+
+        const payload: MarkAttendanceDTO = {
             ...data,
             student_id: selectedStudent.student_id,
-            class_id: selectedClassId || selectedStudent.class_id || '',
-            teacher_id: currentProfile?.id || '',
-            branch_id: selectedBranchId || selectedStudent.branch_id,
+            class_id: effectiveClassId,
+            teacher_id: effectiveTeacherId,
+            branch_id: effectiveBranchId,
             attendance_date: format(date, 'yyyy-MM-dd'),
-        });
+        };
 
-        if (success) {
-            showSuccessToast('Attendance marked successfully');
-            form.reset();
-            setSelectedStudent(null);
-            onOpenChange(false);
-        } else {
+        try {
+            const success = await markAttendance(payload);
+            if (success) {
+                showSuccessToast('Attendance marked successfully');
+                form.reset();
+                setSelectedStudent(null);
+                onOpenChange(false);
+            } else {
+                showErrorToast('Failed to mark attendance');
+            }
+        } catch (err) {
             showErrorToast('Failed to mark attendance');
         }
     };
 
-    // Get selected class info
+    // Get selected class info (if you need it later)
     const selectedClass = useMemo(() => {
-        return classes.find(c => c.id === selectedClassId);
+        return classes.find((c) => c.id === selectedClassId);
     }, [classes, selectedClassId]);
+
+    const isLargeScreen = typeof window !== 'undefined' ? window.innerWidth >= 1024 : false;
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -230,10 +257,11 @@ export default function MarkAttendanceDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
-
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 p-2">
-
+                        <form
+                            onSubmit={form.handleSubmit(onSubmit)}
+                            className="space-y-6"
+                        >
                             {/* Branch Selection (only for coach view) */}
                             {isCoachView && (
                                 <div className="space-y-2">
@@ -250,7 +278,9 @@ export default function MarkAttendanceDialog({
                                         disabled={loadingBranches}
                                     >
                                         <SelectTrigger className="w-full">
-                                            <SelectValue placeholder={loadingBranches ? "Loading branches..." : "Select a branch"} />
+                                            <SelectValue
+                                                placeholder={loadingBranches ? 'Loading branches...' : 'Select a branch'}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             {branches.map((branch) => (
@@ -271,11 +301,8 @@ export default function MarkAttendanceDialog({
                                         Select Class (Optional)
                                     </FormLabel>
                                     <Select
-                                        value={selectedClassId}
+                                        value={selectedClassId || 'ALL'}
                                         onValueChange={(value) => {
-                                            // Radix Select disallows SelectItem with empty string value.
-                                            // Use sentinel 'ALL' for "All Classes" option and map it
-                                            // back to empty string internally to represent no specific class.
                                             if (value === 'ALL') {
                                                 setSelectedClassId('');
                                             } else {
@@ -286,7 +313,9 @@ export default function MarkAttendanceDialog({
                                         disabled={loadingClasses}
                                     >
                                         <SelectTrigger className="w-full">
-                                            <SelectValue placeholder={loadingClasses ? "Loading branches..." : "All classes"} />
+                                            <SelectValue
+                                                placeholder={loadingClasses ? 'Loading classes...' : 'All classes'}
+                                            />
                                         </SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value="ALL">All Classes</SelectItem>
@@ -313,7 +342,9 @@ export default function MarkAttendanceDialog({
                                     branchId={selectedBranchId || propBranchId}
                                     classId={selectedClassId || undefined}
                                     selectedStudent={selectedStudent}
-                                    onSelect={(student) => setSelectedStudent(student as SelectedStudent | null)}
+                                    onSelect={(student) =>
+                                        setSelectedStudent(student as SelectedStudent | null)
+                                    }
                                     placeholder="Search by username or name..."
                                     disabled={!selectedBranchId && !propBranchId}
                                 />
@@ -352,7 +383,7 @@ export default function MarkAttendanceDialog({
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Attendance Status *</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
                                                     <SelectValue placeholder="Select status" />
@@ -371,55 +402,85 @@ export default function MarkAttendanceDialog({
                                 )}
                             />
 
-                            {/* Check In Time */}
-                            <FormField
-                                control={form.control}
-                                name="check_in_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Check In Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            {/* Time & Late Row - Responsive Layout */}
+                            <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-4">
+                                {/* Check In Time */}
+                                <FormField
+                                    control={form.control}
+                                    name="check_in_time"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Check In Time</FormLabel>
+                                            <FormControl>
+                                                <Input type="time" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            {/* Check Out Time */}
-                            <FormField
-                                control={form.control}
-                                name="check_out_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Check Out Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                {/* Check Out Time */}
+                                <FormField
+                                    control={form.control}
+                                    name="check_out_time"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Check Out Time</FormLabel>
+                                            <FormControl>
+                                                <Input type="time" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            {/* Late Minutes */}
-                            <FormField
-                                control={form.control}
-                                name="late_by_minutes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Late By (minutes)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                {...field}
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                {/* Late Minutes */}
+                                <FormField
+                                    control={form.control}
+                                    name="late_by_minutes"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Late By (minutes)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => {
+                                                        const value = e.target.value;
+                                                        const parsed = value === '' ? 0 : Number.parseInt(value, 10);
+                                                        field.onChange(Number.isNaN(parsed) ? 0 : parsed);
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Attendance Date (moved here for large screen grouping) */}
+                                <div className="lg:hidden">
+                                    <div className="space-y-2">
+                                        <FormLabel>Attendance Date *</FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-start gap-2">
+                                                    <CalendarIcon className="w-4 h-4" />
+                                                    {format(date, 'PPP')}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={date}
+                                                    onSelect={(d) => d && setDate(d)}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                </div>
+                            </div>
 
                             {/* Teacher Remarks */}
                             <FormField
@@ -442,14 +503,15 @@ export default function MarkAttendanceDialog({
                             />
 
                             {/* Actions */}
-                            <div className="flex justify-end gap-2 pt-4 border-t">
-                                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                            <div className="flex justify-end gap-2 pt-6 border-t">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => onOpenChange(false)}
+                                >
                                     Cancel
                                 </Button>
-                                <Button
-                                    type="submit"
-                                    disabled={!selectedStudent}
-                                >
+                                <Button type="submit" disabled={!selectedStudent}>
                                     Mark Attendance
                                 </Button>
                             </div>

@@ -183,32 +183,31 @@ export default function AttendanceDetailsDialog() {
                                 />
                             </div>
                         </div>
+                        {/* Actions */}
+                        <div className="flex justify-between pt-4 border-t">
+                            <Button variant="destructive" onClick={handleDelete} className="gap-2">
+                                <Trash2 className="w-4 h-4" />
+                                Delete
+                            </Button>
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={() => setCurrentRecord(null)}>
+                                    Close
+                                </Button>
+                                <Button
+                                    className="gap-2"
+                                    onClick={() => {
+                                        // Open the edit dialog and close the details dialog
+                                        openEditDialog(currentRecord);
+                                        setCurrentRecord(null);
+                                    }}
+                                >
+                                    <Edit className="w-4 h-4" />
+                                    Edit
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 </ScrollArea>
-
-                {/* Actions */}
-                <div className="flex justify-between pt-4 border-t">
-                    <Button variant="destructive" onClick={handleDelete} className="gap-2">
-                        <Trash2 className="w-4 h-4" />
-                        Delete
-                    </Button>
-                    <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setCurrentRecord(null)}>
-                            Close
-                        </Button>
-                        <Button
-                            className="gap-2"
-                            onClick={() => {
-                                // Open the edit dialog and close the details dialog
-                                openEditDialog(currentRecord);
-                                setCurrentRecord(null);
-                            }}
-                        >
-                            <Edit className="w-4 h-4" />
-                            Edit
-                        </Button>
-                    </div>
-                </div>
             </DialogContent>
         </Dialog>
     );

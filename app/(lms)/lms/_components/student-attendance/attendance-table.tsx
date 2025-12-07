@@ -56,6 +56,7 @@ import {
     DailyAttendanceRecord,
 } from '@/lib/branch-system/student-attendance';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
+import { useCurrentProfile } from '@/lib/profile';
 import AttendanceFilters from './attendance-filters';
 
 /**
@@ -231,7 +232,7 @@ interface AttendanceRowProps {
     index: number;
     checkInTime: string;
     onCheckInChange: (studentId: string, time: string) => void;
-    onQuickMark: (studentId: string, studentName: string, status: AttendanceStatus) => void;
+    onQuickMark: (record: DailyAttendanceRecord, status: AttendanceStatus) => void;
     onView: (record: DailyAttendanceRecord) => void;
     onEdit: (record: DailyAttendanceRecord) => void;
     onDelete: (record: DailyAttendanceRecord) => void;
@@ -310,7 +311,7 @@ const AttendanceRow = memo(function AttendanceRow({
                         studentName={record.student_name}
                         checkInTime={checkInTime}
                         onCheckInChange={(time) => onCheckInChange(record.student_id, time)}
-                        onMark={(status) => onQuickMark(record.student_id, record.student_name, status)}
+                        onMark={(status) => onQuickMark(record, status)}
                     />
                 )}
             </TableCell>
@@ -434,6 +435,7 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     const setCurrentRecord = useSetCurrentRecord();
     const openDeleteDialog = useOpenDeleteDialog();
     const openEditDialog = useOpenEditDialog();
+    const currentProfile = useCurrentProfile();
 
     const isBranchView = !!branchId;
     const isCoachView = !!coachingCenterId && !branchId;
@@ -485,18 +487,35 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, []);
 
     const handleQuickMark = useCallback(async (
-        studentId: string,
-        studentName: string,
+        record: DailyAttendanceRecord,
         status: AttendanceStatus
     ) => {
-        const checkInTime = checkInTimes[studentId] || format(new Date(), 'HH:mm');
+        const checkInTime = checkInTimes[record.student_id] || format(new Date(), 'HH:mm');
         const lateMinutes = status === AttendanceStatus.LATE ? 15 : 0;
-        const effectiveBranchId = branchId || 'current-branch-id';
+
+        // Get effective IDs from record, props, or current profile
+        const effectiveBranchId = record.branch_id || branchId;
+        const effectiveClassId = record.class_id || (selectedClass !== 'all' ? selectedClass : null);
+        const effectiveTeacherId = record.teacher_id || currentProfile?.id;
+
+        // Validate required UUIDs
+        if (!effectiveBranchId) {
+            showErrorToast('Branch ID is required. Please select a branch or class.');
+            return;
+        }
+        if (!effectiveClassId) {
+            showErrorToast('Class ID is required. Please select a class first.');
+            return;
+        }
+        if (!effectiveTeacherId) {
+            showErrorToast('Teacher ID is required. Please ensure you are logged in.');
+            return;
+        }
 
         const success = await markAttendance({
-            student_id: studentId,
-            class_id: selectedClass !== 'all' ? selectedClass : '',
-            teacher_id: 'current-teacher-id',
+            student_id: record.student_id,
+            class_id: effectiveClassId,
+            teacher_id: effectiveTeacherId,
             branch_id: effectiveBranchId,
             attendance_date: selectedDate,
             attendance_status: status,
@@ -506,11 +525,11 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
         });
 
         if (success) {
-            showSuccessToast(`${studentName} marked as ${formatAttendanceStatus(status)}`);
+            showSuccessToast(`${record.student_name} marked as ${formatAttendanceStatus(status)}`);
         } else {
-            showErrorToast(`Failed to mark attendance for ${studentName}`);
+            showErrorToast(`Failed to mark attendance for ${record.student_name}`);
         }
-    }, [checkInTimes, branchId, selectedClass, selectedDate, markAttendance]);
+    }, [checkInTimes, branchId, selectedClass, selectedDate, markAttendance, currentProfile]);
 
     const handleView = useCallback((record: DailyAttendanceRecord) => {
         // Set the current record to open the details dialog
