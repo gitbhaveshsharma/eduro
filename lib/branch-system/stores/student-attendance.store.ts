@@ -99,6 +99,16 @@ interface StudentAttendanceState {
      * Delete dialog open state
      */
     isDeleteDialogOpen: boolean;
+    
+    /**
+     * Record to edit (for edit dialog)
+     */
+    recordToEdit: StudentAttendance | null;
+
+    /**
+     * Edit dialog open state
+     */
+    isEditDialogOpen: boolean;
 
     /**
      * Student attendance summary
@@ -284,6 +294,16 @@ interface StudentAttendanceState {
      * Closes delete confirmation dialog
      */
     closeDeleteDialog: () => void;
+    
+    /**
+     * Opens edit dialog with a specific record
+     */
+    openEditDialog: (record: StudentAttendance) => void;
+
+    /**
+     * Closes edit dialog
+     */
+    closeEditDialog: () => void;
 
     /**
      * Sets filters
@@ -397,6 +417,8 @@ const initialState = {
     currentRecord: null,
     recordToDelete: null,
     isDeleteDialogOpen: false,
+    recordToEdit: null,
+    isEditDialogOpen: false,
     studentSummary: null,
     classReport: null,
     filters: {},
@@ -1034,6 +1056,20 @@ export const useStudentAttendanceStore = create<StudentAttendanceState>()(
                     });
                 },
 
+                openEditDialog: (record: StudentAttendance) => {
+                    set((state) => {
+                        state.recordToEdit = record;
+                        state.isEditDialogOpen = true;
+                    });
+                },
+
+                closeEditDialog: () => {
+                    set((state) => {
+                        state.recordToEdit = null;
+                        state.isEditDialogOpen = false;
+                    });
+                },
+
                 setFilters: (filters: Partial<AttendanceFilters>) => {
                     set((state) => {
                         state.filters = { ...state.filters, ...filters };
@@ -1243,6 +1279,26 @@ export const useOpenDeleteDialog = () => useStudentAttendanceStore((state) => st
  * Hook for closing delete dialog
  */
 export const useCloseDeleteDialog = () => useStudentAttendanceStore((state) => state.closeDeleteDialog);
+
+/**
+ * Hook for accessing record to edit
+ */
+export const useRecordToEdit = () => useStudentAttendanceStore((state) => state.recordToEdit);
+
+/**
+ * Hook for accessing edit dialog open state
+ */
+export const useIsEditDialogOpen = () => useStudentAttendanceStore((state) => state.isEditDialogOpen);
+
+/**
+ * Hook for opening edit dialog
+ */
+export const useOpenEditDialog = () => useStudentAttendanceStore((state) => state.openEditDialog);
+
+/**
+ * Hook for closing edit dialog
+ */
+export const useCloseEditDialog = () => useStudentAttendanceStore((state) => state.closeEditDialog);
 
 /**
  * Hook for accessing attendance summary

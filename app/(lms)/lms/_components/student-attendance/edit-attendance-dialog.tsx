@@ -30,8 +30,9 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-    useCurrentAttendanceRecord,
-    useSetCurrentRecord,
+    useRecordToEdit,
+    useIsEditDialogOpen,
+    useCloseEditDialog,
     useUpdateAttendance,
     AttendanceStatus,
     updateAttendanceSchema,
@@ -40,8 +41,9 @@ import {
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function EditAttendanceDialog() {
-    const currentRecord = useCurrentAttendanceRecord();
-    const setCurrentRecord = useSetCurrentRecord();
+    const currentRecord = useRecordToEdit();
+    const isOpen = useIsEditDialogOpen();
+    const closeEditDialog = useCloseEditDialog();
     const updateAttendance = useUpdateAttendance();
 
     const form = useForm({
@@ -79,16 +81,15 @@ export default function EditAttendanceDialog() {
 
         if (success) {
             showSuccessToast('Attendance updated successfully');
-            setCurrentRecord(null);
+            closeEditDialog();
         } else {
             showErrorToast('Failed to update attendance');
         }
     };
-
     if (!currentRecord) return null;
 
     return (
-        <Dialog open={!!currentRecord} onOpenChange={() => setCurrentRecord(null)}>
+        <Dialog open={!!isOpen} onOpenChange={() => closeEditDialog()}>
             <DialogContent className="  max-w-3xl max-h-[95vh] flex flex-col " key={currentRecord?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Attendance</DialogTitle>
@@ -97,7 +98,7 @@ export default function EditAttendanceDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className=" flex-1 min-h-0 p-4 overflow-x-auto">
+                <ScrollArea className=" flex-1 min-h-0 p-4 overflow-y-auto">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pr-4">
                             {/* Attendance Status */}
@@ -241,7 +242,7 @@ export default function EditAttendanceDialog() {
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setCurrentRecord(null)}
+                                    onClick={() => closeEditDialog()}
                                 >
                                     Cancel
                                 </Button>

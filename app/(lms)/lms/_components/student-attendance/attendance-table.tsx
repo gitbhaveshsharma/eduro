@@ -48,6 +48,7 @@ import {
     useMarkAttendance,
     useSetCurrentRecord,
     useOpenDeleteDialog,
+    useOpenEditDialog,
     useAttendanceLoading,
     AttendanceStatus,
     formatAttendanceStatus,
@@ -432,6 +433,7 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     const markAttendance = useMarkAttendance();
     const setCurrentRecord = useSetCurrentRecord();
     const openDeleteDialog = useOpenDeleteDialog();
+    const openEditDialog = useOpenEditDialog();
 
     const isBranchView = !!branchId;
     const isCoachView = !!coachingCenterId && !branchId;
@@ -552,9 +554,9 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, [setCurrentRecord, selectedDate]);
 
     const handleEdit = useCallback((record: DailyAttendanceRecord) => {
-        // Set the current record to open the edit dialog
+        // Open edit dialog with the selected record (avoid using currentRecord which is for view)
         if (record.attendance_id) {
-            setCurrentRecord({
+            openEditDialog({
                 id: record.attendance_id,
                 student_id: record.student_id,
                 class_id: record.class_id || '',
@@ -590,7 +592,7 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
                 } : undefined,
             });
         }
-    }, [setCurrentRecord, selectedDate]);
+    }, [openEditDialog, selectedDate]);
 
     const handleDelete = useCallback((record: DailyAttendanceRecord) => {
         // Open delete dialog with the record to delete

@@ -16,6 +16,7 @@ import {
     useCurrentAttendanceRecord,
     useSetCurrentRecord,
     useDeleteAttendance,
+    useOpenEditDialog,
     formatAttendanceStatus,
     formatTime,
     formatDuration,
@@ -28,6 +29,7 @@ export default function AttendanceDetailsDialog() {
     const currentRecord = useCurrentAttendanceRecord();
     const setCurrentRecord = useSetCurrentRecord();
     const deleteAttendance = useDeleteAttendance();
+    const openEditDialog = useOpenEditDialog();
 
     if (!currentRecord) return null;
 
@@ -62,7 +64,7 @@ export default function AttendanceDetailsDialog() {
 
     return (
         <Dialog open={!!currentRecord} onOpenChange={() => setCurrentRecord(null)}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="max-w-2xl max-h-[95vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle className="flex items-center justify-between">
                         <span>Attendance Details</span>
@@ -75,7 +77,7 @@ export default function AttendanceDetailsDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[600px]">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-y-auto">
                     <div className="space-y-6 pr-4">
                         {/* Student Information */}
                         <div className="space-y-3">
@@ -194,7 +196,14 @@ export default function AttendanceDetailsDialog() {
                         <Button variant="outline" onClick={() => setCurrentRecord(null)}>
                             Close
                         </Button>
-                        <Button className="gap-2">
+                        <Button
+                            className="gap-2"
+                            onClick={() => {
+                                // Open the edit dialog and close the details dialog
+                                openEditDialog(currentRecord);
+                                setCurrentRecord(null);
+                            }}
+                        >
                             <Edit className="w-4 h-4" />
                             Edit
                         </Button>
