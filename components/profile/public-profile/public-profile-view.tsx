@@ -47,7 +47,7 @@ export const PublicProfileView = memo(function PublicProfileView({
 
     return (
         <div className={cn('min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5', className)}>
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header with cover and basic info */}
                 <PublicProfileHeader
                     profile={profile}

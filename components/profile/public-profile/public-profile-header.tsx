@@ -66,9 +66,9 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
     return (
         <section className={cn('relative', className)}>
             {/* Cover/Background Gradient */}
-            <div className="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-r from-primary/80 via-primary to-primary/60 overflow-hidden rounded-t-xl">
+            <div className="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-r from-primary/80 via-primary to-primary/60 overflow-hidden">
                 {/* Decorative pattern overlay */}
-                <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 opacity-10 z-0">
                     <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <defs>
                             <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -94,8 +94,8 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
             </div>
 
             {/* Profile Info Card - Overlapping */}
-            <div className="relative -mt-16 sm:-mt-20 px-4 sm:px-6 lg:px-8">
-                <div className="bg-card border rounded-xl p-4 sm:p-6 shadow-sm">
+            <div className="relative  ">
+                <div className="bg-card border rounded-b-xl p-3 sm:p-4 ">
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                         {/* Avatar */}
                         <div className="relative shrink-0 -mt-16 sm:-mt-20">
@@ -125,7 +125,7 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
                         </div>
 
                         {/* Main Info */}
-                        <div className="flex-1 min-w-0 pt-2 sm:pt-4">
+                        <div className="flex-1 min-w-0 pt-2 sm:pt-3">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                 {/* Name and username */}
                                 <div className="min-w-0">
