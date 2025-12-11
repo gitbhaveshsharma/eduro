@@ -1,19 +1,25 @@
 'use client';
 
 /**
- * Student Fees Management - Main Page
+ * Student Fees Management - Coach Page
  * 
  * Provides comprehensive fee receipts management for coaches with:
- * - Interactive dashboard with revenue statistics
+ * - Interactive dashboard with revenue statistics across ALL branches
  * - Receipts list with advanced filtering and sorting
  * - Full CRUD operations for fee receipts
  * - Payment recording and tracking
+ * 
+ * Uses useCoachContext() to get coachingCenterId for fetching data
+ * across all branches of the coaching center.
  */
 
 import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, AlertCircle } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useCoachContext } from '../layout';
 
 // Import components
 import Dashboard from '../../../_components/student-fees/dashboard';
@@ -29,6 +35,41 @@ export default function StudentFeesPage() {
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
+    // Get coaching center from layout context
+    const { coachingCenterId, isLoading, error, refetch } = useCoachContext();
+
+    // Loading state
+    if (isLoading || !coachingCenterId) {
+        return (
+            <div className="space-y-6">
+                <Skeleton className="h-10 w-64" />
+                <Skeleton className="h-6 w-96" />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Skeleton key={i} className="h-32 rounded-lg" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="ml-2">
+                        {error}
+                    </AlertDescription>
+                </Alert>
+                <Button onClick={refetch} variant="outline">
+                    Try Again
+                </Button>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             {/* Page Header */}
@@ -36,7 +77,7 @@ export default function StudentFeesPage() {
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Student Fees Management</h1>
                     <p className="text-muted-foreground mt-1">
-                        Manage fee receipts, record payments, and track revenue
+                        Manage fee receipts, record payments, and track revenue across all branches
                     </p>
                 </div>
                 <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
@@ -54,13 +95,13 @@ export default function StudentFeesPage() {
 
                 {/* Dashboard Tab */}
                 <TabsContent value="dashboard" className="space-y-6">
-                    <Dashboard />
+                    <Dashboard coachingCenterId={coachingCenterId} />
                 </TabsContent>
 
                 {/* Receipts List Tab */}
                 <TabsContent value="receipts" className="space-y-6">
-                    <ReceiptFilters />
-                    <ReceiptsTable />
+                    <ReceiptFilters coachingCenterId={coachingCenterId} />
+                    <ReceiptsTable coachingCenterId={coachingCenterId} />
                 </TabsContent>
             </Tabs>
 

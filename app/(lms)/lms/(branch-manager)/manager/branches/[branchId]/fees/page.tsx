@@ -1,25 +1,68 @@
 /**
  * Branch Manager - Branch Fees Page
  * 
- * Manage fee collection for a specific branch
- * TODO: Implement fee management functionality
+ * Manage fee collection for a specific branch with complete CRUD operations
+ * Features: Dashboard, Receipts list, Create/Edit receipts, Record payments
+ * 
+ * Uses useBranchContext() to get branchId for fetching data
+ * for this specific branch only.
  */
 
 'use client';
 
+import { useState } from 'react';
 import { useBranchContext } from '../layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Plus, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { DollarSign, Construction } from 'lucide-react';
+
+// Import components
+import Dashboard from '../../../../../_components/student-fees/dashboard';
+import ReceiptsTable from '../../../../../_components/student-fees/receipts-table';
+import ReceiptFilters from '../../../../../_components/student-fees/receipt-filters';
+import CreateReceiptDialog from '../../../../../_components/student-fees/create-receipt-dialog';
+import RecordPaymentDialog from '../../../../../_components/student-fees/record-payment-dialog';
+import ReceiptDetailsDialog from '../../../../../_components/student-fees/receipt-details-dialog';
+import EditReceiptDialog from '../../../../../_components/student-fees/edit-receipt-dialog';
+import CancelReceiptDialog from '../../../../../_components/student-fees/cancel-receipt-dialog';
 
 export default function BranchFeesPage() {
-    const { branch, isLoading } = useBranchContext();
+    const [activeTab, setActiveTab] = useState('dashboard');
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
+    // Get branch from layout context
+    const { branch, isLoading, error, refetch } = useBranchContext();
+
+    // Loading state
     if (isLoading || !branch) {
         return (
             <div className="space-y-6">
                 <Skeleton className="h-10 w-48" />
-                <Skeleton className="h-64 w-full rounded-lg" />
+                <Skeleton className="h-6 w-96" />
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    {[1, 2, 3, 4].map((i) => (
+                        <Skeleton key={i} className="h-32 rounded-lg" />
+                    ))}
+                </div>
+            </div>
+        );
+    }
+
+    // Error state
+    if (error) {
+        return (
+            <div className="max-w-6xl mx-auto space-y-6">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="ml-2">
+                        {error}
+                    </AlertDescription>
+                </Alert>
+                <Button onClick={refetch} variant="outline">
+                    Try Again
+                </Button>
             </div>
         );
     }
@@ -27,31 +70,48 @@ export default function BranchFeesPage() {
     return (
         <div className="space-y-6">
             {/* Page Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">Branch Fees</h1>
-                <p className="text-muted-foreground mt-1">
-                    Manage fee collection for {branch.name}
-                </p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Branch Fees</h1>
+                    <p className="text-muted-foreground mt-1">
+                        Manage fee receipts and payments for {branch.name}
+                    </p>
+                </div>
+                <Button onClick={() => setIsCreateDialogOpen(true)} size="lg">
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Receipt
+                </Button>
             </div>
 
-            {/* Coming Soon Card */}
-            <Card className="border-dashed">
-                <CardHeader className="text-center">
-                    <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                        <Construction className="h-8 w-8 text-primary" />
-                    </div>
-                    <CardTitle>Coming Soon</CardTitle>
-                    <CardDescription>
-                        Fee management for this branch is under development.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="text-center">
-                    <p className="text-sm text-muted-foreground">
-                        You will be able to manage fee structures, track payments,
-                        generate invoices, and send payment reminders.
-                    </p>
-                </CardContent>
-            </Card>
+            {/* Tab Navigation */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList className="grid w-full max-w-md grid-cols-2">
+                    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                    <TabsTrigger value="receipts">Receipts List</TabsTrigger>
+                </TabsList>
+
+                {/* Dashboard Tab */}
+                <TabsContent value="dashboard" className="space-y-6">
+                    <Dashboard branchId={branch.id} />
+                </TabsContent>
+
+                {/* Receipts List Tab */}
+                <TabsContent value="receipts" className="space-y-6">
+                    <ReceiptFilters branchId={branch.id} />
+                    <ReceiptsTable branchId={branch.id} />
+                </TabsContent>
+            </Tabs>
+
+            {/* Dialogs */}
+            <CreateReceiptDialog
+                open={isCreateDialogOpen}
+                onOpenChange={setIsCreateDialogOpen}
+                branchId={branch.id}
+            />
+            <RecordPaymentDialog />
+            <ReceiptDetailsDialog />
+            <EditReceiptDialog />
+            <CancelReceiptDialog />
         </div>
     );
 }

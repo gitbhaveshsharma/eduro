@@ -45,16 +45,18 @@ import { showSuccessToast, showErrorToast } from '@/lib/toast';
 interface CreateReceiptDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /** Branch ID - pre-fills the branch for branch manager view */
+    branchId?: string;
 }
 
-export default function CreateReceiptDialog({ open, onOpenChange }: CreateReceiptDialogProps) {
+export default function CreateReceiptDialog({ open, onOpenChange, branchId }: CreateReceiptDialogProps) {
     const { createReceipt, isCreating } = useFeeReceiptsStore();
 
     const form = useForm<CreateFeeReceiptInput>({
         resolver: zodResolver(createFeeReceiptSchema),
         defaultValues: {
             student_id: '',
-            branch_id: 'default-branch-id', // Replace with actual branch ID
+            branch_id: branchId || '', // Use branchId if provided
             enrollment_id: '',
             class_id: '',
             due_date: '',
@@ -81,7 +83,7 @@ export default function CreateReceiptDialog({ open, onOpenChange }: CreateReceip
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl max-h-[90vh]">
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Create Fee Receipt</DialogTitle>
                     <DialogDescription>
@@ -89,9 +91,9 @@ export default function CreateReceiptDialog({ open, onOpenChange }: CreateReceip
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-y-auto">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-4">
                             {/* Basic Information */}
                             <div className="space-y-4">
                                 <h3 className="font-semibold">Basic Information</h3>

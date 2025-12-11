@@ -118,7 +118,7 @@ export default function EditReceiptDialog() {
 
     return (
         <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="max-w-2xl max-h-[90vh]" key={currentReceipt?.id}>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" key={currentReceipt?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Receipt</DialogTitle>
                     <DialogDescription>
@@ -126,9 +126,9 @@ export default function EditReceiptDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6 p-4">
                             {/* Due Date */}
                             <FormField
                                 control={form.control}

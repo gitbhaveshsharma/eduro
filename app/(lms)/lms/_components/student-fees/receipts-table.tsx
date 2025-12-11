@@ -52,13 +52,22 @@ import {
 } from '@/lib/branch-system/utils/fee-receipts.utils';
 import { ReceiptStatus } from '@/lib/branch-system/types/fee-receipts.types';
 
-export default function ReceiptsTable() {
+interface ReceiptsTableProps {
+    /** Branch ID - for branch manager view (single branch) */
+    branchId?: string;
+    /** Coaching Center ID - for coach view (all branches) */
+    coachingCenterId?: string;
+}
+
+export default function ReceiptsTable({ branchId, coachingCenterId }: ReceiptsTableProps) {
     const {
         receipts,
         pagination,
         sort,
         isLoading,
         fetchReceipts,
+        fetchCoachingCenterReceipts,
+        setFilters,
         setCurrentReceipt,
         setSort,
         setPage,
@@ -71,10 +80,20 @@ export default function ReceiptsTable() {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
-    // Fetch receipts on mount
+    // Fetch receipts on mount based on branchId or coachingCenterId
     useEffect(() => {
-        fetchReceipts();
-    }, []);
+        if (coachingCenterId) {
+            // Coach view - fetch all branches of coaching center
+            fetchCoachingCenterReceipts(coachingCenterId);
+        } else if (branchId) {
+            // Branch manager view - fetch single branch
+            setFilters({ branch_id: branchId });
+            fetchReceipts();
+        } else {
+            // Default - fetch all (for backwards compatibility)
+            fetchReceipts();
+        }
+    }, [branchId, coachingCenterId]);
 
     // Handle sort
     const handleSort = (column: typeof sort.sort_by) => {

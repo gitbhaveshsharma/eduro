@@ -58,13 +58,13 @@ interface DashboardStats {
 /**
  * Memoized Stat Card Component - Prevents re-renders when parent updates
  */
-const StatCard = memo(({ 
-    title, 
-    value, 
-    icon: Icon, 
-    iconBgColor, 
+const StatCard = memo(({
+    title,
+    value,
+    icon: Icon,
+    iconBgColor,
     iconColor,
-    onClick 
+    onClick
 }: {
     title: string;
     value: string | number;
@@ -73,7 +73,7 @@ const StatCard = memo(({
     iconColor: string;
     onClick?: () => void;
 }) => (
-    <Card 
+    <Card
         className={onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
         onClick={onClick}
     >
@@ -100,12 +100,10 @@ const BranchCard = memo(({ branch }: { branch: CoachingBranch }) => (
         <CardHeader className="pb-2">
             <div className="flex items-start justify-between">
                 <div className="flex items-center gap-2">
-                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${
-                        branch.is_main_branch ? 'bg-primary/10' : 'bg-green-100'
-                    }`}>
-                        <MapPin className={`h-4 w-4 ${
-                            branch.is_main_branch ? 'text-primary' : 'text-green-600'
-                        }`} />
+                    <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${branch.is_main_branch ? 'bg-primary/10' : 'bg-green-100'
+                        }`}>
+                        <MapPin className={`h-4 w-4 ${branch.is_main_branch ? 'text-primary' : 'text-green-600'
+                            }`} />
                     </div>
                     <div>
                         <CardTitle className="text-base">{branch.name}</CardTitle>
@@ -241,32 +239,32 @@ export default function CoachDashboardPage() {
     // MEMOIZED COMPUTED VALUES
     // ========================================
 
-    const activeBranches = useMemo(() => 
-        branches.filter(b => b.is_active), 
+    const activeBranches = useMemo(() =>
+        branches.filter(b => b.is_active),
         [branches]
     );
 
-    const mainBranch = useMemo(() => 
-        branches.find(b => b.is_main_branch), 
+    const mainBranch = useMemo(() =>
+        branches.find(b => b.is_main_branch),
         [branches]
     );
 
-    const formattedPendingFees = useMemo(() => 
+    const formattedPendingFees = useMemo(() =>
         `₹${(stats?.pendingFees || 0).toLocaleString('en-IN')}`,
         [stats?.pendingFees]
     );
 
-    const formattedAttendanceRate = useMemo(() => 
+    const formattedAttendanceRate = useMemo(() =>
         `${((stats?.attendanceRate || 0) * 100).toFixed(1)}%`,
         [stats?.attendanceRate]
     );
 
-    const formattedAvgRating = useMemo(() => 
+    const formattedAvgRating = useMemo(() =>
         (stats?.avgRating || 0).toFixed(1),
         [stats?.avgRating]
     );
 
-    const branchesCountLabel = useMemo(() => 
+    const branchesCountLabel = useMemo(() =>
         `${stats?.activeBranches || 0}/${stats?.totalBranches || 0}`,
         [stats?.activeBranches, stats?.totalBranches]
     );
@@ -382,10 +380,10 @@ export default function CoachDashboardPage() {
                             {coachingCenter.website && (
                                 <div className="flex items-center gap-2 text-sm">
                                     <Globe className="h-4 w-4 text-muted-foreground" />
-                                    <a 
-                                        href={coachingCenter.website} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
+                                    <a
+                                        href={coachingCenter.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                         className="text-primary hover:underline"
                                     >
                                         Website
