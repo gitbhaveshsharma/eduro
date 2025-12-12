@@ -67,9 +67,8 @@ export default function ReceiptsTable({ branchId, coachingCenterId }: ReceiptsTa
         pagination,
         sort,
         isLoading,
-        fetchReceipts,
+        fetchBranchReceipts,
         fetchCoachingCenterReceipts,
-        setFilters,
         openDialog,
         setSort,
         setPage,
@@ -84,13 +83,11 @@ export default function ReceiptsTable({ branchId, coachingCenterId }: ReceiptsTa
             fetchCoachingCenterReceipts(coachingCenterId);
         } else if (branchId) {
             // Branch manager view - fetch single branch
-            setFilters({ branch_id: branchId });
-            fetchReceipts();
-        } else {
-            // Default - fetch all (for backwards compatibility)
-            fetchReceipts();
+            fetchBranchReceipts(branchId);
         }
-    }, [branchId, coachingCenterId]);
+        // Note: If neither branchId nor coachingCenterId is provided,
+        // no fetch is performed - this component requires context
+    }, [branchId, coachingCenterId, fetchBranchReceipts, fetchCoachingCenterReceipts]);
 
     // Handle sort
     const handleSort = (column: typeof sort.sort_by) => {

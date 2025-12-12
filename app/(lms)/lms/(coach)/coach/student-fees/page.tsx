@@ -20,6 +20,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, AlertCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCoachContext } from '../layout';
+import { Card, CardContent } from '@/components/ui/card';
+
 
 // Import components
 import Dashboard from '../../../_components/student-fees/dashboard';
@@ -101,7 +103,11 @@ export default function StudentFeesPage() {
                 {/* Receipts List Tab */}
                 <TabsContent value="receipts" className="space-y-6">
                     <ReceiptFilters coachingCenterId={coachingCenterId} />
+                   <Card>
+                        <CardContent className="pt-6">
                     <ReceiptsTable coachingCenterId={coachingCenterId} />
+                        </CardContent>
+                    </Card>
                 </TabsContent>
             </Tabs>
 

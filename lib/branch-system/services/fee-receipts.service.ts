@@ -890,13 +890,6 @@ class FeeReceiptsService {
                 .select(
                     `
                     *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
                     coaching_branches:branch_id (
                         id,
                         name
@@ -909,7 +902,11 @@ class FeeReceiptsService {
                     branch_students:enrollment_id (
                         id,
                         enrollment_date,
-                        enrollment_status
+                        enrollment_status,
+                        student_id,
+                        student_name,
+                        student_email,
+                        student_phone
                     )
                 `,
                     { count: 'exact' }
