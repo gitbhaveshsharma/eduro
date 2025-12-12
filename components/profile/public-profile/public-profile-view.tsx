@@ -47,7 +47,7 @@ export const PublicProfileView = memo(function PublicProfileView({
 
     return (
         <div className={cn('min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5', className)}>
-            <div className="max-w-5xl mx-auto">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 {/* Header with cover and basic info */}
                 <PublicProfileHeader
                     profile={profile}
@@ -56,7 +56,7 @@ export const PublicProfileView = memo(function PublicProfileView({
                 />
 
                 {/* Content Grid */}
-                <div className="px-4 sm:px-6 lg:px-8 py-6">
+                <div className="py-6">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         {/* Left Column - Actions, Connections, and Stats */}
                         <div className="lg:col-span-1 space-y-4">

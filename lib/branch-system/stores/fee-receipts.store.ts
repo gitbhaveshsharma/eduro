@@ -50,6 +50,11 @@ export interface FeeReceiptsState {
     currentReceipt: FeeReceipt | null;
 
     /**
+     * Active dialog type - controls which dialog is open
+     */
+    activeDialog: 'details' | 'edit' | 'payment' | 'cancel' | null;
+
+    /**
      * Student payment summary
      */
     studentSummary: StudentPaymentSummary | null;
@@ -156,6 +161,16 @@ export interface FeeReceiptsState {
     fetchBranchStats: (branchId: string) => Promise<BranchRevenueStats | null>;
 
     /**
+     * Fetch receipts for all branches of a coaching center
+     */
+    fetchCoachingCenterReceipts: (coachingCenterId: string) => Promise<void>;
+
+    /**
+     * Fetch coaching center revenue statistics (all branches)
+     */
+    fetchCoachingCenterStats: (coachingCenterId: string) => Promise<BranchRevenueStats | null>;
+
+    /**
      * Refresh current list (re-fetch with same params)
      */
     refresh: () => Promise<void>;
@@ -221,6 +236,16 @@ export interface FeeReceiptsState {
     setCurrentReceipt: (receipt: FeeReceipt | null) => void;
 
     /**
+     * Open a specific dialog with a receipt
+     */
+    openDialog: (dialog: 'details' | 'edit' | 'payment' | 'cancel', receipt: FeeReceipt) => void;
+
+    /**
+     * Close the active dialog
+     */
+    closeDialog: () => void;
+
+    /**
      * Clear error state
      */
     clearError: () => void;
@@ -267,6 +292,7 @@ export interface FeeReceiptsState {
 const initialState = {
     receipts: [],
     currentReceipt: null,
+    activeDialog: null as 'details' | 'edit' | 'payment' | 'cancel' | null,
     studentSummary: null,
     branchStats: null,
     filters: {},
@@ -605,6 +631,78 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                     }
                 },
 
+                fetchCoachingCenterReceipts: async (coachingCenterId: string) => {
+                    set((state) => {
+                        state.isLoading = true;
+                        state.error = null;
+                    });
+
+                    try {
+                        const { filters, pagination, sort } = get();
+                        // Remove branch_id from filters since we're fetching all branches
+                        const { branch_id, ...otherFilters } = filters;
+                        const params = {
+                            ...otherFilters,
+                            page: pagination.page,
+                            limit: pagination.limit,
+                            sort_by: sort.sort_by,
+                            sort_order: sort.sort_order,
+                        };
+
+                        const result = await feeReceiptsService.listReceiptsByCoachingCenter(coachingCenterId, params);
+
+                        if (result.success && result.data) {
+                            set((state) => {
+                                state.receipts = result.data!.data;
+                                state.pagination.total = result.data!.total;
+                                state.pagination.has_more = result.data!.has_more;
+                                state.isLoading = false;
+                            });
+                        } else {
+                            set((state) => {
+                                state.error = result.error || 'Failed to fetch receipts';
+                                state.isLoading = false;
+                            });
+                        }
+                    } catch (error) {
+                        set((state) => {
+                            state.error = error instanceof Error ? error.message : 'Unknown error';
+                            state.isLoading = false;
+                        });
+                    }
+                },
+
+                fetchCoachingCenterStats: async (coachingCenterId: string) => {
+                    set((state) => {
+                        state.isFetchingStats = true;
+                        state.error = null;
+                    });
+
+                    try {
+                        const result = await feeReceiptsService.getCoachingCenterStats(coachingCenterId);
+
+                        if (result.success && result.data) {
+                            set((state) => {
+                                state.branchStats = result.data!;
+                                state.isFetchingStats = false;
+                            });
+                            return result.data;
+                        } else {
+                            set((state) => {
+                                state.error = result.error || 'Failed to fetch coaching center stats';
+                                state.isFetchingStats = false;
+                            });
+                            return null;
+                        }
+                    } catch (error) {
+                        set((state) => {
+                            state.error = error instanceof Error ? error.message : 'Unknown error';
+                            state.isFetchingStats = false;
+                        });
+                        return null;
+                    }
+                },
+
                 refresh: async () => {
                     await get().fetchReceipts();
                 },
@@ -713,6 +811,20 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                 setCurrentReceipt: (receipt: FeeReceipt | null) => {
                     set((state) => {
                         state.currentReceipt = receipt;
+                    });
+                },
+
+                openDialog: (dialog: 'details' | 'edit' | 'payment' | 'cancel', receipt: FeeReceipt) => {
+                    set((state) => {
+                        state.currentReceipt = receipt;
+                        state.activeDialog = dialog;
+                    });
+                },
+
+                closeDialog: () => {
+                    set((state) => {
+                        state.activeDialog = null;
+                        state.currentReceipt = null;
                     });
                 },
 

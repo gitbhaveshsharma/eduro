@@ -113,11 +113,33 @@ export function CoachingCenterCard({
                     <div className="p-4 space-y-3">
                         {/* Logo and Name */}
                         <div className="flex items-start gap-3">
-                            <img
-                                src={logoUrl}
-                                alt={`${center.name} logo`}
-                                className="w-12 h-12 rounded-lg object-cover flex-shrink-0 ring-2 ring-background shadow-sm"
-                            />
+                            <div className="w-12 h-12 rounded-lg ring-2 ring-background shadow-sm flex-shrink-0 overflow-hidden bg-primary/10 flex items-center justify-center relative">
+                                <img
+                                    src={logoUrl}
+                                    alt={`${center.name} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                        const fallback = e.currentTarget.nextSibling as HTMLElement | null;
+                                        if (fallback) fallback.style.display = "flex";
+                                    }}
+                                />
+
+                                {/* Hidden by default, shown only when image fails */}
+                                <span
+                                    style={{ display: "none" }}
+                                    className="absolute inset-0 flex items-center justify-center text-sm font-bold text-primary select-none"
+                                >
+                                    {center.name
+                                        ?.split(" ")
+                                        .map((w) => w[0])
+                                        .join("")
+                                        .slice(0, 2)
+                                        .toUpperCase()}
+                                </span>
+                            </div>
+
+
                             <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-lg leading-tight line-clamp-2 group-hover:text-primary transition-colors">
                                     {center.name}

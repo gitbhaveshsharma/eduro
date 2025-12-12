@@ -35,22 +35,39 @@ import {
 } from '@/lib/branch-system/utils/fee-receipts.utils';
 import { ReceiptStatus } from '@/lib/branch-system/types/fee-receipts.types';
 
-export default function Dashboard() {
+interface DashboardProps {
+    /** Branch ID - for branch manager view (single branch) */
+    branchId?: string;
+    /** Coaching Center ID - for coach view (all branches) */
+    coachingCenterId?: string;
+}
+
+export default function Dashboard({ branchId, coachingCenterId }: DashboardProps) {
     const {
         branchStats,
         receipts,
         fetchBranchStats,
+        fetchCoachingCenterStats,
         fetchReceipts,
+        fetchCoachingCenterReceipts,
+        setFilters,
         isFetchingStats,
         isLoading,
     } = useFeeReceiptsStore();
 
-    // Fetch data on mount
+    // Fetch data on mount based on branchId or coachingCenterId
     useEffect(() => {
-        const branchId = 'default-branch-id'; // Replace with actual branch ID from context/props
-        fetchBranchStats(branchId);
-        fetchReceipts();
-    }, []);
+        if (coachingCenterId) {
+            // Coach view - fetch all branches of coaching center
+            fetchCoachingCenterStats(coachingCenterId);
+            fetchCoachingCenterReceipts(coachingCenterId);
+        } else if (branchId) {
+            // Branch manager view - fetch single branch
+            setFilters({ branch_id: branchId });
+            fetchBranchStats(branchId);
+            fetchReceipts();
+        }
+    }, [branchId, coachingCenterId]);
 
     // Calculate additional metrics
     const overdueReceipts = receipts.filter((r) => {

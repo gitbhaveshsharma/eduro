@@ -309,27 +309,93 @@ CREATE TRIGGER validate_coaching_branches_manager
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
-
 -- Function to get coaching center statistics
+-- Enhanced get_coaching_center_stats RPC with all required metrics
 CREATE OR REPLACE FUNCTION get_coaching_center_stats(center_id UUID)
 RETURNS JSON AS $$
 DECLARE
     stats JSON;
-    branch_count INTEGER;
 BEGIN
-    SELECT COUNT(*) 
-    INTO branch_count
-    FROM coaching_branches 
-    WHERE coaching_center_id = center_id AND is_active = TRUE;
-    
-    stats := json_build_object(
-        'total_branches', branch_count,
-        'active_branches', branch_count
-    );
+    SELECT json_build_object(
+        'total_students', COALESCE((
+            SELECT COUNT(DISTINCT bs.student_id)
+            FROM branch_students bs
+            JOIN coaching_branches cb ON bs.branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND cb.is_active = TRUE
+            AND bs.enrollment_status = 'ENROLLED'
+        ), 0),
+        
+        'total_teachers', COALESCE((
+            SELECT COUNT(DISTINCT bc.teacher_id)
+            FROM branch_classes bc
+            JOIN coaching_branches cb ON bc.branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND cb.is_active = TRUE
+            AND bc.status = 'ACTIVE'
+            AND bc.teacher_id IS NOT NULL
+        ), 0),
+        
+        'total_classes', COALESCE((
+            SELECT COUNT(*)
+            FROM branch_classes bc
+            JOIN coaching_branches cb ON bc.branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND cb.is_active = TRUE
+            AND bc.status = 'ACTIVE'
+        ), 0),
+        
+        'active_branches', COALESCE((
+            SELECT COUNT(*)
+            FROM coaching_branches
+            WHERE coaching_center_id = center_id
+            AND is_active = TRUE
+        ), 0),
+        
+        'total_branches', COALESCE((
+            SELECT COUNT(*)
+            FROM coaching_branches
+            WHERE coaching_center_id = center_id
+        ), 0),
+        
+        'pending_fees', COALESCE((
+            SELECT COALESCE(SUM(balance_amount), 0)
+            FROM fee_receipts fr
+            JOIN coaching_branches cb ON fr.branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND fr.receipt_status IN ('PENDING', 'OVERDUE')
+        ), 0),
+        
+        'attendance_rate', COALESCE((
+            SELECT ROUND(AVG(bs.attendance_percentage::DECIMAL / 100), 4)
+            FROM branch_students bs
+            JOIN coaching_branches cb ON bs.branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND cb.is_active = TRUE
+            AND bs.enrollment_status = 'ENROLLED'
+            AND bs.attendance_percentage IS NOT NULL
+        ), 0),
+        
+        'avg_rating', COALESCE((
+            SELECT ROUND(AVG(r.overall_rating::DECIMAL), 2)
+            FROM reviews r
+            JOIN coaching_branches cb ON r.coaching_branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND r.status = 'APPROVED'
+        ), 0),
+        
+        'total_reviews', COALESCE((
+            SELECT COUNT(*)
+            FROM reviews r
+            JOIN coaching_branches cb ON r.coaching_branch_id = cb.id
+            WHERE cb.coaching_center_id = center_id
+            AND r.status = 'APPROVED'
+        ), 0)
+    ) INTO stats;
     
     RETURN stats;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Function to search coaching centers
 CREATE OR REPLACE FUNCTION search_coaching_centers(

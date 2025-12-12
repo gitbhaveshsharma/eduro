@@ -10,7 +10,7 @@ import { memo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ConnectionButton } from '@/components/connections/connection-button';
-import { toast } from 'sonner';
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import type { PublicProfile } from '@/lib/schema/profile.types';
 import type { FollowerProfile } from '@/lib/schema/follow.types';
 import { ProfileDisplayUtils, ProfileUrlUtils } from '@/lib/utils/profile.utils';
@@ -18,16 +18,19 @@ import {
     ExternalLink,
     Link as LinkIcon,
     MessageCircle,
-    MoreHorizontal,
+    MoreVertical,
+    QrCode,
     Share2,
 } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { ProfileQRCodeDialog } from './public-profile-qr-dialog';
 
 interface PublicProfileActionsProps {
     profile: PublicProfile;
@@ -58,6 +61,7 @@ export const PublicProfileActions = memo(function PublicProfileActions({
     className,
 }: PublicProfileActionsProps) {
     const [isCopying, setIsCopying] = useState(false);
+    const [showQRDialog, setShowQRDialog] = useState(false);
 
     const handleShare = async () => {
         const profileUrl = `${window.location.origin}${ProfileUrlUtils.getProfileUrl(profile.username || profile.id)}`;
@@ -68,7 +72,7 @@ export const PublicProfileActions = memo(function PublicProfileActions({
             try {
                 await navigator.share({
                     title: `${displayName}'s Profile`,
-                    text: `Check out ${displayName}'s profile on Eduro`,
+                    text: `Check out ${displayName}'s profile on Tutrsy`,
                     url: profileUrl,
                 });
                 return;
@@ -81,9 +85,9 @@ export const PublicProfileActions = memo(function PublicProfileActions({
         setIsCopying(true);
         try {
             await navigator.clipboard.writeText(profileUrl);
-            toast.success('Profile link copied to clipboard!');
+            showSuccessToast('Profile link copied to clipboard!');
         } catch (err) {
-            toast.error('Failed to copy link');
+            showErrorToast('Failed to copy link');
         } finally {
             setIsCopying(false);
         }
@@ -93,44 +97,52 @@ export const PublicProfileActions = memo(function PublicProfileActions({
         const profileUrl = `${window.location.origin}${ProfileUrlUtils.getProfileUrl(profile.username || profile.id)}`;
         try {
             await navigator.clipboard.writeText(profileUrl);
-            toast.success('Profile link copied!');
+            showSuccessToast('Profile link copied!');
         } catch (err) {
-            toast.error('Failed to copy link');
+            showErrorToast('Failed to copy link');
         }
     };
 
     // Show edit button for own profile
     if (isOwnProfile) {
         return (
-            <Card className={cn('', className)}>
-                <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                        <Button asChild className="flex-1">
-                            <a href="/settings/profiles">
-                                Edit Profile
-                            </a>
-                        </Button>
-                        <Button variant="outline" onClick={handleShare} disabled={isCopying}>
-                            <Share2 className="h-4 w-4 mr-2" />
-                            Share Profile
-                        </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-3 text-center">
-                        This is how others see your profile
-                    </p>
-                </CardContent>
-            </Card>
+            <>
+                <Card className={cn('', className)}>
+                    <CardContent className="p-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <Button asChild className="flex-1">
+                                <a href="/settings/profiles">
+                                    Edit Profile
+                                </a>
+                            </Button>
+                            <Button variant="outline" onClick={handleShare} disabled={isCopying}>
+                                <Share2 className="h-4 w-4 mr-2" />
+                                Share Profile
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-3 text-center">
+                            This is how others see your profile
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <ProfileQRCodeDialog
+                    profile={profile}
+                    open={showQRDialog}
+                    onOpenChange={setShowQRDialog}
+                />
+            </>
         );
     }
 
     const targetProfile = toFollowerProfile(profile);
 
     return (
-        <Card className={cn('', className)}>
-            <CardContent className="p-4">
-                <div className="flex flex-col gap-3">
-                    {/* Main action buttons */}
-                    <div className="flex gap-3">
+        <>
+            <Card className={cn('', className)}>
+                <CardContent className="p-4">
+                    {/* All three buttons in one row */}
+                    <div className="flex gap-2">
                         <ConnectionButton
                             targetUser={targetProfile}
                             variant="default"
@@ -139,31 +151,22 @@ export const PublicProfileActions = memo(function PublicProfileActions({
                             showText={true}
                             className="flex-1"
                         />
-                        <Button variant="outline" size="default" disabled>
+                        <Button variant="outline" size="default" disabled className="flex-1">
                             <MessageCircle className="h-4 w-4 mr-2" />
                             Message
                         </Button>
-                    </div>
-
-                    {/* Secondary actions */}
-                    <div className="flex gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="flex-1"
-                            onClick={handleShare}
-                            disabled={isCopying}
-                        >
-                            <Share2 className="h-4 w-4 mr-2" />
-                            Share
-                        </Button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
+                                <Button variant="outline" size="default" className="px-3">
+                                    <MoreVertical className="h-4 w-4" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => setShowQRDialog(true)}>
+                                    <QrCode className="h-4 w-4 mr-2" />
+                                    Get QR Code
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={handleCopyProfileLink}>
                                     <LinkIcon className="h-4 w-4 mr-2" />
                                     Copy profile link
@@ -175,8 +178,14 @@ export const PublicProfileActions = memo(function PublicProfileActions({
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
-                </div>
-            </CardContent>
-        </Card>
+                </CardContent>
+            </Card>
+
+            <ProfileQRCodeDialog
+                profile={profile}
+                open={showQRDialog}
+                onOpenChange={setShowQRDialog}
+            />
+        </>
     );
 });

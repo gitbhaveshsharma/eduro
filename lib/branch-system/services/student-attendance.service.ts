@@ -216,131 +216,131 @@ export class StudentAttendanceService {
     // CORE CRUD OPERATIONS
     // ============================================================
 
-    /**
-     * Marks attendance for a student
-     * 
-     * @param input - Attendance data
-     * @returns Operation result with attendance record
-     */
-    async markAttendance(
-        input: MarkAttendanceDTO
-    ): Promise<AttendanceOperationResult<StudentAttendance>> {
-        try {
-            // Validate input
-            const validationResult = markAttendanceSchema.safeParse(input);
-            if (!validationResult.success) {
-                return {
-                    success: false,
-                    validation_errors: validationResult.error.errors.map(err => ({
-                        field: err.path.join('.'),
-                        message: err.message,
-                    })),
-                };
-            }
-
-            const validatedInput = validationResult.data;
-
-            // Additional business validation
-            const dateValidation = validateAttendanceDate(validatedInput.attendance_date, false, 7);
-            if (!dateValidation.isValid) {
-                return {
-                    success: false,
-                    error: dateValidation.error,
-                };
-            }
-
-            const timeValidation = validateAttendanceTimes(
-                validatedInput.check_in_time,
-                validatedInput.check_out_time
-            );
-            if (!timeValidation.isValid) {
-                return {
-                    success: false,
-                    error: timeValidation.error,
-                };
-            }
-
-            // Insert attendance record
-            const { data, error } = await this.supabase
-                .from('student_attendance')
-                .insert({
-                    student_id: validatedInput.student_id,
-                    class_id: validatedInput.class_id,
-                    teacher_id: validatedInput.teacher_id,
-                    branch_id: validatedInput.branch_id,
-                    attendance_date: validatedInput.attendance_date,
-                    attendance_status: validatedInput.attendance_status,
-                    check_in_time: validatedInput.check_in_time,
-                    check_out_time: validatedInput.check_out_time,
-                    late_by_minutes: validatedInput.late_by_minutes,
-                    early_leave_minutes: validatedInput.early_leave_minutes,
-                    teacher_remarks: validatedInput.teacher_remarks,
-                    excuse_reason: validatedInput.excuse_reason,
-                })
-                .select(`
-                    *,
-                    branch_students!inner(student_id, student_name, student_email),
-                    branch_classes:class_id(id, class_name, subject, grade_level),
-                    branch_teacher!inner(teacher_id, teacher_name),
-                    coaching_branches:branch_id(id, name)
-                `)
-                .single();
-
-            if (error) {
-                // Handle specific database errors
-                if (error.code === '23505') { // Unique constraint violation
-                    return {
-                        success: false,
-                        error: 'Attendance for this student on this date already exists',
-                    };
-                }
-
-                return {
-                    success: false,
-                    error: `Database error: ${error.message}`,
-                };
-            }
-
-            // Fetch avatar separately from profiles
-            const avatarUrl = await this.getStudentAvatar(validatedInput.student_id);
-
-            // Transform data with avatar
-            const attendanceRecord: StudentAttendance = {
-                ...data,
-                student: {
-                    id: validatedInput.student_id,
-                    full_name: (data.branch_students as any)?.student_name || 'Unknown',
-                    username: null,
-                    avatar_url: avatarUrl,
-                },
-                class: data.branch_classes ? {
-                    id: data.branch_classes.id,
-                    class_name: data.branch_classes.class_name,
-                    subject: data.branch_classes.subject,
-                    grade_level: data.branch_classes.grade_level,
-                } : undefined,
-                teacher: {
-                    id: validatedInput.teacher_id,
-                    full_name: (data.branch_teacher as any)?.teacher_name || 'Unknown',
-                },
-                branch: {
-                    id: validatedInput.branch_id,
-                    name: data.coaching_branches?.name || 'Unknown',
-                },
-            };
-
-            return {
-                success: true,
-                data: attendanceRecord,
-            };
-
-        } catch (error) {
+   async markAttendance(
+    input: MarkAttendanceDTO
+): Promise<AttendanceOperationResult<StudentAttendance>> {
+    try {
+        // Validate input
+        const validationResult = markAttendanceSchema.safeParse(input);
+        if (!validationResult.success) {
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
+                validation_errors: validationResult.error.errors.map(err => ({
+                    field: err.path.join('.'),
+                    message: err.message,
+                })),
             };
         }
+
+        const validatedInput = validationResult.data;
+
+        // Additional business validation
+        const dateValidation = validateAttendanceDate(validatedInput.attendance_date, false, 7);
+        if (!dateValidation.isValid) {
+            return {
+                success: false,
+                error: dateValidation.error,
+            };
+        }
+
+        const timeValidation = validateAttendanceTimes(
+            validatedInput.check_in_time,
+            validatedInput.check_out_time
+        );
+        if (!timeValidation.isValid) {
+            return {
+                success: false,
+                error: timeValidation.error,
+            };
+        }
+
+        // Insert attendance record
+        const { data, error } = await this.supabase
+            .from('student_attendance')
+            .insert({
+                student_id: validatedInput.student_id,
+                class_id: validatedInput.class_id,
+                teacher_id: validatedInput.teacher_id,
+                branch_id: validatedInput.branch_id,
+                attendance_date: validatedInput.attendance_date,
+                attendance_status: validatedInput.attendance_status,
+                check_in_time: validatedInput.check_in_time,
+                check_out_time: validatedInput.check_out_time,
+                late_by_minutes: validatedInput.late_by_minutes,
+                early_leave_minutes: validatedInput.early_leave_minutes,
+                teacher_remarks: validatedInput.teacher_remarks,
+                excuse_reason: validatedInput.excuse_reason,
+            })
+            .select(`
+                *,
+                branch_students!inner(student_id, student_name, student_email),
+                branch_classes:class_id(id, class_name, subject, grade_level),
+                coaching_branches:branch_id(id, name)
+            `)
+            .single();
+
+        if (error) {
+            // Handle specific database errors
+            if (error.code === '23505') { // Unique constraint violation
+                return {
+                    success: false,
+                    error: 'Attendance for this student on this date already exists',
+                };
+            }
+
+            return {
+                success: false,
+                error: `Database error: ${error.message}`,
+            };
+        }
+
+        // Fetch avatar separately from profiles
+        const avatarUrl = await this.getStudentAvatar(validatedInput.student_id);
+
+        // Fetch teacher name manually (like bulk method)
+        const { data: teacherData } = await this.supabase
+            .from('branch_teacher')
+            .select('teacher_id, teacher_name')
+            .eq('teacher_id', validatedInput.teacher_id)
+            .single();
+
+        // Transform data with avatar and teacher info
+        const attendanceRecord: StudentAttendance = {
+            ...data,
+            student: {
+                id: validatedInput.student_id,
+                full_name: (data.branch_students as any)?.student_name || 'Unknown',
+                username: null,
+                avatar_url: avatarUrl,
+            },
+            class: data.branch_classes ? {
+                id: data.branch_classes.id,
+                class_name: data.branch_classes.class_name,
+                subject: data.branch_classes.subject,
+                grade_level: data.branch_classes.grade_level,
+            } : undefined,
+            teacher: {
+                id: validatedInput.teacher_id,
+                full_name: teacherData?.teacher_name || 'Unknown',
+            },
+            branch: {
+                id: validatedInput.branch_id,
+                name: data.coaching_branches?.name || 'Unknown',
+            },
+        };
+
+        return {
+            success: true,
+            data: attendanceRecord,
+        };
+
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error occurred',
+        };
     }
+}
 
     /**
      * Marks attendance for multiple students (bulk operation)

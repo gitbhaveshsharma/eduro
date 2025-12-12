@@ -9,7 +9,6 @@ import { UserAvatar } from '@/components/avatar';
 import { ConnectionButton } from '../connections/connection-button';
 import { ProfileDisplayUtils, ProfileUrlUtils } from '@/lib/utils/profile.utils';
 import type { FollowerProfile } from '@/lib/follow';
-import { ExternalLink } from 'lucide-react';
 
 interface ProfileCardProps {
     profile: FollowerProfile;
@@ -78,9 +77,7 @@ function ProfileCardComponent({
                             asChild
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                         >
-                            <Link href={profileUrl}>
-                                <ExternalLink className="h-4 w-4" />
-                            </Link>
+                           
                         </Button>
 
                         {/* Connection Button */}
@@ -88,7 +85,7 @@ function ProfileCardComponent({
                             targetUser={profile}
                             currentUser={currentUser}
                             size="sm"
-                            showText={false}
+                            showText={true}
                             showIcon={true}
                             onConnectionChange={onConnectionChange}
                         />

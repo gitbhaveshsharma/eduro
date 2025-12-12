@@ -46,7 +46,7 @@ import { formatCurrency } from '@/lib/branch-system/utils/fee-receipts.utils';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function CancelReceiptDialog() {
-    const { currentReceipt, cancelReceipt, isCancelling, setCurrentReceipt } = useFeeReceiptsStore();
+    const { currentReceipt, cancelReceipt, isCancelling, activeDialog, closeDialog, refresh } = useFeeReceiptsStore();
 
     const form = useForm<CancelReceiptInput>({
         resolver: zodResolver(cancelReceiptSchema),
@@ -75,7 +75,9 @@ export default function CancelReceiptDialog() {
             const action = currentReceipt?.amount_paid && currentReceipt.amount_paid > 0 ? 'refunded' : 'cancelled';
             showSuccessToast(`Receipt ${action} successfully!`);
             form.reset();
-            setCurrentReceipt(null);
+            closeDialog();
+            // Refresh the receipts list to ensure data is up-to-date
+            refresh();
         } else {
             showErrorToast('Failed to cancel receipt. Please try again.');
         }
@@ -83,7 +85,7 @@ export default function CancelReceiptDialog() {
 
     const handleClose = () => {
         form.reset();
-        setCurrentReceipt(null);
+        closeDialog();
     };
 
     if (!currentReceipt) return null;
@@ -92,7 +94,7 @@ export default function CancelReceiptDialog() {
     const actionType = hasPayment ? 'Refund' : 'Cancel';
 
     return (
-        <AlertDialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
+        <AlertDialog open={activeDialog === 'cancel'} onOpenChange={(open) => !open && handleClose()}>
             <AlertDialogContent className="max-w-xl">
                 <AlertDialogHeader>
                     <AlertDialogTitle className="flex items-center gap-2">

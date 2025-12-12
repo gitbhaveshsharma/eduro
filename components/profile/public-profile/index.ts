@@ -11,3 +11,4 @@ export { PublicProfileActions } from './public-profile-actions';
 export { PublicProfilePosts } from './public-profile-posts';
 export { PublicProfileConnections } from './public-profile-connections';
 export { PublicProfileView } from './public-profile-view';
+export { ProfileQRCodeDialog } from './public-profile-qr-dialog';

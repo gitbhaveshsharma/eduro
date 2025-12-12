@@ -82,6 +82,54 @@ class FeeReceiptsService {
     }
 
     // ============================================================
+    // HELPER METHODS
+    // ============================================================
+
+    /**
+     * Transform raw database receipt to FeeReceipt type
+     * Maps branch_students relation to student property with expected field names
+     */
+    private transformReceipt(rawReceipt: any): FeeReceipt {
+        const { branch_students, coaching_branches, branch_classes, ...receipt } = rawReceipt;
+
+        return {
+            ...receipt,
+            // Map branch_students to student with expected property names
+            student: branch_students ? {
+                id: branch_students.student_id,
+                full_name: branch_students.student_name,
+                email: branch_students.student_email,
+                username: null, // Not stored in branch_students
+                avatar_url: null, // Not stored in branch_students
+            } : undefined,
+            // Map coaching_branches to branch
+            branch: coaching_branches ? {
+                id: coaching_branches.id,
+                name: coaching_branches.name,
+            } : undefined,
+            // Map branch_classes to class
+            class: branch_classes ? {
+                id: branch_classes.id,
+                class_name: branch_classes.class_name,
+                subject: branch_classes.subject,
+            } : null,
+            // Map enrollment from branch_students
+            enrollment: branch_students ? {
+                id: branch_students.id,
+                enrollment_date: branch_students.enrollment_date,
+                enrollment_status: branch_students.enrollment_status,
+            } : undefined,
+        } as FeeReceipt;
+    }
+
+    /**
+     * Transform array of raw receipts
+     */
+    private transformReceipts(rawReceipts: any[]): FeeReceipt[] {
+        return rawReceipts.map(receipt => this.transformReceipt(receipt));
+    }
+
+    // ============================================================
     // CREATE OPERATIONS
     // ============================================================
 
@@ -141,29 +189,28 @@ class FeeReceiptsService {
                 .from('fee_receipts')
                 .insert(insertData)
                 .select(`
-                    *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        )
+                    `)
                 .single();
 
             if (error) {
@@ -181,10 +228,13 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
+            const transformedReceipt = this.transformReceipt(receipt);
+
             return {
                 success: true,
                 data: {
-                    receipt: receipt as FeeReceipt,
+                    receipt: transformedReceipt,
                     receipt_number: receipt.receipt_number,
                     total_amount: receipt.total_amount,
                     balance_amount: receipt.balance_amount,
@@ -278,13 +328,6 @@ class FeeReceiptsService {
                 .eq('id', data.receipt_id)
                 .select(`
                     *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
                     coaching_branches:branch_id (
                         id,
                         name
@@ -297,7 +340,11 @@ class FeeReceiptsService {
                     branch_students:enrollment_id (
                         id,
                         enrollment_date,
-                        enrollment_status
+                        enrollment_status,
+                        student_id,
+                        student_name,
+                        student_email,
+                        student_phone
                     )
                 `)
                 .single();
@@ -317,10 +364,13 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
+            const transformedReceipt = this.transformReceipt(updatedReceipt);
+
             return {
                 success: true,
                 data: {
-                    receipt: updatedReceipt as FeeReceipt,
+                    receipt: transformedReceipt,
                     payment_applied: data.amount_paid,
                     new_balance: new_balance,
                     is_fully_paid: is_fully_paid,
@@ -419,29 +469,28 @@ class FeeReceiptsService {
                 .update(updateData)
                 .eq('id', data.id)
                 .select(`
-                    *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        )
+                    `)
                 .single();
 
             if (updateError) {
@@ -459,9 +508,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: updatedReceipt as FeeReceipt,
+                data: this.transformReceipt(updatedReceipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Update receipt exception:', error);
@@ -531,13 +581,6 @@ class FeeReceiptsService {
                 .eq('id', data.receipt_id)
                 .select(`
                     *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
                     coaching_branches:branch_id (
                         id,
                         name
@@ -550,7 +593,11 @@ class FeeReceiptsService {
                     branch_students:enrollment_id (
                         id,
                         enrollment_date,
-                        enrollment_status
+                        enrollment_status,
+                        student_id,
+                        student_name,
+                        student_email,
+                        student_phone
                     )
                 `)
                 .single();
@@ -570,9 +617,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: updatedReceipt as FeeReceipt,
+                data: this.transformReceipt(updatedReceipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Cancel receipt exception:', error);
@@ -597,35 +645,35 @@ class FeeReceiptsService {
             const { data: receipt, error } = await this.supabase
                 .from('fee_receipts')
                 .select(`
-                    *,
-                        profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    ),
-                    processor:processed_by (
-                        id,
-                        full_name
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        ),
+                        processor:processed_by (
+                            id,
+                            full_name
+                        )
+                    `)
                 .eq('id', receiptId)
                 .single();
+
 
             if (error) {
                 console.error('[FeeReceiptsService] Get receipt by ID error:', error);
@@ -642,9 +690,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: receipt as FeeReceipt,
+                data: this.transformReceipt(receipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Get receipt by ID exception:', error);
@@ -682,13 +731,6 @@ class FeeReceiptsService {
                 .select(
                     `
                     *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
                     coaching_branches:branch_id (
                         id,
                         name
@@ -701,7 +743,11 @@ class FeeReceiptsService {
                     branch_students:enrollment_id (
                         id,
                         enrollment_date,
-                        enrollment_status
+                        enrollment_status,
+                        student_id,
+                        student_name,
+                        student_email,
+                        student_phone
                     )
                 `,
                     { count: 'exact' }
@@ -771,10 +817,11 @@ class FeeReceiptsService {
             const total = count || 0;
             const hasMore = offset + limit < total;
 
+            // Transform all receipts to FeeReceipt type with proper field mapping
             return {
                 success: true,
                 data: {
-                    data: (receipts || []) as FeeReceipt[],
+                    data: this.transformReceipts(receipts || []),
                     total: total,
                     page: page,
                     limit: limit,
@@ -783,6 +830,277 @@ class FeeReceiptsService {
             };
         } catch (error) {
             console.error('[FeeReceiptsService] List receipts exception:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * List receipts across all branches of a coaching center
+     * First fetches all branch IDs for the coaching center, then queries receipts
+     * 
+     * @param coachingCenterId - Coaching center UUID
+     * @param params - Filter and pagination params
+     * @returns List response with receipts and pagination metadata
+     */
+    public async listReceiptsByCoachingCenter(
+        coachingCenterId: string,
+        params: Omit<FeeReceiptListParams, 'branch_id'> = {}
+    ): Promise<FeeReceiptOperationResult<FeeReceiptListResponse>> {
+        try {
+            // First get all branches for this coaching center
+            const { data: branches, error: branchError } = await this.supabase
+                .from('coaching_branches')
+                .select('id')
+                .eq('coaching_center_id', coachingCenterId);
+
+            if (branchError) {
+                console.error('[FeeReceiptsService] Fetch branches error:', branchError);
+                return {
+                    success: false,
+                    error: `Failed to fetch branches: ${branchError.message}`,
+                };
+            }
+
+            if (!branches || branches.length === 0) {
+                return {
+                    success: true,
+                    data: {
+                        data: [],
+                        total: 0,
+                        page: 1,
+                        limit: params.limit || 20,
+                        has_more: false,
+                    },
+                };
+            }
+
+            const branchIds = branches.map((b: { id: string }) => b.id);
+
+            // Build params without branch_id validation since we'll use branch_ids
+            const page = params.page || 1;
+            const limit = params.limit || 20;
+            const offset = (page - 1) * limit;
+
+            // Build query with multiple branch filter
+            let query = this.supabase
+                .from('fee_receipts')
+                .select(
+                    `
+                    *,
+                    profiles:student_id (
+                        id,
+                        full_name,
+                        username,
+                        avatar_url,
+                        email
+                    ),
+                    coaching_branches:branch_id (
+                        id,
+                        name
+                    ),
+                    branch_classes:class_id (
+                        id,
+                        class_name,
+                        subject
+                    ),
+                    branch_students:enrollment_id (
+                        id,
+                        enrollment_date,
+                        enrollment_status
+                    )
+                `,
+                    { count: 'exact' }
+                )
+                .in('branch_id', branchIds);
+
+            // Apply filters (same as listReceipts but without branch_id)
+            if (params.student_id) query = query.eq('student_id', params.student_id);
+            if (params.class_id) query = query.eq('class_id', params.class_id);
+            if (params.enrollment_id) query = query.eq('enrollment_id', params.enrollment_id);
+            if (params.receipt_status) query = query.eq('receipt_status', params.receipt_status);
+            if (params.payment_method) query = query.eq('payment_method', params.payment_method);
+            if (params.processed_by) query = query.eq('processed_by', params.processed_by);
+            if (params.is_auto_generated !== undefined)
+                query = query.eq('is_auto_generated', params.is_auto_generated);
+
+            // Date filters
+            if (params.receipt_date_from) query = query.gte('receipt_date', params.receipt_date_from);
+            if (params.receipt_date_to) query = query.lte('receipt_date', params.receipt_date_to);
+            if (params.due_date_from) query = query.gte('due_date', params.due_date_from);
+            if (params.due_date_to) query = query.lte('due_date', params.due_date_to);
+            if (params.payment_date_from) query = query.gte('payment_date', params.payment_date_from);
+            if (params.payment_date_to) query = query.lte('payment_date', params.payment_date_to);
+
+            // Fee period filters
+            if (params.fee_month) query = query.eq('fee_month', params.fee_month);
+            if (params.fee_year) query = query.eq('fee_year', params.fee_year);
+
+            // Amount filters
+            if (params.min_amount) query = query.gte('total_amount', params.min_amount);
+            if (params.max_amount) query = query.lte('total_amount', params.max_amount);
+
+            // Balance filter
+            if (params.has_balance !== undefined) {
+                if (params.has_balance) {
+                    query = query.gt('balance_amount', 0);
+                } else {
+                    query = query.eq('balance_amount', 0);
+                }
+            }
+
+            // Overdue filter
+            if (params.is_overdue) {
+                const today = getTodayISODate();
+                query = query.lt('due_date', today).eq('receipt_status', ReceiptStatus.PENDING);
+            }
+
+            // Sorting
+            const sortBy = params.sort_by || 'receipt_date';
+            const sortOrder = params.sort_order || 'desc';
+            query = query.order(sortBy, { ascending: sortOrder === 'asc' });
+
+            // Pagination
+            query = query.range(offset, offset + limit - 1);
+
+            // Execute query
+            const { data: receipts, error, count } = await query;
+
+            if (error) {
+                console.error('[FeeReceiptsService] List coaching center receipts error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to fetch receipts',
+                };
+            }
+
+            const total = count || 0;
+            const hasMore = offset + limit < total;
+
+            // Transform all receipts to FeeReceipt type with proper field mapping
+            return {
+                success: true,
+                data: {
+                    data: this.transformReceipts(receipts || []),
+                    total: total,
+                    page: page,
+                    limit: limit,
+                    has_more: hasMore,
+                },
+            };
+        } catch (error) {
+            console.error('[FeeReceiptsService] List coaching center receipts exception:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Get coaching center revenue statistics
+     * Aggregates stats across all branches of a coaching center
+     * 
+     * @param coachingCenterId - Coaching center UUID
+     * @returns Revenue statistics for the coaching center
+     */
+    public async getCoachingCenterStats(
+        coachingCenterId: string
+    ): Promise<FeeReceiptOperationResult<BranchRevenueStats>> {
+        try {
+            // First get all branches for this coaching center
+            const { data: branches, error: branchError } = await this.supabase
+                .from('coaching_branches')
+                .select('id')
+                .eq('coaching_center_id', coachingCenterId);
+
+            if (branchError) {
+                console.error('[FeeReceiptsService] Fetch branches error:', branchError);
+                return {
+                    success: false,
+                    error: `Failed to fetch branches: ${branchError.message}`,
+                };
+            }
+
+            if (!branches || branches.length === 0) {
+                return {
+                    success: true,
+                    data: {
+                        branch_id: coachingCenterId,
+                        total_receipts: 0,
+                        total_revenue: 0,
+                        total_collected: 0,
+                        total_outstanding: 0,
+                        paid_receipts: 0,
+                        pending_receipts: 0,
+                        overdue_receipts: 0,
+                        collection_rate: 0,
+                        payment_by_method: {
+                            [PaymentMethod.MANUAL]: 0,
+                            [PaymentMethod.UPI]: 0,
+                            [PaymentMethod.CARD]: 0,
+                            [PaymentMethod.BANK_TRANSFER]: 0,
+                            [PaymentMethod.CHEQUE]: 0,
+                            [PaymentMethod.OTHER]: 0,
+                        },
+                    },
+                };
+            }
+
+            const branchIds = branches.map((b: { id: string }) => b.id);
+
+            // Fetch all receipts for these branches
+            const { data: receipts, error } = await this.supabase
+                .from('fee_receipts')
+                .select('*')
+                .in('branch_id', branchIds);
+
+            if (error) {
+                console.error('[FeeReceiptsService] Coaching center stats error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to fetch stats',
+                };
+            }
+
+            if (!receipts || receipts.length === 0) {
+                return {
+                    success: true,
+                    data: {
+                        branch_id: coachingCenterId,
+                        total_receipts: 0,
+                        total_revenue: 0,
+                        total_collected: 0,
+                        total_outstanding: 0,
+                        paid_receipts: 0,
+                        pending_receipts: 0,
+                        overdue_receipts: 0,
+                        collection_rate: 0,
+                        payment_by_method: {
+                            [PaymentMethod.MANUAL]: 0,
+                            [PaymentMethod.UPI]: 0,
+                            [PaymentMethod.CARD]: 0,
+                            [PaymentMethod.BANK_TRANSFER]: 0,
+                            [PaymentMethod.CHEQUE]: 0,
+                            [PaymentMethod.OTHER]: 0,
+                        },
+                    },
+                };
+            }
+
+            // Calculate statistics using the helper
+            const stats = calculateBranchStats(receipts as FeeReceipt[]);
+            // Override branch_id to use coaching center ID for identification
+            stats.branch_id = coachingCenterId;
+
+            return {
+                success: true,
+                data: stats,
+            };
+        } catch (error) {
+            console.error('[FeeReceiptsService] Coaching center stats exception:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',

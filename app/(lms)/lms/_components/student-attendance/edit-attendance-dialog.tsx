@@ -30,8 +30,9 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
-    useCurrentAttendanceRecord,
-    useSetCurrentRecord,
+    useRecordToEdit,
+    useIsEditDialogOpen,
+    useCloseEditDialog,
     useUpdateAttendance,
     AttendanceStatus,
     updateAttendanceSchema,
@@ -40,8 +41,9 @@ import {
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function EditAttendanceDialog() {
-    const currentRecord = useCurrentAttendanceRecord();
-    const setCurrentRecord = useSetCurrentRecord();
+    const currentRecord = useRecordToEdit();
+    const isOpen = useIsEditDialogOpen();
+    const closeEditDialog = useCloseEditDialog();
     const updateAttendance = useUpdateAttendance();
 
     const form = useForm({
@@ -79,7 +81,7 @@ export default function EditAttendanceDialog() {
 
         if (success) {
             showSuccessToast('Attendance updated successfully');
-            setCurrentRecord(null);
+            closeEditDialog();
         } else {
             showErrorToast('Failed to update attendance');
         }
@@ -88,8 +90,8 @@ export default function EditAttendanceDialog() {
     if (!currentRecord) return null;
 
     return (
-        <Dialog open={!!currentRecord} onOpenChange={() => setCurrentRecord(null)}>
-            <DialogContent className="  max-w-3xl max-h-[95vh] flex flex-col " key={currentRecord?.id}>
+        <Dialog open={!!isOpen} onOpenChange={() => closeEditDialog()}>
+            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col" key={currentRecord?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Attendance</DialogTitle>
                     <DialogDescription>
@@ -97,9 +99,9 @@ export default function EditAttendanceDialog() {
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className=" flex-1 min-h-0 p-4 overflow-x-auto">
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pr-4">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-y-auto">
+                    <Form {...form} >
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 px-2">
                             {/* Attendance Status */}
                             <FormField
                                 control={form.control}
@@ -126,75 +128,78 @@ export default function EditAttendanceDialog() {
                                 )}
                             />
 
-                            {/* Check In Time */}
-                            <FormField
-                                control={form.control}
-                                name="check_in_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Check In Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            {/* Time & Minutes Row - Responsive Layout */}
+                            <div className="space-y-4 lg:space-y-0 lg:grid lg:grid-cols-4 lg:gap-4">
+                                {/* Check In Time */}
+                                <FormField
+                                    control={form.control}
+                                    name="check_in_time"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Check In Time</FormLabel>
+                                            <FormControl>
+                                                <Input type="time" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            {/* Check Out Time */}
-                            <FormField
-                                control={form.control}
-                                name="check_out_time"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Check Out Time</FormLabel>
-                                        <FormControl>
-                                            <Input type="time" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                {/* Check Out Time */}
+                                <FormField
+                                    control={form.control}
+                                    name="check_out_time"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Check Out Time</FormLabel>
+                                            <FormControl>
+                                                <Input type="time" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            {/* Late Minutes */}
-                            <FormField
-                                control={form.control}
-                                name="late_by_minutes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Late By (minutes)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                {...field}
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                {/* Late Minutes */}
+                                <FormField
+                                    control={form.control}
+                                    name="late_by_minutes"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Late By (minutes)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                            {/* Early Leave Minutes */}
-                            <FormField
-                                control={form.control}
-                                name="early_leave_minutes"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Early Leave (minutes)</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                min="0"
-                                                {...field}
-                                                onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                {/* Early Leave Minutes */}
+                                <FormField
+                                    control={form.control}
+                                    name="early_leave_minutes"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Early Leave (minutes)</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    type="number"
+                                                    min="0"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseInt(e.target.value) || 0)}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
 
                             {/* Teacher Remarks */}
                             <FormField
@@ -237,11 +242,11 @@ export default function EditAttendanceDialog() {
                             />
 
                             {/* Actions */}
-                            <div className="flex justify-end gap-2 pt-4">
+                            <div className="flex justify-end gap-2 pt-6 border-t">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    onClick={() => setCurrentRecord(null)}
+                                    onClick={() => closeEditDialog()}
                                 >
                                     Cancel
                                 </Button>

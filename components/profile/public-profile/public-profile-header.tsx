@@ -66,9 +66,9 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
     return (
         <section className={cn('relative', className)}>
             {/* Cover/Background Gradient */}
-            <div className="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-r from-primary/80 via-primary to-primary/60 overflow-hidden rounded-t-xl">
+            <div className="relative h-32 sm:h-40 lg:h-48 bg-gradient-to-r from-primary/80 via-primary to-primary/60 overflow-hidden">
                 {/* Decorative pattern overlay */}
-                <div className="absolute inset-0 opacity-10">
+                <div className="absolute inset-0 opacity-10 z-0">
                     <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                         <defs>
                             <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
@@ -94,8 +94,8 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
             </div>
 
             {/* Profile Info Card - Overlapping */}
-            <div className="relative -mt-16 sm:-mt-20 px-4 sm:px-6 lg:px-8">
-                <div className="bg-card border rounded-xl p-4 sm:p-6 shadow-sm">
+            <div className="relative  ">
+                <div className="bg-card border rounded-b-xl p-3 sm:p-4 ">
                     <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                         {/* Avatar */}
                         <div className="relative shrink-0 -mt-16 sm:-mt-20">
@@ -112,31 +112,22 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
                                     <BadgeCheck className="h-4 w-4 text-white" />
                                 </div>
                             )}
-                            {/* Online/Offline Status Indicator */}
-                            <div
-                                className={cn(
-                                    "absolute bottom-2 right-2 h-4 w-4 rounded-full border-2 border-background",
-                                    profile.is_online
-                                        ? "bg-green-500"
-                                        : "bg-gray-400"
-                                )}
-                                title={profile.is_online ? "Online" : "Offline"}
-                            />
+
                         </div>
 
                         {/* Main Info */}
-                        <div className="flex-1 min-w-0 pt-2 sm:pt-4">
+                        <div className="flex-1 min-w-0 pt-2 sm:pt-3">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                                 {/* Name and username */}
                                 <div className="min-w-0">
-                                    <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+                                    <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-foreground">
                                         {displayName}
                                     </h1>
-                                    {profile.username && (
+                                    {/* {profile.username && (
                                         <p className="text-muted-foreground mt-0.5">
                                             @{profile.username}
                                         </p>
-                                    )}
+                                    )} */}
                                 </div>
 
                                 {/* Role badge */}
@@ -147,7 +138,7 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
                             </div>
 
                             {/* Meta info row */}
-                            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                            <div className=" flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                                 {profile.is_verified && (
                                     <span className="inline-flex items-center gap-1 text-blue-600">
                                         <BadgeCheck className="h-4 w-4" />
@@ -177,7 +168,7 @@ export const PublicProfileHeader = memo(function PublicProfileHeader({
 
                             {/* Bio preview */}
                             {profile.bio && (
-                                <p className="mt-4 text-foreground leading-relaxed line-clamp-2 sm:line-clamp-3">
+                                <p className="text-foreground leading-relaxed line-clamp-2 sm:line-clamp-3">
                                     {profile.bio}
                                 </p>
                             )}

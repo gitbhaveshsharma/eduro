@@ -31,16 +31,35 @@ import { useFeeReceiptsStore } from '@/lib/branch-system/stores/fee-receipts.sto
 import { ReceiptStatus, PaymentMethod } from '@/lib/branch-system/types/fee-receipts.types';
 import { formatReceiptStatus, formatPaymentMethod } from '@/lib/branch-system/utils/fee-receipts.utils';
 
-export default function ReceiptFilters() {
-    const { filters, setFilters, clearFilters } = useFeeReceiptsStore();
+interface ReceiptFiltersProps {
+    /** Branch ID - for branch manager view (single branch) */
+    branchId?: string;
+    /** Coaching Center ID - for coach view (all branches) */
+    coachingCenterId?: string;
+}
+
+export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFiltersProps) {
+    const { filters, setFilters, clearFilters, fetchReceipts, fetchCoachingCenterReceipts } = useFeeReceiptsStore();
 
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Sync local state with store filters
     const [localFilters, setLocalFilters] = useState({
-        receipt_status: filters.receipt_status || '',
-        payment_method: filters.payment_method || '',
+        receipt_status: filters.receipt_status || 'all',
+        payment_method: filters.payment_method || 'all',
         is_overdue: filters.is_overdue || false,
         has_balance: filters.has_balance || false,
     });
+
+    // Sync local state when store filters change (e.g., when clearFilters is called)
+    useEffect(() => {
+        setLocalFilters({
+            receipt_status: filters.receipt_status || 'all',
+            payment_method: filters.payment_method || 'all',
+            is_overdue: filters.is_overdue || false,
+            has_balance: filters.has_balance || false,
+        });
+    }, [filters.receipt_status, filters.payment_method, filters.is_overdue, filters.has_balance]);
 
     // Debounced search
     useEffect(() => {
@@ -60,30 +79,53 @@ export default function ReceiptFilters() {
         const newFilters = { ...localFilters, [key]: value };
         setLocalFilters(newFilters);
 
-        // Apply filters
+        // Apply filters (map 'all' sentinel to no value)
         const apiFilters: any = {};
-        if (newFilters.receipt_status) apiFilters.receipt_status = newFilters.receipt_status as ReceiptStatus;
-        if (newFilters.payment_method) apiFilters.payment_method = newFilters.payment_method as PaymentMethod;
+        // Preserve branch_id filter for branch manager view
+        if (branchId) apiFilters.branch_id = branchId;
+        if (newFilters.receipt_status && newFilters.receipt_status !== 'all') apiFilters.receipt_status = newFilters.receipt_status as ReceiptStatus;
+        if (newFilters.payment_method && newFilters.payment_method !== 'all') apiFilters.payment_method = newFilters.payment_method as PaymentMethod;
         if (newFilters.is_overdue) apiFilters.is_overdue = true;
         if (newFilters.has_balance) apiFilters.has_balance = true;
 
         setFilters(apiFilters);
+
+        // Trigger re-fetch based on context
+        if (coachingCenterId) {
+            fetchCoachingCenterReceipts(coachingCenterId);
+        } else {
+            fetchReceipts();
+        }
     };
 
     // Clear all filters
     const handleClearAll = () => {
+        // Clear local search query
         setSearchQuery('');
+
+        // Clear local filters - this will be synced again via useEffect when store updates
         setLocalFilters({
-            receipt_status: '',
-            payment_method: '',
+            receipt_status: 'all',
+            payment_method: 'all',
             is_overdue: false,
             has_balance: false,
         });
-        clearFilters();
+
+        // Clear store filters and refetch
+        if (branchId) {
+            // For branch manager view, keep branch_id filter
+            clearFilters();
+            setFilters({ branch_id: branchId });
+        } else if (coachingCenterId) {
+            clearFilters();
+            fetchCoachingCenterReceipts(coachingCenterId);
+        } else {
+            clearFilters();
+        }
     };
 
     // Count active filters
-    const activeFiltersCount = Object.values(localFilters).filter((v) => v && v !== '').length +
+    const activeFiltersCount = Object.values(localFilters).filter((v) => v && v !== '' && v !== 'all').length +
         (searchQuery ? 1 : 0);
 
     return (
@@ -116,13 +158,13 @@ export default function ReceiptFilters() {
                             <Label>Receipt Status</Label>
                             <Select
                                 value={localFilters.receipt_status}
-                                onValueChange={(value) => handleFilterChange('receipt_status', value || '')}
+                                onValueChange={(value) => handleFilterChange('receipt_status', value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="All statuses" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All statuses</SelectItem>
+                                    <SelectItem value="all">All statuses</SelectItem>
                                     {Object.values(ReceiptStatus).map((status) => (
                                         <SelectItem key={status} value={status}>
                                             {formatReceiptStatus(status)}
@@ -137,13 +179,13 @@ export default function ReceiptFilters() {
                             <Label>Payment Method</Label>
                             <Select
                                 value={localFilters.payment_method}
-                                onValueChange={(value) => handleFilterChange('payment_method', value || '')}
+                                onValueChange={(value) => handleFilterChange('payment_method', value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="All methods" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="">All methods</SelectItem>
+                                    <SelectItem value="all">All methods</SelectItem>
                                     {Object.values(PaymentMethod).map((method) => (
                                         <SelectItem key={method} value={method}>
                                             {formatPaymentMethod(method)}
@@ -190,11 +232,11 @@ export default function ReceiptFilters() {
                                     </button>
                                 </Badge>
                             )}
-                            {localFilters.receipt_status && (
+                            {localFilters.receipt_status && localFilters.receipt_status !== 'all' && (
                                 <Badge variant="secondary">
                                     Status: {formatReceiptStatus(localFilters.receipt_status as ReceiptStatus)}
                                     <button
-                                        onClick={() => handleFilterChange('receipt_status', '')}
+                                        onClick={() => handleFilterChange('receipt_status', 'all')}
                                         className="ml-1 hover:bg-secondary-foreground/20 rounded-full"
                                     >
                                         <X className="h-3 w-3" />
@@ -202,15 +244,17 @@ export default function ReceiptFilters() {
                                 </Badge>
                             )}
                             {localFilters.payment_method && (
-                                <Badge variant="secondary">
-                                    Payment: {formatPaymentMethod(localFilters.payment_method as PaymentMethod)}
-                                    <button
-                                        onClick={() => handleFilterChange('payment_method', '')}
-                                        className="ml-1 hover:bg-secondary-foreground/20 rounded-full"
-                                    >
-                                        <X className="h-3 w-3" />
-                                    </button>
-                                </Badge>
+                                localFilters.payment_method !== 'all' && (
+                                    <Badge variant="secondary">
+                                        Payment: {formatPaymentMethod(localFilters.payment_method as PaymentMethod)}
+                                        <button
+                                            onClick={() => handleFilterChange('payment_method', 'all')}
+                                            className="ml-1 hover:bg-secondary-foreground/20 rounded-full"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                )
                             )}
                             {localFilters.is_overdue && (
                                 <Badge variant="secondary">
