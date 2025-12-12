@@ -17,7 +17,9 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle,
+    LayoutDashboard, ListChecks
+ } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCoachContext } from '../layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -91,8 +93,14 @@ export default function StudentFeesPage() {
             {/* Tab Navigation */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full max-w-md grid-cols-2">
-                    <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                    <TabsTrigger value="receipts">Receipts List</TabsTrigger>
+                     <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                        <LayoutDashboard className="h-4 w-4" />
+                        <span>Dashboard</span>
+                    </TabsTrigger>                    
+                    <TabsTrigger value="receipts" className="flex items-center gap-2">
+                        <ListChecks className="h-4 w-4" />
+                        <span>Receipts List</span>
+                    </TabsTrigger>
                 </TabsList>
 
                 {/* Dashboard Tab */}
