@@ -42,12 +42,24 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
     const { filters, setFilters, clearFilters, fetchReceipts, fetchCoachingCenterReceipts } = useFeeReceiptsStore();
 
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Sync local state with store filters
     const [localFilters, setLocalFilters] = useState({
         receipt_status: filters.receipt_status || 'all',
         payment_method: filters.payment_method || 'all',
         is_overdue: filters.is_overdue || false,
         has_balance: filters.has_balance || false,
     });
+
+    // Sync local state when store filters change (e.g., when clearFilters is called)
+    useEffect(() => {
+        setLocalFilters({
+            receipt_status: filters.receipt_status || 'all',
+            payment_method: filters.payment_method || 'all',
+            is_overdue: filters.is_overdue || false,
+            has_balance: filters.has_balance || false,
+        });
+    }, [filters.receipt_status, filters.payment_method, filters.is_overdue, filters.has_balance]);
 
     // Debounced search
     useEffect(() => {
@@ -77,7 +89,7 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
         if (newFilters.has_balance) apiFilters.has_balance = true;
 
         setFilters(apiFilters);
-        
+
         // Trigger re-fetch based on context
         if (coachingCenterId) {
             fetchCoachingCenterReceipts(coachingCenterId);
@@ -88,17 +100,22 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
 
     // Clear all filters
     const handleClearAll = () => {
+        // Clear local search query
         setSearchQuery('');
+
+        // Clear local filters - this will be synced again via useEffect when store updates
         setLocalFilters({
             receipt_status: 'all',
             payment_method: 'all',
             is_overdue: false,
             has_balance: false,
         });
-        // Keep branch_id filter when clearing for branch manager view
+
+        // Clear store filters and refetch
         if (branchId) {
+            // For branch manager view, keep branch_id filter
+            clearFilters();
             setFilters({ branch_id: branchId });
-            fetchReceipts();
         } else if (coachingCenterId) {
             clearFilters();
             fetchCoachingCenterReceipts(coachingCenterId);

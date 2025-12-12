@@ -82,6 +82,54 @@ class FeeReceiptsService {
     }
 
     // ============================================================
+    // HELPER METHODS
+    // ============================================================
+
+    /**
+     * Transform raw database receipt to FeeReceipt type
+     * Maps branch_students relation to student property with expected field names
+     */
+    private transformReceipt(rawReceipt: any): FeeReceipt {
+        const { branch_students, coaching_branches, branch_classes, ...receipt } = rawReceipt;
+
+        return {
+            ...receipt,
+            // Map branch_students to student with expected property names
+            student: branch_students ? {
+                id: branch_students.student_id,
+                full_name: branch_students.student_name,
+                email: branch_students.student_email,
+                username: null, // Not stored in branch_students
+                avatar_url: null, // Not stored in branch_students
+            } : undefined,
+            // Map coaching_branches to branch
+            branch: coaching_branches ? {
+                id: coaching_branches.id,
+                name: coaching_branches.name,
+            } : undefined,
+            // Map branch_classes to class
+            class: branch_classes ? {
+                id: branch_classes.id,
+                class_name: branch_classes.class_name,
+                subject: branch_classes.subject,
+            } : null,
+            // Map enrollment from branch_students
+            enrollment: branch_students ? {
+                id: branch_students.id,
+                enrollment_date: branch_students.enrollment_date,
+                enrollment_status: branch_students.enrollment_status,
+            } : undefined,
+        } as FeeReceipt;
+    }
+
+    /**
+     * Transform array of raw receipts
+     */
+    private transformReceipts(rawReceipts: any[]): FeeReceipt[] {
+        return rawReceipts.map(receipt => this.transformReceipt(receipt));
+    }
+
+    // ============================================================
     // CREATE OPERATIONS
     // ============================================================
 
@@ -180,10 +228,13 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
+            const transformedReceipt = this.transformReceipt(receipt);
+
             return {
                 success: true,
                 data: {
-                    receipt: receipt as FeeReceipt,
+                    receipt: transformedReceipt,
                     receipt_number: receipt.receipt_number,
                     total_amount: receipt.total_amount,
                     balance_amount: receipt.balance_amount,
@@ -313,10 +364,13 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
+            const transformedReceipt = this.transformReceipt(updatedReceipt);
+
             return {
                 success: true,
                 data: {
-                    receipt: updatedReceipt as FeeReceipt,
+                    receipt: transformedReceipt,
                     payment_applied: data.amount_paid,
                     new_balance: new_balance,
                     is_fully_paid: is_fully_paid,
@@ -454,9 +508,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: updatedReceipt as FeeReceipt,
+                data: this.transformReceipt(updatedReceipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Update receipt exception:', error);
@@ -562,9 +617,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: updatedReceipt as FeeReceipt,
+                data: this.transformReceipt(updatedReceipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Cancel receipt exception:', error);
@@ -634,9 +690,10 @@ class FeeReceiptsService {
                 };
             }
 
+            // Transform to FeeReceipt type with proper field mapping
             return {
                 success: true,
-                data: receipt as FeeReceipt,
+                data: this.transformReceipt(receipt),
             };
         } catch (error) {
             console.error('[FeeReceiptsService] Get receipt by ID exception:', error);
@@ -760,10 +817,11 @@ class FeeReceiptsService {
             const total = count || 0;
             const hasMore = offset + limit < total;
 
+            // Transform all receipts to FeeReceipt type with proper field mapping
             return {
                 success: true,
                 data: {
-                    data: (receipts || []) as FeeReceipt[],
+                    data: this.transformReceipts(receipts || []),
                     total: total,
                     page: page,
                     limit: limit,
@@ -921,10 +979,11 @@ class FeeReceiptsService {
             const total = count || 0;
             const hasMore = offset + limit < total;
 
+            // Transform all receipts to FeeReceipt type with proper field mapping
             return {
                 success: true,
                 data: {
-                    data: (receipts || []) as FeeReceipt[],
+                    data: this.transformReceipts(receipts || []),
                     total: total,
                     page: page,
                     limit: limit,
