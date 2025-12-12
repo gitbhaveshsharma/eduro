@@ -248,7 +248,7 @@ export default function BulkMarkDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col ">
+            <DialogContent className="max-w-2xl max-h-[95vh] flex flex-col ">
                 <DialogHeader>
                     <DialogTitle>Bulk Mark Attendance</DialogTitle>
                     <DialogDescription>
@@ -256,7 +256,7 @@ export default function BulkMarkDialog({
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
-                    <div className="space-y-4">
+                    <div className="space-y-4 p-4">
                         {/* Date Picker */}
                         <div className="flex items-center gap-4 flex-wrap">
                             <Popover>

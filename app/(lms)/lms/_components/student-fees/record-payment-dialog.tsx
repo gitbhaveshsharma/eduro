@@ -21,6 +21,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import {
     Form,
@@ -42,7 +43,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, IndianRupee } from 'lucide-react';
+import { Loader2, IndianRupee, Scroll } from 'lucide-react';
 
 // Import store, schema, and utilities
 import { useFeeReceiptsStore } from '@/lib/branch-system/stores/fee-receipts.store';
@@ -53,7 +54,9 @@ import { formatCurrency, formatPaymentMethod } from '@/lib/branch-system/utils/f
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function RecordPaymentDialog() {
-    const { currentReceipt, recordPayment, isRecordingPayment, setCurrentReceipt } = useFeeReceiptsStore();
+    const { currentReceipt, activeDialog, recordPayment, isRecordingPayment, closeDialog, refresh } = useFeeReceiptsStore();
+
+    const isOpen = activeDialog === 'payment' && !!currentReceipt;
 
     const form = useForm<RecordPaymentInput>({
         resolver: zodResolver(recordPaymentSchema),
@@ -68,11 +71,18 @@ export default function RecordPaymentDialog() {
 
     // Update form when receipt changes
     useEffect(() => {
-        if (currentReceipt) {
+        if (currentReceipt && isOpen) {
             form.setValue('receipt_id', currentReceipt.id);
             form.setValue('amount_paid', currentReceipt.balance_amount);
         }
-    }, [currentReceipt, form]);
+    }, [currentReceipt, isOpen, form]);
+
+    // Reset form when dialog closes
+    useEffect(() => {
+        if (!isOpen) {
+            form.reset();
+        }
+    }, [isOpen, form]);
 
     const handleSubmit = async (data: RecordPaymentInput) => {
         const result = await recordPayment(data);
@@ -83,7 +93,9 @@ export default function RecordPaymentDialog() {
                 }`
             );
             form.reset();
-            setCurrentReceipt(null);
+            closeDialog();
+            // Refresh the receipts list to ensure data is up-to-date
+            refresh();
         } else {
             showErrorToast('Failed to record payment. Please check the form and try again.');
         }
@@ -91,14 +103,14 @@ export default function RecordPaymentDialog() {
 
     const handleClose = () => {
         form.reset();
-        setCurrentReceipt(null);
+        closeDialog();
     };
 
-    if (!currentReceipt) return null;
+    if (!currentReceipt || !isOpen) return null;
 
     return (
-        <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
-            <DialogContent className="max-w-xl">
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>Record Payment</DialogTitle>
                     <DialogDescription>
@@ -107,142 +119,143 @@ export default function RecordPaymentDialog() {
                 </DialogHeader>
 
                 {/* Receipt Summary */}
-                <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Student</span>
-                        <span className="text-sm">{currentReceipt.student?.full_name || 'Unknown'}</span>
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-y-auto">
+                    <div className="rounded-lg border p-4 space-y-2 bg-muted/50">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Student</span>
+                            <span className="text-sm">{currentReceipt.student?.full_name || 'Unknown'}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Total Amount</span>
+                            <span className="text-sm">{formatCurrency(currentReceipt.total_amount)}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Already Paid</span>
+                            <span className="text-sm text-green-600">{formatCurrency(currentReceipt.amount_paid)}</span>
+                        </div>
+                        <Separator />
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium">Balance Due</span>
+                            <Badge variant="secondary" className="text-base">
+                                {formatCurrency(currentReceipt.balance_amount)}
+                            </Badge>
+                        </div>
                     </div>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Total Amount</span>
-                        <span className="text-sm">{formatCurrency(currentReceipt.total_amount)}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Already Paid</span>
-                        <span className="text-sm text-green-600">{formatCurrency(currentReceipt.amount_paid)}</span>
-                    </div>
-                    <Separator />
-                    <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Balance Due</span>
-                        <Badge variant="secondary" className="text-base">
-                            {formatCurrency(currentReceipt.balance_amount)}
-                        </Badge>
-                    </div>
-                </div>
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-                        {/* Payment Amount */}
-                        <FormField
-                            control={form.control}
-                            name="amount_paid"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Payment Amount *</FormLabel>
-                                    <FormControl>
-                                        <div className="relative">
-                                            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                            <Input
-                                                type="number"
-                                                step="0.01"
-                                                placeholder="0.00"
-                                                className="pl-10"
-                                                {...field}
-                                                onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                    </FormControl>
-                                    <FormDescription>
-                                        Maximum: {formatCurrency(currentReceipt.balance_amount)}
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        {/* Payment Method */}
-                        <FormField
-                            control={form.control}
-                            name="payment_method"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Payment Method *</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4 p-2">
+                            {/* Payment Amount */}
+                            <FormField
+                                control={form.control}
+                                name="amount_paid"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payment Amount *</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select payment method" />
-                                            </SelectTrigger>
+                                            <div className="relative">
+                                                <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input
+                                                    type="number"
+                                                    step="0.01"
+                                                    placeholder="0.00"
+                                                    className="pl-10"
+                                                    {...field}
+                                                    onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
+                                                />
+                                            </div>
                                         </FormControl>
-                                        <SelectContent>
-                                            {Object.values(PaymentMethod).map((method) => (
-                                                <SelectItem key={method} value={method}>
-                                                    {formatPaymentMethod(method)}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                        <FormDescription>
+                                            Maximum: {formatCurrency(currentReceipt.balance_amount)}
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {/* Payment Reference */}
-                        <FormField
-                            control={form.control}
-                            name="payment_reference"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Payment Reference</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Transaction ID, cheque number, etc." {...field} />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Required for UPI, Card, and Bank Transfer payments
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                            {/* Payment Method */}
+                            <FormField
+                                control={form.control}
+                                name="payment_method"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payment Method *</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select payment method" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {Object.values(PaymentMethod).map((method) => (
+                                                    <SelectItem key={method} value={method}>
+                                                        {formatPaymentMethod(method)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {/* Payment Date */}
-                        <FormField
-                            control={form.control}
-                            name="payment_date"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Payment Date</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
-                                    <FormDescription>
-                                        Leave empty to use today's date
-                                    </FormDescription>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                            {/* Payment Reference */}
+                            <FormField
+                                control={form.control}
+                                name="payment_reference"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payment Reference</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Transaction ID, cheque number, etc." {...field} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Required for UPI, Card, and Bank Transfer payments
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
-                        {/* Internal Notes */}
-                        <FormField
-                            control={form.control}
-                            name="internal_notes"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Internal Notes</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="Add any notes about this payment..."
-                                            className="resize-none"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </form>
-                </Form>
+                            {/* Payment Date */}
+                            <FormField
+                                control={form.control}
+                                name="payment_date"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Payment Date</FormLabel>
+                                        <FormControl>
+                                            <Input type="date" {...field} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Leave empty to use today's date
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
 
+                            {/* Internal Notes */}
+                            <FormField
+                                control={form.control}
+                                name="internal_notes"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Internal Notes</FormLabel>
+                                        <FormControl>
+                                            <Textarea
+                                                placeholder="Add any notes about this payment..."
+                                                className="resize-none"
+                                                {...field}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </form>
+                    </Form>
+                </ScrollArea>
                 <DialogFooter>
                     <Button variant="outline" onClick={handleClose} disabled={isRecordingPayment}>
                         Cancel

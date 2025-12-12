@@ -50,6 +50,11 @@ export interface FeeReceiptsState {
     currentReceipt: FeeReceipt | null;
 
     /**
+     * Active dialog type - controls which dialog is open
+     */
+    activeDialog: 'details' | 'edit' | 'payment' | 'cancel' | null;
+
+    /**
      * Student payment summary
      */
     studentSummary: StudentPaymentSummary | null;
@@ -231,6 +236,16 @@ export interface FeeReceiptsState {
     setCurrentReceipt: (receipt: FeeReceipt | null) => void;
 
     /**
+     * Open a specific dialog with a receipt
+     */
+    openDialog: (dialog: 'details' | 'edit' | 'payment' | 'cancel', receipt: FeeReceipt) => void;
+
+    /**
+     * Close the active dialog
+     */
+    closeDialog: () => void;
+
+    /**
      * Clear error state
      */
     clearError: () => void;
@@ -277,6 +292,7 @@ export interface FeeReceiptsState {
 const initialState = {
     receipts: [],
     currentReceipt: null,
+    activeDialog: null as 'details' | 'edit' | 'payment' | 'cancel' | null,
     studentSummary: null,
     branchStats: null,
     filters: {},
@@ -795,6 +811,20 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                 setCurrentReceipt: (receipt: FeeReceipt | null) => {
                     set((state) => {
                         state.currentReceipt = receipt;
+                    });
+                },
+
+                openDialog: (dialog: 'details' | 'edit' | 'payment' | 'cancel', receipt: FeeReceipt) => {
+                    set((state) => {
+                        state.currentReceipt = receipt;
+                        state.activeDialog = dialog;
+                    });
+                },
+
+                closeDialog: () => {
+                    set((state) => {
+                        state.activeDialog = null;
+                        state.currentReceipt = null;
                     });
                 },
 

@@ -51,10 +51,23 @@ import { Loader2, UserPlus, CalendarIcon, ChevronDownIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { BranchSearchSelect } from '@/components/coaching/management/branch-search-select';
+import { ClassSearchSelect } from '@/components/coaching/management/class-search-select';
 import { CoachingBranch } from '@/lib/schema/coaching.types';
 import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
+import type { BranchClass } from '@/lib/branch-system/types/branch-classes.types';
+
+/**
+ * Class with branch info for search select
+ */
+interface ClassWithBranch extends BranchClass {
+    branch?: {
+        id: string;
+        name: string;
+        coaching_center_id?: string;
+    } | null;
+}
 
 /**
  * Enroll Student Dialog Props
@@ -71,6 +84,7 @@ interface EnrollStudentDialogProps {
 export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStudentDialogProps) {
     const { enrollStudent, loading } = useBranchStudentsStore();
     const [selectedBranch, setSelectedBranch] = useState<CoachingBranch | null>(null);
+    const [selectedClass, setSelectedClass] = useState<ClassWithBranch | null>(null);
 
     // Student search states
     const [studentUsername, setStudentUsername] = useState("");
@@ -137,6 +151,8 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
             setStudentError(null);
             setStudentSearchResults([]);
             setShowStudentResults(false);
+            // Reset class selection
+            setSelectedClass(null);
             // If a branchId was provided, clear any selectedBranch state
             if (branchId) setSelectedBranch(null);
         }
@@ -239,6 +255,7 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
         if (!loading) {
             form.reset();
             setSelectedStudent(null);
+            setSelectedClass(null);
             setStudentUsername("");
             setStudentError(null);
             setStudentSearchResults([]);
@@ -426,16 +443,24 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
                                 <FormField
                                     control={form.control}
                                     name="class_id"
-                                    render={({ field }) => (
+                                    render={() => (
                                         <FormItem>
-                                            <FormLabel>Class ID (Optional)</FormLabel>
-                                            <FormControl>
-                                                <Input
-                                                    placeholder="Enter class UUID"
-                                                    {...field}
-                                                    value={field.value || ''}
-                                                />
-                                            </FormControl>
+                                            <ClassSearchSelect
+                                                selectedClass={selectedClass}
+                                                onSelect={(cls) => {
+                                                    setSelectedClass(cls);
+                                                    form.setValue('class_id', cls.id);
+                                                }}
+                                                onClear={() => {
+                                                    setSelectedClass(null);
+                                                    form.setValue('class_id', null);
+                                                }}
+                                                branchId={branchId || selectedBranch?.id}
+                                                coachingCenterId={selectedBranch?.coaching_center_id}
+                                                label="Class (Optional)"
+                                                placeholder="Search for a class by name or subject"
+                                                disabled={!branchId && !selectedBranch}
+                                            />
                                             <FormDescription>
                                                 Assign student to a specific class
                                             </FormDescription>

@@ -44,7 +44,9 @@ import type { UpdateReceiptInput } from '@/lib/branch-system/types/fee-receipts.
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 
 export default function EditReceiptDialog() {
-    const { currentReceipt, updateReceipt, isUpdating, setCurrentReceipt } = useFeeReceiptsStore();
+    const { currentReceipt, activeDialog, updateReceipt, isUpdating, closeDialog, refresh } = useFeeReceiptsStore();
+
+    const isOpen = activeDialog === 'edit' && !!currentReceipt;
 
     const form = useForm<UpdateReceiptInput>({
         resolver: zodResolver(updateReceiptSchema),
@@ -62,7 +64,7 @@ export default function EditReceiptDialog() {
 
     // Load current receipt data
     useEffect(() => {
-        if (currentReceipt) {
+        if (currentReceipt && isOpen) {
             const formData = {
                 id: currentReceipt.id,
                 due_date: currentReceipt.due_date,
@@ -75,7 +77,14 @@ export default function EditReceiptDialog() {
             };
             form.reset(formData, { keepDefaultValues: false });
         }
-    }, [currentReceipt]);
+    }, [currentReceipt, isOpen, form]);
+
+    // Reset form when dialog closes
+    useEffect(() => {
+        if (!isOpen) {
+            form.reset();
+        }
+    }, [isOpen, form]);
 
     const handleSubmit = async (data: UpdateReceiptInput) => {
         const result = await updateReceipt(data);
@@ -83,7 +92,9 @@ export default function EditReceiptDialog() {
         if (result) {
             showSuccessToast('Receipt updated successfully!');
             form.reset();
-            setCurrentReceipt(null);
+            closeDialog();
+            // Refresh the receipts list to ensure data is up-to-date
+            refresh();
         } else {
             showErrorToast('Failed to update receipt. Please check the form and try again.');
         }
@@ -91,16 +102,16 @@ export default function EditReceiptDialog() {
 
     const handleClose = () => {
         form.reset();
-        setCurrentReceipt(null);
+        closeDialog();
     };
 
-    if (!currentReceipt) return null;
+    if (!currentReceipt || !isOpen) return null;
 
     // Check if receipt can be edited
     const canEdit = currentReceipt.amount_paid === 0;
     if (!canEdit) {
         return (
-            <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
+            <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Cannot Edit Receipt</DialogTitle>
@@ -117,7 +128,7 @@ export default function EditReceiptDialog() {
     }
 
     return (
-        <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && handleClose()}>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" key={currentReceipt?.id}>
                 <DialogHeader>
                     <DialogTitle>Edit Receipt</DialogTitle>

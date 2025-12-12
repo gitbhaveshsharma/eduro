@@ -47,7 +47,7 @@ import {
 import { ReceiptStatus } from '@/lib/branch-system/types/fee-receipts.types';
 
 export default function ReceiptDetailsDialog() {
-    const { currentReceipt, setCurrentReceipt } = useFeeReceiptsStore();
+    const { currentReceipt, activeDialog, closeDialog, openDialog } = useFeeReceiptsStore();
 
     if (!currentReceipt) return null;
 
@@ -63,8 +63,8 @@ export default function ReceiptDetailsDialog() {
         currentReceipt.receipt_status !== ReceiptStatus.REFUNDED;
 
     return (
-        <Dialog open={!!currentReceipt} onOpenChange={(open) => !open && setCurrentReceipt(null)}>
-            <DialogContent className="max-w-3xl max-h-[90vh]">
+        <Dialog open={activeDialog === 'details'} onOpenChange={(open) => !open && closeDialog()}>
+            <DialogContent className="max-w-2xl max-h-[95vh] overflow-y-auto">
                 <DialogHeader>
                     <div className="flex items-center justify-between">
                         <div>
@@ -79,7 +79,7 @@ export default function ReceiptDetailsDialog() {
                     </div>
                 </DialogHeader>
 
-                <ScrollArea className="max-h-[calc(90vh-200px)] pr-4">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-y-auto">
                     <div className="space-y-6">
                         {/* Overdue Alert */}
                         {isOverdue && (
@@ -261,24 +261,24 @@ export default function ReceiptDetailsDialog() {
                 </ScrollArea>
 
                 <DialogFooter className="flex items-center justify-between">
-                    <Button variant="outline" onClick={() => setCurrentReceipt(null)}>
+                    <Button variant="outline" onClick={() => closeDialog()}>
                         Close
                     </Button>
                     <div className="flex gap-2">
                         {canEdit && (
-                            <Button variant="outline" size="sm">
+                            <Button variant="outline" size="sm" onClick={() => openDialog('edit', currentReceipt)}>
                                 <Edit className="h-4 w-4 mr-2" />
                                 Edit
                             </Button>
                         )}
                         {canRecordPayment && (
-                            <Button size="sm">
+                            <Button size="sm" onClick={() => openDialog('payment', currentReceipt)}>
                                 <CreditCard className="h-4 w-4 mr-2" />
                                 Record Payment
                             </Button>
                         )}
                         {canCancel && (
-                            <Button variant="destructive" size="sm">
+                            <Button variant="destructive" size="sm" onClick={() => openDialog('cancel', currentReceipt)}>
                                 <XCircle className="h-4 w-4 mr-2" />
                                 Cancel
                             </Button>

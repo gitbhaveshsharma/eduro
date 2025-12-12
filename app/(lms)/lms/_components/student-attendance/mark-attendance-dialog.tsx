@@ -249,7 +249,7 @@ export default function MarkAttendanceDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
+            <DialogContent className="max-w-2xl max-h-[95vh] flex flex-col">
                 <DialogHeader>
                     <DialogTitle>Mark Attendance</DialogTitle>
                     <DialogDescription>
@@ -260,7 +260,7 @@ export default function MarkAttendanceDialog({
                     <Form {...form}>
                         <form
                             onSubmit={form.handleSubmit(onSubmit)}
-                            className="space-y-6"
+                            className="space-y-6 p-4"
                         >
                             {/* Branch Selection (only for coach view) */}
                             {isCoachView && (

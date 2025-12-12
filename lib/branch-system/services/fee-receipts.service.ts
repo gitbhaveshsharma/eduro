@@ -141,29 +141,28 @@ class FeeReceiptsService {
                 .from('fee_receipts')
                 .insert(insertData)
                 .select(`
-                    *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        )
+                    `)
                 .single();
 
             if (error) {
@@ -419,29 +418,28 @@ class FeeReceiptsService {
                 .update(updateData)
                 .eq('id', data.id)
                 .select(`
-                    *,
-                    profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        )
+                    `)
                 .single();
 
             if (updateError) {
@@ -597,35 +595,35 @@ class FeeReceiptsService {
             const { data: receipt, error } = await this.supabase
                 .from('fee_receipts')
                 .select(`
-                    *,
-                        profiles:student_id (
-                        id,
-                        full_name,
-                        username,
-                        avatar_url,
-                        email
-                    ),
-                    coaching_branches:branch_id (
-                        id,
-                        name
-                    ),
-                    branch_classes:class_id (
-                        id,
-                        class_name,
-                        subject
-                    ),
-                    branch_students:enrollment_id (
-                        id,
-                        enrollment_date,
-                        enrollment_status
-                    ),
-                    processor:processed_by (
-                        id,
-                        full_name
-                    )
-                `)
+                        *,
+                        coaching_branches:branch_id (
+                            id,
+                            name
+                        ),
+                        branch_classes:class_id (
+                            id,
+                            class_name,
+                            subject
+                        ),
+                        branch_students:enrollment_id (
+                            id,
+                            student_id,
+                            student_name,
+                            student_email,
+                            student_phone,
+                            enrollment_date,
+                            enrollment_status,
+                            total_fees_due,
+                            total_fees_paid
+                        ),
+                        processor:processed_by (
+                            id,
+                            full_name
+                        )
+                    `)
                 .eq('id', receiptId)
                 .single();
+
 
             if (error) {
                 console.error('[FeeReceiptsService] Get receipt by ID error:', error);
@@ -652,7 +650,7 @@ class FeeReceiptsService {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
             };
-            }
+        }
     }
 
     /**

@@ -9,7 +9,7 @@
  * - Responsive design with loading states
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
     Table,
     TableBody,
@@ -68,17 +68,12 @@ export default function ReceiptsTable({ branchId, coachingCenterId }: ReceiptsTa
         fetchReceipts,
         fetchCoachingCenterReceipts,
         setFilters,
-        setCurrentReceipt,
+        openDialog,
         setSort,
         setPage,
         nextPage,
         previousPage,
     } = useFeeReceiptsStore();
-
-    const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-    const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
-    const [editDialogOpen, setEditDialogOpen] = useState(false);
-    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
 
     // Fetch receipts on mount based on branchId or coachingCenterId
     useEffect(() => {
@@ -258,22 +253,10 @@ export default function ReceiptsTable({ branchId, coachingCenterId }: ReceiptsTa
                                     <TableCell>
                                         <StudentRowActions
                                             receipt={receipt}
-                                            onView={() => {
-                                                setCurrentReceipt(receipt);
-                                                setDetailsDialogOpen(true);
-                                            }}
-                                            onEdit={() => {
-                                                setCurrentReceipt(receipt);
-                                                setEditDialogOpen(true);
-                                            }}
-                                            onRecordPayment={() => {
-                                                setCurrentReceipt(receipt);
-                                                setPaymentDialogOpen(true);
-                                            }}
-                                            onCancel={() => {
-                                                setCurrentReceipt(receipt);
-                                                setCancelDialogOpen(true);
-                                            }}
+                                            onView={() => openDialog('details', receipt)}
+                                            onEdit={() => openDialog('edit', receipt)}
+                                            onRecordPayment={() => openDialog('payment', receipt)}
+                                            onCancel={() => openDialog('cancel', receipt)}
                                         />
                                     </TableCell>
                                 </TableRow>

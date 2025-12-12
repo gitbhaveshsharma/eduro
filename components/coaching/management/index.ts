@@ -11,3 +11,5 @@ export { CoachingCenterDashboard } from './coaching-center-dashboard';
 export { CoachingBranchForm } from './coaching-branch-form';
 export { CoachingBranchCard } from './coaching-branch-card';
 export { CoachingBranchManager } from './coaching-branch-manager';
+export { BranchSearchSelect } from './branch-search-select';
+export { ClassSearchSelect } from './class-search-select';
