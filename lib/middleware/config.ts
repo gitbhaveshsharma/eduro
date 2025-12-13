@@ -245,7 +245,16 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
-
+  '/manager/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    rateLimiting: {
+      requests: 100,
+      window: RateLimitWindow.MINUTE
+    },
+    requiresCSRF: true,
+    logRequests: true
+  },
   // API routes by role
   '/api/admin/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
@@ -290,7 +299,15 @@ const routeProtections = {
     maxRequestSize: 10485760, // 10MB
     requiresCSRF: true,
     logRequests: true
-  }
+  },
+  '/api/avatar-proxy': {
+    securityLevel: SecurityLevel.PUBLIC,
+    rateLimiting: {
+      requests: 500,
+      window: RateLimitWindow.MINUTE
+    },
+    logRequests: true
+  },
 }
 
 // Main configuration

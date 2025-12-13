@@ -39,7 +39,7 @@ interface ReceiptFiltersProps {
 }
 
 export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFiltersProps) {
-    const { filters, setFilters, clearFilters, fetchReceipts, fetchCoachingCenterReceipts } = useFeeReceiptsStore();
+    const { filters, setFilters, clearFilters } = useFeeReceiptsStore();
 
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -72,7 +72,7 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
         }, 300);
 
         return () => clearTimeout(timer);
-    }, [searchQuery]);
+    }, [searchQuery, setFilters]);
 
     // Handle filter change
     const handleFilterChange = (key: string, value: any) => {
@@ -80,22 +80,15 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
         setLocalFilters(newFilters);
 
         // Apply filters (map 'all' sentinel to no value)
+        // Note: branch_id/coachingCenterId context is now tracked in store via currentBranchId/currentCoachingCenterId
         const apiFilters: any = {};
-        // Preserve branch_id filter for branch manager view
-        if (branchId) apiFilters.branch_id = branchId;
         if (newFilters.receipt_status && newFilters.receipt_status !== 'all') apiFilters.receipt_status = newFilters.receipt_status as ReceiptStatus;
         if (newFilters.payment_method && newFilters.payment_method !== 'all') apiFilters.payment_method = newFilters.payment_method as PaymentMethod;
         if (newFilters.is_overdue) apiFilters.is_overdue = true;
         if (newFilters.has_balance) apiFilters.has_balance = true;
 
+        // setFilters will auto-trigger fetchReceipts which routes based on stored context
         setFilters(apiFilters);
-
-        // Trigger re-fetch based on context
-        if (coachingCenterId) {
-            fetchCoachingCenterReceipts(coachingCenterId);
-        } else {
-            fetchReceipts();
-        }
     };
 
     // Clear all filters
@@ -111,17 +104,8 @@ export default function ReceiptFilters({ branchId, coachingCenterId }: ReceiptFi
             has_balance: false,
         });
 
-        // Clear store filters and refetch
-        if (branchId) {
-            // For branch manager view, keep branch_id filter
-            clearFilters();
-            setFilters({ branch_id: branchId });
-        } else if (coachingCenterId) {
-            clearFilters();
-            fetchCoachingCenterReceipts(coachingCenterId);
-        } else {
-            clearFilters();
-        }
+        // Clear store filters - fetchReceipts will be triggered and will use stored context
+        clearFilters();
     };
 
     // Count active filters

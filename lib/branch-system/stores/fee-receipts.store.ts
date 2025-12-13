@@ -65,6 +65,16 @@ export interface FeeReceiptsState {
     branchStats: BranchRevenueStats | null;
 
     /**
+     * Current branch ID - for branch manager view context
+     */
+    currentBranchId: string | null;
+
+    /**
+     * Current coaching center ID - for coach view context
+     */
+    currentCoachingCenterId: string | null;
+
+    /**
      * Current filters applied
      */
     filters: FeeReceiptFilters;
@@ -144,6 +154,12 @@ export interface FeeReceiptsState {
      * Fetch receipts with current filters and pagination
      */
     fetchReceipts: () => Promise<void>;
+
+    /**
+     * Fetch receipts for a specific branch (branch manager view)
+     * @param branchId - Branch UUID
+     */
+    fetchBranchReceipts: (branchId: string) => Promise<void>;
 
     /**
      * Fetch receipt by ID
@@ -295,6 +311,8 @@ const initialState = {
     activeDialog: null as 'details' | 'edit' | 'payment' | 'cancel' | null,
     studentSummary: null,
     branchStats: null,
+    currentBranchId: null as string | null,
+    currentCoachingCenterId: null as string | null,
     filters: {},
     pagination: {
         page: 1,
@@ -500,6 +518,20 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                 // ============================================================
 
                 fetchReceipts: async () => {
+                    const { currentBranchId, currentCoachingCenterId } = get();
+                    
+                    // Route to appropriate fetch method based on context
+                    if (currentCoachingCenterId) {
+                        await get().fetchCoachingCenterReceipts(currentCoachingCenterId);
+                        return;
+                    }
+                    
+                    if (currentBranchId) {
+                        await get().fetchBranchReceipts(currentBranchId);
+                        return;
+                    }
+
+                    // Fallback: fetch with current filters (no context restriction)
                     set((state) => {
                         state.isLoading = true;
                         state.error = null;
@@ -509,6 +541,55 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                         const { filters, pagination, sort } = get();
                         const params: FeeReceiptListParams = {
                             ...filters,
+                            page: pagination.page,
+                            limit: pagination.limit,
+                            sort_by: sort.sort_by,
+                            sort_order: sort.sort_order,
+                        };
+
+                        const result = await feeReceiptsService.listReceipts(params);
+
+                        if (result.success && result.data) {
+                            set((state) => {
+                                state.receipts = result.data!.data;
+                                state.pagination.total = result.data!.total;
+                                state.pagination.has_more = result.data!.has_more;
+                                state.isLoading = false;
+                            });
+                        } else {
+                            set((state) => {
+                                state.error = result.error || 'Failed to fetch receipts';
+                                state.isLoading = false;
+                            });
+                        }
+                    } catch (error) {
+                        set((state) => {
+                            state.error = error instanceof Error ? error.message : 'Unknown error';
+                            state.isLoading = false;
+                        });
+                    }
+                },
+
+                fetchBranchReceipts: async (branchId: string) => {
+                    set((state) => {
+                        state.isLoading = true;
+                        state.error = null;
+                        state.currentBranchId = branchId;
+                        state.currentCoachingCenterId = null; // Clear coaching center context
+                        // Clear previous data when switching context to prevent stale data display
+                        state.receipts = [];
+                        state.branchStats = null;
+                        state.pagination.total = 0;
+                        state.pagination.has_more = false;
+                    });
+
+                    try {
+                        const { filters, pagination, sort } = get();
+                        // Remove branch_id from filters and use the passed branchId
+                        const { branch_id, ...otherFilters } = filters;
+                        const params: FeeReceiptListParams = {
+                            ...otherFilters,
+                            branch_id: branchId, // Use the passed branchId
                             page: pagination.page,
                             limit: pagination.limit,
                             sort_by: sort.sort_by,
@@ -635,6 +716,13 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                     set((state) => {
                         state.isLoading = true;
                         state.error = null;
+                        state.currentCoachingCenterId = coachingCenterId;
+                        state.currentBranchId = null; // Clear branch context
+                        // Clear previous data when switching context to prevent stale data display
+                        state.receipts = [];
+                        state.branchStats = null;
+                        state.pagination.total = 0;
+                        state.pagination.has_more = false;
                     });
 
                     try {
@@ -880,8 +968,9 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
             {
                 name: 'fee-receipts-storage',
                 partialize: (state) => ({
-                    filters: state.filters,
-                    pagination: state.pagination,
+                    // Only persist user preferences, not context-specific data
+                    // Don't persist filters as they may contain branch_id which is context-specific
+                    pagination: { limit: state.pagination.limit }, // Only persist limit preference
                     sort: state.sort,
                 }),
             }

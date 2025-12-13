@@ -48,9 +48,8 @@ export default function Dashboard({ branchId, coachingCenterId }: DashboardProps
         receipts,
         fetchBranchStats,
         fetchCoachingCenterStats,
-        fetchReceipts,
+        fetchBranchReceipts,
         fetchCoachingCenterReceipts,
-        setFilters,
         isFetchingStats,
         isLoading,
     } = useFeeReceiptsStore();
@@ -63,11 +62,10 @@ export default function Dashboard({ branchId, coachingCenterId }: DashboardProps
             fetchCoachingCenterReceipts(coachingCenterId);
         } else if (branchId) {
             // Branch manager view - fetch single branch
-            setFilters({ branch_id: branchId });
             fetchBranchStats(branchId);
-            fetchReceipts();
+            fetchBranchReceipts(branchId);
         }
-    }, [branchId, coachingCenterId]);
+    }, [branchId, coachingCenterId, fetchBranchStats, fetchCoachingCenterStats, fetchBranchReceipts, fetchCoachingCenterReceipts]);
 
     // Calculate additional metrics
     const overdueReceipts = receipts.filter((r) => {
