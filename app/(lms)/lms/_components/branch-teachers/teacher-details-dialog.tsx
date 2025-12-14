@@ -101,8 +101,8 @@ export function TeacherDetailsDialog({ open, onOpenChange }: TeacherDetailsDialo
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 min-h-0 pr-4">
-                    <div className="space-y-6 py-4">
+                <ScrollArea className="flex-1 min-h-0 pr-4 overflow-y-auto">
+                    <div className="space-y-6 p-4">
                         {/* Status Badge */}
                         <div className="flex items-center gap-2">
                             <Badge variant={currentAssignment.is_active ? 'default' : 'secondary'}>
