@@ -147,11 +147,7 @@ export default function BranchStudentsPage() {
 
                 {/* Dashboard Tab - Keep mounted to preserve state */}
                 <TabsContent value="dashboard" className="mt-6" forceMount hidden={activeTab !== 'dashboard'}>
-                    <Card>
-                        <CardContent className="p-6">
-                            <BranchStudentsDashboard coachingCenterId={coachingCenterId} />
-                        </CardContent>
-                    </Card>
+                    <BranchStudentsDashboard coachingCenterId={coachingCenterId} />
                 </TabsContent>
 
                 {/* List Tab - Keep mounted to preserve state */}
