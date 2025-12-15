@@ -7,10 +7,14 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
-import type { BranchStudentFilters, EnrollmentStatus, PaymentStatus } from '@/lib/branch-system/types/branch-students.types';
-import { ENROLLMENT_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/branch-students.types';
+import type { BranchStudentFilters, PaymentStatus } from '@/lib/branch-system/types/branch-students.types';
+import { PAYMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/branch-students.types';
+import {
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    type ClassEnrollmentStatus,
+} from '@/lib/branch-system/types/class-enrollments.types';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -21,7 +25,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Search, X, Filter, RefreshCw } from 'lucide-react';
 
 /**
@@ -38,65 +41,138 @@ interface StudentFiltersProps {
  * Main Student Filters Component - Same style as ClassFilters
  */
 export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersProps = {}) {
-    const { filters, setFilters, fetchCoachingCenterStudents, fetchBranchStudents } = useBranchStudentsStore();
+    const { setFilters, fetchCoachingCenterStudents, fetchBranchStudents } = useBranchStudentsStore();
 
     // Local state for immediate UI updates
-    const [searchQuery, setSearchQuery] = useState(filters?.search_query || '');
-    const [selectedEnrollmentStatus, setSelectedEnrollmentStatus] = useState<EnrollmentStatus | 'all'>('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedEnrollmentStatus, setSelectedEnrollmentStatus] = useState<ClassEnrollmentStatus | 'all'>('all');
     const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<PaymentStatus | 'all'>('all');
     const [selectedAttendanceMin, setSelectedAttendanceMin] = useState<string>('');
     const [selectedAttendanceMax, setSelectedAttendanceMax] = useState<string>('');
     const [showOverdueOnly, setShowOverdueOnly] = useState(false);
 
-    // Apply filters to the store and trigger search
-    const applyFilters = () => {
+    // Track if this is the initial mount to avoid unnecessary fetches
+    const isInitialMount = useRef(true);
+
+    // Build filters object from current state
+    const buildFilters = useCallback((overrides?: Partial<{
+        search: string;
+        enrollment: ClassEnrollmentStatus | 'all';
+        payment: PaymentStatus | 'all';
+        attendanceMin: string;
+        attendanceMax: string;
+        overdue: boolean;
+    }>): BranchStudentFilters => {
+        const search = overrides?.search ?? searchQuery;
+        const enrollment = overrides?.enrollment ?? selectedEnrollmentStatus;
+        const payment = overrides?.payment ?? selectedPaymentStatus;
+        const attMin = overrides?.attendanceMin ?? selectedAttendanceMin;
+        const attMax = overrides?.attendanceMax ?? selectedAttendanceMax;
+        const overdue = overrides?.overdue ?? showOverdueOnly;
+
         const newFilters: BranchStudentFilters = {};
 
-        if (searchQuery.trim()) {
-            newFilters.search_query = searchQuery.trim();
+        if (search.trim()) {
+            newFilters.search_query = search.trim();
         }
 
-        if (selectedEnrollmentStatus !== 'all') {
-            newFilters.enrollment_status = selectedEnrollmentStatus;
+        if (enrollment !== 'all') {
+            newFilters.enrollment_status = enrollment;
         }
 
-        if (selectedPaymentStatus !== 'all') {
-            newFilters.payment_status = selectedPaymentStatus;
+        if (payment !== 'all') {
+            newFilters.payment_status = payment;
         }
 
-        if (selectedAttendanceMin) {
-            newFilters.attendance_min = Number(selectedAttendanceMin);
+        if (attMin) {
+            newFilters.attendance_min = Number(attMin);
         }
 
-        if (selectedAttendanceMax) {
-            newFilters.attendance_max = Number(selectedAttendanceMax);
+        if (attMax) {
+            newFilters.attendance_max = Number(attMax);
         }
 
-        if (showOverdueOnly) {
+        if (overdue) {
             newFilters.has_overdue_payment = true;
         }
 
-        setFilters(Object.keys(newFilters).length > 0 ? newFilters : null);
+        return newFilters;
+    }, [searchQuery, selectedEnrollmentStatus, selectedPaymentStatus, selectedAttendanceMin, selectedAttendanceMax, showOverdueOnly]);
+
+    // Apply filters and fetch data
+    const applyFiltersAndFetch = useCallback((filters: BranchStudentFilters) => {
+        const hasFilters = Object.keys(filters).length > 0;
+        setFilters(hasFilters ? filters : null);
 
         // Re-fetch students with new filters based on view type
         if (branchId) {
-            fetchBranchStudents(branchId, newFilters);
+            fetchBranchStudents(branchId, hasFilters ? filters : undefined);
         } else if (coachingCenterId) {
-            fetchCoachingCenterStudents(coachingCenterId, newFilters);
+            fetchCoachingCenterStudents(coachingCenterId, hasFilters ? filters : undefined);
         }
-    };
+    }, [branchId, coachingCenterId, setFilters, fetchBranchStudents, fetchCoachingCenterStudents]);
 
-    // Debounced search
+    // Debounced search effect
     useEffect(() => {
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
         const timeoutId = setTimeout(() => {
-            applyFilters();
+            const filters = buildFilters();
+            applyFiltersAndFetch(filters);
         }, 300);
 
         return () => clearTimeout(timeoutId);
-    }, [searchQuery]);
+    }, [searchQuery, buildFilters, applyFiltersAndFetch]);
+
+    // Handle enrollment status change
+    const handleEnrollmentStatusChange = useCallback((value: string) => {
+        const newStatus = value as ClassEnrollmentStatus | 'all';
+        setSelectedEnrollmentStatus(newStatus);
+        const filters = buildFilters({ enrollment: newStatus });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    // Handle payment status change
+    const handlePaymentStatusChange = useCallback((value: string) => {
+        const newStatus = value as PaymentStatus | 'all';
+        setSelectedPaymentStatus(newStatus);
+        const filters = buildFilters({ payment: newStatus });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    // Handle attendance min change with debounce
+    const handleAttendanceMinChange = useCallback((value: string) => {
+        setSelectedAttendanceMin(value);
+        // Use setTimeout to get updated value for buildFilters
+        setTimeout(() => {
+            const filters = buildFilters({ attendanceMin: value });
+            applyFiltersAndFetch(filters);
+        }, 300);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    // Handle attendance max change with debounce
+    const handleAttendanceMaxChange = useCallback((value: string) => {
+        setSelectedAttendanceMax(value);
+        // Use setTimeout to get updated value for buildFilters
+        setTimeout(() => {
+            const filters = buildFilters({ attendanceMax: value });
+            applyFiltersAndFetch(filters);
+        }, 300);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    // Handle overdue toggle
+    const handleOverdueToggle = useCallback(() => {
+        const newValue = !showOverdueOnly;
+        setShowOverdueOnly(newValue);
+        const filters = buildFilters({ overdue: newValue });
+        applyFiltersAndFetch(filters);
+    }, [showOverdueOnly, buildFilters, applyFiltersAndFetch]);
 
     // Clear all filters
-    const clearFilters = () => {
+    const clearFilters = useCallback(() => {
         setSearchQuery('');
         setSelectedEnrollmentStatus('all');
         setSelectedPaymentStatus('all');
@@ -111,7 +187,39 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
         } else if (coachingCenterId) {
             fetchCoachingCenterStudents(coachingCenterId);
         }
-    };
+    }, [branchId, coachingCenterId, setFilters, fetchBranchStudents, fetchCoachingCenterStudents]);
+
+    // Clear individual filter handlers
+    const clearSearch = useCallback(() => {
+        setSearchQuery('');
+        const filters = buildFilters({ search: '' });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    const clearEnrollmentStatus = useCallback(() => {
+        setSelectedEnrollmentStatus('all');
+        const filters = buildFilters({ enrollment: 'all' });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    const clearPaymentStatus = useCallback(() => {
+        setSelectedPaymentStatus('all');
+        const filters = buildFilters({ payment: 'all' });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    const clearAttendanceRange = useCallback(() => {
+        setSelectedAttendanceMin('');
+        setSelectedAttendanceMax('');
+        const filters = buildFilters({ attendanceMin: '', attendanceMax: '' });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
+
+    const clearOverdue = useCallback(() => {
+        setShowOverdueOnly(false);
+        const filters = buildFilters({ overdue: false });
+        applyFiltersAndFetch(filters);
+    }, [buildFilters, applyFiltersAndFetch]);
 
     // Check if any filters are active
     const hasActiveFilters =
@@ -139,7 +247,7 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                             variant="ghost"
                             size="sm"
                             className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                            onClick={() => setSearchQuery('')}
+                            onClick={clearSearch}
                         >
                             <X className="h-4 w-4" />
                         </Button>
@@ -163,17 +271,14 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                 {/* Enrollment Status Filter */}
                 <Select
                     value={selectedEnrollmentStatus}
-                    onValueChange={(value) => {
-                        setSelectedEnrollmentStatus(value as EnrollmentStatus | 'all');
-                        applyFilters();
-                    }}
+                    onValueChange={handleEnrollmentStatusChange}
                 >
                     <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="All Enrollment Status" />
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="all">All Enrollment Status</SelectItem>
-                        {Object.entries(ENROLLMENT_STATUS_OPTIONS).map(([value, { label }]) => (
+                        {Object.entries(CLASS_ENROLLMENT_STATUS_OPTIONS).map(([value, { label }]) => (
                             <SelectItem key={value} value={value}>
                                 {label}
                             </SelectItem>
@@ -184,10 +289,7 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                 {/* Payment Status Filter */}
                 <Select
                     value={selectedPaymentStatus}
-                    onValueChange={(value) => {
-                        setSelectedPaymentStatus(value as PaymentStatus | 'all');
-                        applyFilters();
-                    }}
+                    onValueChange={handlePaymentStatusChange}
                 >
                     <SelectTrigger className="w-[200px]">
                         <SelectValue placeholder="All Payment Status" />
@@ -206,42 +308,33 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                 <div className="flex items-center gap-2">
                     <Input
                         type="number"
-                        placeholder="Min Attendance %"
+                        placeholder="Min %"
                         value={selectedAttendanceMin}
-                        onChange={(e) => {
-                            setSelectedAttendanceMin(e.target.value);
-                            setTimeout(applyFilters, 300);
-                        }}
+                        onChange={(e) => handleAttendanceMinChange(e.target.value)}
                         min="0"
                         max="100"
-                        className="w-[140px]"
+                        className="w-[100px]"
                     />
                     <span className="text-muted-foreground text-sm">to</span>
                     <Input
                         type="number"
-                        placeholder="Max Attendance %"
+                        placeholder="Max %"
                         value={selectedAttendanceMax}
-                        onChange={(e) => {
-                            setSelectedAttendanceMax(e.target.value);
-                            setTimeout(applyFilters, 300);
-                        }}
+                        onChange={(e) => handleAttendanceMaxChange(e.target.value)}
                         min="0"
                         max="100"
-                        className="w-[140px]"
+                        className="w-[100px]"
                     />
                 </div>
 
                 {/* Overdue Payments Toggle */}
                 <Button
                     variant={showOverdueOnly ? 'default' : 'outline'}
-                    onClick={() => {
-                        setShowOverdueOnly(!showOverdueOnly);
-                        applyFilters();
-                    }}
+                    onClick={handleOverdueToggle}
                     className="gap-2"
                 >
                     <Filter className="h-4 w-4" />
-                    Overdue Payments Only
+                    Overdue Only
                 </Button>
             </div>
 
@@ -255,20 +348,17 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                             Search: {searchQuery}
                             <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => setSearchQuery('')}
+                                onClick={clearSearch}
                             />
                         </Badge>
                     )}
 
                     {selectedEnrollmentStatus !== 'all' && (
                         <Badge variant="secondary" className="gap-1">
-                            Enrollment: {ENROLLMENT_STATUS_OPTIONS[selectedEnrollmentStatus].label}
+                            Status: {CLASS_ENROLLMENT_STATUS_OPTIONS[selectedEnrollmentStatus].label}
                             <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                    setSelectedEnrollmentStatus('all');
-                                    applyFilters();
-                                }}
+                                onClick={clearEnrollmentStatus}
                             />
                         </Badge>
                     )}
@@ -278,10 +368,7 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                             Payment: {PAYMENT_STATUS_OPTIONS[selectedPaymentStatus].label}
                             <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                    setSelectedPaymentStatus('all');
-                                    applyFilters();
-                                }}
+                                onClick={clearPaymentStatus}
                             />
                         </Badge>
                     )}
@@ -291,11 +378,7 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                             Attendance: {selectedAttendanceMin || '0'}% - {selectedAttendanceMax || '100'}%
                             <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                    setSelectedAttendanceMin('');
-                                    setSelectedAttendanceMax('');
-                                    applyFilters();
-                                }}
+                                onClick={clearAttendanceRange}
                             />
                         </Badge>
                     )}
@@ -305,10 +388,7 @@ export function StudentFilters({ branchId, coachingCenterId }: StudentFiltersPro
                             Overdue Payments Only
                             <X
                                 className="h-3 w-3 cursor-pointer"
-                                onClick={() => {
-                                    setShowOverdueOnly(false);
-                                    applyFilters();
-                                }}
+                                onClick={clearOverdue}
                             />
                         </Badge>
                     )}

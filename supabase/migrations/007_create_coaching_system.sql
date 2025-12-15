@@ -309,8 +309,11 @@ CREATE TRIGGER validate_coaching_branches_manager
 -- ============================================================
 -- HELPER FUNCTIONS
 -- ============================================================
--- Function to get coaching center statistics
+-- Drop the old function first
+DROP FUNCTION IF EXISTS get_coaching_center_stats(UUID);
+
 -- Enhanced get_coaching_center_stats RPC with all required metrics
+-- ✅ FIXED: Properly handles rating_scale enum by casting to text first
 CREATE OR REPLACE FUNCTION get_coaching_center_stats(center_id UUID)
 RETURNS JSON AS $$
 DECLARE
@@ -323,7 +326,6 @@ BEGIN
             JOIN coaching_branches cb ON bs.branch_id = cb.id
             WHERE cb.coaching_center_id = center_id
             AND cb.is_active = TRUE
-            AND bs.enrollment_status = 'ENROLLED'
         ), 0),
         
         'total_teachers', COALESCE((
@@ -367,17 +369,27 @@ BEGIN
         ), 0),
         
         'attendance_rate', COALESCE((
-            SELECT ROUND(AVG(bs.attendance_percentage::DECIMAL / 100), 4)
-            FROM branch_students bs
-            JOIN coaching_branches cb ON bs.branch_id = cb.id
+            SELECT ROUND(AVG(ce.attendance_percentage::DECIMAL / 100), 4)
+            FROM class_enrollments ce
+            JOIN coaching_branches cb ON ce.branch_id = cb.id
             WHERE cb.coaching_center_id = center_id
             AND cb.is_active = TRUE
-            AND bs.enrollment_status = 'ENROLLED'
-            AND bs.attendance_percentage IS NOT NULL
+            AND ce.enrollment_status = 'ENROLLED'
+            AND ce.attendance_percentage IS NOT NULL
         ), 0),
         
+        -- ✅ FIXED: Cast rating_scale enum to text, then use CASE to convert to numeric
         'avg_rating', COALESCE((
-            SELECT ROUND(AVG(r.overall_rating::DECIMAL), 2)
+            SELECT ROUND(AVG(
+                CASE r.overall_rating::text
+                    WHEN '1' THEN 1
+                    WHEN '2' THEN 2
+                    WHEN '3' THEN 3
+                    WHEN '4' THEN 4
+                    WHEN '5' THEN 5
+                    ELSE 0
+                END
+            ), 2)
             FROM reviews r
             JOIN coaching_branches cb ON r.coaching_branch_id = cb.id
             WHERE cb.coaching_center_id = center_id
@@ -396,6 +408,14 @@ BEGIN
     RETURN stats;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION get_coaching_center_stats(UUID) TO authenticated;
+
+-- COMMENT ON FUNCTION get_coaching_center_stats IS 'Get comprehensive statistics for a coaching center including students, teachers, classes, branches, fees, attendance, and reviews';
+
+
+-- COMMENT ON FUNCTION get_coaching_center_stats IS 'Get comprehensive statistics for a coaching center. Counts all registered students from branch_students (regardless of class enrollment), and calculates attendance from class_enrollments.';
 
 -- Function to search coaching centers
 CREATE OR REPLACE FUNCTION search_coaching_centers(

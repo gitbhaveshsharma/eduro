@@ -1,8 +1,11 @@
 /**
  * Student Details Dialog Component
  * 
- * Comprehensive read-only view of student enrollment
- * Features: Financial summary, academic summary, contact information
+ * Comprehensive read-only view of student profile (branch-level)
+ * Features: Financial summary, contact information
+ * 
+ * NOTE: After migration 019, this shows branch_students data (profile-only).
+ * Class-specific enrollment data is now in class_enrollments.
  */
 
 'use client';
@@ -10,19 +13,15 @@
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import type { BranchStudent } from '@/lib/branch-system/types/branch-students.types';
 import {
-    ENROLLMENT_STATUS_OPTIONS,
     PAYMENT_STATUS_OPTIONS,
 } from '@/lib/branch-system/types/branch-students.types';
 import {
     formatCurrency,
     formatDate,
-    formatEnrollmentStatus,
     formatPaymentStatus,
     formatPhoneNumber,
-    getAttendanceStatus,
     calculateDaysUntilPayment,
     calculateOutstandingBalance,
-    calculateEnrollmentDuration,
     checkPaymentOverdue,
 } from '@/lib/branch-system/utils/branch-students.utils';
 import {
@@ -37,7 +36,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Progress } from '@/components/ui/progress';
 import {
     Calendar,
     DollarSign,
@@ -92,8 +90,6 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
     // Compute values
     const outstandingBalance = calculateOutstandingBalance(student.total_fees_due, student.total_fees_paid);
     const isPaymentOverdue = checkPaymentOverdue(student.next_payment_due);
-    const enrollmentDurationDays = calculateEnrollmentDuration(student.enrollment_date, student.actual_completion_date);
-    const attendanceStatus = getAttendanceStatus(student.attendance_percentage);
     const daysUntilPayment = calculateDaysUntilPayment(student.next_payment_due);
 
     const handleClose = () => {
@@ -113,6 +109,7 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
         closeDetailsDialog();
         openDeleteDialog();
     };
+    console.log('Rendering StudentDetailsDialog for student:', student);
 
     return (
         <Dialog open={isOpen} onOpenChange={(next) => {
@@ -125,15 +122,15 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <GraduationCap className="h-5 w-5" />
-                        Student Enrollment Details
+                        Student Profile Details
                     </DialogTitle>
                     <DialogDescription>
-                        Complete information about the student's enrollment and progress.
+                        Student profile information for this branch.
                     </DialogDescription>
                 </DialogHeader>
 
                 <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
-                    <div className="space-y-6  p-4">
+                    <div className="space-y-6 p-4">
                         {/* Header Info */}
                         <div className="flex items-center justify-between">
                             <div>
@@ -141,10 +138,7 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
                                 <p className="font-mono text-sm">{student.student_id}</p>
                             </div>
                             <div className="flex gap-2">
-                                <Badge variant={ENROLLMENT_STATUS_OPTIONS[student.enrollment_status].color as any}>
-                                    {formatEnrollmentStatus(student.enrollment_status)}
-                                </Badge>
-                                <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status].color as any}>
+                                <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status]?.color as any}>
                                     {formatPaymentStatus(student.payment_status)}
                                 </Badge>
                             </div>
@@ -152,60 +146,17 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
 
                         <Separator />
 
-                        {/* Enrollment Information */}
+                        {/* Student Information */}
                         <div className="space-y-3">
                             <h3 className="text-sm font-semibold flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                Enrollment Information
+                                <User className="h-4 w-4" />
+                                Student Information
                             </h3>
                             <div className="space-y-1">
-                                <InfoRow label="Enrollment Date" value={formatDate(student.enrollment_date)} />
-                                <InfoRow
-                                    label="Expected Completion"
-                                    value={student.expected_completion_date ? formatDate(student.expected_completion_date) : '-'}
-                                />
-                                <InfoRow label="Duration" value={`${enrollmentDurationDays} days`} />
-                                {student.class_id && (
-                                    <InfoRow label="Class ID" value={student.class_id.slice(0, 8) + '...'} />
-                                )}
-                                <InfoRow label="Preferred Batch" value={student.preferred_batch} />
-                            </div>
-                        </div>
-
-                        <Separator />
-
-                        {/* Academic Performance */}
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold flex items-center gap-2">
-                                <GraduationCap className="h-4 w-4" />
-                                Academic Performance
-                            </h3>
-                            <div className="space-y-3">
-                                <div>
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm text-muted-foreground">Attendance</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm font-medium">
-                                                {student.attendance_percentage.toFixed(1)}%
-                                            </span>
-                                            <Badge variant={
-                                                attendanceStatus === 'excellent' ? 'default' :
-                                                    attendanceStatus === 'good' ? 'secondary' :
-                                                        attendanceStatus === 'needs_improvement' ? 'default' : 'destructive'
-                                            }>
-                                                {attendanceStatus.replace('_', ' ')}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                    <Progress value={student.attendance_percentage} className="h-2" />
-                                </div>
-                                <InfoRow label="Current Grade" value={student.current_grade} />
-                                {student.performance_notes && (
-                                    <div className="pt-2">
-                                        <p className="text-sm text-muted-foreground mb-1">Performance Notes</p>
-                                        <p className="text-sm">{student.performance_notes}</p>
-                                    </div>
-                                )}
+                                <InfoRow label="Name" value={student.student_name} />
+                                <InfoRow label="Email" value={student.student_email} />
+                                <InfoRow label="Phone" value={formatPhoneNumber(student.student_phone)} />
+                                <InfoRow label="Registration Date" value={formatDate(student.registration_date)} />
                             </div>
                         </div>
 
@@ -285,27 +236,16 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
                             </div>
                         </div>
 
-                        {/* Special Requirements & Notes */}
-                        {(student.special_requirements || student.student_notes) && (
+                        {/* Student Notes */}
+                        {student.student_notes && (
                             <>
                                 <Separator />
                                 <div className="space-y-3">
                                     <h3 className="text-sm font-semibold flex items-center gap-2">
-                                        <User className="h-4 w-4" />
-                                        Additional Information
+                                        <Calendar className="h-4 w-4" />
+                                        Notes
                                     </h3>
-                                    {student.special_requirements && (
-                                        <div>
-                                            <p className="text-sm text-muted-foreground mb-1">Special Requirements</p>
-                                            <p className="text-sm">{student.special_requirements}</p>
-                                        </div>
-                                    )}
-                                    {student.student_notes && (
-                                        <div>
-                                            <p className="text-sm text-muted-foreground mb-1">Student Notes</p>
-                                            <p className="text-sm">{student.student_notes}</p>
-                                        </div>
-                                    )}
+                                    <p className="text-sm">{student.student_notes}</p>
                                 </div>
                             </>
                         )}
