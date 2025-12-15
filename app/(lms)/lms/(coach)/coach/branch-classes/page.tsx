@@ -6,11 +6,14 @@
  * 
  * NOTE: This page uses coaching center context to show all classes across all branches
  * of the coach's coaching center.
+ * 
+ * Data fetching is handled by ClassesTable component using context-based approach
+ * (similar to receipts-table.tsx pattern). Filtering is done client-side.
  */
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { useCoachContext } from '../layout';
 import { BranchClassesDashboard } from '../../../_components/branch-classes/dashboard';
 import { ClassesTable } from '../../../_components/branch-classes/classes-table';
@@ -24,7 +27,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Plus, LayoutDashboard, List } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useBranchClassesStore } from '@/lib/branch-system/branch-classes';
+import { type BranchClassFilters } from '@/lib/branch-system/branch-classes';
 
 /**
  * Branch Classes Page Component
@@ -33,25 +36,9 @@ import { useBranchClassesStore } from '@/lib/branch-system/branch-classes';
  */
 export default function BranchClassesPage() {
     const { coachingCenterId, coachingCenter, isLoading: contextLoading } = useCoachContext();
-    const store = useBranchClassesStore();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-    const classesFetchedRef = useRef<string | null>(null);
-
-    // Fetch classes for the coaching center
-    useEffect(() => {
-        if (!coachingCenterId) return;
-
-        // Skip if already fetched for this coaching center
-        if (classesFetchedRef.current === coachingCenterId) {
-            console.log('[BranchClassesPage] Classes already fetched for this coaching center');
-            return;
-        }
-
-        console.log('[BranchClassesPage] 🔄 Fetching classes for coaching center:', coachingCenterId);
-        store.fetchClassesByCoachingCenter(coachingCenterId, false);
-        classesFetchedRef.current = coachingCenterId;
-    }, [coachingCenterId, store]);
+    const [filters, setFilters] = useState<BranchClassFilters>({});
 
     // Loading state
     if (contextLoading || !coachingCenterId) {
@@ -113,13 +100,19 @@ export default function BranchClassesPage() {
                 {/* List Tab */}
                 <TabsContent value="list" className="mt-6">
                     <Card className="mb-4 p-4">
-                        <CardContent>
-                            <ClassFilters coachingCenterId={coachingCenterId} />
+                        <CardContent className="p-0">
+                            <ClassFilters
+                                coachingCenterId={coachingCenterId}
+                                onFiltersChange={setFilters}
+                            />
                         </CardContent>
                     </Card>
                     <Card>
-                        <CardContent>
-                            <ClassesTable coachingCenterId={coachingCenterId} />
+                        <CardContent className="p-6">
+                            <ClassesTable
+                                coachingCenterId={coachingCenterId}
+                                filters={filters}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>
