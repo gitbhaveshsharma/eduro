@@ -139,8 +139,6 @@ export function EditEnrollmentDialog() {
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                             {/* Payment Status */}
                             <div className="space-y-4 p-4">
-                                <h3 className="text-sm font-semibold">Payment Status</h3>
-
                                 <FormField
                                     control={form.control}
                                     name="payment_status"
@@ -173,7 +171,7 @@ export function EditEnrollmentDialog() {
                             <div className="space-y-4">
                                 <h3 className="text-sm font-semibold">Financial Information</h3>
 
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-2 p-1">
                                     <FormField
                                         control={form.control}
                                         name="total_fees_due"
@@ -252,7 +250,7 @@ export function EditEnrollmentDialog() {
                             <div className="space-y-4">
                                 <h3 className="text-sm font-semibold">Contact Information</h3>
 
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-2 p-1">
                                     <FormField
                                         control={form.control}
                                         name="emergency_contact_name"

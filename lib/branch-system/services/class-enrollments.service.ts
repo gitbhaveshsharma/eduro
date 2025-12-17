@@ -229,6 +229,49 @@ export class ClassEnrollmentsService {
     }
 
     /**
+     * Gets enriched enrollment data by ID
+     * Returns complete data from student_enrollment_details view
+     * 
+     * @param enrollmentId - Enrollment UUID
+     * @returns Operation result with complete enriched enrollment data
+     */
+    async getEnrichedEnrollmentById(
+        enrollmentId: string
+    ): Promise<ClassEnrollmentOperationResult<Record<string, any>>> {
+        try {
+            const { data, error } = await this.supabase
+                .from(this.ENROLLMENT_VIEW)
+                .select('*')
+                .eq('enrollment_id', enrollmentId)
+                .single();
+
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    return {
+                        success: false,
+                        error: 'Enrollment not found',
+                    };
+                }
+                return {
+                    success: false,
+                    error: `Failed to fetch enriched enrollment: ${error.message}`,
+                };
+            }
+
+            // Return the complete raw data from the view
+            return {
+                success: true,
+                data: data,
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
      * Gets all class enrollments for a student
      * 
      * @param studentId - Student UUID
@@ -973,7 +1016,7 @@ export class ClassEnrollmentsService {
             viewData.actual_completion_date
         );
 
-        const isOnTrack = 
+        const isOnTrack =
             viewData.enrollment_status === 'ENROLLED' &&
             (viewData.attendance_percentage || 0) >= 75;
 
