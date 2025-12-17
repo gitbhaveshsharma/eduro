@@ -8,8 +8,9 @@
 
 'use client';
 
-import { useCallback, useMemo, memo } from 'react';
+import { useCallback, useMemo, memo, useState } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
+import { useClassEnrollmentsStore } from '@/lib/branch-system/stores/class-enrollments.store';
 import type { PublicBranchStudent, BranchStudentSort } from '@/lib/branch-system/types/branch-students.types';
 import {
     PAYMENT_STATUS_OPTIONS,
@@ -59,7 +60,16 @@ import {
     Trash2,
     User,
     GraduationCap,
+    BookOpen,
+    Plus,
+    ClipboardList,
 } from 'lucide-react';
+import {
+    EnrollClassDialog,
+    EditClassEnrollmentDialog,
+    DropClassEnrollmentDialog,
+    ViewClassesDialog,
+} from '../class-enrollments';
 
 /**
  * Sortable Header Component - Memoized
@@ -148,17 +158,23 @@ interface StudentRowActionsProps {
     onView: (student: PublicBranchStudent) => void;
     onEdit: (student: PublicBranchStudent) => void;
     onDelete: (student: PublicBranchStudent) => void;
+    onEnrollClass: (student: PublicBranchStudent) => void;
+    onViewClasses: (student: PublicBranchStudent) => void;
 }
 
 const StudentRowActions = memo(function StudentRowActions({
     student,
     onView,
     onEdit,
-    onDelete
+    onDelete,
+    onEnrollClass,
+    onViewClasses,
 }: StudentRowActionsProps) {
     const handleView = useCallback(() => onView(student), [student, onView]);
     const handleEdit = useCallback(() => onEdit(student), [student, onEdit]);
     const handleDelete = useCallback(() => onDelete(student), [student, onDelete]);
+    const handleEnrollClass = useCallback(() => onEnrollClass(student), [student, onEnrollClass]);
+    const handleViewClasses = useCallback(() => onViewClasses(student), [student, onViewClasses]);
 
     return (
         <DropdownMenu>
@@ -176,6 +192,16 @@ const StudentRowActions = memo(function StudentRowActions({
                 <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Enrollment
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* Class Enrollment Actions */}
+                <DropdownMenuItem onClick={handleEnrollClass}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Enroll in Class
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleViewClasses}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    View Classes
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -198,13 +224,17 @@ interface StudentRowProps {
     onView: (student: PublicBranchStudent) => void;
     onEdit: (student: PublicBranchStudent) => void;
     onDelete: (student: PublicBranchStudent) => void;
+    onEnrollClass: (student: PublicBranchStudent) => void;
+    onViewClasses: (student: PublicBranchStudent) => void;
 }
 
 const StudentRow = memo(function StudentRow({
     student,
     onView,
     onEdit,
-    onDelete
+    onDelete,
+    onEnrollClass,
+    onViewClasses,
 }: StudentRowProps) {
     // Memoize payment urgency badge
     const paymentUrgencyBadge = useMemo(() => {
@@ -216,7 +246,7 @@ const StudentRow = memo(function StudentRow({
         const urgencyConfig = {
             overdue: { variant: 'destructive' as const, label: 'Overdue' },
             urgent: { variant: 'destructive' as const, label: `Due in ${daysUntil} days` },
-            warning: { variant: 'default' as const, label: `Due in ${daysUntil} days` },
+            warning: { variant: 'warning' as const, label: `Due in ${daysUntil} days` },
             reminder: { variant: 'secondary' as const, label: `Due in ${daysUntil} days` },
         };
 
@@ -228,7 +258,7 @@ const StudentRow = memo(function StudentRow({
         );
     }, [student.next_payment_due]);
 
-    // Memoize enrollment status badge
+    // Memoize enrollment status badge with proper color mapping
     const enrollmentStatusBadge = useMemo(() => {
         const status = student.enrollment_status as ClassEnrollmentStatus | null;
         if (!status) return <span className="text-xs text-muted-foreground">-</span>;
@@ -236,16 +266,20 @@ const StudentRow = memo(function StudentRow({
         const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
         if (!statusConfig) return <span className="text-xs text-muted-foreground">{status}</span>;
 
-        const colorVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-            green: 'default',
-            yellow: 'secondary',
-            orange: 'destructive',
-            red: 'destructive',
-            blue: 'outline',
+        // Map class enrollment colors to Badge variants
+        // Based on CLASS_ENROLLMENT_STATUS_OPTIONS colors and Badge component variants
+        const colorToVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+            green: 'success',      // ENROLLED - Active/success state
+            yellow: 'warning',     // PENDING - Warning/waiting state
+            orange: 'warning',     // SUSPENDED - Warning/attention needed
+            red: 'destructive',    // DROPPED - Error/removed state
+            blue: 'outline',       // COMPLETED - Neutral/completed state
         };
 
+        const variant = colorToVariant[statusConfig.color] || 'secondary';
+
         return (
-            <Badge variant={colorVariants[statusConfig.color] || 'secondary'} className="text-xs">
+            <Badge variant={variant} className="text-xs">
                 {statusConfig.label}
             </Badge>
         );
@@ -329,6 +363,8 @@ const StudentRow = memo(function StudentRow({
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onEnrollClass={onEnrollClass}
+                    onViewClasses={onViewClasses}
                 />
             </TableCell>
         </TableRow>
@@ -391,6 +427,8 @@ interface StudentsTableProps {
     onViewStudent?: (studentId: string) => void;
     onEditStudent?: (studentId: string) => void;
     onDeleteStudent?: (studentId: string) => void;
+    /** Callback to navigate to student's class enrollments */
+    onViewStudentClasses?: (student: PublicBranchStudent) => void;
 }
 
 /**
@@ -402,7 +440,8 @@ export function StudentsTable({
     coachingCenterId,
     onViewStudent,
     onEditStudent,
-    onDeleteStudent
+    onDeleteStudent,
+    onViewStudentClasses,
 }: StudentsTableProps = {}) {
     const {
         branchStudents,
@@ -410,6 +449,16 @@ export function StudentsTable({
         sort,
         setSort,
     } = useBranchStudentsStore();
+
+    const { fetchStudentClassEnrollments } = useClassEnrollmentsStore();
+
+    // State for enroll class dialog
+    const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+    const [selectedStudentForEnroll, setSelectedStudentForEnroll] = useState<PublicBranchStudent | null>(null);
+
+    // State for view classes dialog
+    const [viewClassesDialogOpen, setViewClassesDialogOpen] = useState(false);
+    const [selectedStudentForViewClasses, setSelectedStudentForViewClasses] = useState<PublicBranchStudent | null>(null);
 
     // Memoize sort handler to prevent recreation
     const handleSort = useCallback((field: BranchStudentSort['field']) => {
@@ -451,6 +500,40 @@ export function StudentsTable({
             onDeleteStudent(student.id);
         }
     }, [onDeleteStudent]);
+
+    // Class enrollment action handlers
+    const handleEnrollClass = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] Enroll in class:', student.id);
+        setSelectedStudentForEnroll(student);
+        setEnrollDialogOpen(true);
+    }, []);
+
+    const handleViewClasses = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] View classes:', student.id);
+        // Set the selected student and open the view classes dialog
+        setSelectedStudentForViewClasses(student);
+        setViewClassesDialogOpen(true);
+        // Also call the external callback if provided
+        if (onViewStudentClasses) {
+            onViewStudentClasses(student);
+        }
+    }, [onViewStudentClasses]);
+
+    // Handle enroll from view classes dialog
+    const handleEnrollFromViewClasses = useCallback(() => {
+        if (selectedStudentForViewClasses) {
+            setSelectedStudentForEnroll(selectedStudentForViewClasses);
+            setEnrollDialogOpen(true);
+        }
+    }, [selectedStudentForViewClasses]);
+
+    const handleEnrollSuccess = useCallback(() => {
+        // Refresh data after successful enrollment
+        if (selectedStudentForEnroll) {
+            fetchStudentClassEnrollments(selectedStudentForEnroll.student_id, selectedStudentForEnroll.branch_id);
+        }
+        setSelectedStudentForEnroll(null);
+    }, [selectedStudentForEnroll, fetchStudentClassEnrollments]);
 
     if (listLoading) {
         return <TableSkeleton />;
@@ -516,10 +599,44 @@ export function StudentsTable({
                             onView={handleView}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onEnrollClass={handleEnrollClass}
+                            onViewClasses={handleViewClasses}
                         />
                     ))}
                 </TableBody>
             </Table>
+
+            {/* Class Enrollment Dialogs */}
+            {selectedStudentForEnroll && (
+                <EnrollClassDialog
+                    open={enrollDialogOpen}
+                    onOpenChange={setEnrollDialogOpen}
+                    studentId={selectedStudentForEnroll.student_id}
+                    branchId={selectedStudentForEnroll.branch_id}
+                    branchStudentId={selectedStudentForEnroll.id}
+                    studentName={selectedStudentForEnroll.student_name || undefined}
+                    coachingCenterId={coachingCenterId}
+                    onSuccess={handleEnrollSuccess}
+                />
+            )}
+
+            {/* View Classes Dialog */}
+            {selectedStudentForViewClasses && (
+                <ViewClassesDialog
+                    open={viewClassesDialogOpen}
+                    onOpenChange={setViewClassesDialogOpen}
+                    studentId={selectedStudentForViewClasses.student_id}
+                    branchId={selectedStudentForViewClasses.branch_id}
+                    branchStudentId={selectedStudentForViewClasses.id}
+                    studentName={selectedStudentForViewClasses.student_name || undefined}
+                    coachingCenterId={coachingCenterId}
+                    onEnrollClick={handleEnrollFromViewClasses}
+                />
+            )}
+
+            {/* Store-controlled dialogs for edit/drop */}
+            <EditClassEnrollmentDialog />
+            <DropClassEnrollmentDialog />
         </div>
     );
 }
