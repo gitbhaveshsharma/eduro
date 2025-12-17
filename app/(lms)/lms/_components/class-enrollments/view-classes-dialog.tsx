@@ -9,9 +9,9 @@
 
 'use client';
 
-import { useEffect, useCallback, memo } from 'react';
+import { useEffect, useCallback, memo, useMemo } from 'react';
 import { useClassEnrollmentsStore } from '@/lib/branch-system/stores/class-enrollments.store';
-import type { ClassEnrollmentWithRelations } from '@/lib/branch-system/types/class-enrollments.types';
+import type { ClassEnrollmentWithRelations, ClassEnrollmentStatus } from '@/lib/branch-system/types/class-enrollments.types';
 import { CLASS_ENROLLMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/class-enrollments.types';
 import { formatDate } from '@/lib/branch-system/utils/branch-students.utils';
 import { showInfoToast } from '@/lib/toast';
@@ -76,55 +76,75 @@ interface ViewClassesDialogProps {
 }
 
 /**
- * Status Badge Component
+ * Status Badge Component - Using shadcn Badge variants
  */
 const StatusBadge = memo(function StatusBadge({
     status,
 }: {
     status: string;
 }) {
-    const config = CLASS_ENROLLMENT_STATUS_OPTIONS[status as keyof typeof CLASS_ENROLLMENT_STATUS_OPTIONS];
-    if (!config) return <Badge variant="outline">{status}</Badge>;
+    // Memoize the badge variant and config
+    const badgeContent = useMemo(() => {
+        const config = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+        if (!config) {
+            return { variant: 'outline' as const, label: status };
+        }
+
+        // Map class enrollment colors to shadcn Badge variants
+        const colorToVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+            green: 'success',      // ENROLLED - Active/success state
+            yellow: 'warning',     // PENDING - Warning/waiting state
+            orange: 'warning',     // SUSPENDED - Warning/attention needed
+            red: 'destructive',    // DROPPED - Error/removed state
+            blue: 'outline',       // COMPLETED - Neutral/completed state
+        };
+
+        return {
+            variant: colorToVariant[config.color] || 'secondary',
+            label: config.label,
+        };
+    }, [status]);
 
     return (
-        <Badge
-            variant="outline"
-            style={{
-                backgroundColor: config.color + '20',
-                borderColor: config.color,
-                color: config.color,
-            }}
-        >
-            {config.label}
+        <Badge variant={badgeContent.variant} className="text-xs">
+            {badgeContent.label}
         </Badge>
     );
 });
 
 /**
- * Attendance Display Component
+ * Attendance Display Component - Memoized
  */
 const AttendanceDisplay = memo(function AttendanceDisplay({
     percentage,
 }: {
     percentage: number;
 }) {
-    const getColor = () => {
-        if (percentage >= 90) return 'text-green-600';
-        if (percentage >= 75) return 'text-yellow-600';
-        return 'text-red-600';
-    };
+    const display = useMemo(() => {
+        let colorClass = 'text-muted-foreground';
+
+        if (percentage >= 90) colorClass = 'text-green-600 dark:text-green-500';
+        else if (percentage >= 75) colorClass = 'text-blue-600 dark:text-blue-500';
+        else if (percentage >= 60) colorClass = 'text-yellow-600 dark:text-yellow-500';
+        else if (percentage > 0) colorClass = 'text-red-600 dark:text-red-500';
+
+        return {
+            colorClass,
+            text: `${percentage.toFixed(1)}%`,
+        };
+    }, [percentage]);
 
     return (
-        <span className={`font-medium ${getColor()}`}>
-            {percentage.toFixed(1)}%
+        <span className={`font-medium ${display.colorClass}`}>
+            {display.text}
         </span>
     );
 });
 
 /**
- * Loading Skeleton
+ * Loading Skeleton - Memoized
  */
-function EnrollmentsSkeleton() {
+const EnrollmentsSkeleton = memo(function EnrollmentsSkeleton() {
     return (
         <div className="space-y-3">
             {[1, 2, 3].map((i) => (
@@ -135,37 +155,71 @@ function EnrollmentsSkeleton() {
                         <Skeleton className="h-3 w-[150px]" />
                     </div>
                     <Skeleton className="h-6 w-20" />
+                    <Skeleton className="h-8 w-8" />
                 </div>
             ))}
         </div>
     );
-}
+});
 
 /**
- * Empty State Component
+ * Empty State Component - Memoized
  */
-function EmptyState({ onEnroll }: { onEnroll?: () => void }) {
+const EmptyState = memo(function EmptyState({
+    onEnroll
+}: {
+    onEnroll?: () => void
+}) {
     return (
-        <div className="flex flex-col items-center justify-center py-8 text-center">
-            <div className="rounded-full bg-muted p-4 mb-4">
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+            <div className="rounded-full bg-muted p-4">
                 <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-medium mb-2">No Class Enrollments</h3>
-            <p className="text-sm text-muted-foreground mb-4 max-w-sm">
-                This student is not enrolled in any classes yet.
-            </p>
+            <div className="space-y-2">
+                <h3 className="text-lg font-medium">No Class Enrollments</h3>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                    This student is not enrolled in any classes yet.
+                </p>
+            </div>
             {onEnroll && (
-                <Button onClick={onEnroll} size="sm">
+                <Button onClick={onEnroll} size="sm" className="mt-2">
                     <Plus className="h-4 w-4 mr-2" />
                     Enroll in Class
                 </Button>
             )}
         </div>
     );
-}
+});
 
 /**
- * Row Actions Component
+ * Error State Component - Memoized
+ */
+const ErrorState = memo(function ErrorState({
+    error,
+    onRetry,
+}: {
+    error: string;
+    onRetry: () => void;
+}) {
+    return (
+        <div className="flex flex-col items-center py-12 text-center space-y-4">
+            <div className="rounded-full bg-destructive/10 p-4">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+            </div>
+            <div className="space-y-2">
+                <h3 className="text-lg font-medium">Failed to Load</h3>
+                <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={onRetry} className="mt-2">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+            </Button>
+        </div>
+    );
+});
+
+/**
+ * Row Actions Component - Memoized
  */
 interface RowActionsProps {
     enrollment: ClassEnrollmentWithRelations;
@@ -178,6 +232,10 @@ const RowActions = memo(function RowActions({
     onEdit,
     onDrop,
 }: RowActionsProps) {
+    const handleEdit = useCallback(() => onEdit(enrollment), [enrollment, onEdit]);
+    const handleDrop = useCallback(() => onDrop(enrollment), [enrollment, onDrop]);
+    const isDropped = enrollment.enrollment_status === 'DROPPED';
+
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -187,21 +245,102 @@ const RowActions = memo(function RowActions({
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEdit(enrollment)}>
+                <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Enrollment
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                    onClick={() => onDrop(enrollment)}
+                    onClick={handleDrop}
                     className="text-destructive focus:text-destructive"
-                    disabled={enrollment.enrollment_status === 'DROPPED'}
+                    disabled={isDropped}
                 >
                     <Trash2 className="mr-2 h-4 w-4" />
-                    Drop from Class
+                    {isDropped ? 'Already Dropped' : 'Drop from Class'}
                 </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+    );
+});
+
+/**
+ * Enrollment Row Component - Memoized for performance
+ */
+interface EnrollmentRowProps {
+    enrollment: ClassEnrollmentWithRelations;
+    onEdit: (enrollment: ClassEnrollmentWithRelations) => void;
+    onDrop: (enrollment: ClassEnrollmentWithRelations) => void;
+}
+
+const EnrollmentRow = memo(function EnrollmentRow({
+    enrollment,
+    onEdit,
+    onDrop,
+}: EnrollmentRowProps) {
+    const className = enrollment.class?.class_name || 'Unknown Class';
+    const subject = enrollment.class?.subject;
+    const enrollmentDate = formatDate(enrollment.enrollment_date);
+    const grade = enrollment.current_grade || '—';
+
+    return (
+        <TableRow>
+            {/* Class Name */}
+            <TableCell>
+                <div className="flex items-center gap-3">
+                    <div className="bg-muted rounded-md p-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="font-medium text-sm truncate" title={className}>
+                            {className}
+                        </p>
+                        {subject && (
+                            <p className="text-xs text-muted-foreground truncate" title={subject}>
+                                {subject}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </TableCell>
+
+            {/* Status */}
+            <TableCell>
+                <StatusBadge status={enrollment.enrollment_status} />
+            </TableCell>
+
+            {/* Enrollment Date */}
+            <TableCell className="text-sm">
+                {enrollmentDate}
+            </TableCell>
+
+            {/* Attendance */}
+            <TableCell>
+                <AttendanceDisplay percentage={enrollment.attendance_percentage} />
+            </TableCell>
+
+            {/* Grade */}
+            <TableCell className="font-medium">
+                {grade}
+            </TableCell>
+
+            {/* Actions */}
+            <TableCell>
+                <RowActions
+                    enrollment={enrollment}
+                    onEdit={onEdit}
+                    onDrop={onDrop}
+                />
+            </TableCell>
+        </TableRow>
+    );
+}, (prevProps, nextProps) => {
+    // Custom comparison for performance optimization
+    return (
+        prevProps.enrollment.id === nextProps.enrollment.id &&
+        prevProps.enrollment.enrollment_status === nextProps.enrollment.enrollment_status &&
+        prevProps.enrollment.attendance_percentage === nextProps.enrollment.attendance_percentage &&
+        prevProps.enrollment.current_grade === nextProps.enrollment.current_grade &&
+        prevProps.enrollment.enrollment_date === nextProps.enrollment.enrollment_date
     );
 });
 
@@ -230,12 +369,14 @@ export function ViewClassesDialog({
     // Fetch enrollments when dialog opens
     useEffect(() => {
         if (open && studentId && branchId) {
+            console.log('[ViewClassesDialog] Fetching enrollments for:', { studentId, branchId });
             fetchStudentClassEnrollments(studentId, branchId);
         }
     }, [open, studentId, branchId, fetchStudentClassEnrollments]);
 
     // Handle refresh
     const handleRefresh = useCallback(() => {
+        console.log('[ViewClassesDialog] Refreshing enrollments');
         fetchStudentClassEnrollments(studentId, branchId);
         showInfoToast('Enrollments refreshed');
     }, [studentId, branchId, fetchStudentClassEnrollments]);
@@ -243,6 +384,7 @@ export function ViewClassesDialog({
     // Handle edit - opens store dialog
     const handleEdit = useCallback(
         (enrollment: ClassEnrollmentWithRelations) => {
+            console.log('[ViewClassesDialog] Opening edit dialog for:', enrollment.id);
             openEditDialog(enrollment);
         },
         [openEditDialog]
@@ -251,134 +393,121 @@ export function ViewClassesDialog({
     // Handle drop - opens store dialog
     const handleDrop = useCallback(
         (enrollment: ClassEnrollmentWithRelations) => {
+            console.log('[ViewClassesDialog] Opening drop dialog for:', enrollment.id);
             openDropDialog(enrollment);
         },
         [openDropDialog]
     );
 
-    // Count stats
-    const activeCount = studentClassEnrollments.filter(
-        (e) => e.enrollment_status === 'ENROLLED' || e.enrollment_status === 'PENDING'
-    ).length;
+    // Memoize active count calculation
+    const activeCount = useMemo(() => {
+        return studentClassEnrollments.filter(
+            (e) => e.enrollment_status === 'ENROLLED' || e.enrollment_status === 'PENDING'
+        ).length;
+    }, [studentClassEnrollments]);
+
+    // Memoize dialog description
+    const dialogDescription = useMemo(() => {
+        if (studentClassEnrollments.length === 0) {
+            return 'No classes enrolled';
+        }
+        return `${activeCount} active enrollment${activeCount !== 1 ? 's' : ''} out of ${studentClassEnrollments.length} total`;
+    }, [studentClassEnrollments.length, activeCount]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[85vh]">
-                <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <GraduationCap className="h-5 w-5" />
-                        Class Enrollments
-                        {studentName && ` - ${studentName}`}
-                    </DialogTitle>
-                    <DialogDescription>
-                        {studentClassEnrollments.length === 0
-                            ? 'No classes enrolled'
-                            : `${activeCount} active enrollment${activeCount !== 1 ? 's' : ''} out of ${studentClassEnrollments.length} total`}
-                    </DialogDescription>
-                </DialogHeader>
+            <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0 gap-0">
+                {/* Header Section */}
+                <div className="p-6 pb-4 border-b">
+                    <DialogHeader className="text-left">
+                        <DialogTitle className="flex items-center gap-2 text-xl">
+                            <GraduationCap className="h-5 w-5" />
+                            Class Enrollments
+                            {studentName && (
+                                <span className="text-muted-foreground font-normal">
+                                    — {studentName}
+                                </span>
+                            )}
+                        </DialogTitle>
+                        <DialogDescription className="text-base mt-1">
+                            {dialogDescription}
+                        </DialogDescription>
+                    </DialogHeader>
 
-                {/* Actions Bar */}
-                <div className="flex items-center justify-between">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRefresh}
-                        disabled={listLoading}
-                    >
-                        <RefreshCw className={`h-4 w-4 mr-2 ${listLoading ? 'animate-spin' : ''}`} />
-                        Refresh
-                    </Button>
-                    {onEnrollClick && (
-                        <Button size="sm" onClick={onEnrollClick}>
-                            <Plus className="h-4 w-4 mr-2" />
-                            Enroll in Class
+                    {/* Actions Bar */}
+                    <div className="flex items-center justify-between gap-2 mt-6">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefresh}
+                            disabled={listLoading}
+                            className="h-9"
+                        >
+                            <RefreshCw className={`h-4 w-4 mr-2 ${listLoading ? 'animate-spin' : ''}`} />
+                            Refresh
                         </Button>
-                    )}
+                        {onEnrollClick && (
+                            <Button size="sm" onClick={onEnrollClick} className="h-9">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Enroll in Class
+                            </Button>
+                        )}
+                    </div>
                 </div>
 
-                <ScrollArea className="h-[400px] pr-4">
-                    {/* Loading State */}
-                    {listLoading && studentClassEnrollments.length === 0 && (
-                        <EnrollmentsSkeleton />
-                    )}
+                {/* Content Section */}
+                <div className="flex-1 overflow-hidden p-6 pt-4">
+                    <ScrollArea className="h-full pr-4">
+                        {/* Loading State */}
+                        {listLoading && studentClassEnrollments.length === 0 && (
+                            <div className="py-8">
+                                <EnrollmentsSkeleton />
+                            </div>
+                        )}
 
-                    {/* Error State */}
-                    {error && studentClassEnrollments.length === 0 && (
-                        <div className="flex flex-col items-center py-8 text-center">
-                            <AlertCircle className="h-8 w-8 text-destructive mb-2" />
-                            <p className="text-sm text-muted-foreground">{error}</p>
-                            <Button variant="outline" size="sm" className="mt-4" onClick={handleRefresh}>
-                                <RefreshCw className="h-4 w-4 mr-2" />
-                                Retry
-                            </Button>
-                        </div>
-                    )}
+                        {/* Error State */}
+                        {error && studentClassEnrollments.length === 0 && (
+                            <div className="py-8">
+                                <ErrorState error={error} onRetry={handleRefresh} />
+                            </div>
+                        )}
 
-                    {/* Empty State */}
-                    {!listLoading && !error && studentClassEnrollments.length === 0 && (
-                        <EmptyState onEnroll={onEnrollClick} />
-                    )}
+                        {/* Empty State */}
+                        {!listLoading && !error && studentClassEnrollments.length === 0 && (
+                            <div className="py-8">
+                                <EmptyState onEnroll={onEnrollClick} />
+                            </div>
+                        )}
 
-                    {/* Class List Table */}
-                    {studentClassEnrollments.length > 0 && (
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Class</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead>Enrolled</TableHead>
-                                        <TableHead>Attendance</TableHead>
-                                        <TableHead>Grade</TableHead>
-                                        <TableHead className="w-[50px]"></TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {studentClassEnrollments.map((enrollment) => (
-                                        <TableRow key={enrollment.id}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="font-medium text-sm">
-                                                            {enrollment.class?.class_name || 'Unknown'}
-                                                        </p>
-                                                        {enrollment.class?.subject && (
-                                                            <p className="text-xs text-muted-foreground">
-                                                                {enrollment.class.subject}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>
-                                                <StatusBadge status={enrollment.enrollment_status} />
-                                            </TableCell>
-                                            <TableCell className="text-sm">
-                                                {formatDate(enrollment.enrollment_date)}
-                                            </TableCell>
-                                            <TableCell>
-                                                <AttendanceDisplay
-                                                    percentage={enrollment.attendance_percentage}
-                                                />
-                                            </TableCell>
-                                            <TableCell className="font-medium">
-                                                {enrollment.current_grade || '—'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <RowActions
-                                                    enrollment={enrollment}
-                                                    onEdit={handleEdit}
-                                                    onDrop={handleDrop}
-                                                />
-                                            </TableCell>
+                        {/* Class List Table */}
+                        {studentClassEnrollments.length > 0 && (
+                            <div className="rounded-lg border overflow-hidden">
+                                <Table>
+                                    <TableHeader className="bg-muted/50">
+                                        <TableRow>
+                                            <TableHead className="w-[280px] font-semibold">Class</TableHead>
+                                            <TableHead className="w-[120px] font-semibold">Status</TableHead>
+                                            <TableHead className="w-[120px] font-semibold">Enrolled</TableHead>
+                                            <TableHead className="w-[120px] font-semibold">Attendance</TableHead>
+                                            <TableHead className="w-[100px] font-semibold">Grade</TableHead>
+                                            <TableHead className="w-[70px] font-semibold text-right">Actions</TableHead>
                                         </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    )}
-                </ScrollArea>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {studentClassEnrollments.map((enrollment) => (
+                                            <EnrollmentRow
+                                                key={enrollment.id}
+                                                enrollment={enrollment}
+                                                onEdit={handleEdit}
+                                                onDrop={handleDrop}
+                                            />
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        )}
+                    </ScrollArea>
+                </div>
             </DialogContent>
         </Dialog>
     );
