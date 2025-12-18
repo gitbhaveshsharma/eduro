@@ -1,19 +1,20 @@
 /**
- * Classes Table Component - FIXED VERSION
+ * Classes Table Component - CONTEXT-BASED VERSION
  * 
- * Supports two modes:
+ * Supports two modes (similar to receipts-table.tsx):
  * 1. Branch mode (branchId) - Shows only classes for a specific branch
  * 2. Coaching Center mode (coachingCenterId) - Shows all classes across branches
  * 
- * Key fixes:
- * 1. Uses appropriate data source based on context
- * 2. Uses cached results on subsequent renders
- * 3. Automatically updates when classes are created/updated/deleted
+ * Key features:
+ * 1. Uses fetchClassesByBranch or fetchClassesByCoachingCenter based on context
+ * 2. Client-side filtering (no search API calls)
+ * 3. Uses cached results on subsequent renders
+ * 4. Automatically updates when classes are created/updated/deleted
  */
 
 'use client';
 
-import { useEffect, useState, memo, useCallback } from 'react';
+import { useEffect, useState, memo, useCallback, useMemo } from 'react';
 import {
     Table,
     TableBody,
@@ -40,9 +41,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-    useSearchResults,
     useClassesLoading,
-    useClassesUI,
     useClassesByBranch,
     useClassesByCoachingCenter,
     useBranchClassesStore,
@@ -52,6 +51,7 @@ import {
     calculateUtilization,
     type BranchClass,
     type PublicBranchClass,
+    type BranchClassFilters,
 } from '@/lib/branch-system/branch-classes';
 import {
     MoreHorizontal,
@@ -71,6 +71,8 @@ interface ClassesTableProps {
     branchId?: string;
     /** Coaching Center ID - shows all classes across all branches of this coaching center */
     coachingCenterId?: string;
+    /** Filter criteria from ClassFilters component */
+    filters?: BranchClassFilters;
 }
 
 /**
@@ -204,109 +206,157 @@ function EmptyState() {
 }
 
 /**
+ * Client-side filter function
+ */
+function filterClasses(classes: BranchClass[], filters: BranchClassFilters): BranchClass[] {
+    return classes.filter((cls) => {
+        // Search query filter
+        if (filters.search_query) {
+            const query = filters.search_query.toLowerCase();
+            const matchesName = cls.class_name?.toLowerCase().includes(query);
+            const matchesSubject = cls.subject?.toLowerCase().includes(query);
+            const matchesDescription = cls.description?.toLowerCase().includes(query);
+            const matchesBatch = cls.batch_name?.toLowerCase().includes(query);
+
+            if (!matchesName && !matchesSubject && !matchesDescription && !matchesBatch) {
+                return false;
+            }
+        }
+
+        // Status filter
+        if (filters.status && cls.status !== filters.status) {
+            return false;
+        }
+
+        // Grade level filter
+        if (filters.grade_level && cls.grade_level !== filters.grade_level) {
+            return false;
+        }
+
+        // Subject filter
+        if (filters.subject && cls.subject !== filters.subject) {
+            return false;
+        }
+
+        // Branch filter (for coaching center mode)
+        if (filters.branch_id && cls.branch_id !== filters.branch_id) {
+            return false;
+        }
+
+        // Available seats filter
+        if (filters.has_available_seats) {
+            const hasSeats = (cls.max_students || 0) > (cls.current_enrollment || 0);
+            if (!hasSeats) {
+                return false;
+            }
+        }
+
+        return true;
+    });
+}
+
+/**
+ * Client-side sort function
+ */
+function sortClasses(
+    classes: BranchClass[],
+    field: string,
+    direction: 'asc' | 'desc'
+): BranchClass[] {
+    return [...classes].sort((a, b) => {
+        let aValue: any = a[field as keyof BranchClass];
+        let bValue: any = b[field as keyof BranchClass];
+
+        // Handle null/undefined
+        if (aValue == null) aValue = '';
+        if (bValue == null) bValue = '';
+
+        // String comparison
+        if (typeof aValue === 'string' && typeof bValue === 'string') {
+            return direction === 'asc'
+                ? aValue.localeCompare(bValue)
+                : bValue.localeCompare(aValue);
+        }
+
+        // Number/Date comparison
+        if (direction === 'asc') {
+            return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+        } else {
+            return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+        }
+    });
+}
+
+/**
  * Main Classes Table Component
  */
-export function ClassesTable({ branchId, coachingCenterId }: ClassesTableProps) {
-    const searchResults = useSearchResults();
-    const { search: isSearching, fetchClasses: isLoading } = useClassesLoading();
-    const { currentSort, currentFilters, currentPagination } = useClassesUI();
+export function ClassesTable({ branchId, coachingCenterId, filters = {} }: ClassesTableProps) {
+    const { fetchClasses: isLoading } = useClassesLoading();
     const store = useBranchClassesStore();
 
-    // Get classes from appropriate source based on context
+    // Get classes from appropriate source based on context (like receipts-table.tsx)
     const branchClasses = useClassesByBranch(branchId || null);
     const coachingCenterClasses = useClassesByCoachingCenter(coachingCenterId || null);
 
-    // Determine which classes to display
-    // Priority: searchResults (when actively filtering) > context-specific classes
-    const hasActiveSearch = searchResults && (
-        currentFilters.search_query ||
-        currentFilters.status ||
-        currentFilters.grade_level ||
-        currentFilters.subject ||
-        currentFilters.has_available_seats
-    );
-
-    const contextClasses = branchId 
-        ? branchClasses 
-        : coachingCenterId 
-            ? coachingCenterClasses 
+    // Determine which classes to use based on context
+    const rawClasses = branchId
+        ? branchClasses
+        : coachingCenterId
+            ? coachingCenterClasses
             : [];
 
-    // Use search results when filtering, otherwise use context-specific classes
-    const classes = hasActiveSearch 
-        ? (searchResults?.classes || []) 
-        : contextClasses;
-
+    // Local sorting state
     const [sortConfig, setSortConfig] = useState<{ field: string; direction: 'asc' | 'desc' }>({
-        field: currentSort?.field || 'created_at',
-        direction: currentSort?.direction || 'desc',
+        field: 'created_at',
+        direction: 'desc',
     });
 
-    // ✅ FIX: Initialize data fetch based on context
-    const [hasInitialized, setHasInitialized] = useState(false);
-
+    // Fetch classes on mount based on branchId or coachingCenterId (like receipts-table.tsx)
     useEffect(() => {
-        if (!hasInitialized) {
-            console.log('🔍 ClassesTable: Initial load');
-            
-            if (branchId) {
-                // Branch manager context - fetch branch-specific classes
-                store.fetchClassesByBranch(branchId, false);
-                store.setFilters({ branch_id: branchId });
-            } else if (coachingCenterId) {
-                // Coach context - fetch coaching center classes
-                store.fetchClassesByCoachingCenter(coachingCenterId, false);
-                store.setFilters({ coaching_center_id: coachingCenterId });
-            } else {
-                // Fallback to search (for generic usage)
-                store.searchClasses(currentFilters, currentSort, currentPagination, false);
-            }
-            
-            setHasInitialized(true);
+        if (coachingCenterId) {
+            // Coach view - fetch all branches of coaching center
+            console.log('[ClassesTable] Fetching classes for coaching center:', coachingCenterId);
+            store.fetchClassesByCoachingCenter(coachingCenterId);
+        } else if (branchId) {
+            // Branch manager view - fetch single branch
+            console.log('[ClassesTable] Fetching classes for branch:', branchId);
+            store.fetchClassesByBranch(branchId);
         }
-    }, [hasInitialized, branchId, coachingCenterId, store, currentFilters, currentSort, currentPagination]);
+        // Note: If neither branchId nor coachingCenterId is provided,
+        // no fetch is performed - this component requires context
+    }, [branchId, coachingCenterId, store]);
 
-    // ✅ When filters/sort/pagination change AND we have active search, trigger new search
-    useEffect(() => {
-        if (hasInitialized && hasActiveSearch) {
-            console.log('🔍 Filters/Sort/Pagination changed - searching');
-            store.searchClasses(currentFilters, currentSort, currentPagination, false);
-        }
-    }, [currentFilters, currentSort, currentPagination, hasInitialized, hasActiveSearch, store]);
+    // Apply client-side filtering and sorting
+    const classes = useMemo(() => {
+        let result = filterClasses(rawClasses, filters);
+        result = sortClasses(result, sortConfig.field, sortConfig.direction);
+        return result;
+    }, [rawClasses, filters, sortConfig]);
 
-    // Handle column sorting
-    const handleSort = (field: string) => {
-        const newDirection =
-            sortConfig.field === field && sortConfig.direction === 'asc' ? 'desc' : 'asc';
-
-        setSortConfig({ field, direction: newDirection });
-
-        // Update store sort (this will trigger the useEffect above)
-        store.setSort({
-            field: field as any,
-            direction: newDirection,
-        });
-    };
+    // Handle column sorting (client-side)
+    const handleSort = useCallback((field: string) => {
+        setSortConfig((prev) => ({
+            field,
+            direction: prev.field === field && prev.direction === 'asc' ? 'desc' : 'asc',
+        }));
+    }, []);
 
     // Manual refresh function
-    const handleRefresh = () => {
-        console.log('🔄 Manual refresh - bypassing cache');
+    const handleRefresh = useCallback(() => {
+        console.log('[ClassesTable] Manual refresh - bypassing cache');
         if (branchId) {
             store.fetchClassesByBranch(branchId, true);
         } else if (coachingCenterId) {
             store.fetchClassesByCoachingCenter(coachingCenterId, true);
-        } else {
-            store.searchClasses(currentFilters, currentSort, currentPagination, true);
         }
-    };
+    }, [branchId, coachingCenterId, store]);
 
     // Show loading state only on initial load
-    const isLoadingData = isSearching || isLoading;
-    if (isLoadingData && classes.length === 0) {
+    if (isLoading && rawClasses.length === 0) {
         return <TableSkeleton />;
     }
 
-    if (classes.length === 0 && !isLoadingData) {
+    if (classes.length === 0 && !isLoading) {
         return <EmptyState />;
     }
 
@@ -315,15 +365,18 @@ export function ClassesTable({ branchId, coachingCenterId }: ClassesTableProps) 
             {/* Header with refresh button */}
             <div className="flex justify-between items-center">
                 <div className="text-sm text-muted-foreground">
-                    {classes.length} classes found
+                    {classes.length} {classes.length === 1 ? 'class' : 'classes'} found
+                    {rawClasses.length !== classes.length && (
+                        <span className="ml-1">(filtered from {rawClasses.length})</span>
+                    )}
                 </div>
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={handleRefresh}
-                    disabled={isLoadingData}
+                    disabled={isLoading}
                 >
-                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
                     Refresh
                 </Button>
             </div>

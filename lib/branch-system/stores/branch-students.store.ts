@@ -23,6 +23,7 @@ import type {
     BranchStudentSearchResult,
     BranchStudentStats,
     StudentEnrollmentSummary,
+    BranchStudentValidationError,
 } from '../types/branch-students.types';
 import { branchStudentsService } from '../services/branch-students.service';
 
@@ -347,7 +348,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         return true;
                     } else {
                         const validationErrors: Record<string, string> = {};
-                        result.validation_errors?.forEach((err) => {
+                        result.validation_errors?.forEach((err: BranchStudentValidationError) => {
                             validationErrors[err.field] = err.message;
                         });
 
@@ -441,7 +442,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
 
                     if (result.success && result.data) {
                         const enrollmentsMap: Record<string, BranchStudent> = {};
-                        result.data.forEach((enrollment) => {
+                        result.data.forEach((enrollment: BranchStudentWithRelations) => {
                             enrollmentsMap[enrollment.id] = enrollment;
                         });
 
@@ -468,7 +469,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
 
                     if (result.success && result.data) {
                         const enrollmentsMap: Record<string, BranchStudentWithRelations> = {};
-                        result.data.forEach((enrollment) => {
+                        result.data.forEach((enrollment: BranchStudentWithRelations) => {
                             enrollmentsMap[enrollment.id] = enrollment as BranchStudentWithRelations;
                         });
 
@@ -565,7 +566,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
 
                     if (result.success && result.data) {
                         const enrollmentsMap: Record<string, BranchStudentWithRelations> = {};
-                        result.data.forEach((enrollment) => {
+                        result.data.forEach((enrollment: BranchStudentWithRelations) => {
                             enrollmentsMap[enrollment.id] = enrollment;
                         });
 
@@ -615,7 +616,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         return true;
                     } else {
                         const validationErrors: Record<string, string> = {};
-                        result.validation_errors?.forEach((err) => {
+                        result.validation_errors?.forEach((err: BranchStudentValidationError) => {
                             validationErrors[err.field] = err.message;
                         });
 
@@ -656,7 +657,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         return true;
                     } else {
                         const validationErrors: Record<string, string> = {};
-                        result.validation_errors?.forEach((err) => {
+                        result.validation_errors?.forEach((err: BranchStudentValidationError) => {
                             validationErrors[err.field] = err.message;
                         });
 
@@ -697,7 +698,7 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                         return true;
                     } else {
                         const validationErrors: Record<string, string> = {};
-                        result.validation_errors?.forEach((err) => {
+                        result.validation_errors?.forEach((err: BranchStudentValidationError) => {
                             validationErrors[err.field] = err.message;
                         });
 

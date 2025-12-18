@@ -4,10 +4,26 @@
  * Central export point for all branch student enrollment functionality
  * 
  * @module branch-system/branch-students
+ * 
+ * @version 2.0.0
+ * @since 2024
+ * 
+ * @description
+ * This module has been refactored to separate branch student profiles from class enrollments.
+ * 
+ * Key concepts:
+ * - `branch_students`: Student profile per branch (demographics, contact info, registration)
+ * - `class_enrollments`: Junction table for student-class relationships
+ * - `student_enrollment_details`: Database view combining both for queries
+ * 
+ * Migration guide:
+ * - Use `ClassEnrollmentsService` for class-specific operations
+ * - Use `BranchStudentsService` for student profile operations
+ * - Legacy methods are marked @deprecated and delegate to new services
  */
 
 // ============================================================
-// TYPES
+// TYPES - Branch Students (Profile)
 // ============================================================
 
 export type {
@@ -15,7 +31,6 @@ export type {
     BranchStudent,
     PublicBranchStudent,
     StudentEditableFields,
-    TeacherEditableFields,
     ManagerEditableFields,
     BranchStudentWithRelations,
 
@@ -63,7 +78,46 @@ export {
 } from './types/branch-students.types';
 
 // ============================================================
-// VALIDATION
+// TYPES - Class Enrollments (NEW)
+// ============================================================
+
+export type {
+    // Core interfaces
+    ClassEnrollment,
+    PublicClassEnrollment,
+    ClassEnrollmentWithRelations,
+
+    // Status enum
+    ClassEnrollmentStatus,
+
+    // Input types
+    CreateClassEnrollmentInput,
+    UpdateClassEnrollmentByTeacherInput,
+    UpdateClassEnrollmentByManagerInput,
+
+    // Filter & search types
+    ClassEnrollmentFilters,
+    ClassEnrollmentSort,
+    ClassEnrollmentSearchResult,
+
+    // Statistics & analytics
+    ClassEnrollmentStats,
+    StudentClassEnrollmentSummary,
+    BranchClassEnrollmentOverview,
+
+    // Operation results
+    ClassEnrollmentOperationResult,
+    ClassEnrollmentValidationError,
+} from './types/class-enrollments.types';
+
+export {
+    // Constants
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    DEFAULT_CLASS_ENROLLMENT_VALUES,
+} from './types/class-enrollments.types';
+
+// ============================================================
+// VALIDATION - Branch Students
 // ============================================================
 
 export {
@@ -119,6 +173,44 @@ export type {
 } from './validations/branch-students.validation';
 
 // ============================================================
+// VALIDATION - Class Enrollments (NEW)
+// ============================================================
+
+export {
+    // Schemas
+    createClassEnrollmentSchema,
+    updateClassEnrollmentByTeacherSchema,
+    updateClassEnrollmentByManagerSchema,
+    classEnrollmentFilterSchema,
+    classEnrollmentSortSchema,
+    classEnrollmentIdSchema,
+
+    // Base schemas
+    classEnrollmentStatusSchema,
+
+    // Validation functions
+    validateCreateClassEnrollment,
+    validateUpdateClassEnrollmentByTeacher,
+    validateUpdateClassEnrollmentByManager,
+    validateClassEnrollmentFilter,
+    validateClassEnrollmentSort,
+    validateClassEnrollmentId,
+
+    // Constants
+    CLASS_ENROLLMENT_LIMITS,
+} from './validations/class-enrollments.validation';
+
+// export type {
+//     // Inferred types
+//     CreateClassEnrollmentValidated,
+//     UpdateClassEnrollmentByTeacherValidated,
+//     UpdateClassEnrollmentByManagerValidated,
+//     BulkClassEnrollmentValidated,
+//     ClassEnrollmentFilterValidated,
+//     ClassEnrollmentSortValidated,
+// } from './validations/class-enrollments.validation';
+
+// ============================================================
 // UTILITIES
 // ============================================================
 
@@ -162,7 +254,7 @@ export {
 } from './utils/branch-students.utils';
 
 // ============================================================
-// SERVICE
+// SERVICE - Branch Students
 // ============================================================
 
 export {
@@ -171,7 +263,16 @@ export {
 } from './services/branch-students.service';
 
 // ============================================================
-// STORE (Zustand)
+// SERVICE - Class Enrollments (NEW)
+// ============================================================
+
+export {
+    ClassEnrollmentsService,
+    classEnrollmentsService,
+} from './services/class-enrollments.service';
+
+// ============================================================
+// STORE (Zustand) - Branch Students
 // ============================================================
 
 export {
@@ -188,3 +289,11 @@ export {
     selectStats,
     selectSummary,
 } from './stores/branch-students.store';
+
+// ============================================================
+// STORE (Zustand) - Class Enrollments (NEW)
+// ============================================================
+
+export {
+    useClassEnrollmentsStore,
+} from './stores/class-enrollments.store';

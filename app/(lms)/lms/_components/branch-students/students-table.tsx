@@ -8,18 +8,20 @@
 
 'use client';
 
-import { useCallback, useMemo, memo } from 'react';
+import { useCallback, useMemo, memo, useState } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
+import { useClassEnrollmentsStore } from '@/lib/branch-system/stores/class-enrollments.store';
 import type { PublicBranchStudent, BranchStudentSort } from '@/lib/branch-system/types/branch-students.types';
 import {
-    ENROLLMENT_STATUS_OPTIONS,
     PAYMENT_STATUS_OPTIONS,
-    ATTENDANCE_THRESHOLDS,
 } from '@/lib/branch-system/types/branch-students.types';
+import {
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    type ClassEnrollmentStatus,
+} from '@/lib/branch-system/types/class-enrollments.types';
 import {
     formatCurrency,
     formatDate,
-    formatEnrollmentStatus,
     formatPaymentStatus,
     calculateDaysUntilPayment,
     getPaymentUrgency,
@@ -34,7 +36,6 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
     DropdownMenu,
@@ -57,10 +58,18 @@ import {
     Eye,
     Edit,
     Trash2,
-    Calendar,
-    GraduationCap,
     User,
+    GraduationCap,
+    BookOpen,
+    Plus,
+    ClipboardList,
 } from 'lucide-react';
+import {
+    EnrollClassDialog,
+    EditClassEnrollmentDialog,
+    DropClassEnrollmentDialog,
+    ViewClassesDialog,
+} from '../class-enrollments';
 
 /**
  * Sortable Header Component - Memoized
@@ -149,17 +158,23 @@ interface StudentRowActionsProps {
     onView: (student: PublicBranchStudent) => void;
     onEdit: (student: PublicBranchStudent) => void;
     onDelete: (student: PublicBranchStudent) => void;
+    onEnrollClass: (student: PublicBranchStudent) => void;
+    onViewClasses: (student: PublicBranchStudent) => void;
 }
 
 const StudentRowActions = memo(function StudentRowActions({
     student,
     onView,
     onEdit,
-    onDelete
+    onDelete,
+    onEnrollClass,
+    onViewClasses,
 }: StudentRowActionsProps) {
     const handleView = useCallback(() => onView(student), [student, onView]);
     const handleEdit = useCallback(() => onEdit(student), [student, onEdit]);
     const handleDelete = useCallback(() => onDelete(student), [student, onDelete]);
+    const handleEnrollClass = useCallback(() => onEnrollClass(student), [student, onEnrollClass]);
+    const handleViewClasses = useCallback(() => onViewClasses(student), [student, onViewClasses]);
 
     return (
         <DropdownMenu>
@@ -177,6 +192,16 @@ const StudentRowActions = memo(function StudentRowActions({
                 <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="mr-2 h-4 w-4" />
                     Edit Enrollment
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {/* Class Enrollment Actions */}
+                <DropdownMenuItem onClick={handleEnrollClass}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Enroll in Class
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleViewClasses}>
+                    <BookOpen className="mr-2 h-4 w-4" />
+                    View Classes
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -199,23 +224,18 @@ interface StudentRowProps {
     onView: (student: PublicBranchStudent) => void;
     onEdit: (student: PublicBranchStudent) => void;
     onDelete: (student: PublicBranchStudent) => void;
+    onEnrollClass: (student: PublicBranchStudent) => void;
+    onViewClasses: (student: PublicBranchStudent) => void;
 }
 
 const StudentRow = memo(function StudentRow({
     student,
     onView,
     onEdit,
-    onDelete
+    onDelete,
+    onEnrollClass,
+    onViewClasses,
 }: StudentRowProps) {
-    // Memoize attendance color calculation
-    const attendanceColor = useMemo(() => {
-        const percentage = student.attendance_percentage;
-        if (percentage >= ATTENDANCE_THRESHOLDS.EXCELLENT) return 'text-green-600';
-        if (percentage >= ATTENDANCE_THRESHOLDS.GOOD) return 'text-blue-600';
-        if (percentage >= ATTENDANCE_THRESHOLDS.NEEDS_IMPROVEMENT) return 'text-orange-600';
-        return 'text-red-600';
-    }, [student.attendance_percentage]);
-
     // Memoize payment urgency badge
     const paymentUrgencyBadge = useMemo(() => {
         const urgency = getPaymentUrgency(student.next_payment_due);
@@ -226,7 +246,7 @@ const StudentRow = memo(function StudentRow({
         const urgencyConfig = {
             overdue: { variant: 'destructive' as const, label: 'Overdue' },
             urgent: { variant: 'destructive' as const, label: `Due in ${daysUntil} days` },
-            warning: { variant: 'default' as const, label: `Due in ${daysUntil} days` },
+            warning: { variant: 'warning' as const, label: `Due in ${daysUntil} days` },
             reminder: { variant: 'secondary' as const, label: `Due in ${daysUntil} days` },
         };
 
@@ -238,6 +258,50 @@ const StudentRow = memo(function StudentRow({
         );
     }, [student.next_payment_due]);
 
+    // Memoize enrollment status badge with proper color mapping
+    const enrollmentStatusBadge = useMemo(() => {
+        const status = student.enrollment_status as ClassEnrollmentStatus | null;
+        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
+
+        const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
+        if (!statusConfig) return <span className="text-xs text-muted-foreground">{status}</span>;
+
+        // Map class enrollment colors to Badge variants
+        // Based on CLASS_ENROLLMENT_STATUS_OPTIONS colors and Badge component variants
+        const colorToVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+            green: 'success',      // ENROLLED - Active/success state
+            yellow: 'warning',     // PENDING - Warning/waiting state
+            orange: 'warning',     // SUSPENDED - Warning/attention needed
+            red: 'destructive',    // DROPPED - Error/removed state
+            blue: 'outline',       // COMPLETED - Neutral/completed state
+        };
+
+        const variant = colorToVariant[statusConfig.color] || 'secondary';
+
+        return (
+            <Badge variant={variant} className="text-xs">
+                {statusConfig.label}
+            </Badge>
+        );
+    }, [student.enrollment_status]);
+
+    // Memoize attendance display
+    const attendanceDisplay = useMemo(() => {
+        const attendance = student.attendance_percentage;
+        let colorClass = 'text-muted-foreground';
+
+        if (attendance >= 90) colorClass = 'text-green-600';
+        else if (attendance >= 75) colorClass = 'text-blue-600';
+        else if (attendance >= 60) colorClass = 'text-yellow-600';
+        else if (attendance > 0) colorClass = 'text-red-600';
+
+        return (
+            <span className={`font-medium ${colorClass}`}>
+                {attendance.toFixed(1)}%
+            </span>
+        );
+    }, [student.attendance_percentage]);
+
     return (
         <TableRow>
             {/* Student Name & ID with Tooltip */}
@@ -248,16 +312,26 @@ const StudentRow = memo(function StudentRow({
                         studentName={student.student_name || 'Unknown Student'}
                     />
                     <p className="text-xs text-muted-foreground">
-                        Enrolled {formatDate(student.enrollment_date)}
+                        Registered {formatDate(student.registration_date)}
                     </p>
                 </div>
             </TableCell>
 
             {/* Enrollment Status */}
             <TableCell>
-                <Badge variant={ENROLLMENT_STATUS_OPTIONS[student.enrollment_status].color as any}>
-                    {formatEnrollmentStatus(student.enrollment_status)}
-                </Badge>
+                <div className="flex flex-col gap-1">
+                    {enrollmentStatusBadge}
+                    {student.class_name && (
+                        <p className="text-xs text-muted-foreground truncate max-w-[120px]" title={student.class_name}>
+                            {student.class_name}
+                        </p>
+                    )}
+                </div>
+            </TableCell>
+
+            {/* Attendance Percentage */}
+            <TableCell className="text-center">
+                {attendanceDisplay}
             </TableCell>
 
             {/* Payment Status */}
@@ -267,37 +341,6 @@ const StudentRow = memo(function StudentRow({
                         {formatPaymentStatus(student.payment_status)}
                     </Badge>
                     {paymentUrgencyBadge}
-                </div>
-            </TableCell>
-
-            {/* Attendance */}
-            <TableCell>
-                <div className="space-y-1">
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <span>Attendance</span>
-                        </div>
-                        <span className={`font-medium ${student.attendance_percentage >= 90
-                            ? 'text-green-600'
-                            : student.attendance_percentage >= 70
-                                ? 'text-orange-600'
-                                : 'text-red-600'
-                            }`}>
-                            {student.attendance_percentage.toFixed(1)}%
-                        </span>
-                    </div>
-                    <div className="w-full bg-secondary rounded-full h-1.5">
-                        <div
-                            className={`h-1.5 rounded-full transition-all ${student.attendance_percentage >= 90
-                                ? 'bg-green-500'
-                                : student.attendance_percentage >= 70
-                                    ? 'bg-orange-500'
-                                    : 'bg-red-500'
-                                }`}
-                            style={{ width: `${student.attendance_percentage}%` }}
-                        />
-                    </div>
                 </div>
             </TableCell>
 
@@ -313,22 +356,6 @@ const StudentRow = memo(function StudentRow({
                 </div>
             </TableCell>
 
-            {/* Next Payment */}
-            <TableCell>
-                {student.next_payment_due ? (
-                    <div className="text-sm">
-                        <p className="font-medium">
-                            {formatDate(student.next_payment_due)}
-                        </p>
-                        {student.is_payment_overdue && (
-                            <p className="text-xs text-red-600">Overdue</p>
-                        )}
-                    </div>
-                ) : (
-                    <span className="text-xs text-muted-foreground">-</span>
-                )}
-            </TableCell>
-
             {/* Actions */}
             <TableCell className="text-right">
                 <StudentRowActions
@@ -336,6 +363,8 @@ const StudentRow = memo(function StudentRow({
                     onView={onView}
                     onEdit={onEdit}
                     onDelete={onDelete}
+                    onEnrollClass={onEnrollClass}
+                    onViewClasses={onViewClasses}
                 />
             </TableCell>
         </TableRow>
@@ -343,11 +372,11 @@ const StudentRow = memo(function StudentRow({
 }, (prevProps, nextProps) => {
     // Custom comparison to prevent re-render if student data hasn't changed
     return prevProps.student.id === nextProps.student.id &&
-        prevProps.student.enrollment_status === nextProps.student.enrollment_status &&
         prevProps.student.payment_status === nextProps.student.payment_status &&
-        prevProps.student.attendance_percentage === nextProps.student.attendance_percentage &&
         prevProps.student.outstanding_balance === nextProps.student.outstanding_balance &&
-        prevProps.student.student_name === nextProps.student.student_name;
+        prevProps.student.student_name === nextProps.student.student_name &&
+        prevProps.student.enrollment_status === nextProps.student.enrollment_status &&
+        prevProps.student.attendance_percentage === nextProps.student.attendance_percentage;
 });
 
 /**
@@ -398,6 +427,8 @@ interface StudentsTableProps {
     onViewStudent?: (studentId: string) => void;
     onEditStudent?: (studentId: string) => void;
     onDeleteStudent?: (studentId: string) => void;
+    /** Callback to navigate to student's class enrollments */
+    onViewStudentClasses?: (student: PublicBranchStudent) => void;
 }
 
 /**
@@ -409,7 +440,8 @@ export function StudentsTable({
     coachingCenterId,
     onViewStudent,
     onEditStudent,
-    onDeleteStudent
+    onDeleteStudent,
+    onViewStudentClasses,
 }: StudentsTableProps = {}) {
     const {
         branchStudents,
@@ -417,6 +449,16 @@ export function StudentsTable({
         sort,
         setSort,
     } = useBranchStudentsStore();
+
+    const { fetchStudentClassEnrollments } = useClassEnrollmentsStore();
+
+    // State for enroll class dialog
+    const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+    const [selectedStudentForEnroll, setSelectedStudentForEnroll] = useState<PublicBranchStudent | null>(null);
+
+    // State for view classes dialog
+    const [viewClassesDialogOpen, setViewClassesDialogOpen] = useState(false);
+    const [selectedStudentForViewClasses, setSelectedStudentForViewClasses] = useState<PublicBranchStudent | null>(null);
 
     // Memoize sort handler to prevent recreation
     const handleSort = useCallback((field: BranchStudentSort['field']) => {
@@ -459,6 +501,40 @@ export function StudentsTable({
         }
     }, [onDeleteStudent]);
 
+    // Class enrollment action handlers
+    const handleEnrollClass = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] Enroll in class:', student.id);
+        setSelectedStudentForEnroll(student);
+        setEnrollDialogOpen(true);
+    }, []);
+
+    const handleViewClasses = useCallback((student: PublicBranchStudent) => {
+        console.log('[StudentsTable] View classes:', student.id);
+        // Set the selected student and open the view classes dialog
+        setSelectedStudentForViewClasses(student);
+        setViewClassesDialogOpen(true);
+        // Also call the external callback if provided
+        if (onViewStudentClasses) {
+            onViewStudentClasses(student);
+        }
+    }, [onViewStudentClasses]);
+
+    // Handle enroll from view classes dialog
+    const handleEnrollFromViewClasses = useCallback(() => {
+        if (selectedStudentForViewClasses) {
+            setSelectedStudentForEnroll(selectedStudentForViewClasses);
+            setEnrollDialogOpen(true);
+        }
+    }, [selectedStudentForViewClasses]);
+
+    const handleEnrollSuccess = useCallback(() => {
+        // Refresh data after successful enrollment
+        if (selectedStudentForEnroll) {
+            fetchStudentClassEnrollments(selectedStudentForEnroll.student_id, selectedStudentForEnroll.branch_id);
+        }
+        setSelectedStudentForEnroll(null);
+    }, [selectedStudentForEnroll, fetchStudentClassEnrollments]);
+
     if (listLoading) {
         return <TableSkeleton />;
     }
@@ -472,7 +548,7 @@ export function StudentsTable({
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead className="w-[220px]">
+                        <TableHead className="w-[200px]">
                             <SortableHeader
                                 field="student_name"
                                 label="Student"
@@ -480,7 +556,7 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="w-[120px]">
+                        <TableHead className="w-[130px]">
                             <SortableHeader
                                 field="enrollment_status"
                                 label="Status"
@@ -488,15 +564,7 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="w-[140px]">
-                            <SortableHeader
-                                field="payment_status"
-                                label="Payment"
-                                currentSort={sort}
-                                onSort={handleSort}
-                            />
-                        </TableHead>
-                        <TableHead className="w-[150px]">
+                        <TableHead className="w-[100px] text-center">
                             <SortableHeader
                                 field="attendance_percentage"
                                 label="Attendance"
@@ -504,23 +572,23 @@ export function StudentsTable({
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="w-[120px] text-right">
+                        <TableHead className="w-[120px]">
+                            <SortableHeader
+                                field="payment_status"
+                                label="Payment"
+                                currentSort={sort}
+                                onSort={handleSort}
+                            />
+                        </TableHead>
+                        <TableHead className="w-[100px] text-right">
                             <SortableHeader
                                 field="total_fees_due"
-                                label="Fees Due"
+                                label="Balance"
                                 currentSort={sort}
                                 onSort={handleSort}
                             />
                         </TableHead>
-                        <TableHead className="w-[140px]">
-                            <SortableHeader
-                                field="next_payment_due"
-                                label="Next Payment"
-                                currentSort={sort}
-                                onSort={handleSort}
-                            />
-                        </TableHead>
-                        <TableHead className="w-[80px] text-right">Actions</TableHead>
+                        <TableHead className="w-[70px] text-right">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -531,10 +599,44 @@ export function StudentsTable({
                             onView={handleView}
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onEnrollClass={handleEnrollClass}
+                            onViewClasses={handleViewClasses}
                         />
                     ))}
                 </TableBody>
             </Table>
+
+            {/* Class Enrollment Dialogs */}
+            {selectedStudentForEnroll && (
+                <EnrollClassDialog
+                    open={enrollDialogOpen}
+                    onOpenChange={setEnrollDialogOpen}
+                    studentId={selectedStudentForEnroll.student_id}
+                    branchId={selectedStudentForEnroll.branch_id}
+                    branchStudentId={selectedStudentForEnroll.id}
+                    studentName={selectedStudentForEnroll.student_name || undefined}
+                    coachingCenterId={coachingCenterId}
+                    onSuccess={handleEnrollSuccess}
+                />
+            )}
+
+            {/* View Classes Dialog */}
+            {selectedStudentForViewClasses && (
+                <ViewClassesDialog
+                    open={viewClassesDialogOpen}
+                    onOpenChange={setViewClassesDialogOpen}
+                    studentId={selectedStudentForViewClasses.student_id}
+                    branchId={selectedStudentForViewClasses.branch_id}
+                    branchStudentId={selectedStudentForViewClasses.id}
+                    studentName={selectedStudentForViewClasses.student_name || undefined}
+                    coachingCenterId={coachingCenterId}
+                    onEnrollClick={handleEnrollFromViewClasses}
+                />
+            )}
+
+            {/* Store-controlled dialogs for edit/drop */}
+            <EditClassEnrollmentDialog />
+            <DropClassEnrollmentDialog />
         </div>
     );
 }

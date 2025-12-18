@@ -304,7 +304,6 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
                                                     </p>
                                                     <p className="text-xs text-muted-foreground">
                                                         @{selectedStudent.username}
-                                                        {selectedStudent.email && ` • ${selectedStudent.email}`}
                                                     </p>
                                                 </div>
                                             </div>
@@ -384,7 +383,6 @@ export function EnrollStudentDialog({ open, onOpenChange, branchId }: EnrollStud
                                                                 </p>
                                                                 <p className="text-xs text-muted-foreground">
                                                                     @{profile.username}
-                                                                    {profile.email && ` • ${profile.email}`}
                                                                 </p>
                                                             </div>
                                                         </div>
