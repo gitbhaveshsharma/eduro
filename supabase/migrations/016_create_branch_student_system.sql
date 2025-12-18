@@ -1293,6 +1293,66 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
+CREATE OR REPLACE FUNCTION update_class_enrollment_attendance_percentage()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_student_id UUID;
+    v_class_id   UUID;
+    v_total      INTEGER;
+    v_attended   INTEGER;
+    v_percentage DECIMAL(5,2);
+BEGIN
+    -- Pick ids depending on operation
+    IF TG_OP = 'DELETE' THEN
+        v_student_id := OLD.student_id;
+        v_class_id   := OLD.class_id;
+    ELSE
+        v_student_id := NEW.student_id;
+        v_class_id   := NEW.class_id;
+    END IF;
+
+    -- Recalculate attendance for this student+class combination
+    SELECT 
+        COUNT(*) AS total_days,
+        COUNT(*) FILTER (WHERE attendance_status IN ('PRESENT','LATE')) AS attended_days
+    INTO v_total, v_attended
+    FROM student_attendance
+    WHERE student_id = v_student_id
+      AND class_id   = v_class_id;
+
+    IF v_total > 0 THEN
+        v_percentage := ROUND((v_attended::DECIMAL / v_total::DECIMAL) * 100, 2);
+    ELSE
+        v_percentage := 0;
+    END IF;
+
+    -- Update class_enrollments (per-class attendance tracking)
+    UPDATE class_enrollments
+    SET attendance_percentage = v_percentage,
+        updated_at = NOW()
+    WHERE student_id = v_student_id
+      AND class_id   = v_class_id;
+
+    RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON FUNCTION update_class_enrollment_attendance_percentage() IS 
+'Updates attendance percentage in class_enrollments table (per class). Updated 2025-12-18.';
+
+-- Drop old trigger
+-- DROP TRIGGER IF EXISTS trg_update_branch_student_attendance ON student_attendance;
+
+-- Create new trigger with updated function
+CREATE TRIGGER trg_update_class_enrollment_attendance
+AFTER INSERT OR UPDATE OR DELETE ON student_attendance
+FOR EACH ROW
+EXECUTE FUNCTION update_class_enrollment_attendance_percentage();
+
+COMMENT ON TRIGGER trg_update_class_enrollment_attendance ON student_attendance IS 
+'Auto-updates attendance_percentage in class_enrollments when attendance changes';
+
 -- Function to get class attendance report
 CREATE OR REPLACE FUNCTION get_class_attendance_report(
     class_uuid UUID,

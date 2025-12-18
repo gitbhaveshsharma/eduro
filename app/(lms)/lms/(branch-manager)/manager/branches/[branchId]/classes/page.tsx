@@ -3,17 +3,20 @@
  * 
  * Manage classes and batches for a specific branch
  * Integrates the full branch classes management system
+ * 
+ * Data fetching is handled by ClassesTable component using context-based approach
+ * (similar to receipts-table.tsx pattern). Filtering is done client-side.
  */
 
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useBranchContext } from '../layout';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Plus, LayoutDashboard, List, BarChart3, RefreshCw } from 'lucide-react';
+import { Plus, LayoutDashboard, List } from 'lucide-react';
 
 // Import the existing branch classes components
 import { BranchClassesDashboard } from '@/app/(lms)/lms/_components/branch-classes/dashboard';
@@ -27,11 +30,8 @@ import { ClassDetailsDialog } from '@/app/(lms)/lms/_components/branch-classes/c
 // Import the branch classes system
 import {
     useBranchClassesStore,
-    useClassesLoading,
-    useSearchResults,
-    useClassesByBranch,
     useClassesUI,
-    BranchClassesAPI,
+    type BranchClassFilters,
 } from '@/lib/branch-system/branch-classes';
 
 /**
@@ -39,28 +39,8 @@ import {
  */
 function BranchClassesManager({ branchId }: { branchId: string }) {
     const store = useBranchClassesStore();
-    const { fetchClasses: isLoading, search: isSearching } = useClassesLoading();
-    const { isCreating } = useClassesUI();
-    const branchClasses = useClassesByBranch(branchId);
-    const searchResults = useSearchResults();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
-    const [hasInitialized, setHasInitialized] = useState(false);
-    const [isFiltering, setIsFiltering] = useState(false);
-
-    // Initialize data for this specific branch - use fetchClassesByBranch for initial load
-    useEffect(() => {
-        if (!hasInitialized && branchId) {
-            console.log('🔍 Branch Classes Manager: Initializing for branch', branchId);
-
-            // Fetch branch-specific classes (uses cache)
-            store.fetchClassesByBranch(branchId, false);
-
-            // Set branch filter for any future searches
-            store.setFilters({ branch_id: branchId });
-
-            setHasInitialized(true);
-        }
-    }, [hasInitialized, branchId, store]);
+    const [filters, setFilters] = useState<BranchClassFilters>({});
 
     // Handle creating new class for this branch
     const handleCreateClass = () => {
@@ -68,26 +48,8 @@ function BranchClassesManager({ branchId }: { branchId: string }) {
         store.startCreating(branchId);
     };
 
-    // Manual refresh for this branch
-    const handleRefresh = () => {
-        console.log('🔄 Refreshing branch classes for branch:', branchId);
-        store.fetchClassesByBranch(branchId, true); // Force refresh
-    };
-
-    // Use branchClasses for dashboard, searchResults for filtered list
-    const displayClasses = isFiltering ? (searchResults?.classes || []) : branchClasses;
-
     return (
         <div className="space-y-6">
-            {/* Header with Actions */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-
-                </div>
-
-
-            </div>
-
             {/* Main Content */}
             <Tabs
                 value={activeTab}
@@ -114,15 +76,18 @@ function BranchClassesManager({ branchId }: { branchId: string }) {
                 <TabsContent value="list" className="mt-6">
                     <Card className="mb-4">
                         <CardContent className="pt-6">
-                            <ClassFilters 
-                                branchId={branchId} 
-                                onFilterChange={setIsFiltering}
+                            <ClassFilters
+                                branchId={branchId}
+                                onFiltersChange={setFilters}
                             />
                         </CardContent>
                     </Card>
                     <Card>
                         <CardContent className="pt-6">
-                            <ClassesTable branchId={branchId} />
+                            <ClassesTable
+                                branchId={branchId}
+                                filters={filters}
+                            />
                         </CardContent>
                     </Card>
                 </TabsContent>

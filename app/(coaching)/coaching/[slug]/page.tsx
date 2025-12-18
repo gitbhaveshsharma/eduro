@@ -117,7 +117,7 @@ export default function CoachingCenterProfilePage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+            <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
                 <LoadingSpinner
                     message={`Loading ${slug}...`}
                     size="lg"
@@ -150,7 +150,7 @@ export default function CoachingCenterProfilePage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
             {/* Header Section */}
             <CoachingProfileHeader
                 center={center}
@@ -160,7 +160,7 @@ export default function CoachingCenterProfilePage() {
             />
 
             {/* Content Grid */}
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 lg:py-5">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
                 {/* Stats Cards - Bento Grid */}
                 {/* <CoachingStatsCards 
                     center={center}

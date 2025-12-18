@@ -64,7 +64,9 @@ export const CoachingProfileHeader = memo(function CoachingProfileHeader({
                                 <Image
                                     src={coverUrl}
                                     alt={`${center.name} cover`}
-                                    className="w-full h-full object-cover"
+                                    fill
+                                    className="object-cover"
+                                    sizes="100vw"
                                     onError={handleImageError}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-black/10 to-transparent" />

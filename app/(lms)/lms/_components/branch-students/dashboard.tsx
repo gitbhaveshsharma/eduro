@@ -10,13 +10,11 @@
 import { useMemo } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import {
-    ENROLLMENT_STATUS_OPTIONS,
     PAYMENT_STATUS_OPTIONS,
-} from '@/lib/branch-system/types/branch-students.types';
+} from '@/lib/branch-system/branch-students';
 import {
     formatCurrency,
     formatDate,
-    formatEnrollmentStatus,
     formatPaymentStatus,
 } from '@/lib/branch-system/utils/branch-students.utils';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,7 +25,6 @@ import { Separator } from '@/components/ui/separator';
 import {
     Users,
     UserCheck,
-    Clock,
     AlertTriangle,
     TrendingUp,
     DollarSign,
@@ -117,17 +114,14 @@ function RecentEnrollmentsList() {
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">
-                                Student ID: {student.student_id.slice(0, 8)}...
+                                {student.student_name || `Student ID: ${student.student_id.slice(0, 8)}...`}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                                Enrolled {formatDate(student.enrollment_date)}
+                                Registered {formatDate(student.registration_date)}
                             </p>
                         </div>
                         <div className="flex flex-col items-end gap-1">
-                            <Badge variant={ENROLLMENT_STATUS_OPTIONS[student.enrollment_status].color as any}>
-                                {formatEnrollmentStatus(student.enrollment_status)}
-                            </Badge>
-                            <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status].color as any}>
+                            <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status]?.color as any}>
                                 {formatPaymentStatus(student.payment_status)}
                             </Badge>
                         </div>
@@ -161,69 +155,37 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
         if (branchStudents.length === 0) {
             return {
                 total_students: 0,
-                enrolled_students: 0,
-                pending_students: 0,
                 students_with_overdue_payments: 0,
-                average_attendance: 0,
                 total_fees_collected: 0,
                 total_outstanding_fees: 0,
-                students_by_enrollment_status: {},
                 students_by_payment_status: {},
             };
         }
 
-        const enrollmentStatusCounts: Record<string, number> = {};
         const paymentStatusCounts: Record<string, number> = {};
 
-        let enrolledCount = 0;
-        let pendingCount = 0;
         let overduePaymentCount = 0;
-        let totalAttendance = 0;
         let totalOutstanding = 0;
 
         branchStudents.forEach((student) => {
-            enrollmentStatusCounts[student.enrollment_status] =
-                (enrollmentStatusCounts[student.enrollment_status] || 0) + 1;
-
             paymentStatusCounts[student.payment_status] =
                 (paymentStatusCounts[student.payment_status] || 0) + 1;
-
-            if (student.enrollment_status === 'ENROLLED') {
-                enrolledCount++;
-            }
-
-            if (student.enrollment_status === 'PENDING') {
-                pendingCount++;
-            }
 
             if (student.is_payment_overdue) {
                 overduePaymentCount++;
             }
 
-            totalAttendance += student.attendance_percentage || 0;
             totalOutstanding += student.outstanding_balance || 0;
         });
 
-        const averageAttendance = branchStudents.length > 0
-            ? totalAttendance / branchStudents.length
-            : 0;
-
         return {
             total_students: branchStudents.length,
-            enrolled_students: enrolledCount,
-            pending_students: pendingCount,
             students_with_overdue_payments: overduePaymentCount,
-            average_attendance: averageAttendance,
             total_fees_collected: 0,
             total_outstanding_fees: totalOutstanding,
-            students_by_enrollment_status: enrollmentStatusCounts,
             students_by_payment_status: paymentStatusCounts,
         };
     }, [branchStudents]);
-
-    const activeStudentsRate = calculatedStats.total_students > 0
-        ? ((calculatedStats.enrolled_students / calculatedStats.total_students) * 100).toFixed(1)
-        : '0';
 
     const paymentComplianceRate = calculatedStats.total_students > 0
         ? (((calculatedStats.total_students - calculatedStats.students_with_overdue_payments) / calculatedStats.total_students) * 100).toFixed(1)
@@ -251,21 +213,13 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
 
     return (
         <div className="space-y-6">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 <StatCard
                     title="Total Students"
                     value={calculatedStats.total_students}
-                    description={`${calculatedStats.enrolled_students} actively enrolled`}
+                    description="Registered in this branch"
                     icon={Users}
                     colorClass="text-blue-600"
-                />
-
-                <StatCard
-                    title="Pending Approvals"
-                    value={calculatedStats.pending_students}
-                    description="Students awaiting approval"
-                    icon={Clock}
-                    colorClass="text-orange-600"
                 />
 
                 <StatCard
@@ -277,9 +231,9 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
                 />
 
                 <StatCard
-                    title="Average Attendance"
-                    value={`${calculatedStats.average_attendance.toFixed(1)}%`}
-                    description="Across all students"
+                    title="Payment Compliance"
+                    value={`${paymentComplianceRate}%`}
+                    description="Students with on-time payments"
                     icon={TrendingUp}
                     colorClass="text-green-600"
                 />
@@ -328,20 +282,20 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
                             <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                                 <Calendar className="h-5 w-5 text-primary" />
                             </div>
-                            Enrollment Status
+                            Payment Status
                         </CardTitle>
-                        <CardDescription>Distribution of student enrollment statuses</CardDescription>
+                        <CardDescription>Distribution of student payment statuses</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-3">
-                        {Object.keys(calculatedStats.students_by_enrollment_status).length > 0 ? (
-                            Object.entries(calculatedStats.students_by_enrollment_status).map(([status, count]) => (
+                        {Object.keys(calculatedStats.students_by_payment_status).length > 0 ? (
+                            Object.entries(calculatedStats.students_by_payment_status).map(([status, count]) => (
                                 <div key={status} className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                        <Badge variant={ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS]?.color as any}>
-                                            {ENROLLMENT_STATUS_OPTIONS[status as keyof typeof ENROLLMENT_STATUS_OPTIONS]?.label || status}
+                                        <Badge variant={PAYMENT_STATUS_OPTIONS[status as keyof typeof PAYMENT_STATUS_OPTIONS]?.color as any}>
+                                            {PAYMENT_STATUS_OPTIONS[status as keyof typeof PAYMENT_STATUS_OPTIONS]?.label || status}
                                         </Badge>
                                     </div>
-                                    <span className="text-sm font-medium">{count}</span>
+                                    <span className="text-sm font-medium">{count as number}</span>
                                 </div>
                             ))
                         ) : (
@@ -349,7 +303,7 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
                                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-3">
                                     <Users className="h-6 w-6 text-primary" />
                                 </div>
-                                <p className="text-sm text-muted-foreground">No enrollment data available</p>
+                                <p className="text-sm text-muted-foreground">No payment data available</p>
                             </div>
                         )}
                     </CardContent>
@@ -358,29 +312,11 @@ export function BranchStudentsDashboard({ branchId, coachingCenterId }: BranchSt
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Recent Enrollments</CardTitle>
-                    <CardDescription>Latest 5 student enrollments</CardDescription>
+                    <CardTitle>Recent Registrations</CardTitle>
+                    <CardDescription>Latest 5 student registrations</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <RecentEnrollmentsList />
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle>Active Students Rate</CardTitle>
-                    <CardDescription>
-                        {calculatedStats.enrolled_students} of {calculatedStats.total_students} students actively enrolled
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Enrollment Rate</span>
-                            <span className="font-medium">{activeStudentsRate}%</span>
-                        </div>
-                        <Progress value={Number(activeStudentsRate)} className="h-3" />
-                    </div>
                 </CardContent>
             </Card>
         </div>

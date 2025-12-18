@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!profile) {
         return {
-            title: 'Profile Not Found | Eduro',
+            title: 'Profile Not Found | Tutrsy',
             description: 'The requested profile could not be found.',
         };
     }
@@ -32,20 +32,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const displayName = profile.full_name || profile.username || 'User';
     const description = profile.bio
         ? profile.bio.substring(0, 160)
-        : `Check out ${displayName}'s profile on Eduro`;
+        : `Check out ${displayName}'s profile on Tutrsy.`;
 
     return {
-        title: `${displayName} | Eduro`,
+        title: `${displayName} | Tutrsy`,
         description,
         openGraph: {
-            title: `${displayName} | Eduro`,
+            title: `${displayName} | Tutrsy`,
             description,
             type: 'profile',
             url: `/profile/${username}`,
         },
         twitter: {
             card: 'summary',
-            title: `${displayName} | Eduro`,
+            title: `${displayName} | Tutrsy`,
             description,
         },
     };

@@ -302,11 +302,11 @@ export function UniversalHeader({
                                 )}
                                 {/* Name and subtitle */}
                                 <div className="min-w-0 flex-1">
-                                    <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate">
+                                    <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate max-w-[120px] sm:max-w-[200px] md:max-w-[  ] lg:max-w-none lg:whitespace-normal lg:overflow-visible">
                                         {effectiveBranding.name}
                                     </h1>
                                     {effectiveBranding.subtitle && (
-                                        <p className="text-xs text-muted-foreground truncate">
+                                        <p className="text-xs text-muted-foreground truncate max-w-[120px] sm:max-w-[200px] md:max-w-[300px] lg:max-w-none lg:whitespace-normal lg:overflow-visible">
                                             {effectiveBranding.subtitle}
                                         </p>
                                     )}
@@ -315,11 +315,12 @@ export function UniversalHeader({
                         ) : title ? (
                             // Regular title (no branding)
                             <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate">
+                                <h1 className="text-base md:text-lg font-semibold text-gray-900 truncate max-w-[120px] sm:max-w-[200px] md:max-w-[300px] lg:max-w-none lg:whitespace-normal lg:overflow-visible">
                                     {title}
                                 </h1>
                             </div>
                         ) : null}
+
                     </div>
 
                     {/* Center - Desktop Search Bar */}

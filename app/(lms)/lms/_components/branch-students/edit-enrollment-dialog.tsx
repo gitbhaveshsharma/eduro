@@ -15,7 +15,7 @@ import {
     updateStudentByManagerSchema,
     type UpdateStudentByManagerInput,
 } from '@/lib/branch-system/validations/branch-students.validation';
-import { ENROLLMENT_STATUS_OPTIONS, PAYMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/branch-students.types';
+import { PAYMENT_STATUS_OPTIONS } from '@/lib/branch-system/types/branch-students.types';
 import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast';
 import { toast } from 'react-hot-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -63,18 +63,11 @@ export function EditEnrollmentDialog() {
 
     const isOpen = isEditDialogOpen && !!currentEnrollment;
 
-    // Initialize form
+    // Initialize form with fields available in updateStudentByManagerSchema
     const form = useForm<UpdateStudentByManagerInput>({
         resolver: zodResolver(updateStudentByManagerSchema),
         defaultValues: {
-            class_id: undefined,
-            expected_completion_date: undefined,
-            actual_completion_date: undefined,
-            enrollment_status: undefined,
             payment_status: undefined,
-            attendance_percentage: undefined,
-            current_grade: undefined,
-            performance_notes: undefined,
             total_fees_due: undefined,
             total_fees_paid: undefined,
             last_payment_date: undefined,
@@ -83,8 +76,6 @@ export function EditEnrollmentDialog() {
             emergency_contact_phone: undefined,
             parent_guardian_name: undefined,
             parent_guardian_phone: undefined,
-            preferred_batch: undefined,
-            special_requirements: undefined,
             metadata: undefined,
         },
     });
@@ -93,14 +84,7 @@ export function EditEnrollmentDialog() {
     useEffect(() => {
         if (currentEnrollment) {
             const formData = {
-                class_id: currentEnrollment.class_id,
-                expected_completion_date: currentEnrollment.expected_completion_date,
-                actual_completion_date: currentEnrollment.actual_completion_date,
-                enrollment_status: currentEnrollment.enrollment_status,
                 payment_status: currentEnrollment.payment_status,
-                attendance_percentage: currentEnrollment.attendance_percentage,
-                current_grade: currentEnrollment.current_grade,
-                performance_notes: currentEnrollment.performance_notes,
                 total_fees_due: currentEnrollment.total_fees_due,
                 total_fees_paid: currentEnrollment.total_fees_paid,
                 last_payment_date: currentEnrollment.last_payment_date,
@@ -109,8 +93,6 @@ export function EditEnrollmentDialog() {
                 emergency_contact_phone: currentEnrollment.emergency_contact_phone,
                 parent_guardian_name: currentEnrollment.parent_guardian_name,
                 parent_guardian_phone: currentEnrollment.parent_guardian_phone,
-                preferred_batch: currentEnrollment.preferred_batch,
-                special_requirements: currentEnrollment.special_requirements,
                 metadata: currentEnrollment.metadata,
             };
             form.reset(formData, { keepDefaultValues: false });
@@ -146,144 +128,37 @@ export function EditEnrollmentDialog() {
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Edit className="h-5 w-5" />
-                        Edit Enrollment
+                        Edit Student Profile
                     </DialogTitle>
                     <DialogDescription>
-                        Update enrollment information, academic performance, and payment details.
+                        Update student profile, payment details, and contact information.
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                            {/* Status Fields */}
-                            <div className="space-y-4  p-4">
-                                <h3 className="text-sm font-semibold">Status Information</h3>
-
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <FormField
-                                        control={form.control}
-                                        name="enrollment_status"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Enrollment Status</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select status" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {Object.entries(ENROLLMENT_STATUS_OPTIONS).map(([status, config]) => (
-                                                            <SelectItem key={status} value={status}>
-                                                                {config.label}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="payment_status"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Payment Status</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Select status" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {Object.entries(PAYMENT_STATUS_OPTIONS).map(([status, config]) => (
-                                                            <SelectItem key={status} value={status}>
-                                                                {config.label}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-
+                            {/* Payment Status */}
+                            <div className="space-y-4 p-4">
                                 <FormField
                                     control={form.control}
-                                    name="class_id"
+                                    name="payment_status"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Class ID</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Class UUID" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-
-                            <Separator />
-
-                            {/* Academic Information */}
-                            <div className="space-y-4">
-                                <h3 className="text-sm font-semibold">Academic Information</h3>
-
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <FormField
-                                        control={form.control}
-                                        name="attendance_percentage"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Attendance Percentage</FormLabel>
+                                            <FormLabel>Payment Status</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value}>
                                                 <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        max="100"
-                                                        placeholder="85.5"
-                                                        {...field}
-                                                        onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                                                    />
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Select status" />
+                                                    </SelectTrigger>
                                                 </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <FormField
-                                        control={form.control}
-                                        name="current_grade"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Current Grade</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="A+ / B / 85%" {...field} value={field.value || ''} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-
-                                <FormField
-                                    control={form.control}
-                                    name="performance_notes"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Performance Notes</FormLabel>
-                                            <FormControl>
-                                                <Textarea
-                                                    placeholder="Notes about student's academic performance..."
-                                                    {...field}
-                                                    value={field.value || ''}
-                                                    rows={3}
-                                                />
-                                            </FormControl>
+                                                <SelectContent>
+                                                    {Object.entries(PAYMENT_STATUS_OPTIONS).map(([status, config]) => (
+                                                        <SelectItem key={status} value={status}>
+                                                            {config.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -296,7 +171,7 @@ export function EditEnrollmentDialog() {
                             <div className="space-y-4">
                                 <h3 className="text-sm font-semibold">Financial Information</h3>
 
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-2 p-1">
                                     <FormField
                                         control={form.control}
                                         name="total_fees_due"
@@ -371,19 +246,19 @@ export function EditEnrollmentDialog() {
 
                             <Separator />
 
-                            {/* Dates */}
+                            {/* Contact Information */}
                             <div className="space-y-4">
-                                <h3 className="text-sm font-semibold">Enrollment Dates</h3>
+                                <h3 className="text-sm font-semibold">Contact Information</h3>
 
-                                <div className="grid gap-4 md:grid-cols-2">
+                                <div className="grid gap-4 md:grid-cols-2 p-1">
                                     <FormField
                                         control={form.control}
-                                        name="expected_completion_date"
+                                        name="emergency_contact_name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Expected Completion Date</FormLabel>
+                                                <FormLabel>Emergency Contact Name</FormLabel>
                                                 <FormControl>
-                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                    <Input placeholder="Contact name" {...field} value={field.value || ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -392,12 +267,40 @@ export function EditEnrollmentDialog() {
 
                                     <FormField
                                         control={form.control}
-                                        name="actual_completion_date"
+                                        name="emergency_contact_phone"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Actual Completion Date</FormLabel>
+                                                <FormLabel>Emergency Contact Phone</FormLabel>
                                                 <FormControl>
-                                                    <Input type="date" {...field} value={field.value || ''} />
+                                                    <Input placeholder="+91 9876543210" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="parent_guardian_name"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Parent/Guardian Name</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Parent name" {...field} value={field.value || ''} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="parent_guardian_phone"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Parent/Guardian Phone</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="+91 9876543210" {...field} value={field.value || ''} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

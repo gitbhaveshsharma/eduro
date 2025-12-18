@@ -56,10 +56,10 @@ export const PublicProfileView = memo(function PublicProfileView({
                 />
 
                 {/* Content Grid */}
-                <div className="py-6">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div >
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
                         {/* Left Column - Actions, Connections, and Stats */}
-                        <div className="lg:col-span-1 space-y-4">
+                        <div className="lg:col-span-1 space-y-6">
                             {/* Actions Card */}
                             <PublicProfileActions
                                 profile={profile}
@@ -87,6 +87,6 @@ export const PublicProfileView = memo(function PublicProfileView({
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 });

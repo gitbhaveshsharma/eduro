@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
-import { formatEnrollmentStatus } from '@/lib/branch-system/utils/branch-students.utils';
+import { formatPaymentStatus } from '@/lib/branch-system/utils/branch-students.utils';
 import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast';
 import { toast } from 'react-hot-toast';
 import {
@@ -87,7 +87,7 @@ export function DeleteEnrollmentDialog() {
                                 <strong>Student ID:</strong> {currentEnrollment.student_id.slice(0, 8)}...
                             </p>
                             <p className="text-sm">
-                                <strong>Current Status:</strong> {formatEnrollmentStatus(currentEnrollment.enrollment_status)}
+                                <strong>Payment Status:</strong> {formatPaymentStatus(currentEnrollment.payment_status)}
                             </p>
                         </div>
                         <p className="text-destructive mt-2">

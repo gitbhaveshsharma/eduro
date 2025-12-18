@@ -1,88 +1,44 @@
-"use client"
-import { useState, useEffect, useRef } from "react";
-import { ConditionalLayout } from "@/components/layout/conditional-layout";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { CoachingFilterPanelProvider } from "@/components/coaching/search/coaching-filter-panel-context";
-import { PermissionGuard } from "@/components/permissions";
-import { LOCATION_PERMISSION } from "@/lib/permissions";
-import { useCoachingStore } from "@/lib/store/coaching.store";
-import { Card, CardContent } from "@/components/ui/card";
+import dynamic from 'next/dynamic';
+import type { Metadata } from 'next';
 
-// Loading spinner component for initial page load
-function CoachingPageLoader() {
-    return (
-        <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center">
-            <LoadingSpinner size="lg" title="Loading Coaching centers..." message="Discover coaching centers near you" />
-        </div>
-    );
+// Client-only layout (moved to a separate file to keep this a server component)
+const CoachingLayoutClient = dynamic(() => import('./CoachingLayoutClient'), { ssr: false });
+
+export async function generateMetadata(): Promise<Metadata> {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com';
+    const title = 'Coaching Centers — tutrsy';
+    const description = 'Discover verified coaching centers, compare branches, read reviews, and find local coaching near you.';
+    const ogImage = `${siteUrl}/images/og/coaching-default.png`;
+
+    return {
+        title,
+        description,
+        metadataBase: new URL(siteUrl),
+        openGraph: {
+            title,
+            description,
+            url: `${siteUrl}/coaching`,
+            siteName: 'tutrsy',
+            images: [{ url: ogImage, alt: 'Coaching centers on tutrsy' }],
+            type: 'website'
+        },
+        twitter: {
+            card: 'summary_large_image',
+            title,
+            description,
+            images: [ogImage]
+        },
+        robots: {
+            index: true,
+            follow: true
+        },
+        keywords: ['coaching', 'tutors', 'education', 'centers', 'reviews', 'branches'],
+        alternates: {
+            canonical: '/coaching'
+        }
+    };
 }
 
-export default function CoachingLayout({
-    children,
-}: {
-    children: React.ReactNode;
-}) {
-    const [isDataLoading, setIsDataLoading] = useState(true);
-    const hasPrefetchedRef = useRef(false);
-    const { searchCoachingCenters, centerSearchResults } = useCoachingStore();
-
-    // Prefetch data immediately on mount
-    useEffect(() => {
-        if (hasPrefetchedRef.current) return;
-        hasPrefetchedRef.current = true;
-
-        // Start prefetching coaching centers in background
-        console.log('🚀 CoachingLayout - Prefetching coaching centers...');
-
-        // If we already have data, don't show loading
-        if (centerSearchResults) {
-            setIsDataLoading(false);
-            return;
-        }
-
-        searchCoachingCenters({}, 'recent', 1, 20, 10000)
-            .then(() => {
-                console.log('✅ CoachingLayout - Data loaded successfully');
-                setIsDataLoading(false);
-            })
-            .catch(() => {
-                console.log('⚠️ CoachingLayout - Prefetch failed');
-                setIsDataLoading(false);
-            });
-    }, [searchCoachingCenters, centerSearchResults]);
-
-    return (
-        <CoachingFilterPanelProvider>
-            {/* PermissionGuard shows notification but doesn't block page load */}
-            <PermissionGuard
-                permissions={[{
-                    ...LOCATION_PERMISSION,
-                    required: false,
-                    autoRequest: true,
-                }]}
-                strategy="all"
-                autoRequest
-                strictMode={false}
-                showLoading={false}
-            >
-                {isDataLoading ? (
-                    <CoachingPageLoader />
-                ) : (
-                    <ConditionalLayout
-                        forceConfig={{
-                            page: 'coaching',
-                            headerType: 'universal',
-                            title: 'Coaching',
-                            sidebar: {
-                                enabled: false,
-                                defaultOpen: false,
-                            },
-                        }}
-                    >
-                        {children}
-                    </ConditionalLayout>
-                )}
-            </PermissionGuard>
-        </CoachingFilterPanelProvider>
-    );
+export default function CoachingLayout({ children }: { children: React.ReactNode }) {
+    return <CoachingLayoutClient>{children}</CoachingLayoutClient>;
 }
