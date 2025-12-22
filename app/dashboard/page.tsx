@@ -1,8 +1,7 @@
 // app/dashboard/page.tsx
-import { DashboardHeader } from '@/components/dashboard/dashboard-header'
-import { DashboardStats } from '@/components/dashboard/dashboard-stats'
-import { DashboardActions } from '@/components/dashboard/dashboard-actions'
 import { ProfileServerService } from '@/lib/service/server/profile-server.service'
+import { LearningDashboard, LearningDashboardSkeleton } from '@/components/dashboard/learning-dashboard'
+import { Suspense } from 'react'
 
 // Force dynamic rendering for authenticated pages
 // This is intentional - dashboard requires authentication
@@ -34,20 +33,8 @@ export default async function DashboardPage() {
     }
 
     return (
-        <main className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5">
-            <div className="max-w-6xl mx-auto p-6 space-y-6">
-                {/* LCP Element - Renders instantly */}
-                <DashboardHeader profile={profile} />
-
-                {/* Static stats - Server rendered */}
-                <DashboardStats profile={profile} />
-
-                {/* Static action cards - Server rendered */}
-                <DashboardActions role={profile.role} />
-
-                {/* Interactive avatar section - Client component */}
-                {/* <DashboardHeaderAvatar profile={profile} /> */}
-            </div>
-        </main>
+        <Suspense fallback={<LearningDashboardSkeleton />}>
+            <LearningDashboard profile={profile} />
+        </Suspense>
     )
 }
