@@ -251,7 +251,7 @@ export function ProfileSidebar({
                             <span className="text-sm font-medium text-foreground">Content Progress</span>
                         </div>
                         <div className="flex justify-center">
-                            <DonutChart data={contentBreakdown} size={160} strokeWidth={20} />
+                            <DonutChart data={contentBreakdown} size={160} strokeWidth={30} />
                         </div>
                     </div>
                 </CardContent>
