@@ -6,6 +6,8 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+
 import { DashboardGreeting } from './dashboard-greeting';
 import { SubjectFilter } from './subject-filter';
 import { UpcomingClasses } from './upcoming-class-card';
@@ -22,13 +24,31 @@ import {
 } from './dummy-data';
 import type { Profile } from '@/lib/schema/profile.types';
 
+// Add the getProfileUrl function here
+export const getProfileUrl = (username: string): string => {
+    return `/profile/${username}`;
+};
+
+// Alternatively, you could create a utility object similar to ProfileUrlUtils
+export const ProfileUrlUtils = {
+    getProfileUrl: (username: string): string => {
+        return `/profile/${username}`;
+    }
+};
+
 interface LearningDashboardProps {
     profile: Profile | null;
+    publicProfile?: any; // Add public profile prop
     className?: string;
 }
 
-export function LearningDashboard({ profile, className }: LearningDashboardProps) {
+export function LearningDashboard({
+    profile,
+    publicProfile, // Add this
+    className
+}: LearningDashboardProps) {
     const [selectedSubject, setSelectedSubject] = useState('all');
+    const router = useRouter();
 
     // Filter content based on selected subject
     const filteredClasses =
@@ -59,9 +79,21 @@ export function LearningDashboard({ profile, className }: LearningDashboardProps
         // TODO: Implement content action logic
     };
 
+    const handleSettingsClick = () => {
+        return router.push('/settings');
+    }
+
     const handleAskAI = () => {
         console.log('Ask AI clicked');
         // TODO: Implement AI assistant
+    };
+
+    // Add this function if you want to get the public profile URL
+    const getPublicProfileUrl = (): string | null => {
+        if (profile?.username) {
+            return getProfileUrl(profile.username);
+        }
+        return null;
     };
 
     return (
@@ -98,11 +130,12 @@ export function LearningDashboard({ profile, className }: LearningDashboardProps
                 <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
                     <ProfileSidebar
                         profile={profile}
+                        publicProfile={publicProfile}
                         stats={USER_STATS}
                         activityHours={ACTIVITY_HOURS}
                         contentBreakdown={CONTENT_BREAKDOWN}
                         dashboardStats={DASHBOARD_STATS}
-                        onSettingsClick={() => console.log('Settings clicked')}
+                        onSettingsClick={handleSettingsClick}
                         onViewAllContent={() => console.log('View all content')}
                         onViewAllLearning={() => console.log('View all learning')}
                     />

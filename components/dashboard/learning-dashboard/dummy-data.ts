@@ -113,7 +113,7 @@ export const LEARNING_CONTENT: LearningContent[] = [
 ];
 
 export const USER_STATS: UserStats = {
-    points: 100,
+    connections: 100,
     badges: 32,
     certificates: 32,
 };

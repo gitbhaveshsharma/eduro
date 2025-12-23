@@ -34,7 +34,7 @@ export interface LearningContent {
 }
 
 export interface UserStats {
-    points: number;
+    connections: number;
     badges: number;
     certificates: number;
 }

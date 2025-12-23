@@ -169,12 +169,14 @@ export function UpcomingClasses({
                 <h2 className="text-lg font-semibold text-foreground">
                     Your Upcoming Class
                 </h2>
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={onViewAll}
-                    className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                    className="text-sm font-medium text-primary hover:text-primary/80 h-fit px-3 py-1.5"
                 >
                     View all
-                </button>
+                </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
