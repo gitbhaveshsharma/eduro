@@ -49,10 +49,10 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
     };
 
     return (
-        <Card className="overflow-hidden border border-border/50 shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl">
+        <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl p-0 gap-0">
             {/* Header with time */}
-            <div className="relative">
-                <div className="absolute top-3 left-3 z-10">
+            <div className="relative p-2">
+                <div className="absolute top-5 left-5 z-10">
                     <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-white/95 backdrop-blur-sm text-foreground shadow-sm border border-border/30">
                         Start: {classData.startTime}
                     </span>
@@ -61,12 +61,12 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                 {/* Image/Gradient Background */}
                 <div
                     className={cn(
-                        'h-36 w-full bg-gradient-to-br relative overflow-hidden',
+                        'h-32 w-full bg-gradient-to-br relative overflow-hidden rounded-2xl',
                         imageConfig.gradient
                     )}
                 >
                     {/* Decorative leaf/nature elements for physics/chemistry cards */}
-                    <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center justify-center ">
                         <svg
                             className={cn('w-32 h-32', imageConfig.decoration)}
                             viewBox="0 0 100 100"
@@ -96,7 +96,7 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
             </div>
 
             {/* Content */}
-            <div className="p-4 space-y-3">
+            <div className="p-4 space-y-2">
                 {/* Subject Badge */}
                 <Badge
                     variant="secondary"

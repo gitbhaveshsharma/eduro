@@ -43,10 +43,10 @@ export function ProfileSidebar({
             : `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.id || 'default'}`;
 
     return (
-        <div className="space-y-4 bg-secondary/10 w-full lg:w-80 flex-shrink-0 rounded-2xl ">
+        <div className="space-y-4 ">
             {/* Profile Card */}
-            <div className="border border-border/50 shadow-sm rounded-2xl">
-                <div className="pt-6 pb-4">
+            <Card className="border border-border/50 shadow-sm rounded-2xl">
+                <CardContent className="pt-6 pb-4">
                     {/* Header with settings */}
                     <div className="flex justify-between items-start mb-4">
                         <div className="w-6" /> {/* Spacer for centering */}
@@ -132,8 +132,8 @@ export function ProfileSidebar({
                             <DonutChart data={contentBreakdown} size={160} strokeWidth={20} />
                         </div>
                     </div>
-                </div>
-            </div>
+                </CardContent>
+            </Card>
 
             {/* Bottom Stats Cards */}
             <div className="grid grid-cols-2 gap-3">
