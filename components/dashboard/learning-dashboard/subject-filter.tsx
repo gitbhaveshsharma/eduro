@@ -42,7 +42,7 @@ export function SubjectFilter({
                                 'inline-flex items-center gap-2.5 px-4 py-2.5 rounded-full text-sm font-medium',
                                 'border transition-all duration-200 whitespace-nowrap',
                                 'focus:outline-none focus:ring-2 focus:ring-primary/20',
-                                'bg-white', // Always white background
+                                'bg-white',
                                 isActive
                                     ? 'border-primary text-primary shadow-sm hover:border-primary/80'
                                     : 'border-border/50 text-foreground hover:border-secondary hover:bg-secondary/5'

@@ -81,7 +81,7 @@ function LearningProgressItem({ content, onAction }: LearningProgressItemProps) 
 
                 {/* Progress circle */}
                 <div className="text-center min-w-[80px]">
-                    <p className="uppercase tracking-wide text-[10px] mb-1">Content</p>
+                    <p className="uppercase tracking-wide text-[10px] mb-1">Progress</p>
                     <div className="flex items-center justify-center gap-2">
                         <div className="w-7 h-7 relative">
                             <svg className="w-7 h-7 -rotate-90" viewBox="0 0 36 36">
@@ -115,7 +115,7 @@ function LearningProgressItem({ content, onAction }: LearningProgressItemProps) 
 
                 {/* Time remaining */}
                 <div className="text-center min-w-[80px]">
-                    <p className="uppercase tracking-wide text-[10px] mb-1">Content</p>
+                    <p className="uppercase tracking-wide text-[10px] mb-1">Time Remaining</p>
                     <div className="flex items-center justify-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
                         <span className="font-medium text-foreground">
@@ -185,7 +185,7 @@ export function LearningProgressItems({
                 </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {contents.map((content) => (
                     <LearningProgressItem
                         key={content.id}
