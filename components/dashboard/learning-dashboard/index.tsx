@@ -3,15 +3,13 @@
  * Modern learning dashboard matching the design mockup
  * Uses brand colors from globals.css
  */
-
 'use client';
 
 import { useState } from 'react';
-import { cn } from '@/lib/utils';
 import { DashboardGreeting } from './dashboard-greeting';
 import { SubjectFilter } from './subject-filter';
 import { UpcomingClasses } from './upcoming-class-card';
-import { LearningProgressTable } from './learning-progress-table';
+import { LearningProgressItems } from './learning-progress-item';
 import { ProfileSidebar } from './profile-sidebar';
 import {
     SUBJECTS,
@@ -89,7 +87,7 @@ export function LearningDashboard({ profile, className }: LearningDashboardProps
                     />
 
                     {/* Learning Progress */}
-                    <LearningProgressTable
+                    <LearningProgressItems
                         contents={filteredContent}
                         onContentAction={handleContentAction}
                         onViewAll={() => console.log('View all content')}

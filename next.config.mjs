@@ -69,8 +69,8 @@ const nextConfig = {
     scrollRestoration: true, // Smooth scroll restoration on navigation
   },
 
-  // ✅ (Optional) If you want to speed up build caching on Netlify
-  output: "standalone", // Use smaller build output for serverless
+  // Note: Removed 'output: standalone' due to Windows symlink permission issues
+  // Can be re-enabled for deployment on Linux/Mac or with admin rights
 };
 
 export default nextConfig;
