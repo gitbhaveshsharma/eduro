@@ -13,6 +13,7 @@ import { SubjectFilter } from './subject-filter';
 import { UpcomingClasses } from './upcoming-class-card';
 import { LearningProgressItems } from './learning-progress-item';
 import { ProfileSidebar } from './profile-sidebar';
+import { ExplorerCards } from './explorer-cards';
 import {
     SUBJECTS,
     UPCOMING_CLASSES,
@@ -38,17 +39,21 @@ export const ProfileUrlUtils = {
 
 interface LearningDashboardProps {
     profile: Profile | null;
-    publicProfile?: any; // Add public profile prop
+    publicProfile?: any;
     className?: string;
 }
 
 export function LearningDashboard({
     profile,
-    publicProfile, // Add this
+    publicProfile,
     className
 }: LearningDashboardProps) {
     const [selectedSubject, setSelectedSubject] = useState('all');
     const router = useRouter();
+
+    // Get user role from profile - adjust based on your profile schema
+    const userRole = profile?.role || 'S'; // Default to Student
+    const isStudent = userRole === 'S';
 
     // Filter content based on selected subject
     const filteredClasses =
@@ -111,12 +116,17 @@ export function LearningDashboard({
                         defaultSubject={selectedSubject}
                     />
 
-                    {/* Upcoming Classes */}
-                    <UpcomingClasses
-                        classes={filteredClasses}
-                        onStartClass={handleStartClass}
-                        onViewAll={() => console.log('View all classes')}
-                    />
+                    {/* Explorer Cards - New Section */}
+                    <ExplorerCards userRole={userRole} />
+
+                    {/* Upcoming Classes - Only for Students */}
+                    {isStudent && (
+                        <UpcomingClasses
+                            classes={filteredClasses}
+                            onStartClass={handleStartClass}
+                            onViewAll={() => console.log('View all classes')}
+                        />
+                    )}
 
                     {/* Learning Progress */}
                     <LearningProgressItems
@@ -168,7 +178,20 @@ export function LearningDashboardSkeleton() {
                         ))}
                     </div>
 
-                    {/* Classes skeleton */}
+                    {/* Explorer Cards skeleton */}
+                    <div className="space-y-4">
+                        <div className="h-6 w-64 bg-muted animate-pulse rounded" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[1, 2].map((i) => (
+                                <div
+                                    key={i}
+                                    className="h-56 bg-muted animate-pulse rounded-xl"
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Classes skeleton - conditional */}
                     <div className="space-y-4">
                         <div className="flex justify-between">
                             <div className="h-6 w-48 bg-muted animate-pulse rounded" />

@@ -6,6 +6,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { useTheme } from 'next-themes'
 import { cn } from '@/lib/utils'
 import { brandColors } from '@/components/theme-provider'
+import { ButtonLoadingSpinner } from '@/components/ui/loading-spinner'
 
 const buttonVariants = cva(
   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:ring-[3px] focus-visible:ring-offset-2",
@@ -37,6 +38,12 @@ const buttonVariants = cva(
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof buttonVariants> {
   asChild?: boolean
+  /** Show loading spinner */
+  loading?: boolean
+  /** Loading text (shown next to spinner) */
+  loadingText?: string
+  /** Loading spinner size */
+  loadingSize?: 'sm' | 'md'
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
@@ -45,6 +52,11 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
     variant,
     size,
     asChild = false,
+    loading = false,
+    loadingText,
+    loadingSize,
+    children,
+    disabled,
     ...props
   },
   ref,
@@ -160,11 +172,68 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
 
   const variantStyles = getVariantStyles(variant || 'default')
 
+  // Determine loading spinner variant based on button variant
+  const getLoadingVariant = () => {
+    switch (variant) {
+      case 'destructive':
+        return 'error'
+      case 'success':
+        return 'success'
+      case 'warning':
+        return 'warning'
+      case 'secondary':
+        return 'secondary'
+      default:
+        return 'primary'
+    }
+  }
+
+  // Determine loading text color
+  const getLoadingTextColor = () => {
+    const isDark = theme === 'dark'
+    switch (variant) {
+      case 'default':
+      case 'destructive':
+      case 'secondary':
+      case 'success':
+      case 'warning':
+        return '#ffffff' // White text for filled buttons
+      case 'outline':
+      case 'ghost':
+        return isDark ? brandColors.card : brandColors.textPrimary
+      case 'link':
+        return brandColors.primary
+      default:
+        return '#ffffff'
+    }
+  }
+
+  // Determine loading size based on button size
+  const getLoadingSize = () => {
+    if (loadingSize) return loadingSize
+    switch (size) {
+      case 'sm':
+        return 'sm'
+      case 'lg':
+        return 'md'
+      default:
+        return 'sm'
+    }
+  }
+
+  const loadingVariant = getLoadingVariant()
+  const finalLoadingSize = getLoadingSize()
+
   return (
     <Comp
       ref={ref}
       data-slot="button"
-      className={cn(buttonVariants({ variant, size }), className)}
+      className={cn(
+        buttonVariants({ variant, size }),
+        loading && 'cursor-wait',
+        className
+      )}
+      disabled={disabled || loading}
       style={{
         backgroundColor: variantStyles.backgroundColor,
         color: variantStyles.color,
@@ -204,7 +273,19 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
           ; (props as React.ButtonHTMLAttributes<HTMLButtonElement>).onBlur?.(e)
       }}
       {...props}
-    />
+    >
+      {loading ? (
+        <>
+          <ButtonLoadingSpinner
+            size={finalLoadingSize}
+            variant={loadingVariant}
+            buttonVariant={variant ?? undefined}
+            message={loadingText}
+          />
+          {!loadingText && children}
+        </>
+      ) : children}
+    </Comp>
   )
 })
 
