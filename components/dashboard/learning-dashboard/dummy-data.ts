@@ -15,11 +15,11 @@ import type {
 export const SUBJECTS: Subject[] = [
     { id: 'all', name: 'All Subject', icon: '🎯', color: 'bg-red-100 text-red-600' },
     { id: 'english', name: 'English', icon: 'A', color: 'bg-orange-100 text-orange-600' },
-    { id: 'business', name: 'Business', icon: '💼', color: 'bg-green-100 text-green-600' },
+    { id: 'business_studies', name: 'Business', icon: '💼', color: 'bg-green-100 text-green-600' },
     { id: 'chemistry', name: 'Chemistry', icon: '🧪', color: 'bg-purple-100 text-purple-600' },
     { id: 'physics', name: 'Physics', icon: '⚡', color: 'bg-blue-100 text-blue-600' },
     { id: 'geography', name: 'Geography', icon: '🌍', color: 'bg-teal-100 text-teal-600' },
-    { id: 'math', name: 'Mathematics', icon: '📐', color: 'bg-indigo-100 text-indigo-600' },
+    { id: 'mathematics', name: 'Mathematics', icon: '📐', color: 'bg-indigo-100 text-indigo-600' },
 ];
 
 export const UPCOMING_CLASSES: UpcomingClass[] = [
@@ -28,7 +28,7 @@ export const UPCOMING_CLASSES: UpcomingClass[] = [
         title: 'Unlock the Laws of Nature',
         subject: SUBJECTS[4], // Physics
         startTime: '11:30',
-        imageUrl: '/images/physics-nature.jpg',
+        imageUrl: '', // Remove or leave empty - will use subject image from getSubjectImage()
         participants: {
             avatars: [
                 'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
@@ -43,7 +43,7 @@ export const UPCOMING_CLASSES: UpcomingClass[] = [
         title: 'Unlock the Secrets of Matter',
         subject: SUBJECTS[3], // Chemistry
         startTime: '11:30',
-        imageUrl: '/images/chemistry-matter.jpg',
+        imageUrl: '', // Remove or leave empty - will use subject image from getSubjectImage()
         participants: {
             avatars: [
                 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
@@ -58,7 +58,7 @@ export const UPCOMING_CLASSES: UpcomingClass[] = [
         title: 'Advanced Grammar Structures',
         subject: SUBJECTS[1], // English
         startTime: '14:00',
-        imageUrl: '/images/english-grammar.jpg',
+        imageUrl: '', // Remove or leave empty - will use subject image from getSubjectImage()
         participants: {
             avatars: [
                 'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',

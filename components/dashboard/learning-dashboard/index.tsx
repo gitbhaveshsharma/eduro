@@ -13,6 +13,7 @@ import { SubjectFilter } from './subject-filter';
 import { UpcomingClasses } from './upcoming-class-card';
 import { LearningProgressItems } from './learning-progress-item';
 import { ProfileSidebar } from './profile-sidebar';
+import { ExplorerCards } from './explorer-cards';
 import {
     SUBJECTS,
     UPCOMING_CLASSES,
@@ -38,17 +39,21 @@ export const ProfileUrlUtils = {
 
 interface LearningDashboardProps {
     profile: Profile | null;
-    publicProfile?: any; // Add public profile prop
+    publicProfile?: any;
     className?: string;
 }
 
 export function LearningDashboard({
     profile,
-    publicProfile, // Add this
+    publicProfile,
     className
 }: LearningDashboardProps) {
     const [selectedSubject, setSelectedSubject] = useState('all');
     const router = useRouter();
+
+    // Get user role from profile - adjust based on your profile schema
+    const userRole = profile?.role || 'S'; // Default to Student
+    const isStudent = userRole === 'S';
 
     // Filter content based on selected subject
     const filteredClasses =
@@ -97,10 +102,10 @@ export function LearningDashboard({
     };
 
     return (
-        <div className='min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 p-4'>
-            <div className={`flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-7xl mx-auto ${className}`}>
-                {/* Main Content Area */}
-                <div className="flex-1 space-y-6 min-w-0">
+        <div className='min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 relative z-0'>
+            <div className={`flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-7xl mx-auto relative z-10 ${className}`}>
+                {/* Main Content Area - Scrollable */}
+                <div className="flex-1 space-y-6 min-w-0 relative z-10">
                     {/* Greeting */}
                     <DashboardGreeting profile={profile} onAskAI={handleAskAI} />
 
@@ -111,12 +116,17 @@ export function LearningDashboard({
                         defaultSubject={selectedSubject}
                     />
 
-                    {/* Upcoming Classes */}
-                    <UpcomingClasses
-                        classes={filteredClasses}
-                        onStartClass={handleStartClass}
-                        onViewAll={() => console.log('View all classes')}
-                    />
+                    {/* Explorer Cards - New Section */}
+                    <ExplorerCards userRole={userRole} />
+
+                    {/* Upcoming Classes - Only for Students */}
+                    {isStudent && (
+                        <UpcomingClasses
+                            classes={filteredClasses}
+                            onStartClass={handleStartClass}
+                            onViewAll={() => console.log('View all classes')}
+                        />
+                    )}
 
                     {/* Learning Progress */}
                     <LearningProgressItems
@@ -126,32 +136,39 @@ export function LearningDashboard({
                     />
                 </div>
 
-                {/* Right Sidebar */}
+                {/* Right Sidebar - Sticky */}
                 <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
-                    <ProfileSidebar
-                        profile={profile}
-                        publicProfile={publicProfile}
-                        stats={USER_STATS}
-                        activityHours={ACTIVITY_HOURS}
-                        contentBreakdown={CONTENT_BREAKDOWN}
-                        dashboardStats={DASHBOARD_STATS}
-                        onSettingsClick={handleSettingsClick}
-                        onViewAllContent={() => console.log('View all content')}
-                        onViewAllLearning={() => console.log('View all learning')}
-                    />
+                    <div className="lg:sticky lg:top-6 space-y-6 relative z-10">
+                        <ProfileSidebar
+                            profile={profile}
+                            publicProfile={publicProfile}
+                            stats={USER_STATS}
+                            activityHours={ACTIVITY_HOURS}
+                            contentBreakdown={CONTENT_BREAKDOWN}
+                            dashboardStats={DASHBOARD_STATS}
+                            onSettingsClick={handleSettingsClick}
+                            onViewAllContent={() => console.log('View all content')}
+                            onViewAllLearning={() => console.log('View all learning')}
+                        />
+                    </div>
                 </div>
+            </div>
+
+            {/* Modal/Overlay Container - Higher z-index for modals */}
+            <div className="fixed inset-0 z-50 pointer-events-none">
+                {/* This container ensures modals can appear above everything */}
             </div>
         </div>
     );
 }
 
-// Skeleton loading state
+// Skeleton loading state - also updated for consistency
 export function LearningDashboardSkeleton() {
     return (
-        <div className="min-h-screen bg-background">
-            <div className="flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto">
+        <div className="min-h-screen bg-background relative z-0">
+            <div className="flex flex-col lg:flex-row gap-6 p-4 md:p-6 max-w-[1600px] mx-auto relative z-10">
                 {/* Main Content Skeleton */}
-                <div className="flex-1 space-y-6">
+                <div className="flex-1 space-y-6 min-w-0 relative z-10">
                     {/* Greeting skeleton */}
                     <div className="flex items-center justify-between">
                         <div className="h-9 w-64 bg-muted animate-pulse rounded-lg" />
@@ -168,7 +185,20 @@ export function LearningDashboardSkeleton() {
                         ))}
                     </div>
 
-                    {/* Classes skeleton */}
+                    {/* Explorer Cards skeleton */}
+                    <div className="space-y-4">
+                        <div className="h-6 w-64 bg-muted animate-pulse rounded" />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[1, 2].map((i) => (
+                                <div
+                                    key={i}
+                                    className="h-56 bg-muted animate-pulse rounded-xl"
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Classes skeleton - conditional */}
                     <div className="space-y-4">
                         <div className="flex justify-between">
                             <div className="h-6 w-48 bg-muted animate-pulse rounded" />
@@ -201,12 +231,14 @@ export function LearningDashboardSkeleton() {
                     </div>
                 </div>
 
-                {/* Sidebar Skeleton */}
-                <div className="w-full lg:w-80 xl:w-96 space-y-4">
-                    <div className="h-[500px] bg-muted animate-pulse rounded-xl" />
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="h-32 bg-muted animate-pulse rounded-xl" />
-                        <div className="h-32 bg-muted animate-pulse rounded-xl" />
+                {/* Sidebar Skeleton - Also sticky */}
+                <div className="w-full lg:w-80 xl:w-96 flex-shrink-0">
+                    <div className="lg:sticky lg:top-6 space-y-4 relative z-10">
+                        <div className="h-[500px] bg-muted animate-pulse rounded-xl" />
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="h-32 bg-muted animate-pulse rounded-xl" />
+                            <div className="h-32 bg-muted animate-pulse rounded-xl" />
+                        </div>
                     </div>
                 </div>
             </div>

@@ -120,9 +120,30 @@ const BranchCard = memo(function BranchCard({
         [branch.is_main_branch]
     );
 
+    const [joining, setJoining] = useState(false);
+    const [viewDetailsLoading, setViewDetailsLoading] = useState(false);
+
     const handleJoin = useCallback(() => {
-        onJoinBranch?.(branch.id);
+        setJoining(true);
+
+        // Simulate API call
+        setTimeout(() => {
+            setJoining(false);
+            onJoinBranch?.(branch.id);
+        }, 1500);
     }, [branch.id, onJoinBranch]);
+
+    const handleViewDetails = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        setViewDetailsLoading(true);
+
+        // Simulate loading before navigation
+        setTimeout(() => {
+            setViewDetailsLoading(false);
+            // Navigate to branch details
+            window.location.href = `/coaching/${centerSlug}/branch/${branch.id}`;
+        }, 1000);
+    }, [branch.id, centerSlug]);
 
     // Load branch address (only show condensed location in the list)
     const { getAddressByEntity } = useAddressStore();
@@ -250,23 +271,33 @@ const BranchCard = memo(function BranchCard({
                 <Button
                     variant="outline"
                     size="sm"
-                    asChild
+                    loading={viewDetailsLoading}
+                    loadingText="Loading..."
+                    onClick={handleViewDetails}
                     className="flex-1 rounded-xl"
                 >
-                    <Link href={`/coaching/${centerSlug}/branch/${branch.id}`}>
-                        View Details
-                        <ChevronRight className="h-4 w-4 ml-1" />
-                    </Link>
+                    {!viewDetailsLoading && (
+                        <>
+                            View Details
+                            <ChevronRight className="h-4 w-4 ml-1" />
+                        </>
+                    )}
                 </Button>
 
                 {branch.is_active && onJoinBranch && (
                     <Button
                         size="sm"
+                        loading={joining}
+                        loadingText="Joining..."
                         onClick={handleJoin}
                         className="rounded-xl"
                     >
-                        <UserPlus className="h-4 w-4 mr-1.5" />
-                        Join
+                        {!joining && (
+                            <>
+                                <UserPlus className="h-4 w-4 mr-1.5" />
+                                Join
+                            </>
+                        )}
                     </Button>
                 )}
             </div>

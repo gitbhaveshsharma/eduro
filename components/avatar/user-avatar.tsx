@@ -78,6 +78,12 @@ export function UserAvatar({
   const currentProfile = useProfileStore(state => state.currentProfile);
   const effectiveProfile = profile ?? currentProfile;
 
+  // ✅ Move useEffect BEFORE any early returns to respect Rules of Hooks
+  // Reset error state when avatar/source changes
+  useEffect(() => {
+    setImageError(false);
+  }, [effectiveProfile?.avatar_url]);
+
   if (!effectiveProfile) {
     return (
       <Avatar className={cn(AVATAR_SIZES[size], className, onClick && 'cursor-pointer')} onClick={onClick}>
@@ -103,11 +109,6 @@ export function UserAvatar({
       ? AvatarUtils.generateInitialsAvatar(initials)
       : AvatarUtils.generateDefaultAvatar();
   }
-
-  // Reset error state when avatar/source changes
-  useEffect(() => {
-    setImageError(false);
-  }, [effectiveProfile?.avatar_url]);
 
   return (
     <div className="relative inline-block">

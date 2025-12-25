@@ -36,25 +36,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
                     currentTokenRef.current = session.access_token
                     setAuth(session.user, session)
 
-                    // CRITICAL: Defer profile loading to prevent blocking
-                    setTimeout(async () => {
+                    // CRITICAL: Single profile load - no redundant fetch
+                    // loadCurrentProfile already fetches from API with caching
+                    queueMicrotask(async () => {
                         if (!mounted) return
-
                         try {
-                            const { data: profile, error } = await supabase
-                                .from('profiles')
-                                .select('*')
-                                .eq('id', session.user.id)
-                                .single()
-
-                            if (!error && profile && mounted) {
-                                setProfile(profile)
-                                await loadCurrentProfile()
-                            }
+                            await loadCurrentProfile()
                         } catch (error) {
                             console.error('[AUTH-PROVIDER] Error loading initial profile:', error)
                         }
-                    }, 0)
+                    })
                 } else {
                     clearAuth()
                     clearCurrentProfile()

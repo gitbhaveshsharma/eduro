@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss"
 
 const config: Config = {
-  darkMode: ["class"],
+  // darkMode: ["class"],
   content: [
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
@@ -18,25 +18,31 @@ const config: Config = {
       },
     },
     extend: {
+      // 👇 ADD THIS SECTION HERE - Right at the start of extend
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'monospace'],
+      },
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        
+
         // Brand Colors - Exact hex values from specification
         brand: {
           primary: "#1D4ED8",      // Deep Blue - Trust, authority, professional
           secondary: "#3B82F6",    // Sky Blue - Friendly & fresh
           highlight: "#F97316",    // Orange - Attention-grabbing CTA
         },
-        
+
         // Status Colors
         success: "#10B981",        // Green - Success messages, confirmations
         warning: "#F59E0B",        // Amber - Warnings, unpaid fees
         error: "#EF4444",          // Red - Errors, failed actions
-        
+
         // Neutral Colors
         neutral: {
           bg: "#F3F4F6",           // Light Gray - Main background
@@ -47,7 +53,7 @@ const config: Config = {
           },
           border: "#E5E7EB",       // Light Gray - Borders/dividers
         },
-        
+
         // ShadCN component overrides
         primary: {
           DEFAULT: "#1D4ED8",
