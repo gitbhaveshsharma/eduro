@@ -4,7 +4,6 @@ import React from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { UserAvatar } from '@/components/avatar';
 import { ConnectionButton } from '../connections/connection-button';
 import { ProfileDisplayUtils, ProfileUrlUtils } from '@/lib/utils/profile.utils';
@@ -17,6 +16,20 @@ interface ProfileCardProps {
     index?: number;
 }
 
+// Dynamic color class mapping based on color name
+const getColorClasses = (colorName: string): string => {
+    const colorMap: Record<string, string> = {
+        red: 'bg-red-500/10 text-red-700  ',
+        orange: 'bg-orange-500/10 text-orange-700 ',
+        blue: 'bg-blue-500/10 text-blue-700',
+        green: 'bg-green-500/10 text-green-700 ',
+        purple: 'bg-purple-500/10 text-purple-700',
+        gray: 'bg-gray-500/10 text-gray-700 '
+    };
+
+    return colorMap[colorName] || colorMap.gray;
+};
+
 function ProfileCardComponent({
     profile,
     currentUser,
@@ -26,6 +39,10 @@ function ProfileCardComponent({
     const profileUrl = profile.username
         ? ProfileUrlUtils.getProfileUrl(profile.username)
         : `/profile/${profile.id}`;
+
+    // Get role color from ProfileDisplayUtils
+    const roleColor = ProfileDisplayUtils.getRoleColor(profile.role);
+    const roleColorClass = getColorClasses(roleColor);
 
     return (
         <Card className="hover:shadow-md transition-shadow group">
@@ -62,7 +79,10 @@ function ProfileCardComponent({
                         )}
 
                         <div className="mt-2">
-                            <Badge variant="outline" className="text-xs">
+                            <Badge
+                                variant="outline"
+                                className={`text-xs ${roleColorClass}`}
+                            >
                                 {ProfileDisplayUtils.getRoleDisplayName(profile.role)}
                             </Badge>
                         </div>
@@ -70,15 +90,7 @@ function ProfileCardComponent({
 
                     {/* Actions */}
                     <div className="flex-shrink-0 flex items-center gap-1">
-                        {/* View Profile Button */}
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            asChild
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                           
-                        </Button>
+
 
                         {/* Connection Button */}
                         <ConnectionButton
