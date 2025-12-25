@@ -13,21 +13,47 @@ const nextConfig = {
     unoptimized: false, // Allow Next.js to handle lazy loading + compression
     formats: ["image/avif", "image/webp"], // Serve modern image formats
     deviceSizes: [320, 640, 768, 1024, 1280, 1600], // Optimize per device size
-    // Allow loading images from Supabase Storage (public buckets)
+    // Allow loading images from external sources
     remotePatterns: [
+      // Supabase Storage (public buckets)
       {
         protocol: "https",
         hostname: "ixhlpassuqmqpzpumkuw.supabase.co",
         port: "",
-        // Public storage URLs use /storage/v1/object/public/<bucket>/...
         pathname: "/storage/v1/object/public/**",
       },
       {
         protocol: "https",
         hostname: "ixhlpassuqmqpzpumkuw.supabase.co",
         port: "",
-        // In case signed URLs or other paths are used
         pathname: "/storage/v1/object/**",
+      },
+      // RoboHash avatars
+      {
+        protocol: "https",
+        hostname: "robohash.org",
+        port: "",
+        pathname: "/**",
+      },
+      // Gravatar
+      {
+        protocol: "https",
+        hostname: "gravatar.com",
+        port: "",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "www.gravatar.com",
+        port: "",
+        pathname: "/**",
+      },
+      // UI Avatars
+      {
+        protocol: "https",
+        hostname: "ui-avatars.com",
+        port: "",
+        pathname: "/**",
       },
     ],
   },
@@ -43,8 +69,8 @@ const nextConfig = {
     scrollRestoration: true, // Smooth scroll restoration on navigation
   },
 
-  // ✅ (Optional) If you want to speed up build caching on Netlify
-  output: "standalone", // Use smaller build output for serverless
+  // Note: Removed 'output: standalone' due to Windows symlink permission issues
+  // Can be re-enabled for deployment on Linux/Mac or with admin rights
 };
 
 export default nextConfig;

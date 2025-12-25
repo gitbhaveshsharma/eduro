@@ -25,3 +25,18 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local env files
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# local settings
+.vscode/
+.idea/
+.DS_Store
+*.localhistory/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
