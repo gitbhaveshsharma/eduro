@@ -3,8 +3,30 @@
  * Types for the modern learning dashboard UI
  */
 
+export type SubjectId =
+    | 'all' // Add 'all' to the union type
+    | 'english'
+    | 'physics'
+    | 'chemistry'
+    | 'mathematics'
+    | 'biology'
+    | 'history'
+    | 'geography'
+    | 'science'
+    | 'computer'
+    | 'business_studies'
+    | 'economics'
+    | 'hindi'
+    | 'music'
+    | 'physical_education'
+    | 'moral_science'
+    | 'environmental'
+    | 'social_studies'
+    | 'accountancy'
+    | 'art_and_craft';
+
 export interface Subject {
-    id: string;
+    id: SubjectId; // Changed from string to SubjectId
     name: string;
     icon: string;
     color: string;
@@ -15,7 +37,7 @@ export interface UpcomingClass {
     title: string;
     subject: Subject;
     startTime: string;
-    imageUrl?: string;
+    imageUrl?: string; // Keep optional for backward compatibility
     participants: {
         avatars: string[];
         count: number;

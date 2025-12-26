@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, memo } from "react";
 import {
   Search,
   Bell,
@@ -25,8 +25,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/avatar";
-import { useCurrentProfile } from '@/lib/profile';
 import type { HeaderProps, LayoutConfig } from "../types";
+import type { Profile } from "@/lib/profile";
 
 interface LMSHeaderProps extends Omit<HeaderProps, 'config'> {
   title?: string;
@@ -34,6 +34,7 @@ interface LMSHeaderProps extends Omit<HeaderProps, 'config'> {
   notificationCount?: number;
   userAvatar?: string;
   userName?: string;
+  profile?: Profile | null; // Accept profile as prop to avoid redundant fetches
   onMenuClick?: () => void;
   onNotificationClick?: () => void;
   onProfileClick?: () => void;
@@ -41,12 +42,13 @@ interface LMSHeaderProps extends Omit<HeaderProps, 'config'> {
   config?: LayoutConfig;
 }
 
-export function LMSHeader({
+function LMSHeaderComponent({
   title = "Learning Platform",
   showSearch = true,
   notificationCount = 0,
   userAvatar,
   userName = "User",
+  profile: propProfile,
   onMenuClick,
   onNotificationClick,
   onProfileClick,
@@ -58,6 +60,9 @@ export function LMSHeader({
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
   const router = useRouter();
+  
+  // Use profile from props - no client-side fetch needed
+  const profile = propProfile;
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -78,8 +83,6 @@ export function LMSHeader({
     // Handle search submission if needed
     onSearch?.(searchQuery);
   };
-
-  const profile = useCurrentProfile();
 
   return (
     <header className={`bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm ${className}`}>
@@ -269,3 +272,7 @@ export function LMSHeader({
     </header>
   );
 }
+
+// Memoize to prevent unnecessary re-renders
+export const LMSHeader = memo(LMSHeaderComponent);
+LMSHeader.displayName = 'LMSHeader';

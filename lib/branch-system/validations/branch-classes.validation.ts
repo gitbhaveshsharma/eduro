@@ -557,3 +557,26 @@ export function validatePagination(input: unknown) {
 export function validateClassId(input: unknown) {
     return classIdSchema.safeParse(input);
 }
+
+// ============================================================
+// UPCOMING CLASSES VALIDATION
+// ============================================================
+
+/**
+ * Schema for upcoming classes query parameters
+ */
+export const upcomingClassesQuerySchema = z.object({
+    student_id: uuidSchema,
+});
+
+/**
+ * Type for upcoming classes query
+ */
+export type UpcomingClassesQuery = z.infer<typeof upcomingClassesQuerySchema>;
+
+/**
+ * Validates upcoming classes query parameters
+ */
+export function validateUpcomingClassesQuery(input: unknown) {
+    return upcomingClassesQuerySchema.safeParse(input);
+}

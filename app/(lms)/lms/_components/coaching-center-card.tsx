@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +36,8 @@ export const CoachingCenterCard = memo(({
     center,
     onSelect
 }: CoachingCenterCardProps) => {
+    const [loading, setLoading] = useState(false);
+
     const config = useMemo(() => roleConfig[center.role], [center.role]);
     const RoleIcon = config.icon;
 
@@ -49,8 +51,14 @@ export const CoachingCenterCard = memo(({
         [activeBranches.length]
     );
 
-    const handleSelect = useCallback(() => {
-        onSelect(center);
+    const handleSelect = useCallback(async () => {
+        setLoading(true);
+
+        // Simulate loading for better UX
+        setTimeout(() => {
+            setLoading(false);
+            onSelect(center);
+        }, 1500);
     }, [onSelect, center]);
 
     return (
@@ -92,11 +100,17 @@ export const CoachingCenterCard = memo(({
 
                 <Button
                     onClick={handleSelect}
+                    loading={loading}
+                    loadingText="Loading..."
                     className="w-full group-hover:bg-primary/90"
                 >
-                    <LayoutDashboard className="h-4 w-4 mr-2" />
-                    Manage Center
-                    <ArrowRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {!loading && (
+                        <>
+                            <LayoutDashboard className="h-4 w-4 mr-2" />
+                            Manage Center
+                            <ArrowRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </>
+                    )}
                 </Button>
             </CardContent>
         </Card>

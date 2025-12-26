@@ -5,6 +5,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -12,40 +13,69 @@ import { Card } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { UpcomingClass } from './types';
+import { getSubjectImage } from '@/lib/utils/subject-assets';
 
 interface UpcomingClassCardProps {
     classData: UpcomingClass;
     onStart?: (classId: string) => void;
 }
 
-// Placeholder images for demo - gradient backgrounds matching the design
-const PLACEHOLDER_IMAGES: Record<string, { gradient: string; decoration: string }> = {
-    Physics: {
-        gradient: 'from-[#E8F5E9] to-[#C8E6C9]',
-        decoration: 'text-green-800/20'
-    },
-    Chemistry: {
-        gradient: 'from-[#E8F5E9] to-[#C8E6C9]',
-        decoration: 'text-green-800/20'
-    },
-    English: {
-        gradient: 'from-orange-50 to-amber-100',
-        decoration: 'text-orange-800/20'
-    },
-    Business: {
+// Fallback gradient backgrounds for when images are loading/missing
+const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: string }> = {
+    physics: {
         gradient: 'from-blue-50 to-indigo-100',
         decoration: 'text-blue-800/20'
     },
-    Geography: {
+    chemistry: {
+        gradient: 'from-purple-50 to-pink-100',
+        decoration: 'text-purple-800/20'
+    },
+    english: {
+        gradient: 'from-orange-50 to-amber-100',
+        decoration: 'text-orange-800/20'
+    },
+    business_studies: {
+        gradient: 'from-green-50 to-emerald-100',
+        decoration: 'text-green-800/20'
+    },
+    geography: {
         gradient: 'from-teal-50 to-cyan-100',
         decoration: 'text-teal-800/20'
     },
+    mathematics: {
+        gradient: 'from-indigo-50 to-blue-100',
+        decoration: 'text-indigo-800/20'
+    },
+    biology: {
+        gradient: 'from-green-50 to-lime-100',
+        decoration: 'text-green-800/20'
+    },
+    default: {
+        gradient: 'from-gray-100 to-gray-200',
+        decoration: 'text-gray-600/20'
+    }
 };
 
 export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps) {
-    const imageConfig = PLACEHOLDER_IMAGES[classData.subject.name] || {
-        gradient: 'from-gray-100 to-gray-200',
-        decoration: 'text-gray-600/20'
+    const [starting, setStarting] = useState(false);
+    const [imageLoaded, setImageLoaded] = useState(false);
+
+    const subjectId = classData.subject.id || 'default';
+    const gradientConfig = PLACEHOLDER_GRADIENTS[subjectId] || PLACEHOLDER_GRADIENTS.default;
+
+    // Use getSubjectImage instead of classData.imageUrl
+    const subjectImagePath = getSubjectImage(classData.subject);
+
+    const handleStartClass = () => {
+        if (!onStart) return;
+
+        setStarting(true);
+
+        // Navigate to class - reduced delay for better UX
+        setTimeout(() => {
+            setStarting(false);
+            onStart(classData.id);
+        }, 500); // Reduced from 2 seconds to 500ms
     };
 
     return (
@@ -58,40 +88,49 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                     </span>
                 </div>
 
-                {/* Image/Gradient Background */}
+                {/* Image with Gradient Background Fallback */}
                 <div
                     className={cn(
                         'h-32 w-full bg-gradient-to-br relative overflow-hidden rounded-2xl',
-                        imageConfig.gradient
+                        gradientConfig.gradient
                     )}
                 >
-                    {/* Decorative leaf/nature elements for physics/chemistry cards */}
-                    <div className="absolute inset-0 flex items-center justify-center ">
+                    {/* Subject Image from public/subject folder */}
+                    <Image
+                        src={subjectImagePath}
+                        alt={`${classData.subject.name} class`}
+                        fill
+                        className={cn(
+                            "object-cover transition-opacity duration-300",
+                            imageLoaded ? "opacity-100" : "opacity-0"
+                        )}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        priority={false}
+                        onLoad={() => setImageLoaded(true)}
+                        onError={() => setImageLoaded(true)} // Still show gradient if image fails
+                    />
+
+                    {/* Gradient background - visible while image loads */}
+                    {!imageLoaded && (
+                        <div className={cn(
+                            'absolute inset-0 animate-pulse',
+                            gradientConfig.gradient
+                        )} />
+                    )}
+
+                    {/* Decorative SVG overlay (shows through if image has transparency) */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
                         <svg
-                            className={cn('w-32 h-32', imageConfig.decoration)}
+                            className={cn('w-32 h-32 opacity-30', gradientConfig.decoration)}
                             viewBox="0 0 100 100"
                             fill="currentColor"
                         >
-                            {/* Leaf shape 1 */}
+                            {/* Decorative leaf shapes */}
                             <path d="M50 10 Q70 30 50 60 Q30 30 50 10" />
-                            {/* Leaf shape 2 */}
                             <path d="M30 40 Q50 50 40 70 Q20 50 30 40" transform="rotate(-30 50 50)" />
-                            {/* Leaf shape 3 */}
                             <path d="M70 40 Q50 50 60 70 Q80 50 70 40" transform="rotate(30 50 50)" />
                         </svg>
                     </div>
-                    {classData.imageUrl && (
-                        <Image
-                            src={classData.imageUrl}
-                            alt={classData.title}
-                            fill
-                            className="object-cover"
-                            onError={(e) => {
-                                // Hide broken images
-                                (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                        />
-                    )}
                 </div>
             </div>
 
@@ -121,7 +160,7 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                             {classData.participants.avatars.slice(0, 3).map((avatar, idx) => (
                                 <Avatar
                                     key={idx}
-                                    className="w-7 h-7 border-2 border-card"
+                                    className="w-7 h-7 border-2 border-card bg-accent"
                                 >
                                     <AvatarImage src={avatar} alt={`Participant ${idx + 1}`} />
                                     <AvatarFallback className="text-xs bg-primary/10">
@@ -137,14 +176,16 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                         )}
                     </div>
 
-                    {/* Start Button */}
+                    {/* Start Button with Loading */}
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onStart?.(classData.id)}
-                        className="rounded-full px-4 text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors"
+                        loading={starting}
+                        loadingText="Starting..."
+                        onClick={handleStartClass}
+                        className="rounded-full px-4 text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors min-w-20"
                     >
-                        Start
+                        {!starting && "Start"}
                     </Button>
                 </div>
             </div>
@@ -163,20 +204,38 @@ export function UpcomingClasses({
     onViewAll,
     onStartClass,
 }: UpcomingClassesProps) {
+    const [viewAllLoading, setViewAllLoading] = useState(false);
+
+    const handleViewAll = () => {
+        if (!onViewAll) return;
+
+        setViewAllLoading(true);
+
+        // Simulate loading
+        setTimeout(() => {
+            setViewAllLoading(false);
+            onViewAll();
+        }, 1000);
+    };
+
     return (
         <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-foreground">
                     Your Upcoming Class
                 </h2>
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onViewAll}
-                    className="text-sm font-medium text-primary hover:text-primary/80 h-fit px-3 py-1.5"
-                >
-                    View all
-                </Button>
+                {classes.length > 2 && (
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        loading={viewAllLoading}
+                        loadingText="Loading..."
+                        onClick={handleViewAll}
+                        className="text-sm font-medium text-primary hover:text-primary/80 h-fit px-3 py-1.5"
+                    >
+                        {!viewAllLoading && "View all"}
+                    </Button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

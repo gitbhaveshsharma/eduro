@@ -1,3 +1,9 @@
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === "true",
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // ✅ Skip lint and type checks only during production build for faster CI/CD
@@ -6,6 +12,22 @@ const nextConfig = {
   },
   typescript: {
     ignoreBuildErrors: true,
+  },
+
+  // ✅ Tree-shaking optimizations for large icon/component libraries
+  modularizeImports: {
+    "lucide-react": {
+      transform: "lucide-react/dist/esm/icons/{{lowerCase member}}",
+      preventFullImport: true,
+    },
+    "@mui/icons-material": {
+      transform: "@mui/icons-material/{{member}}",
+      preventFullImport: true,
+    },
+    "@mui/material": {
+      transform: "@mui/material/{{member}}",
+      preventFullImport: true,
+    },
   },
 
   // ✅ Enable built-in image optimization
@@ -67,10 +89,56 @@ const nextConfig = {
   // ✅ Experimental UX boosts
   experimental: {
     scrollRestoration: true, // Smooth scroll restoration on navigation
+    optimizePackageImports: [
+      "lucide-react",
+      "@radix-ui/react-icons",
+      "recharts",
+      "date-fns",
+    ],
   },
 
   // Note: Removed 'output: standalone' due to Windows symlink permission issues
   // Can be re-enabled for deployment on Linux/Mac or with admin rights
+
+  // ✅ Webpack optimizations for bundle size
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // Split large vendor chunks
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          // Separate large libraries into their own chunks
+          framework: {
+            name: "framework",
+            chunks: "all",
+            test: /[\\/]node_modules[\\/](react|react-dom|scheduler|next)[\\/]/,
+            priority: 40,
+            enforce: true,
+          },
+          supabase: {
+            name: "supabase",
+            test: /[\\/]node_modules[\\/]@supabase[\\/]/,
+            chunks: "all",
+            priority: 30,
+          },
+          ui: {
+            name: "ui",
+            test: /[\\/]node_modules[\\/](@radix-ui|@mui)[\\/]/,
+            chunks: "all",
+            priority: 25,
+          },
+          charts: {
+            name: "charts",
+            test: /[\\/]node_modules[\\/](recharts|d3|chart\.js)[\\/]/,
+            chunks: "all",
+            priority: 20,
+          },
+        },
+      };
+    }
+    return config;
+  },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);

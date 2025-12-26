@@ -48,6 +48,17 @@ export function createClient() {
       },
       // Cookie storage is handled automatically by createBrowserClient
       // It will store tokens in cookies prefixed with: sb-{project-ref}-auth-token
+      
+      // Global fetch options for better performance
+      global: {
+        fetch: (url, options = {}) => {
+          return fetch(url, {
+            ...options,
+            // Add keepalive for better connection reuse
+            keepalive: true,
+          })
+        },
+      },
     }
   )
 

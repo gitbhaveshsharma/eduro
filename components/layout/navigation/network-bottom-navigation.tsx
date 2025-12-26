@@ -1,13 +1,47 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import dynamic from 'next/dynamic';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NETWORK_NAV_ITEMS, LayoutUtils } from '../config';
 import { NavigationItem } from '../types';
 import { useAuthStore } from '@/lib/auth-store';
+
+// // ✅ Dynamic import framer-motion with SSR disabled to reduce initial bundle
+// const MotionComponents = dynamic(
+//   () => import('framer-motion').then(mod => ({
+//     default: {
+//       motion: mod.motion,
+//       AnimatePresence: mod.AnimatePresence
+//     }
+//   })),
+//   { ssr: false }
+// );
+
+// Fallback for SSR
+const FallbackMotion = {
+    motion: {
+        div: ({ children, className, ...props }: any) => <div className={className}>{children}</div>,
+        nav: ({ children, className, ...props }: any) => <nav className={className}>{children}</nav>,
+        span: ({ children, className, ...props }: any) => <span className={className}>{children}</span>,
+    },
+    AnimatePresence: ({ children }: any) => <>{children}</>,
+};
+
+// Hook to get motion components
+function useMotion() {
+    const [motion, setMotion] = React.useState<any>(FallbackMotion);
+
+    React.useEffect(() => {
+        import('framer-motion').then(mod => {
+            setMotion({ motion: mod.motion, AnimatePresence: mod.AnimatePresence });
+        });
+    }, []);
+
+    return motion;
+}
 
 interface NetworkBottomNavigationProps {
     activeItem?: string;
@@ -58,6 +92,9 @@ export function NetworkBottomNavigation({
         return () => window.removeEventListener('resize', onResize);
     }, []);
     const [touchedItem, setTouchedItem] = useState<string | null>(null);
+
+    // Get motion components (lazy loaded)
+    const { motion, AnimatePresence } = useMotion();
 
     // Filter navigation items based on current device
     const visibleItems = NETWORK_NAV_ITEMS.filter(item => {

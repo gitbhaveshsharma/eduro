@@ -229,6 +229,9 @@ const generateSearchCacheKey = (
   return JSON.stringify({ filters, sortBy, page, perPage });
 };
 
+// Request deduplication map to prevent duplicate in-flight requests
+const pendingSearchRequests = new Map<string, Promise<any>>();
+
 // Initial state
 const initialState: CoachingState = {
   myCoachingCenters: [],
@@ -718,7 +721,7 @@ export const useCoachingStore = create<CoachingStore>()(
           });
         },
 
-        // UPDATED: Search and filtering actions for centers with caching
+        // UPDATED: Search and filtering actions for centers with caching and deduplication
         searchCoachingCenters: async (
           filters: CoachingCenterFilters = {},
           sortBy: CoachingCenterSortBy = 'recent',
@@ -745,6 +748,18 @@ export const useCoachingStore = create<CoachingStore>()(
             return;
           }
 
+          // Check for pending request with same key (request deduplication)
+          const pendingRequest = pendingSearchRequests.get(cacheKey);
+          if (pendingRequest) {
+            console.log('[CoachingStore] Request already in flight, waiting for existing request');
+            try {
+              await pendingRequest;
+            } catch (e) {
+              // Ignore - the original request handler will set the error
+            }
+            return;
+          }
+
           // Cache miss or expired - fetch fresh data
           console.log('[CoachingStore] Cache miss or expired, fetching fresh results');
           set((state) => {
@@ -761,40 +776,50 @@ export const useCoachingStore = create<CoachingStore>()(
             }, timeoutMs);
           });
 
-          // Race between the actual request and timeout
-          const result = await Promise.race([
+          // Create the actual request and store it for deduplication
+          const requestPromise = Promise.race([
             CoachingService.searchCoachingCenters(filters, sortBy, page, perPage),
             timeoutPromise
           ]);
 
-          set((state) => {
-            state.centerSearchLoading = false;
-            if (result.success && result.data) {
-              state.centerSearchResults = result.data;
+          // Store the pending request
+          pendingSearchRequests.set(cacheKey, requestPromise);
 
-              // Store in cache with timestamp
-              state.centerSearchCache.set(cacheKey, {
-                result: result.data,
-                timestamp: now,
-                expiresAt: now + CACHE_DURATION
-              });
+          try {
+            const result = await requestPromise;
 
-              // Cache individual center items
-              result.data.results.forEach((item: CoachingCenterSearchItem) => {
-                state.coachingCenterCache.set(item.center_id, {
-                  id: item.center_id,
-                  slug: item.center_slug,
-                  name: item.center_name,
-                  category: item.center_category,
-                  subjects: item.center_subjects || [],
-                  logo_url: item.center_logo_url,
-                  is_verified: item.center_is_verified,
-                } as any);
-              });
-            } else {
-              state.centerSearchError = result.error || 'Failed to search centers';
-            }
-          });
+            set((state) => {
+              state.centerSearchLoading = false;
+              if (result.success && result.data) {
+                state.centerSearchResults = result.data;
+
+                // Store in cache with timestamp
+                state.centerSearchCache.set(cacheKey, {
+                  result: result.data,
+                  timestamp: now,
+                  expiresAt: now + CACHE_DURATION
+                });
+
+                // Cache individual center items
+                result.data.results.forEach((item: CoachingCenterSearchItem) => {
+                  state.coachingCenterCache.set(item.center_id, {
+                    id: item.center_id,
+                    slug: item.center_slug,
+                    name: item.center_name,
+                    category: item.center_category,
+                    subjects: item.center_subjects || [],
+                    logo_url: item.center_logo_url,
+                    is_verified: item.center_is_verified,
+                  } as any);
+                });
+              } else {
+                state.centerSearchError = result.error || 'Failed to search centers';
+              }
+            });
+          } finally {
+            // Clean up pending request
+            pendingSearchRequests.delete(cacheKey);
+          }
         },
 
         updateCenterFilters: (filters: Partial<CoachingCenterFilters>) => {

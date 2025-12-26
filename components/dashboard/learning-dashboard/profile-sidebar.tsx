@@ -1,27 +1,30 @@
 /**
  * Profile Sidebar Component
  * Right sidebar with user profile, stats, activity, and content breakdown
+ * Mobile-friendly with swipe gestures and smooth transitions
  */
 
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-    Settings, ChevronDown, Award, FileCheck, BookOpen, GraduationCap, Eye,
-    Users
+    Settings, Award, FileCheck, Eye, Users, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { DonutChart } from './donut-chart';
 import { UserAvatar } from '@/components/avatar';
 import type { Profile } from '@/lib/schema/profile.types';
 import type { UserStats, ContentBreakdown } from './types';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
+import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { ProgressActivity } from './progress-activity';
+import { CalendarActivity } from './calendar-activity';
 
-// Lazy-load DashboardHeaderAvatar (same as DashboardHeader)
+// Lazy-load DashboardHeaderAvatar
 const ProfileSidebarAvatarManager = dynamic(
     () => import('../dashboard-header-avatar').then(mod => ({ default: mod.DashboardHeaderAvatar })),
     {
@@ -43,17 +46,16 @@ const getRoleDisplay = (role: string) => {
     }
 };
 
-// Helper function for public profile URL
 const getProfileUrl = (username: string): string => {
     return `/profile/${username}`;
 };
 
 interface ProfileSidebarProps {
     profile: Profile | null;
-    // Optional public profile data (passed from parent when available)
     publicProfile?: any;
     stats: UserStats;
     activityHours: number;
+    calendarActivities?: { date: string; count: number }[];
     contentBreakdown: ContentBreakdown;
     dashboardStats: { content: number; learning: number };
     onSettingsClick?: () => void;
@@ -65,6 +67,7 @@ export function ProfileSidebar({
     profile,
     stats,
     activityHours,
+    calendarActivities = [],
     contentBreakdown,
     dashboardStats,
     onSettingsClick,
@@ -73,9 +76,16 @@ export function ProfileSidebar({
 }: ProfileSidebarProps) {
     const displayName = profile?.full_name || 'User';
     const roleInfo = profile ? getRoleDisplay(profile.role || 'S') : null;
-    const publicProfileUrl = profile?.username
-        ? getProfileUrl(profile.username)
-        : null;
+    const publicProfileUrl = profile?.username ? getProfileUrl(profile.username) : null;
+
+    // State for student view switching
+    const [studentView, setStudentView] = useState<'progress' | 'calendar'>('progress');
+    const [isHovering, setIsHovering] = useState(false);
+    const [direction, setDirection] = useState(0); // 1 for next, -1 for previous
+
+    // Determine which activity components to show based on role
+    const isTeacherOrCoach = profile?.role === 'T' || profile?.role === 'C';
+    const isStudent = profile?.role === 'S';
 
     const handlePublicProfileClick = () => {
         if (publicProfileUrl) {
@@ -90,30 +100,58 @@ export function ProfileSidebar({
         }
     };
 
-    const handleViewAllContent = () => {
-        if (onViewAllContent) {
-            onViewAllContent();
-            toast.info('Viewing all content...');
+    const handlePreviousView = () => {
+        if (studentView === 'calendar') {
+            setDirection(-1);
+            setStudentView('progress');
         }
     };
 
-    const handleViewAllLearning = () => {
-        if (onViewAllLearning) {
-            onViewAllLearning();
-            toast.info('Viewing all learning...');
+    const handleNextView = () => {
+        if (studentView === 'progress') {
+            setDirection(1);
+            setStudentView('calendar');
         }
+    };
+
+    // Swipe gesture handler
+    const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
+        const swipeThreshold = 50;
+
+        if (info.offset.x > swipeThreshold) {
+            // Swiped right - go to previous
+            handlePreviousView();
+        } else if (info.offset.x < -swipeThreshold) {
+            // Swiped left - go to next
+            handleNextView();
+        }
+    };
+
+    // Animation variants
+    const slideVariants = {
+        enter: (direction: number) => ({
+            x: direction > 0 ? '100%' : '-100%',
+            opacity: 0,
+        }),
+        center: {
+            x: 0,
+            opacity: 1,
+        },
+        exit: (direction: number) => ({
+            x: direction < 0 ? '100%' : '-100%',
+            opacity: 0,
+        }),
     };
 
     return (
         <div className="space-y-4">
             {/* Profile Card */}
-            <Card className="border border-border/50 shadow-sm rounded-2xl dark:border-border/20">
-                <CardContent >
+            <Card className="border border-border/50 shadow-sm rounded-2xl dark:border-border/20 overflow-hidden">
+                <CardContent>
                     {/* Header with settings + public profile */}
                     <div className="flex justify-between items-start mb-4">
-                        <div className="w-6" /> {/* Spacer for centering */}
+                        <div className="w-6" />
                         <div className="flex items-center gap-2">
-                            {/* Public Profile Link - Fixed Link component */}
                             {publicProfileUrl && (
                                 <TooltipProvider>
                                     <Tooltip>
@@ -137,7 +175,6 @@ export function ProfileSidebar({
                                     </Tooltip>
                                 </TooltipProvider>
                             )}
-                            {/* Settings Button */}
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -149,24 +186,22 @@ export function ProfileSidebar({
                             </Button>
                         </div>
                     </div>
-
-                    {/* Avatar with mint/teal ring - SSR + Client pattern */}
+                    {/* Avatar with brand color ring */}
                     <div className="flex justify-center mb-4">
                         <div className="relative">
-                            {/* Outer mint/teal ring effect */}
-                            <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-[#A7F3D0] via-[#6EE7B7] to-[#34D399] opacity-40 dark:opacity-20" />
-                            <div className="absolute -inset-2 rounded-full bg-gradient-to-br from-[#D1FAE5] to-[#A7F3D0] opacity-60 dark:opacity-30" />
+                            {/* Outer brand primary (Deep Blue) ring effect */}
+                            <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-[oklch(0.421_0.180_264.376)] via-[oklch(0.521_0.180_264.376)] to-[oklch(0.621_0.180_264.376)] opacity-40 dark:opacity-20" />
+
+                            {/* Inner brand secondary (Sky Blue) ring effect */}
+                            <div className="absolute -inset-2 rounded-full bg-gradient-to-br from-[oklch(0.621_0.180_264.376)] to-[oklch(0.721_0.180_264.376)] opacity-60 dark:opacity-30" />
 
                             {profile ? (
                                 <div className="relative">
-                                    {/* SSR-visible static avatar (renders instantly) */}
                                     <UserAvatar
                                         profile={profile}
                                         size="lg"
-                                        showOnlineStatus
                                         className="w-24 h-24 border-4 border-white dark:border-gray-900 rounded-full ring-4 ring-primary/10"
                                     />
-                                    {/* Dynamically injected Avatar Manager */}
                                     <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
                                         <ProfileSidebarAvatarManager profile={profile} />
                                     </div>
@@ -180,6 +215,7 @@ export function ProfileSidebar({
                             )}
                         </div>
                     </div>
+
 
                     {/* Name + Role */}
                     <div className="text-center mb-6">
@@ -195,7 +231,7 @@ export function ProfileSidebar({
 
                     {/* Stats Row */}
                     <div className="grid grid-cols-3 gap-2 mb-6">
-                        <div className="bg-secondary/20 rounded-xl p-4 dark:bg-bg-secondary/30">
+                        <div className="bg-secondary/20 rounded-xl p-4 dark:bg-secondary/30">
                             <StatItem
                                 icon={<Users className="w-4 h-4 text-red-500" />}
                                 value={stats.connections}
@@ -218,91 +254,145 @@ export function ProfileSidebar({
                         </div>
                     </div>
 
-                    {/* Activity Section */}
-                    <div className="bg-secondary/20 rounded-xl p-4 mb-6 dark:bg-bg-secondary/30">
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-sm font-medium text-foreground">
-                                Activity
-                            </span>
-                            <Button
-                                variant="ghost"
-                                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                                Year
-                                <ChevronDown className="w-3 h-3" />
-                            </Button>
-                        </div>
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold text-foreground">
-                                {activityHours}h   <Badge
-                                    variant="success"
-                                    className="p-1"
-                                >
-                                    🎉 Great result!
-                                </Badge>
-                            </span>
-                        </div>
+                    {/* Activity Section - Role-based Display */}
+                    <div className="space-y-4">
+                        {/* Teachers and Coaches - Only Calendar Activity */}
+                        {isTeacherOrCoach && (
+                            <div className="overflow-hidden">
+                                <CalendarActivity activities={calendarActivities} />
+                            </div>
+                        )}
 
-                    </div>
+                        {/* Students - Swipeable Views with Navigation */}
+                        {isStudent && (
+                            <div
+                                className="relative overflow-hidden"
+                                onMouseEnter={() => setIsHovering(true)}
+                                onMouseLeave={() => setIsHovering(false)}
+                            >
+                                {/* Navigation Arrows - Show on Hover */}
+                                <AnimatePresence>
+                                    {isHovering && (
+                                        <>
+                                            {studentView === 'calendar' && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, x: -10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: -10 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute top-1/2 -translate-y-1/2 left-2 z-20"
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={handlePreviousView}
+                                                        className="h-10 w-10 p-0 rounded-full bg-background/90 backdrop-blur-sm shadow-lg hover:bg-background hover:scale-110 transition-all"
+                                                        aria-label="Previous view"
+                                                    >
+                                                        <ChevronLeft className="w-5 h-5" />
+                                                    </Button>
+                                                </motion.div>
+                                            )}
+                                            {studentView === 'progress' && (
+                                                <motion.div
+                                                    initial={{ opacity: 0, x: 10 }}
+                                                    animate={{ opacity: 1, x: 0 }}
+                                                    exit={{ opacity: 0, x: 10 }}
+                                                    transition={{ duration: 0.2 }}
+                                                    className="absolute top-1/2 -translate-y-1/2 right-2 z-20"
+                                                >
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={handleNextView}
+                                                        className="h-10 w-10 p-0 rounded-full bg-background/90 backdrop-blur-sm shadow-lg hover:bg-background hover:scale-110 transition-all"
+                                                        aria-label="Next view"
+                                                    >
+                                                        <ChevronRight className="w-5 h-5" />
+                                                    </Button>
+                                                </motion.div>
+                                            )}
+                                        </>
+                                    )}
+                                </AnimatePresence>
 
-                    {/* Content Breakdown Chart */}
-                    <div className="mb-4">
-                        <div className="flex items-center justify-center gap-2 mb-4">
-                            <span className="w-2 h-2 rounded-full bg-primary" />
-                            <span className="text-sm font-medium text-foreground">Content Progress</span>
-                        </div>
-                        <div className="flex justify-center">
-                            <DonutChart data={contentBreakdown} size={160} strokeWidth={30} />
-                        </div>
+                                {/* Swipeable View Content - Contained */}
+                                <div className="relative overflow-hidden">
+                                    <AnimatePresence initial={false} custom={direction} mode="popLayout">
+                                        <motion.div
+                                            key={studentView}
+                                            custom={direction}
+                                            variants={slideVariants}
+                                            initial="enter"
+                                            animate="center"
+                                            exit="exit"
+                                            transition={{
+                                                x: {
+                                                    type: 'spring',
+                                                    stiffness: 400,
+                                                    damping: 40,
+                                                    mass: 0.8
+                                                },
+                                                opacity: { duration: 0.15 },
+                                            }}
+                                            drag="x"
+                                            dragConstraints={{ left: 0, right: 0 }}
+                                            dragElastic={0.1}
+                                            onDragEnd={handleDragEnd}
+                                            className="w-full cursor-grab active:cursor-grabbing touch-pan-y"
+                                            style={{ touchAction: 'pan-y' }}
+                                        >
+                                            {studentView === 'progress' && (
+                                                <ProgressActivity
+                                                    hours={activityHours}
+                                                    contentBreakdown={contentBreakdown}
+                                                />
+                                            )}
+                                            {studentView === 'calendar' && (
+                                                <CalendarActivity activities={calendarActivities} />
+                                            )}
+                                        </motion.div>
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* View Indicators */}
+                                <div className="flex justify-center gap-2 mt-4">
+                                    <motion.button
+                                        onClick={() => {
+                                            if (studentView !== 'progress') {
+                                                setDirection(-1);
+                                                setStudentView('progress');
+                                            }
+                                        }}
+                                        className={`h-2 rounded-full transition-all ${studentView === 'progress'
+                                            ? 'bg-primary w-6'
+                                            : 'bg-muted-foreground/30 w-2'
+                                            }`}
+                                        whileHover={{ scale: 1.2 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        aria-label="Progress view"
+                                    />
+                                    <motion.button
+                                        onClick={() => {
+                                            if (studentView !== 'calendar') {
+                                                setDirection(1);
+                                                setStudentView('calendar');
+                                            }
+                                        }}
+                                        className={`h-2 rounded-full transition-all ${studentView === 'calendar'
+                                            ? 'bg-primary w-6'
+                                            : 'bg-muted-foreground/30 w-2'
+                                            }`}
+                                        whileHover={{ scale: 1.2 }}
+                                        whileTap={{ scale: 0.9 }}
+                                        aria-label="Calendar view"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Bottom Stats Cards */}
-            <div className="grid grid-cols-2 gap-3">
-                <Card className="border-0 shadow-sm bg-card dark:bg-card/50">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                                <BookOpen className="w-4 h-4 text-red-600 dark:text-red-400" />
-                            </div>
-                        </div>
-                        <p className="text-2xl font-bold text-foreground">
-                            {dashboardStats.content}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Content</p>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleViewAllContent}
-                            className="w-full mt-2 text-xs hover:bg-muted dark:hover:bg-muted/50"
-                        >
-                            View all
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="border-0 shadow-sm bg-card dark:bg-card/50">
-                    <CardContent className="p-4">
-                        <div className="flex items-center gap-2 mb-2">
-                            <div className="w-8 h-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-                                <GraduationCap className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                            </div>
-                        </div>
-                        <p className="text-2xl font-bold text-foreground">
-                            {dashboardStats.learning}
-                        </p>
-                        <p className="text-xs text-muted-foreground">Learning</p>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleViewAllLearning}
-                            className="w-full mt-2 text-xs hover:bg-muted dark:hover:bg-muted/50"
-                        >
-                            View all
-                        </Button>
-                    </CardContent>
-                </Card>
-            </div>
         </div>
     );
 }
