@@ -73,7 +73,7 @@ export function LearningDashboard({
     const upcomingClasses: UpcomingClass[] = upcomingClassesData
         ? upcomingClassesData.map(mapUpcomingClassData)
         : [];
-
+        
     // Filter content based on selected subject
     const filteredClasses =
         selectedSubject === 'all'

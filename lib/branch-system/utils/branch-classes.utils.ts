@@ -706,9 +706,13 @@ export function getSubjectColor(subjectId: string): string {
 /**
  * Maps UpcomingClassData from RPC to UpcomingClass UI type
  * @param data - Data from get_upcoming_classes RPC
+ * @param index - Optional index for avatar variation
  * @returns UpcomingClass object for UI display
  */
-export function mapUpcomingClassData(data: import('../types/branch-classes.types').UpcomingClassData): {
+export function mapUpcomingClassData(
+    data: import('../types/branch-classes.types').UpcomingClassData,
+    index: number = 0
+): {
     id: string;
     title: string;
     subject: {
@@ -726,19 +730,53 @@ export function mapUpcomingClassData(data: import('../types/branch-classes.types
     const subjectId = mapSubjectToId(data.subject);
     const subjectColor = getSubjectColor(subjectId);
 
+    // Static dummy avatars pool
+    const dummyAvatars = [
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=John',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Mike',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Emma',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Alex',
+        'https://api.dicebear.com/7.x/avataaars/svg?seed=Lisa',
+    ];
+
+    // Select 3 avatars based on index to vary across classes
+    const selectedAvatars = [
+        dummyAvatars[index % dummyAvatars.length],
+        dummyAvatars[(index + 1) % dummyAvatars.length],
+        dummyAvatars[(index + 2) % dummyAvatars.length],
+    ];
+
+    // Generate dummy participant count (25-45 students)
+    const dummyCount = 25 + Math.floor(Math.random() * 21);
+
+    // Capitalize class name - title case each word
+    const capitalizedClassName = data.class_name
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
+    // Capitalize subject name
+    const capitalizedSubject = data.subject
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+
     return {
         id: data.class_id,
-        title: data.class_name,
+        title: capitalizedClassName, 
         subject: {
             id: subjectId,
-            name: data.subject,
-            icon: '📚', // Default icon, can be customized
+            name: capitalizedSubject, 
+            icon: '📚',
             color: subjectColor,
         },
         startTime: formatTime(data.start_time),
         participants: {
-            avatars: [], // Will be populated from actual participant data if available
-            count: 0, // Will be populated from actual enrollment count if available
+            avatars: selectedAvatars,
+            count: dummyCount,
         },
     };
 }
