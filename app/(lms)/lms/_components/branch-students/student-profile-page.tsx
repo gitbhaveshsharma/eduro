@@ -375,9 +375,10 @@ export function StudentProfilePage({
                                 <Badge variant={enrollmentStatusConfig?.color as any || 'secondary'}>
                                     {enrollmentStatusConfig?.label || enrollment.enrollment_status}
                                 </Badge>
-                                <Badge variant={paymentStatusConfig?.color as any || 'secondary'}>
-                                    {paymentStatusConfig?.label || enrollment.payment_status}
-                                </Badge>
+                               <Badge variant={paymentStatusConfig?.color || 'secondary'}>
+    {paymentStatusConfig?.label || enrollment.payment_status}
+</Badge>
+
                                 {enrollment.is_payment_overdue && (
                                     <Badge variant="destructive">Payment Overdue</Badge>
                                 )}

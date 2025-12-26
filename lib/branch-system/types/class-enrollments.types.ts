@@ -396,29 +396,30 @@ export const CLASS_ENROLLMENT_STATUS_OPTIONS: Record<ClassEnrollmentStatus, { la
     ENROLLED: {
         label: 'Enrolled',
         description: 'Student is actively enrolled in the class',
-        color: 'green',
+        color: 'success',  // Changed from 'green' to 'success'
     },
     PENDING: {
         label: 'Pending',
         description: 'Class enrollment is pending approval',
-        color: 'yellow',
+        color: 'warning',  // Changed from 'yellow' to 'warning'
     },
     SUSPENDED: {
         label: 'Suspended',
         description: 'Student is temporarily suspended from the class',
-        color: 'orange',
+        color: 'warning',  // Changed from 'orange' to 'warning' (closest match)
     },
     DROPPED: {
         label: 'Dropped',
         description: 'Student has dropped from the class',
-        color: 'red',
+        color: 'destructive',  // Changed from 'red' to 'destructive'
     },
     COMPLETED: {
         label: 'Completed',
         description: 'Student has completed the class',
-        color: 'blue',
+        color: 'secondary',  // Changed from 'blue' to 'secondary'
     },
 } as const;
+
 
 /**
  * Attendance thresholds for class enrollments

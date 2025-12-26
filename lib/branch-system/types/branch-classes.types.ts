@@ -482,3 +482,57 @@ export const COMMON_SUBJECTS = [
     'Accountancy',
     'Business Studies',
 ] as const;
+
+// ============================================================
+// UPCOMING CLASSES TYPES (RPC Function)
+// ============================================================
+
+/**
+ * Enrollment status enum
+ */
+export type EnrollmentStatus =
+    | 'ENROLLED'
+    | 'PENDING'
+    | 'WITHDRAWN'
+    | 'COMPLETED';
+
+/**
+ * Upcoming class data returned from get_upcoming_classes RPC
+ * Combines data from class_enrollments and branch_classes tables
+ */
+export interface UpcomingClassData {
+    // Enrollment info
+    enrollment_id: string;
+    enrollment_status: EnrollmentStatus;
+    attendance_percentage: number;
+    current_grade: string | null;
+    preferred_batch: string | null;
+
+    // Class info
+    class_id: string;
+    class_name: string;
+    subject: string;
+    description: string | null;
+    grade_level: string;
+    batch_name: string | null;
+
+    // Schedule
+    start_date: string; // ISO date
+    end_date: string; // ISO date
+    class_days: DayOfWeek[];
+    start_time: string; // HH:MM:SS
+    end_time: string; // HH:MM:SS
+
+    // Relations
+    teacher_id: string | null;
+    branch_id: string;
+}
+
+/**
+ * Operation result for upcoming classes
+ */
+export interface UpcomingClassesResult {
+    success: boolean;
+    data?: UpcomingClassData[];
+    error?: string;
+}

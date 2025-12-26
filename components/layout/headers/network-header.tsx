@@ -448,6 +448,10 @@ export function NetworkHeader({
                                 size="sm"
                                 showOnlineStatus
                                 className="cursor-pointer hover:ring-2 hover:ring-gray-200 transition-all"
+                                onClick={() => {
+                                    // Navigate to user profile
+                                    router.push(`/dashboard`);
+                                }}
                             />
                         )}
                     </div>

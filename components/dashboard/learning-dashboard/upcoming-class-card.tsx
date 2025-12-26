@@ -71,11 +71,11 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
 
         setStarting(true);
 
-        // Simulate loading for better UX
+        // Navigate to class - reduced delay for better UX
         setTimeout(() => {
             setStarting(false);
             onStart(classData.id);
-        }, 2000); // 2 seconds for starting class
+        }, 500); // Reduced from 2 seconds to 500ms
     };
 
     return (
@@ -160,7 +160,7 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                             {classData.participants.avatars.slice(0, 3).map((avatar, idx) => (
                                 <Avatar
                                     key={idx}
-                                    className="w-7 h-7 border-2 border-card"
+                                    className="w-7 h-7 border-2 border-card bg-accent"
                                 >
                                     <AvatarImage src={avatar} alt={`Participant ${idx + 1}`} />
                                     <AvatarFallback className="text-xs bg-primary/10">

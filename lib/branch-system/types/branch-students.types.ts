@@ -511,24 +511,25 @@ export const PAYMENT_STATUS_OPTIONS: Record<PaymentStatus, { label: string; desc
     PAID: {
         label: 'Paid',
         description: 'Fees are fully paid',
-        color: 'green',
+        color: 'success',  // Changed from 'green' to 'success'
     },
     PARTIAL: {
         label: 'Partial',
         description: 'Partial payment made',
-        color: 'blue',
+        color: 'secondary',  // Changed from 'blue' to 'secondary' or 'outline'
     },
     PENDING: {
         label: 'Pending',
         description: 'Payment is pending',
-        color: 'yellow',
+        color: 'warning',  // Changed from 'yellow' to 'warning'
     },
     OVERDUE: {
         label: 'Overdue',
         description: 'Payment is overdue',
-        color: 'red',
+        color: 'destructive',  // Changed from 'red' to 'destructive'
     },
 } as const;
+
 
 /**
  * Attendance thresholds

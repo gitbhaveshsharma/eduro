@@ -5,7 +5,7 @@
  */
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { DashboardGreeting } from './dashboard-greeting';
@@ -16,7 +16,6 @@ import { ProfileSidebar } from './profile-sidebar';
 import { ExplorerCards } from './explorer-cards';
 import {
     SUBJECTS,
-    UPCOMING_CLASSES,
     LEARNING_CONTENT,
     USER_STATS,
     ACTIVITY_HOURS,
@@ -24,6 +23,9 @@ import {
     DASHBOARD_STATS,
 } from './dummy-data';
 import type { Profile } from '@/lib/schema/profile.types';
+import { useBranchClassesStore, useUpcomingClasses } from '@/lib/branch-system/stores/branch-classes.store';
+import { mapUpcomingClassData } from '@/lib/branch-system/utils/branch-classes.utils';
+import type { UpcomingClass } from './types';
 
 // Add the getProfileUrl function here
 export const getProfileUrl = (username: string): string => {
@@ -55,11 +57,28 @@ export function LearningDashboard({
     const userRole = profile?.role || 'S'; // Default to Student
     const isStudent = userRole === 'S';
 
+    // Fetch upcoming classes for students
+    const fetchUpcomingClasses = useBranchClassesStore((state) => state.fetchUpcomingClasses);
+    const upcomingClassesData = useUpcomingClasses(profile?.id || null);
+    const loading = useBranchClassesStore((state) => state.loading.upcomingClasses);
+
+    // Fetch upcoming classes when component mounts (only for students)
+    useEffect(() => {
+        if (isStudent && profile?.id) {
+            fetchUpcomingClasses(profile.id);
+        }
+    }, [isStudent, profile?.id, fetchUpcomingClasses]);
+
+    // Map RPC data to UI format
+    const upcomingClasses: UpcomingClass[] = upcomingClassesData
+        ? upcomingClassesData.map(mapUpcomingClassData)
+        : [];
+        
     // Filter content based on selected subject
     const filteredClasses =
         selectedSubject === 'all'
-            ? UPCOMING_CLASSES
-            : UPCOMING_CLASSES.filter(
+            ? upcomingClasses
+            : upcomingClasses.filter(
                 (c) => c.subject.id === selectedSubject
             );
 
@@ -76,7 +95,8 @@ export function LearningDashboard({
 
     const handleStartClass = (classId: string) => {
         console.log('Starting class:', classId);
-        // TODO: Implement class start logic
+        // TODO: Implement class start logic - navigate to class room
+        // router.push(`/classroom/${classId}`);
     };
 
     const handleContentAction = (contentId: string) => {
@@ -121,11 +141,42 @@ export function LearningDashboard({
 
                     {/* Upcoming Classes - Only for Students */}
                     {isStudent && (
-                        <UpcomingClasses
-                            classes={filteredClasses}
-                            onStartClass={handleStartClass}
-                            onViewAll={() => console.log('View all classes')}
-                        />
+                        <>
+                            {loading && filteredClasses.length === 0 ? (
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-lg font-semibold text-foreground">
+                                            Your Upcoming Class
+                                        </h2>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {[1, 2].map((i) => (
+                                            <div
+                                                key={i}
+                                                className="h-56 bg-muted animate-pulse rounded-xl"
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : filteredClasses.length > 0 ? (
+                                <UpcomingClasses
+                                    classes={filteredClasses}
+                                    onStartClass={handleStartClass}
+                                    onViewAll={() => console.log('View all classes')}
+                                />
+                            ) : (
+                                <div className="space-y-4">
+                                    <h2 className="text-lg font-semibold text-foreground">
+                                        Your Upcoming Class
+                                    </h2>
+                                    <div className="text-center py-12 bg-card rounded-xl border">
+                                        <p className="text-muted-foreground">
+                                            No upcoming classes found. Enroll in a class to get started!
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </>
                     )}
 
                     {/* Learning Progress */}

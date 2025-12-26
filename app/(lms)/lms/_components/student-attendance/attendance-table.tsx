@@ -36,7 +36,6 @@ import {
     Eye,
     Edit,
     Trash2,
-    User,
     Calendar
 } from 'lucide-react';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
@@ -51,10 +50,16 @@ import {
     useOpenEditDialog,
     useAttendanceLoading,
     AttendanceStatus,
-    formatAttendanceStatus,
-    formatTime,
     DailyAttendanceRecord,
 } from '@/lib/branch-system/student-attendance';
+import {
+    formatAttendanceStatus,
+    formatTime,
+    formatDuration,
+    getAttendanceStatusConfig,
+    ATTENDANCE_STATUS_CONFIG,
+    getCurrentDateString,
+} from '@/lib/branch-system/utils/student-attendance.utils';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import { useCurrentProfile } from '@/lib/profile';
 import AttendanceFilters from './attendance-filters';
@@ -143,7 +148,7 @@ const QuickMarkActions = memo(function QuickMarkActions({
                     onClick={() => onMark(AttendanceStatus.PRESENT)}
                 >
                     <UserCheck className="w-3 h-3" />
-                    Present
+                    {ATTENDANCE_STATUS_CONFIG.PRESENT.label}
                 </Button>
                 <Button
                     size="sm"
@@ -152,7 +157,7 @@ const QuickMarkActions = memo(function QuickMarkActions({
                     onClick={() => onMark(AttendanceStatus.ABSENT)}
                 >
                     <UserX className="w-3 h-3" />
-                    Absent
+                    {ATTENDANCE_STATUS_CONFIG.ABSENT.label}
                 </Button>
                 <Button
                     size="sm"
@@ -161,7 +166,7 @@ const QuickMarkActions = memo(function QuickMarkActions({
                     onClick={() => onMark(AttendanceStatus.LATE)}
                 >
                     <Clock className="w-3 h-3" />
-                    Late
+                    {ATTENDANCE_STATUS_CONFIG.LATE.label}
                 </Button>
             </div>
             <Input
@@ -248,23 +253,58 @@ const AttendanceRow = memo(function AttendanceRow({
     onEdit,
     onDelete
 }: AttendanceRowProps) {
-    const getStatusBadge = (status: AttendanceStatus | null) => {
-        if (!status) return <Badge variant="outline">Unmarked</Badge>;
+    // Memoize status badge with proper null checking
+    const statusBadge = useMemo(() => {
+        // Return early if no status
+        if (!record.attendance_status) {
+            return <Badge variant="outline">Unmarked</Badge>;
+        }
 
-        const variants: Record<AttendanceStatus, 'default' | 'destructive' | 'secondary' | 'outline'> = {
-            [AttendanceStatus.PRESENT]: 'default',
-            [AttendanceStatus.ABSENT]: 'destructive',
-            [AttendanceStatus.LATE]: 'secondary',
-            [AttendanceStatus.EXCUSED]: 'outline',
-            [AttendanceStatus.HOLIDAY]: 'secondary',
+        // Get config and verify it exists
+        const config = getAttendanceStatusConfig(record.attendance_status);
+        if (!config) {
+            return <Badge variant="outline">Unknown</Badge>;
+        }
+
+        // Map color to variant - using updated ATTENDANCE_STATUS_CONFIG
+        const colorToVariant: Record<string, 'default' | 'destructive' | 'secondary' | 'outline' | 'success' | 'warning'> = {
+            success: 'success',      // PRESENT - Green badge
+            destructive: 'destructive', // ABSENT - Red badge
+            warning: 'warning',      // LATE - Orange/yellow badge
+            outline: 'outline',      // EXCUSED - Blue/outline badge
+            secondary: 'secondary',  // HOLIDAY - Purple/secondary badge
+            // Fallback for old color names
+            green: 'success',
+            red: 'destructive',
+            orange: 'warning',
+            blue: 'outline',
+            purple: 'secondary',
         };
 
+        const variant = colorToVariant[config.color] || 'outline';
+        const label = formatAttendanceStatus(record.attendance_status, true);
+
         return (
-            <Badge variant={variants[status]}>
-                {formatAttendanceStatus(status, true)}
+            <Badge variant={variant}>
+                {label}
             </Badge>
         );
-    };
+    }, [record.attendance_status]);
+
+    // Memoize late badge
+    const lateBadge = useMemo(() => {
+        if (record.late_by_minutes <= 0) return null;
+
+        return (
+            <Badge 
+                variant="outline" 
+                className="text-orange-600 dark:text-orange-500 border-orange-600 dark:border-orange-500"
+            >
+                <Clock className="w-3 h-3 mr-1" />
+                {formatDuration(record.late_by_minutes)}
+            </Badge>
+        );
+    }, [record.late_by_minutes]);
 
     return (
         <TableRow>
@@ -304,7 +344,7 @@ const AttendanceRow = memo(function AttendanceRow({
             {/* Status / Quick Actions */}
             <TableCell>
                 {record.is_marked ? (
-                    getStatusBadge(record.attendance_status)
+                    statusBadge
                 ) : (
                     <QuickMarkActions
                         studentId={record.student_id}
@@ -334,12 +374,7 @@ const AttendanceRow = memo(function AttendanceRow({
 
             {/* Late Minutes */}
             <TableCell>
-                {record.late_by_minutes > 0 && (
-                    <Badge variant="outline" className="text-orange-600">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {record.late_by_minutes}m
-                    </Badge>
-                )}
+                {lateBadge}
             </TableCell>
 
             {/* Remarks */}
@@ -365,6 +400,13 @@ const AttendanceRow = memo(function AttendanceRow({
             </TableCell>
         </TableRow>
     );
+}, (prevProps, nextProps) => {
+    // Custom comparison to prevent unnecessary re-renders
+    return prevProps.record.student_id === nextProps.record.student_id &&
+        prevProps.record.attendance_status === nextProps.record.attendance_status &&
+        prevProps.record.is_marked === nextProps.record.is_marked &&
+        prevProps.record.late_by_minutes === nextProps.record.late_by_minutes &&
+        prevProps.checkInTime === nextProps.checkInTime;
 });
 
 /**
@@ -419,7 +461,7 @@ interface AttendanceTableProps {
  * Main Attendance Table Component
  */
 export default function AttendanceTable({ branchId, coachingCenterId }: AttendanceTableProps) {
-    const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+    const [selectedDate, setSelectedDate] = useState(getCurrentDateString());
     const [selectedClass, setSelectedClass] = useState('all');
     const [studentUsername, setStudentUsername] = useState('');
     const [checkInTimes, setCheckInTimes] = useState<Record<string, string>>({});
@@ -481,6 +523,13 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
         return records;
     }, [dailyRecords, selectedClass, studentUsername]);
 
+    // Summary stats - memoized
+    const summaryStats = useMemo(() => {
+        const marked = filteredRecords.filter(r => r.is_marked).length;
+        const unmarked = filteredRecords.filter(r => !r.is_marked).length;
+        return { marked, unmarked };
+    }, [filteredRecords]);
+
     // Handlers
     const handleCheckInChange = useCallback((studentId: string, time: string) => {
         setCheckInTimes(prev => ({ ...prev, [studentId]: time }));
@@ -493,12 +542,10 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
         const checkInTime = checkInTimes[record.student_id] || format(new Date(), 'HH:mm');
         const lateMinutes = status === AttendanceStatus.LATE ? 15 : 0;
 
-        // Get effective IDs from record, props, or current profile
         const effectiveBranchId = record.branch_id || branchId;
         const effectiveClassId = record.class_id || (selectedClass !== 'all' ? selectedClass : null);
         const effectiveTeacherId = record.teacher_id || currentProfile?.id;
 
-        // Validate required UUIDs
         if (!effectiveBranchId) {
             showErrorToast('Branch ID is required. Please select a branch or class.');
             return;
@@ -532,7 +579,6 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, [checkInTimes, branchId, selectedClass, selectedDate, markAttendance, currentProfile]);
 
     const handleView = useCallback((record: DailyAttendanceRecord) => {
-        // Set the current record to open the details dialog
         if (record.attendance_id) {
             setCurrentRecord({
                 id: record.attendance_id,
@@ -573,7 +619,6 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, [setCurrentRecord, selectedDate]);
 
     const handleEdit = useCallback((record: DailyAttendanceRecord) => {
-        // Open edit dialog with the selected record (avoid using currentRecord which is for view)
         if (record.attendance_id) {
             openEditDialog({
                 id: record.attendance_id,
@@ -614,7 +659,6 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
     }, [openEditDialog, selectedDate]);
 
     const handleDelete = useCallback((record: DailyAttendanceRecord) => {
-        // Open delete dialog with the record to delete
         if (record.attendance_id) {
             openDeleteDialog({
                 id: record.attendance_id,
@@ -727,14 +771,14 @@ export default function AttendanceTable({ branchId, coachingCenterId }: Attendan
                     </div>
                     <div>
                         <span className="text-muted-foreground">Marked: </span>
-                        <span className="font-semibold text-green-600">
-                            {filteredRecords.filter(r => r.is_marked).length}
+                        <span className="font-semibold text-green-600 dark:text-green-500">
+                            {summaryStats.marked}
                         </span>
                     </div>
                     <div>
                         <span className="text-muted-foreground">Unmarked: </span>
-                        <span className="font-semibold text-orange-600">
-                            {filteredRecords.filter(r => !r.is_marked).length}
+                        <span className="font-semibold text-orange-600 dark:text-orange-500">
+                            {summaryStats.unmarked}
                         </span>
                     </div>
                 </div>
