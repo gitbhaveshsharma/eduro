@@ -640,3 +640,105 @@ export function getAvailabilityBadgeText(branchClass: BranchClass | PublicBranch
 
     return 'Available';
 }
+
+// ============================================================
+// UPCOMING CLASSES MAPPING
+// ============================================================
+
+/**
+ * Maps subject name to SubjectId for the UI
+ * @param subject - Subject name from database
+ * @returns SubjectId compatible with UI types
+ */
+export function mapSubjectToId(subject: string): string {
+    const subjectMap: Record<string, string> = {
+        'Mathematics': 'mathematics',
+        'Math': 'mathematics',
+        'Physics': 'physics',
+        'Chemistry': 'chemistry',
+        'Biology': 'biology',
+        'English': 'english',
+        'Hindi': 'hindi',
+        'History': 'history',
+        'Geography': 'geography',
+        'Science': 'science',
+        'Computer Science': 'computer',
+        'Computer': 'computer',
+        'Accountancy': 'accountancy',
+        'Business Studies': 'business_studies',
+        'Economics': 'economics',
+        'Music': 'music',
+        'Physical Education': 'physical_education',
+        'Moral Science': 'moral_science',
+        'Environmental Science': 'environmental',
+        'Social Studies': 'social_studies',
+        'Art and Craft': 'art_and_craft',
+    };
+
+    return subjectMap[subject] || 'science';
+}
+
+/**
+ * Gets subject color class based on subject ID
+ * @param subjectId - Subject identifier
+ * @returns Tailwind color class
+ */
+export function getSubjectColor(subjectId: string): string {
+    const colorMap: Record<string, string> = {
+        'mathematics': 'bg-blue-100 text-blue-800',
+        'physics': 'bg-indigo-100 text-indigo-800',
+        'chemistry': 'bg-purple-100 text-purple-800',
+        'biology': 'bg-green-100 text-green-800',
+        'english': 'bg-orange-100 text-orange-800',
+        'hindi': 'bg-red-100 text-red-800',
+        'history': 'bg-amber-100 text-amber-800',
+        'geography': 'bg-teal-100 text-teal-800',
+        'science': 'bg-emerald-100 text-emerald-800',
+        'computer': 'bg-cyan-100 text-cyan-800',
+        'accountancy': 'bg-lime-100 text-lime-800',
+        'business_studies': 'bg-green-100 text-green-800',
+        'economics': 'bg-yellow-100 text-yellow-800',
+    };
+
+    return colorMap[subjectId] || 'bg-gray-100 text-gray-800';
+}
+
+/**
+ * Maps UpcomingClassData from RPC to UpcomingClass UI type
+ * @param data - Data from get_upcoming_classes RPC
+ * @returns UpcomingClass object for UI display
+ */
+export function mapUpcomingClassData(data: import('../types/branch-classes.types').UpcomingClassData): {
+    id: string;
+    title: string;
+    subject: {
+        id: string;
+        name: string;
+        icon: string;
+        color: string;
+    };
+    startTime: string;
+    participants: {
+        avatars: string[];
+        count: number;
+    };
+} {
+    const subjectId = mapSubjectToId(data.subject);
+    const subjectColor = getSubjectColor(subjectId);
+
+    return {
+        id: data.class_id,
+        title: data.class_name,
+        subject: {
+            id: subjectId,
+            name: data.subject,
+            icon: '📚', // Default icon, can be customized
+            color: subjectColor,
+        },
+        startTime: formatTime(data.start_time),
+        participants: {
+            avatars: [], // Will be populated from actual participant data if available
+            count: 0, // Will be populated from actual enrollment count if available
+        },
+    };
+}

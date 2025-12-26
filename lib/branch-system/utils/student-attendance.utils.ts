@@ -23,39 +23,43 @@ import type {
 
 /**
  * Attendance status display configurations
+ *//**
+ * Attendance status display configurations
+ * Updated to use Badge component variant names
  */
 export const ATTENDANCE_STATUS_CONFIG = {
     PRESENT: {
         label: 'Present',
-        color: 'green',
+        color: 'success',      // Changed from 'green' to 'success'
         priority: 1,
         emoji: '✅',
     },
     LATE: {
         label: 'Late',
-        color: 'orange',
+        color: 'warning',      // Changed from 'orange' to 'warning'
         priority: 2,
         emoji: '⏰',
     },
     EXCUSED: {
         label: 'Excused',
-        color: 'blue',
+        color: 'outline',      // Changed from 'blue' to 'outline'
         priority: 3,
         emoji: '📝',
     },
     ABSENT: {
         label: 'Absent',
-        color: 'red',
+        color: 'destructive',  // Changed from 'red' to 'destructive'
         priority: 4,
         emoji: '❌',
     },
     HOLIDAY: {
         label: 'Holiday',
-        color: 'purple',
+        color: 'secondary',    // Changed from 'purple' to 'secondary'
         priority: 5,
         emoji: '🏖️',
     },
 } as const;
+
 
 /**
  * Attendance performance thresholds
