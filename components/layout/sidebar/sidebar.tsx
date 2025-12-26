@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useCallback } from "react";
+import { usePathname } from "next/navigation";
+import Link from "next/link";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,9 @@ import type { SidebarProps, SidebarItem } from "../types";
  * - Smooth animations
  * - Accessibility support
  * - Role-based item filtering
+ * 
+ * PERFORMANCE FIX: Uses Next.js Link with prefetch={false} instead of router.push()
+ * to prevent slow RSC prefetching on every page navigation (was causing 1-2s delays)
  */
 export function Sidebar({
     open,
@@ -37,8 +41,14 @@ export function Sidebar({
         collapsible = true
     } = config;
 
-    const router = useRouter();
     const pathname = usePathname();
+
+    // Handle sidebar close on mobile after navigation
+    const handleMobileClose = useCallback(() => {
+        if (overlay) {
+            onOpenChange(false);
+        }
+    }, [overlay, onOpenChange]);
 
     // Handle escape key to close sidebar
     useEffect(() => {
@@ -58,16 +68,6 @@ export function Sidebar({
     const touchStartRef = useRef<number | null>(null);
 
     if (!config.enabled) return null;
-
-    const handleItemClick = (item: SidebarItem) => {
-        if (item.href) {
-            router.push(item.href);
-            // Close sidebar on mobile after navigation
-            if (overlay) {
-                onOpenChange(false);
-            }
-        }
-    };
 
     const isItemActive = (item: SidebarItem) => {
         return pathname === item.href || pathname?.startsWith(item.href + '/');
@@ -175,10 +175,14 @@ export function Sidebar({
                                 const Icon = item.icon;
                                 const active = isItemActive(item);
 
+                                // Use Next.js Link with prefetch={false} to prevent slow RSC prefetching
+                                // This fixes the 1-2s delay on sidebar navigation
                                 return (
-                                    <button
+                                    <Link
                                         key={item.id}
-                                        onClick={() => handleItemClick(item)}
+                                        href={item.href || '#'}
+                                        prefetch={false}
+                                        onClick={handleMobileClose}
                                         className={cn(
                                             "w-full flex items-start gap-3 px-3 py-2.5 rounded-lg",
                                             "transition-all duration-200",
@@ -209,7 +213,7 @@ export function Sidebar({
                                                 </p>
                                             )}
                                         </div>
-                                    </button>
+                                    </Link>
                                 );
                             })}
                         </nav>

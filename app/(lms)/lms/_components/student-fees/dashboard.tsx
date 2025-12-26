@@ -5,9 +5,11 @@
  * 
  * Displays revenue statistics, collection rates, overdue receipts,
  * and financial overview for branch fee receipts management
+ * 
+ * OPTIMIZATION: Uses fetch guards to prevent duplicate API calls
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -54,16 +56,42 @@ export default function Dashboard({ branchId, coachingCenterId }: DashboardProps
         isLoading,
     } = useFeeReceiptsStore();
 
+    // Track fetched IDs to prevent duplicate API calls
+    const fetchedRef = useRef<{ stats: string | null; receipts: string | null }>({
+        stats: null,
+        receipts: null
+    });
+
     // Fetch data on mount based on branchId or coachingCenterId
+    // OPTIMIZATION: Only fetch if ID changed since last fetch
     useEffect(() => {
+        const id = coachingCenterId || branchId || null;
+
+        // Skip if we've already fetched for this ID
+        if (fetchedRef.current.stats === id && fetchedRef.current.receipts === id) {
+            return;
+        }
+
         if (coachingCenterId) {
             // Coach view - fetch all branches of coaching center
-            fetchCoachingCenterStats(coachingCenterId);
-            fetchCoachingCenterReceipts(coachingCenterId);
+            if (fetchedRef.current.stats !== coachingCenterId) {
+                fetchCoachingCenterStats(coachingCenterId);
+                fetchedRef.current.stats = coachingCenterId;
+            }
+            if (fetchedRef.current.receipts !== coachingCenterId) {
+                fetchCoachingCenterReceipts(coachingCenterId);
+                fetchedRef.current.receipts = coachingCenterId;
+            }
         } else if (branchId) {
             // Branch manager view - fetch single branch
-            fetchBranchStats(branchId);
-            fetchBranchReceipts(branchId);
+            if (fetchedRef.current.stats !== branchId) {
+                fetchBranchStats(branchId);
+                fetchedRef.current.stats = branchId;
+            }
+            if (fetchedRef.current.receipts !== branchId) {
+                fetchBranchReceipts(branchId);
+                fetchedRef.current.receipts = branchId;
+            }
         }
     }, [branchId, coachingCenterId, fetchBranchStats, fetchCoachingCenterStats, fetchBranchReceipts, fetchCoachingCenterReceipts]);
 

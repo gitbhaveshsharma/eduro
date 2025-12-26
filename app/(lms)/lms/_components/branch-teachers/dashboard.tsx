@@ -3,11 +3,13 @@
  * 
  * Displays comprehensive statistics and analytics for branch teachers
  * Features: Stat cards, recent assignments, teachers needing attention
+ * 
+ * OPTIMIZATION: Uses fetch guards to prevent duplicate API calls
  */
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useBranchTeacherStore } from '@/lib/branch-system/stores/branch-teacher.store';
 import {
     EXPERIENCE_LEVEL_OPTIONS,
@@ -165,12 +167,24 @@ export function BranchTeachersDashboard({ branchId, coachingCenterId }: BranchTe
         listLoading,
     } = useBranchTeacherStore();
 
+    // Track fetched ID to prevent duplicate API calls
+    const fetchedRef = useRef<string | null>(null);
+
     useEffect(() => {
+        const id = branchId || coachingCenterId || null;
+
+        // Skip if we've already fetched for this ID
+        if (fetchedRef.current === id) {
+            return;
+        }
+
         // Fetch teachers based on whether we're viewing a single branch or entire coaching center
         if (branchId) {
             fetchBranchTeachers(branchId);
+            fetchedRef.current = branchId;
         } else if (coachingCenterId) {
             fetchCoachingCenterTeachers(coachingCenterId);
+            fetchedRef.current = coachingCenterId;
         }
     }, [branchId, coachingCenterId, fetchBranchTeachers, fetchCoachingCenterTeachers]);
 

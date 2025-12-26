@@ -6,11 +6,13 @@
  * 
  * OPTIMIZATION: Uses useCoachContext() from layout instead of loading coaching centers.
  * This prevents duplicate API calls since layout already loads the data.
+ * Uses useShallow to combine multiple store selectors.
  */
 
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { BranchTeachersDashboard } from '../../../_components/branch-teachers/dashboard';
 import { TeachersTable } from '../../../_components/branch-teachers/teachers-table';
 import { AssignTeacherDialog } from '../../../_components/branch-teachers/assign-teacher-dialog';
@@ -41,13 +43,24 @@ export default function BranchTeachersPage() {
     // Track if teachers have been fetched to prevent duplicate calls
     const teachersFetchedRef = useRef<string | null>(null);
 
-    // Get branch teachers store - use stable selector
-    const fetchCoachingCenterTeachers = useBranchTeacherStore((state) => state.fetchCoachingCenterTeachers);
-    const branchTeachers = useBranchTeacherStore((state) => state.branchTeachers);
-    const fetchAssignment = useBranchTeacherStore((state) => state.fetchAssignment);
-    const openDetailsDialog = useBranchTeacherStore((state) => state.openDetailsDialog);
-    const openEditDialog = useBranchTeacherStore((state) => state.openEditDialog);
-    const openDeleteDialog = useBranchTeacherStore((state) => state.openDeleteDialog);
+    // OPTIMIZATION: Use useShallow to combine multiple selectors into one
+    const {
+        fetchCoachingCenterTeachers,
+        branchTeachers,
+        fetchAssignment,
+        openDetailsDialog,
+        openEditDialog,
+        openDeleteDialog,
+    } = useBranchTeacherStore(
+        useShallow((state) => ({
+            fetchCoachingCenterTeachers: state.fetchCoachingCenterTeachers,
+            branchTeachers: state.branchTeachers,
+            fetchAssignment: state.fetchAssignment,
+            openDetailsDialog: state.openDetailsDialog,
+            openEditDialog: state.openEditDialog,
+            openDeleteDialog: state.openDeleteDialog,
+        }))
+    );
 
     /**
      * Load teachers data once when coaching center ID is available
