@@ -137,6 +137,7 @@ export function NetworkDiscovery({
                 const convertedProfiles = (result.profiles || []).map((profile: PublicProfile): FollowerProfile => ({
                     id: profile.id,
                     username: profile.username,
+                    bio: profile.bio || '',
                     full_name: profile.full_name || ProfileDisplayUtils.getDisplayName(profile),
                     avatar_url: ProfileUrlUtils.getAvatarUrl(profile),
                     role: profile.role,
