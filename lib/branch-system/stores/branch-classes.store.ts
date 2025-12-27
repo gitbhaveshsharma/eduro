@@ -20,6 +20,7 @@ import type {
     PaginationOptions,
     BranchClassSearchResult,
     BranchClassStats,
+    UpcomingClassData,
 } from '../types/branch-classes.types';
 import { branchClassesService } from '../services/branch-classes.service';
 
@@ -57,6 +58,12 @@ interface BranchClassesState {
         timestamp: number;
     }>;
 
+    // NEW: Cache upcoming classes by student ID
+    upcomingClassesCache: Record<string, {
+        data: UpcomingClassData[];
+        timestamp: number;
+    }>;
+
     // Track inflight requests to prevent duplicate calls
     inflightRequests: Record<string, Promise<void> | undefined>;
 
@@ -77,6 +84,7 @@ interface BranchClassesState {
         deleteClass: boolean;
         search: boolean;
         stats: boolean;
+        upcomingClasses: boolean;
     };
 
     // ============================================================
@@ -90,6 +98,7 @@ interface BranchClassesState {
         deleteClass: string | null;
         search: string | null;
         stats: string | null;
+        upcomingClasses: string | null;
     };
 
     // ============================================================
@@ -124,6 +133,10 @@ interface BranchClassesState {
         forceRefresh?: boolean
     ) => Promise<void>;
     fetchBranchStats: (branchId: string, forceRefresh?: boolean) => Promise<void>;
+
+    // NEW: Fetch upcoming classes for a student
+    fetchUpcomingClasses: (studentId: string, forceRefresh?: boolean) => Promise<void>;
+    getUpcomingClasses: (studentId: string) => UpcomingClassData[] | null;
 
     // Create, Update, Delete operations
     createClass: (input: CreateBranchClassInput) => Promise<boolean>;
@@ -190,6 +203,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             classesByTeacher: {},
             classesByCoachingCenter: {},
             searchCache: {},
+            upcomingClassesCache: {},
             inflightRequests: {},
             currentSearchResults: null,
             currentSearchKey: null,
@@ -203,6 +217,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 deleteClass: false,
                 search: false,
                 stats: false,
+                upcomingClasses: false,
             },
 
             errors: {
@@ -213,6 +228,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 deleteClass: null,
                 search: null,
                 stats: null,
+                upcomingClasses: null,
             },
 
             ui: {
@@ -516,8 +532,99 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 }
             },
 
+            // ============================================================            // UPCOMING CLASSES OPERATIONS
             // ============================================================
-            // CREATE, UPDATE, DELETE OPERATIONS
+
+            fetchUpcomingClasses: async (studentId: string, forceRefresh = false) => {
+                const state = get();
+
+                // Check cache first with TTL
+                if (!forceRefresh && state.upcomingClassesCache[studentId]) {
+                    const cache = state.upcomingClassesCache[studentId];
+                    const age = Date.now() - cache.timestamp;
+
+                    if (age < CACHE_TTL) {
+                        console.log('✅ [fetchUpcomingClasses] Using cached data:', {
+                            studentId,
+                            age: Math.round(age / 1000) + 's',
+                        });
+                        return;
+                    }
+                }
+
+                // Check for inflight request
+                const requestKey = `upcoming_${studentId}`;
+                if (state.inflightRequests[requestKey]) {
+                    console.log('🔄 [fetchUpcomingClasses] Request already in progress:', studentId);
+                    return state.inflightRequests[requestKey];
+                }
+
+                set((draft) => {
+                    draft.loading.upcomingClasses = true;
+                    draft.errors.upcomingClasses = null;
+                });
+
+                const requestPromise = (async () => {
+                    try {
+                        const result = await branchClassesService.getUpcomingClasses(studentId);
+
+                        if (result.success && result.data) {
+                            set((draft) => {
+                                // Cache the upcoming classes with timestamp
+                                draft.upcomingClassesCache[studentId] = {
+                                    data: result.data!,
+                                    timestamp: Date.now(),
+                                };
+
+                                draft.loading.upcomingClasses = false;
+                                delete draft.inflightRequests[requestKey];
+                            });
+                        } else {
+                            set((draft) => {
+                                draft.errors.upcomingClasses = result.error || 'Failed to fetch upcoming classes';
+                                draft.loading.upcomingClasses = false;
+                                delete draft.inflightRequests[requestKey];
+                            });
+                        }
+                    } catch (error) {
+                        set((draft) => {
+                            draft.errors.upcomingClasses = error instanceof Error ? error.message : 'Unknown error';
+                            draft.loading.upcomingClasses = false;
+                            delete draft.inflightRequests[requestKey];
+                        });
+                    }
+                })();
+
+                // Store the inflight request
+                set((draft) => {
+                    draft.inflightRequests[requestKey] = requestPromise;
+                });
+
+                return requestPromise;
+            },
+
+            getUpcomingClasses: (studentId: string) => {
+                const state = get();
+                const cache = state.upcomingClassesCache[studentId];
+
+                if (!cache) {
+                    return null;
+                }
+
+                // Check if cache is still valid
+                const age = Date.now() - cache.timestamp;
+                if (age >= CACHE_TTL) {
+                    console.log('⚠️ [getUpcomingClasses] Cache expired:', {
+                        studentId,
+                        age: Math.round(age / 1000) + 's',
+                    });
+                    return null;
+                }
+
+                return cache.data;
+            },
+
+            // ============================================================            // CREATE, UPDATE, DELETE OPERATIONS
             // ============================================================
 
             createClass: async (input: CreateBranchClassInput) => {
@@ -806,6 +913,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     draft.classesByBranch = {};
                     draft.classesByTeacher = {};
                     draft.searchCache = {};
+                    draft.upcomingClassesCache = {};
                     draft.inflightRequests = {};
                     draft.currentSearchResults = null;
                     draft.currentSearchKey = null;
@@ -925,4 +1033,10 @@ export const useClassesUI = () => {
 export const useSelectedClass = () => {
     const selectedId = useBranchClassesStore((state) => state.ui.selectedClassId);
     return useClass(selectedId);
+};
+
+export const useUpcomingClasses = (studentId: string | null) => {
+    return useBranchClassesStore((state) =>
+        studentId ? state.upcomingClassesCache[studentId]?.data || null : null
+    );
 };

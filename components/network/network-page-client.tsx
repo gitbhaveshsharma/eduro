@@ -1,7 +1,6 @@
 "use client";
 
 import React, { Suspense, lazy } from 'react';
-import { Users, Search, Sparkles } from 'lucide-react';
 import { NetworkDiscovery } from '@/components/network/network-discovery';
 import { useNetworkFilters } from '@/app/(community)/network/network-context';
 import { cn } from '@/lib/utils';

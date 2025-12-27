@@ -30,6 +30,67 @@ export enum ReceiptStatus {
 }
 
 // ============================================================
+// STATUS CONFIGURATION
+// ============================================================
+
+/**
+ * Receipt status options with labels and colors
+ * Maps to Badge component variants for consistent UI
+ */
+export const RECEIPT_STATUS_OPTIONS: Record<ReceiptStatus, { label: string; description: string; color: string }> = {
+    PAID: {
+        label: 'Paid',
+        description: 'Payment completed successfully',
+        color: 'success',  // Green badge - positive state
+    },
+    PENDING: {
+        label: 'Pending',
+        description: 'Payment is pending',
+        color: 'warning',  // Yellow/orange badge - attention needed
+    },
+    CANCELLED: {
+        label: 'Cancelled',
+        description: 'Receipt has been cancelled',
+        color: 'outline',  // Gray badge - neutral/inactive state
+    },
+    REFUNDED: {
+        label: 'Refunded',
+        description: 'Payment has been refunded',
+        color: 'destructive',  // Red badge - refund/reversal state
+    },
+} as const;
+
+/**
+ * Payment method options with labels
+ */
+export const PAYMENT_METHOD_OPTIONS: Record<PaymentMethod, { label: string; description: string }> = {
+    MANUAL: {
+        label: 'Cash',
+        description: 'Manual/Cash payment',
+    },
+    UPI: {
+        label: 'UPI',
+        description: 'UPI payment (PhonePe, GPay, etc.)',
+    },
+    CARD: {
+        label: 'Card',
+        description: 'Credit/Debit card payment',
+    },
+    BANK_TRANSFER: {
+        label: 'Bank Transfer',
+        description: 'Direct bank transfer/NEFT/RTGS',
+    },
+    CHEQUE: {
+        label: 'Cheque',
+        description: 'Cheque payment',
+    },
+    OTHER: {
+        label: 'Other',
+        description: 'Other payment methods',
+    },
+} as const;
+
+// ============================================================
 // DATABASE ROW TYPE
 // ============================================================
 

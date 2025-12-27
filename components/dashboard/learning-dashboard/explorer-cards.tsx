@@ -47,13 +47,11 @@ function ExplorerCard({
         e.preventDefault();
         e.stopPropagation();
 
+        if (loading) return;
+        
         setLoading(true);
-
-        // Simulate API call or async operation
-        setTimeout(() => {
-            setLoading(false);
-            router.push(href);
-        }, 1000);
+        // Navigate immediately without artificial delay
+        router.push(href);
     };
 
     const handleCardClick = (e: React.MouseEvent) => {
@@ -69,10 +67,8 @@ function ExplorerCard({
 
         if (!isButton) {
             setLoading(true);
-            setTimeout(() => {
-                setLoading(false);
-                router.push(href);
-            }, 1000);
+            // Navigate immediately without artificial delay
+            router.push(href);
         }
     };
 

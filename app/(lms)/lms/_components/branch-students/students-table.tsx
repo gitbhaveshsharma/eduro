@@ -14,6 +14,7 @@ import { useClassEnrollmentsStore } from '@/lib/branch-system/stores/class-enrol
 import type { PublicBranchStudent, BranchStudentSort } from '@/lib/branch-system/types/branch-students.types';
 import {
     PAYMENT_STATUS_OPTIONS,
+    type PaymentStatus,
 } from '@/lib/branch-system/types/branch-students.types';
 import {
     CLASS_ENROLLMENT_STATUS_OPTIONS,
@@ -35,6 +36,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import type { VariantProps } from 'class-variance-authority';
+import type { badgeVariants } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -62,7 +65,6 @@ import {
     GraduationCap,
     BookOpen,
     Plus,
-    ClipboardList,
 } from 'lucide-react';
 import {
     EnrollClassDialog,
@@ -70,6 +72,108 @@ import {
     DropClassEnrollmentDialog,
     ViewClassesDialog,
 } from '../class-enrollments';
+
+// ============================================================
+// UTILITY TYPES & HELPERS
+// ============================================================
+
+type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
+
+/**
+ * Maps enrollment status to Badge variant
+ * Uses CLASS_ENROLLMENT_STATUS_OPTIONS for consistent color mapping
+ */
+function getEnrollmentStatusVariant(status: ClassEnrollmentStatus | null | undefined): BadgeVariant {
+    if (!status) return 'secondary';
+    
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
+    if (!statusConfig) return 'secondary';
+    
+    // Map from status config color to Badge variant
+    const colorMap: Record<string, BadgeVariant> = {
+        'success': 'success',
+        'warning': 'warning',
+        'destructive': 'destructive',
+        'secondary': 'secondary',
+        'outline': 'outline',
+        'default': 'default',
+    };
+    
+    return colorMap[statusConfig.color] || 'secondary';
+}
+
+/**
+ * Maps payment status to Badge variant
+ * Uses PAYMENT_STATUS_OPTIONS for consistent color mapping
+ */
+function getPaymentStatusVariant(status: PaymentStatus): BadgeVariant {
+    const statusConfig = PAYMENT_STATUS_OPTIONS[status];
+    if (!statusConfig) return 'secondary';
+    
+    // Map from status config color to Badge variant
+    const colorMap: Record<string, BadgeVariant> = {
+        'success': 'success',
+        'warning': 'warning',
+        'destructive': 'destructive',
+        'secondary': 'secondary',
+        'outline': 'outline',
+        'default': 'default',
+    };
+    
+    return colorMap[statusConfig.color] || 'secondary';
+}
+
+/**
+ * Gets enrollment status label
+ */
+function getEnrollmentStatusLabel(status: ClassEnrollmentStatus | null | undefined): string {
+    if (!status) return '-';
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
+    return statusConfig?.label || status;
+}
+
+/**
+ * Maps payment urgency to Badge variant
+ */
+function getPaymentUrgencyVariant(urgency: string | null): BadgeVariant | null {
+    if (!urgency || urgency === 'ok') return null;
+    
+    const urgencyMap: Record<string, BadgeVariant> = {
+        'overdue': 'destructive',
+        'urgent': 'destructive',
+        'warning': 'warning',
+        'reminder': 'secondary',
+    };
+    
+    return urgencyMap[urgency] || null;
+}
+
+/**
+ * Gets payment urgency label
+ */
+function getPaymentUrgencyLabel(urgency: string | null, daysUntil: number | null): string | null {
+    if (!urgency || urgency === 'ok') return null;
+    
+    if (urgency === 'overdue') return 'Overdue';
+    if (daysUntil !== null) return `Due in ${daysUntil} days`;
+    
+    return null;
+}
+
+/**
+ * Gets attendance color class based on percentage
+ */
+function getAttendanceColorClass(percentage: number): string {
+    if (percentage >= 90) return 'text-green-600 dark:text-green-500';
+    if (percentage >= 75) return 'text-blue-600 dark:text-blue-500';
+    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-500';
+    if (percentage > 0) return 'text-red-600 dark:text-red-500';
+    return 'text-muted-foreground';
+}
+
+// ============================================================
+// SUB-COMPONENTS
+// ============================================================
 
 /**
  * Sortable Header Component - Memoized
@@ -236,64 +340,57 @@ const StudentRow = memo(function StudentRow({
     onEnrollClass,
     onViewClasses,
 }: StudentRowProps) {
-    // Memoize payment urgency badge
+    // Memoize payment urgency badge using utility functions
     const paymentUrgencyBadge = useMemo(() => {
         const urgency = getPaymentUrgency(student.next_payment_due);
         const daysUntil = calculateDaysUntilPayment(student.next_payment_due);
+        
+        const variant = getPaymentUrgencyVariant(urgency);
+        const label = getPaymentUrgencyLabel(urgency, daysUntil);
+        
+        if (!variant || !label) return null;
 
-        if (!urgency || urgency === 'ok') return null;
-
-        const urgencyConfig = {
-            overdue: { variant: 'destructive' as const, label: 'Overdue' },
-            urgent: { variant: 'destructive' as const, label: `Due in ${daysUntil} days` },
-            warning: { variant: 'warning' as const, label: `Due in ${daysUntil} days` },
-            reminder: { variant: 'secondary' as const, label: `Due in ${daysUntil} days` },
-        };
-
-        const config = urgencyConfig[urgency];
         return (
-            <Badge variant={config.variant} className="text-xs">
-                {config.label}
+            <Badge variant={variant} className="text-xs">
+                {label}
             </Badge>
         );
     }, [student.next_payment_due]);
 
-    // Memoize enrollment status badge with proper color mapping
+    // Memoize enrollment status badge using utility functions
     const enrollmentStatusBadge = useMemo(() => {
         const status = student.enrollment_status as ClassEnrollmentStatus | null;
-        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
+        
+        if (!status) {
+            return <span className="text-xs text-muted-foreground">-</span>;
+        }
 
-        const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
-        if (!statusConfig) return <span className="text-xs text-muted-foreground">{status}</span>;
-
-        // Map class enrollment colors to Badge variants
-        // Based on CLASS_ENROLLMENT_STATUS_OPTIONS colors and Badge component variants
-        const colorToVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
-            green: 'success',      // ENROLLED - Active/success state
-            yellow: 'warning',     // PENDING - Warning/waiting state
-            orange: 'warning',     // SUSPENDED - Warning/attention needed
-            red: 'destructive',    // DROPPED - Error/removed state
-            blue: 'outline',       // COMPLETED - Neutral/completed state
-        };
-
-        const variant = colorToVariant[statusConfig.color] || 'secondary';
+        const variant = getEnrollmentStatusVariant(status);
+        const label = getEnrollmentStatusLabel(status);
 
         return (
             <Badge variant={variant} className="text-xs">
-                {statusConfig.label}
+                {label}
             </Badge>
         );
     }, [student.enrollment_status]);
 
-    // Memoize attendance display
+    // Memoize payment status badge using utility functions
+    const paymentStatusBadge = useMemo(() => {
+        const variant = getPaymentStatusVariant(student.payment_status);
+        const label = formatPaymentStatus(student.payment_status);
+
+        return (
+            <Badge variant={variant}>
+                {label}
+            </Badge>
+        );
+    }, [student.payment_status]);
+
+    // Memoize attendance display using utility function
     const attendanceDisplay = useMemo(() => {
         const attendance = student.attendance_percentage;
-        let colorClass = 'text-muted-foreground';
-
-        if (attendance >= 90) colorClass = 'text-green-600';
-        else if (attendance >= 75) colorClass = 'text-blue-600';
-        else if (attendance >= 60) colorClass = 'text-yellow-600';
-        else if (attendance > 0) colorClass = 'text-red-600';
+        const colorClass = getAttendanceColorClass(attendance);
 
         return (
             <span className={`font-medium ${colorClass}`}>
@@ -337,9 +434,7 @@ const StudentRow = memo(function StudentRow({
             {/* Payment Status */}
             <TableCell>
                 <div className="flex flex-col gap-1">
-                    <Badge variant={PAYMENT_STATUS_OPTIONS[student.payment_status].color as any}>
-                        {formatPaymentStatus(student.payment_status)}
-                    </Badge>
+                    {paymentStatusBadge}
                     {paymentUrgencyBadge}
                 </div>
             </TableCell>

@@ -20,6 +20,6 @@ export default async function NetworkPage() {
         // Don't throw - let client handle the fetch
         initialProfiles = [];
     }
-
+    // console.log('🔷 NetworkPage - Fetched initial profiles on server:', { initialProfiles });
     return <NetworkPageClient initialProfiles={initialProfiles} />;
 }

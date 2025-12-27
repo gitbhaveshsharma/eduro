@@ -33,9 +33,11 @@ import { type BranchClassFilters } from '@/lib/branch-system/branch-classes';
  * Branch Classes Page Component
  * 
  * Shows all classes across all branches for the coach's coaching center
+ * 
+ * OPTIMIZATION: Uses branches from CoachContext to avoid duplicate API calls
  */
 export default function BranchClassesPage() {
-    const { coachingCenterId, coachingCenter, isLoading: contextLoading } = useCoachContext();
+    const { coachingCenterId, coachingCenter, branches, isLoading: contextLoading } = useCoachContext();
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [filters, setFilters] = useState<BranchClassFilters>({});
@@ -104,6 +106,7 @@ export default function BranchClassesPage() {
                             <ClassFilters
                                 coachingCenterId={coachingCenterId}
                                 onFiltersChange={setFilters}
+                                branches={branches}
                             />
                         </CardContent>
                     </Card>

@@ -60,6 +60,11 @@ interface ClassFiltersProps {
     coachingCenterId?: string;
     /** Callback when filters change - passes the current filter state for client-side filtering */
     onFiltersChange?: (filters: BranchClassFilters) => void;
+    /** 
+     * OPTIMIZATION: Pre-loaded branches from parent/context 
+     * When provided, avoids duplicate API calls for branch data
+     */
+    branches?: Array<{ id: string; name: string }>;
 }
 
 /**
@@ -67,8 +72,16 @@ interface ClassFiltersProps {
  * 
  * This component manages filter state and notifies parent of changes.
  * Filtering is done client-side in the parent component (ClassesTable).
+ * 
+ * OPTIMIZATION: Accepts branches prop to avoid duplicate API calls.
+ * When used in Coach view, branches should come from CoachContext.
  */
-export function ClassFilters({ branchId, coachingCenterId, onFiltersChange }: ClassFiltersProps) {
+export function ClassFilters({
+    branchId,
+    coachingCenterId,
+    onFiltersChange,
+    branches: externalBranches
+}: ClassFiltersProps) {
     // Determine the mode
     const isBranchMode = !!branchId;
     const isCoachingCenterMode = !!coachingCenterId;
@@ -80,11 +93,19 @@ export function ClassFilters({ branchId, coachingCenterId, onFiltersChange }: Cl
     const [selectedSubject, setSelectedSubject] = useState<string | 'all'>('all');
     const [selectedBranch, setSelectedBranch] = useState<string | 'all'>(branchId || 'all');
     const [showAvailableOnly, setShowAvailableOnly] = useState(false);
-    const [branches, setBranches] = useState<Branch[]>([]);
+    const [localBranches, setLocalBranches] = useState<Branch[]>([]);
     const [loadingBranches, setLoadingBranches] = useState(false);
 
-    // Fetch branches only in coaching center mode
+    // Use external branches if provided, otherwise use local state
+    const branches = externalBranches || localBranches;
+
+    // Only fetch branches if not provided externally AND in coaching center mode
     useEffect(() => {
+        // Skip fetch if branches are provided externally
+        if (externalBranches && externalBranches.length > 0) {
+            return;
+        }
+
         if (!isCoachingCenterMode) return;
 
         const fetchBranches = async () => {
@@ -93,7 +114,7 @@ export function ClassFilters({ branchId, coachingCenterId, onFiltersChange }: Cl
                 // Fetch branches for this coaching center only
                 const result = await CoachingService.getBranchesByCenter(coachingCenterId);
                 if (result.success && result.data) {
-                    setBranches(result.data.map((b: any) => ({ id: b.id, name: b.name })));
+                    setLocalBranches(result.data.map((b: any) => ({ id: b.id, name: b.name })));
                 }
             } catch (error) {
                 console.error('Failed to fetch branches:', error);
@@ -102,7 +123,7 @@ export function ClassFilters({ branchId, coachingCenterId, onFiltersChange }: Cl
             }
         };
         fetchBranches();
-    }, [coachingCenterId, isCoachingCenterMode]);
+    }, [coachingCenterId, isCoachingCenterMode, externalBranches]);
 
     // Build filters object and notify parent (client-side filtering)
     const buildFilters = useCallback((): BranchClassFilters => {

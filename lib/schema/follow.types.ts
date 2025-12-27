@@ -13,22 +13,22 @@ export type FollowCategory = 'close_friend' | 'colleague' | 'mentor' | 'student'
 // Core follow relationship interface
 export interface FollowRelationship {
   id: string; // UUID
-  
+
   // Relationship participants
   follower_id: string; // User who follows
   following_id: string; // User being followed
-  
+
   // Follow metadata
   follow_status: FollowStatus;
   notification_enabled: boolean;
-  
+
   // Follow categorization
   follow_category: FollowCategory;
   notes: string | null; // Personal notes about this connection
-  
+
   // Mutual follow detection
   is_mutual: boolean;
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -37,15 +37,15 @@ export interface FollowRelationship {
 // Follow request interface
 export interface FollowRequest {
   id: string; // UUID
-  
+
   // Request participants
   requester_id: string; // User who sent the request
   target_id: string; // User who received the request
-  
+
   // Request metadata
   status: FollowRequestStatus;
   message: string | null; // Optional message with request
-  
+
   // Timestamps
   created_at: string;
   updated_at: string;
@@ -55,14 +55,14 @@ export interface FollowRequest {
 // Blocked user interface
 export interface BlockedUser {
   id: string; // UUID
-  
+
   // Blocking relationship
   blocker_id: string; // User who blocked
   blocked_id: string; // User who was blocked
-  
+
   // Block metadata
   reason: string | null; // Optional reason for blocking
-  
+
   // Timestamps
   created_at: string;
 }
@@ -88,6 +88,7 @@ export interface FollowerProfile {
   id: string;
   username: string | null;
   full_name: string | null;
+  bio: string | null;
   avatar_url: string | null;
   role: 'SA' | 'A' | 'S' | 'T' | 'C';
   is_verified: boolean;
@@ -166,16 +167,16 @@ export interface BlockedUserFilters {
 }
 
 // Sort options
-export type FollowSortField = 
-  | 'created_at' 
-  | 'updated_at' 
+export type FollowSortField =
+  | 'created_at'
+  | 'updated_at'
   | 'username'
   | 'full_name'
   | 'follower_count'
   | 'following_count';
 
-export type FollowRequestSortField = 
-  | 'created_at' 
+export type FollowRequestSortField =
+  | 'created_at'
   | 'updated_at'
   | 'responded_at'
   | 'username'
@@ -341,17 +342,17 @@ export const FOLLOW_CONSTRAINTS = {
   NOTES_MAX_LENGTH: 500,
   MESSAGE_MAX_LENGTH: 500,
   REASON_MAX_LENGTH: 200,
-  
+
   // Pagination limits
   MAX_FOLLOWERS_PER_PAGE: 100,
   MAX_FOLLOWING_PER_PAGE: 100,
   MAX_REQUESTS_PER_PAGE: 50,
   MAX_BLOCKED_PER_PAGE: 50,
-  
+
   // Rate limiting
   MAX_FOLLOW_REQUESTS_PER_HOUR: 20,
   MAX_BULK_OPERATIONS: 50,
-  
+
   // Cache TTL
   FOLLOW_STATUS_CACHE_TTL: 5 * 60 * 1000, // 5 minutes
   FOLLOW_LIST_CACHE_TTL: 2 * 60 * 1000, // 2 minutes
@@ -363,7 +364,7 @@ export const FOLLOW_ERROR_CODES = {
   // Authentication
   NOT_AUTHENTICATED: 'NOT_AUTHENTICATED',
   INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
-  
+
   // Validation
   INVALID_USER_ID: 'INVALID_USER_ID',
   CANNOT_FOLLOW_SELF: 'CANNOT_FOLLOW_SELF',
@@ -371,22 +372,22 @@ export const FOLLOW_ERROR_CODES = {
   NOT_FOLLOWING: 'NOT_FOLLOWING',
   USER_BLOCKED: 'USER_BLOCKED',
   USER_NOT_FOUND: 'USER_NOT_FOUND',
-  
+
   // Follow requests
   REQUEST_ALREADY_EXISTS: 'REQUEST_ALREADY_EXISTS',
   REQUEST_NOT_FOUND: 'REQUEST_NOT_FOUND',
   INVALID_REQUEST_STATUS: 'INVALID_REQUEST_STATUS',
   CANNOT_REQUEST_SELF: 'CANNOT_REQUEST_SELF',
-  
+
   // Rate limiting
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
   BULK_LIMIT_EXCEEDED: 'BULK_LIMIT_EXCEEDED',
-  
+
   // Database
   DATABASE_ERROR: 'DATABASE_ERROR',
   CONSTRAINT_VIOLATION: 'CONSTRAINT_VIOLATION',
-  
+
   // General
   UNKNOWN_ERROR: 'UNKNOWN_ERROR',
   NETWORK_ERROR: 'NETWORK_ERROR',

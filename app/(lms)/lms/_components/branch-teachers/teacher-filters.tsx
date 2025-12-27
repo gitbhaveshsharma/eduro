@@ -3,11 +3,13 @@
  * 
  * Advanced filtering controls for the teachers list
  * Features: Search, status filters, experience filters, subject filters
+ * 
+ * OPTIMIZATION: Uses isInitialMount ref to prevent fetch on initial render
  */
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useBranchTeacherStore } from '@/lib/branch-system/stores/branch-teacher.store';
 import type { BranchTeacherFilters, DayOfWeek } from '@/lib/branch-system/types/branch-teacher.types';
 import { DAYS_OF_WEEK_OPTIONS } from '@/lib/branch-system/types/branch-teacher.types';
@@ -46,6 +48,9 @@ export function TeacherFilters({ branchId, coachingCenterId }: TeacherFiltersPro
     const [experienceMin, setExperienceMin] = useState<string>('');
     const [experienceMax, setExperienceMax] = useState<string>('');
 
+    // Track if this is the initial mount to avoid unnecessary fetches
+    const isInitialMount = useRef(true);
+
     // Apply filters to the store and trigger search
     const applyFilters = () => {
         const newFilters: BranchTeacherFilters = {};
@@ -80,8 +85,14 @@ export function TeacherFilters({ branchId, coachingCenterId }: TeacherFiltersPro
         }
     };
 
-    // Debounced search
+    // Debounced search - skip initial mount to prevent duplicate fetch
     useEffect(() => {
+        // Skip the initial mount
+        if (isInitialMount.current) {
+            isInitialMount.current = false;
+            return;
+        }
+
         const timeoutId = setTimeout(() => {
             applyFilters();
         }, 300);
