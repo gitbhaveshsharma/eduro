@@ -785,17 +785,14 @@ export class CoachingUrlUtils {
 
   /**
    * Generate cover image URL with fallback
-   * Handles Supabase storage URLs and applies proxy in production
+   * NOTE: Cover images are typically large (4MB+) and should NOT go through the avatar-proxy
+   * Instead, use Next.js Image optimization or serve directly from Supabase CDN
    */
   static getCoverUrl(center: Partial<CoachingCenter | PublicCoachingCenter>): string {
     if (center.cover_url) {
-      // If it's a Supabase storage URL or external URL, apply proxy in production
-      try {
-        const AvatarUtils = require('./avatar.utils').AvatarUtils;
-        return AvatarUtils.getPublicAvatarUrlFromRemote(center.cover_url);
-      } catch {
-        return center.cover_url;
-      }
+      // Return cover_url directly - do NOT proxy large images
+      // Next.js Image component will handle optimization via /_next/image
+      return center.cover_url;
     }
 
     // Generate category-based cover URL

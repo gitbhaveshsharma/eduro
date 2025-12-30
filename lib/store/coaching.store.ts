@@ -359,6 +359,27 @@ export const useCoachingStore = create<CoachingStore>()(
         },
 
         loadCoachingCenterBySlug: async (slug: string) => {
+          // Check if current coaching center already matches this slug (avoid duplicate API call)
+          const currentCenter = get().currentCoachingCenter;
+          if (currentCenter && currentCenter.slug === slug) {
+            console.log('[CoachingStore] Current center already loaded for slug:', slug);
+            return;
+          }
+
+          // Check cache for this slug - look through cache by slug
+          const cache = get().coachingCenterCache;
+          for (const [, center] of cache.entries()) {
+            if (center.slug === slug) {
+              console.log('[CoachingStore] Found cached center for slug:', slug);
+              set((state) => {
+                state.currentCoachingCenter = center as unknown as CoachingCenter;
+                state.currentCoachingCenterLoading = false;
+                state.currentCoachingCenterError = null;
+              });
+              return;
+            }
+          }
+
           set((state) => {
             state.currentCoachingCenterLoading = true;
             state.currentCoachingCenterError = null;

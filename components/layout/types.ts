@@ -6,7 +6,7 @@
 export type PlatformType = 'community' | 'lms';
 export type DeviceType = 'mobile' | 'tablet' | 'desktop';
 export type ViewType = 'webview' | 'browser';
-export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings' | 'coaching' | 'courses' | 'course-detail' | 'assignments' | 'grades' | 'messages' | 'notifications' | 'admin' | 'lms-coach' | 'lms-branch-manager';
+export type PageType = 'default' | 'network' | 'feed' | 'connections' | 'profile' | 'dashboard' | 'settings' | 'coaching' | 'courses' | 'course-detail' | 'assignments' | 'grades' | 'messages' | 'notifications' | 'admin' | 'lms-coach' | 'lms-branch-manager' | 'lms-student' | 'lms-teacher';
 
 /**
  * Branding configuration for white-label LMS experience

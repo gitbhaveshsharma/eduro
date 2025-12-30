@@ -603,6 +603,348 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
 ];
 
 /**
+ * ============================================================================
+ * LMS STUDENT NAVIGATION CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * LMS Student bottom navigation items
+ * Student-focused navigation for enrolled students
+ */
+export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Home',
+        icon: Home,
+        href: '/lms/student',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        href: '/lms/student/classes',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'assignments',
+        label: 'Tasks',
+        icon: FileText,
+        href: '/lms/student/assignments',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'calendar',
+        label: 'Schedule',
+        icon: Calendar,
+        href: '/lms/student/calendar',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        href: '/feed',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+];
+
+/**
+ * LMS Student header items (for desktop navigation)
+ */
+export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms/student/classes'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['lms-student']
+        }
+    }
+];
+
+/**
+ * LMS Student sidebar items
+ * Sidebar navigation for student dashboard
+ */
+export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/lms/student',
+        description: 'Your learning overview',
+        roles: ['S'],
+    },
+    {
+        id: 'classes',
+        label: 'My Classes',
+        icon: BookOpen,
+        href: '/lms/student/classes',
+        description: 'View enrolled classes',
+        roles: ['S'],
+    },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: '/lms/student/assignments',
+        description: 'View and submit assignments',
+        roles: ['S'],
+    },
+    {
+        id: 'calendar',
+        label: 'Schedule',
+        icon: Calendar,
+        href: '/lms/student/calendar',
+        description: 'Class schedule and events',
+        roles: ['S'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Users,
+        href: '/lms/student/attendance',
+        description: 'View your attendance record',
+        roles: ['S'],
+    },
+    {
+        id: 'fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: '/lms/student/fees',
+        description: 'View fee status and payments',
+        roles: ['S'],
+    },
+];
+
+/**
+ * ============================================================================
+ * LMS TEACHER NAVIGATION CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * LMS Teacher bottom navigation items
+ * Teacher-focused navigation for assigned teachers
+ */
+export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Home',
+        icon: Home,
+        href: '/lms/teacher',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        href: '/lms/teacher/classes',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'students',
+        label: 'Students',
+        icon: Users,
+        href: '/lms/teacher/students',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: '/lms/teacher/attendance',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        href: '/feed',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+];
+
+/**
+ * LMS Teacher header items (for desktop navigation)
+ */
+export const LMS_TEACHER_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms/teacher/classes'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['lms-teacher']
+        }
+    }
+];
+
+/**
+ * LMS Teacher sidebar items
+ * Sidebar navigation for teacher dashboard
+ */
+export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/lms/teacher',
+        description: 'Teaching overview',
+        roles: ['T'],
+    },
+    {
+        id: 'classes',
+        label: 'My Classes',
+        icon: BookOpen,
+        href: '/lms/teacher/classes',
+        description: 'Classes you teach',
+        roles: ['T'],
+    },
+    {
+        id: 'students',
+        label: 'Students',
+        icon: Users,
+        href: '/lms/teacher/students',
+        description: 'View your students',
+        roles: ['T'],
+    },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: '/lms/teacher/assignments',
+        description: 'Create and manage assignments',
+        roles: ['T'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: '/lms/teacher/attendance',
+        description: 'Mark and view attendance',
+        roles: ['T'],
+    },
+    {
+        id: 'analytics',
+        label: 'Analytics',
+        icon: BarChart3,
+        href: '/lms/teacher/analytics',
+        description: 'Student performance analytics',
+        roles: ['T'],
+    },
+];
+
+/**
  * Utility functions for layout configuration
  */
 export class LayoutUtils {
@@ -675,8 +1017,17 @@ export class LayoutUtils {
 
     /**
      * Get navigation items for specific platform
+     * Supports page-specific navigation items for student and teacher views
      */
-    static getNavigationItems(platform: PlatformType): NavigationItem[] {
+    static getNavigationItems(platform: PlatformType, page?: PageType): NavigationItem[] {
+        // Return page-specific navigation for student/teacher
+        if (page === 'lms-student') {
+            return LMS_STUDENT_NAV_ITEMS;
+        }
+        if (page === 'lms-teacher') {
+            return LMS_TEACHER_NAV_ITEMS;
+        }
+        // Default platform-based navigation
         return platform === 'community' ? COMMUNITY_NAV_ITEMS : LMS_NAV_ITEMS;
     }
 
@@ -719,6 +1070,10 @@ export class LayoutUtils {
                 return LMS_COACH_HEADER_ITEMS;
             case 'lms-branch-manager':
                 return LMS_BRANCH_MANAGER_HEADER_ITEMS;
+            case 'lms-student':
+                return LMS_STUDENT_HEADER_ITEMS;
+            case 'lms-teacher':
+                return LMS_TEACHER_HEADER_ITEMS;
             default:
                 return [];
         }
@@ -779,6 +1134,10 @@ export class LayoutUtils {
                 return LMS_BRANCH_MANAGER_SIDEBAR_ITEMS;
             case 'lms-coach':
                 return LMS_COACH_SIDEBAR_ITEMS;
+            case 'lms-student':
+                return LMS_STUDENT_SIDEBAR_ITEMS;
+            case 'lms-teacher':
+                return LMS_TEACHER_SIDEBAR_ITEMS;
             default:
                 return [];
         }

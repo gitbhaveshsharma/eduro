@@ -82,15 +82,16 @@ export function ConditionalLayout({
     }, [platform, forceConfig]);
 
     // ✅ Update navigation items when config changes
+    // Pass page parameter to support page-specific navigation (student/teacher)
     useEffect(() => {
-        const items = LayoutUtils.getNavigationItems(config.platform);
+        const items = LayoutUtils.getNavigationItems(config.platform, config.page);
         const filteredItems = LayoutUtils.filterNavigationItems(
             items,
             config.platform,
             config.device
         );
         setNavigationItems(filteredItems);
-    }, [config.platform, config.device]);
+    }, [config.platform, config.device, config.page]);
 
     // ✅ Get platform-specific loading message
     const getLoadingMessage = () => {
@@ -174,7 +175,9 @@ export function ConditionalLayout({
                         config.page === 'settings' ? 'Settings' :
                             config.page === 'lms-branch-manager' ? 'Branch Manager' :
                                 config.page === 'lms-coach' ? 'Coaching Center' :
-                                    'Menu'
+                                    config.page === 'lms-student' ? 'Student Portal' :
+                                        config.page === 'lms-teacher' ? 'Teacher Portal' :
+                                            'Menu'
                     }
                 />
             )}
