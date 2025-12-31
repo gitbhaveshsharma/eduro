@@ -9,7 +9,8 @@ import {
   RequestContext,
   SecurityEvent,
   SecurityEventType,
-  SecurityLevel
+  SecurityLevel,
+  CorsOrigin,
 } from './lib/middleware/types'
 import middlewareConfig from './lib/middleware/config'
 import { AuthHandler } from './lib/middleware/auth-utils'
@@ -32,12 +33,6 @@ import { createSupabaseMiddleware } from './lib/middleware/supabase-middleware'
  */
 export async function middleware(request: NextRequest): Promise<NextResponse> {
   const startTime = Date.now()
-
-  // EARLY EXIT: Handle OPTIONS (preflight) requests immediately without processing
-  // This dramatically improves CORS preflight response times
-  if (request.method === 'OPTIONS') {
-    return handleCORSPreflightFast(request)
-  }
 
   // Initialize logging and monitoring
   Logger.configure(middlewareConfig.logging)
@@ -259,50 +254,7 @@ function applySecurityHeaders(response: NextResponse, headers: any): void {
 }
 
 /**
- * Fast CORS preflight handler - bypasses all middleware processing
- * Returns immediately with proper CORS headers for OPTIONS requests
- */
-function handleCORSPreflightFast(request: NextRequest): NextResponse {
-  const corsConfig = middlewareConfig.security.cors
-  const origin = request.headers.get('origin') || '*'
-  
-  // Determine allowed origin
-  let allowedOrigin = '*'
-  if (corsConfig.origin === true) {
-    allowedOrigin = origin
-  } else if (typeof corsConfig.origin === 'string') {
-    allowedOrigin = corsConfig.origin
-  } else if (Array.isArray(corsConfig.origin)) {
-    // Check if origin is in allowed list (handle both strings and RegExp)
-    const isAllowed = corsConfig.origin.some(allowed => {
-      if (typeof allowed === 'string') return allowed === origin
-      if (allowed instanceof RegExp) return allowed.test(origin)
-      return false
-    })
-    if (isAllowed) allowedOrigin = origin
-  } else if (corsConfig.origin instanceof RegExp && corsConfig.origin.test(origin)) {
-    allowedOrigin = origin
-  }
-
-  const response = new NextResponse(null, { status: 204 }) // 204 No Content is standard for preflight
-  
-  response.headers.set('Access-Control-Allow-Origin', allowedOrigin)
-  response.headers.set('Access-Control-Allow-Methods', corsConfig.methods?.join(', ') || 'GET, POST, PUT, DELETE, PATCH, OPTIONS')
-  response.headers.set('Access-Control-Allow-Headers', 
-    corsConfig.allowedHeaders?.join(', ') || 
-    'Content-Type, Authorization, X-Requested-With, Accept, Origin, apikey, x-client-info'
-  )
-  response.headers.set('Access-Control-Max-Age', '86400') // Cache preflight for 24 hours
-  
-  if (corsConfig.credentials) {
-    response.headers.set('Access-Control-Allow-Credentials', 'true')
-  }
-  
-  return response
-}
-
-/**
- * Handle CORS preflight requests (legacy - used after full middleware processing)
+ * Handle CORS preflight requests
  */
 function handleCORSPreflight(request: NextRequest, response: NextResponse): NextResponse {
   const corsConfig = middlewareConfig.security.cors
@@ -340,7 +292,7 @@ function applyCORSHeaders(response: NextResponse, corsConfig: any, request: Next
 /**
  * Get appropriate origin header value
  */
-function getOriginHeader(request: NextRequest, allowedOrigins: any): string {
+function getOriginHeader(request: NextRequest, allowedOrigins: CorsOrigin | undefined): string {
   if (allowedOrigins === true) {
     return '*'
   }
@@ -349,31 +301,45 @@ function getOriginHeader(request: NextRequest, allowedOrigins: any): string {
     return 'null'
   }
 
+  // string origin
   if (typeof allowedOrigins === 'string') {
     return allowedOrigins
   }
 
   const requestOrigin = request.headers.get('origin')
 
+  // RegExp origin
   if (allowedOrigins instanceof RegExp) {
-    if (requestOrigin && allowedOrigins.test(requestOrigin)) {
-      return requestOrigin
-    }
+    if (requestOrigin && allowedOrigins.test(requestOrigin)) return requestOrigin
     return '*'
   }
 
+  // Array of origins - can contain strings or RegExp
   if (Array.isArray(allowedOrigins)) {
-    if (requestOrigin) {
-      const isAllowed = allowedOrigins.some(allowed => {
-        if (typeof allowed === 'string') return allowed === requestOrigin
-        if (allowed instanceof RegExp) return allowed.test(requestOrigin)
-        return false
-      })
-      if (isAllowed) return requestOrigin
+    // If array contains strings, prefer exact match
+    const stringMatches = allowedOrigins.filter((o) => typeof o === 'string') as string[]
+    if (requestOrigin && stringMatches.length > 0 && stringMatches.includes(requestOrigin)) {
+      return requestOrigin
     }
-    // Return first string origin as fallback
-    const firstString = allowedOrigins.find(o => typeof o === 'string')
-    return firstString || '*'
+
+    // Check regex entries
+    const regexEntries = (allowedOrigins.filter((o) => o instanceof RegExp) as RegExp[])
+    if (requestOrigin && regexEntries.length > 0) {
+      for (const rx of regexEntries) {
+        if (rx.test(requestOrigin)) return requestOrigin
+      }
+    }
+
+    // Fallback to first string origin or wildcard
+    if (stringMatches.length > 0) return stringMatches[0]
+    return '*'
+  }
+
+  // Function origin (dynamic) - can't reliably run synchronously here.
+  // Use request origin if present, otherwise allow wildcard.
+  if (typeof allowedOrigins === 'function') {
+    if (requestOrigin) return requestOrigin
+    return '*'
   }
 
   return '*'
