@@ -32,7 +32,9 @@ import {
   CoachingBranchPermissions,
   CoachingCenterDashboard,
   CoachingCategory,
-  CoachingStatus
+  CoachingStatus,
+  StudentEnrollment,
+  TeacherAssignment
 } from '../schema/coaching.types';
 import { COACHING_CATEGORIES } from '../schema/coaching.types';
 
@@ -1419,6 +1421,82 @@ static async getCoachingCenterDetailedStats(centerId: string): Promise<CoachingO
       }
 
       return { success: true, data: branches || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // ============================================================
+  // STUDENT & TEACHER ENROLLMENT OPERATIONS
+  // ============================================================
+
+  /**
+   * Get student enrollments (coaching centers where student is enrolled)
+   * Uses the get_student_enrollments RPC function
+   */
+  static async getStudentEnrollments(studentId?: string): Promise<CoachingOperationResult<StudentEnrollment[]>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user && !studentId) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      const targetUserId = studentId || user?.id;
+      
+      if (!targetUserId) {
+        return { success: false, error: 'User ID not found' };
+      }
+
+      const { data, error } = await supabase
+        .rpc('get_student_enrollments', { 
+          student_uuid: targetUserId 
+        });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get teacher assignments (coaching centers where teacher is assigned)
+   * Uses the get_teacher_assignments RPC function
+   */
+  static async getTeacherAssignments(teacherId?: string): Promise<CoachingOperationResult<TeacherAssignment[]>> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user && !teacherId) {
+        return { success: false, error: 'User not authenticated' };
+      }
+
+      const targetUserId = teacherId || user?.id;
+      
+      if (!targetUserId) {
+        return { success: false, error: 'User ID not found' };
+      }
+
+      const { data, error } = await supabase
+        .rpc('get_teacher_assignments', { 
+          teacher_uuid: targetUserId 
+        });
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, data: data || [] };
     } catch (error) {
       return {
         success: false,

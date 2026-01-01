@@ -686,7 +686,7 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
             href: '/lms/student/classes'
         },
         showOn: {
-            devices: ['desktop', 'tablet'],
+            devices: ['tablet', 'mobile'],
             pages: ['lms-student']
         }
     },
@@ -721,13 +721,15 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
 /**
  * LMS Student sidebar items
  * Sidebar navigation for student dashboard
+ * These items use relative paths that will be prefixed with the center base path
+ * Note: The actual href will be constructed dynamically based on centerId
  */
 export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: '/lms/student',
+        href: 'dashboard',
         description: 'Your learning overview',
         roles: ['S'],
     },
@@ -735,7 +737,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'classes',
         label: 'My Classes',
         icon: BookOpen,
-        href: '/lms/student/classes',
+        href: 'classes',
         description: 'View enrolled classes',
         roles: ['S'],
     },
@@ -743,7 +745,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'assignments',
         label: 'Assignments',
         icon: FileText,
-        href: '/lms/student/assignments',
+        href: 'assignments',
         description: 'View and submit assignments',
         roles: ['S'],
     },
@@ -751,7 +753,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'calendar',
         label: 'Schedule',
         icon: Calendar,
-        href: '/lms/student/calendar',
+        href: 'calendar',
         description: 'Class schedule and events',
         roles: ['S'],
     },
@@ -759,7 +761,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'attendance',
         label: 'Attendance',
         icon: Users,
-        href: '/lms/student/attendance',
+        href: 'attendance',
         description: 'View your attendance record',
         roles: ['S'],
     },
@@ -767,7 +769,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'fees',
         label: 'Fees',
         icon: DollarSign,
-        href: '/lms/student/fees',
+        href: 'fees',
         description: 'View fee status and payments',
         roles: ['S'],
     },
@@ -892,13 +894,15 @@ export const LMS_TEACHER_HEADER_ITEMS: HeaderItem[] = [
 /**
  * LMS Teacher sidebar items
  * Sidebar navigation for teacher dashboard
+ * These items use relative paths that will be prefixed with the center base path
+ * Note: The actual href will be constructed dynamically based on centerId
  */
 export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: '/lms/teacher',
+        href: 'dashboard',
         description: 'Teaching overview',
         roles: ['T'],
     },
@@ -906,7 +910,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'classes',
         label: 'My Classes',
         icon: BookOpen,
-        href: '/lms/teacher/classes',
+        href: 'classes',
         description: 'Classes you teach',
         roles: ['T'],
     },
@@ -914,7 +918,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'students',
         label: 'Students',
         icon: Users,
-        href: '/lms/teacher/students',
+        href: 'students',
         description: 'View your students',
         roles: ['T'],
     },
@@ -922,7 +926,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'assignments',
         label: 'Assignments',
         icon: FileText,
-        href: '/lms/teacher/assignments',
+        href: 'assignments',
         description: 'Create and manage assignments',
         roles: ['T'],
     },
@@ -930,7 +934,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'attendance',
         label: 'Attendance',
         icon: Calendar,
-        href: '/lms/teacher/attendance',
+        href: 'attendance',
         description: 'Mark and view attendance',
         roles: ['T'],
     },
@@ -938,7 +942,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'analytics',
         label: 'Analytics',
         icon: BarChart3,
-        href: '/lms/teacher/analytics',
+        href: 'analytics',
         description: 'Student performance analytics',
         roles: ['T'],
     },
@@ -1151,6 +1155,122 @@ export class LayoutUtils {
             ...item,
             href: `/lms/manager/branches/${branchId}/${item.href}`,
         }));
+    }
+
+    /**
+     * Get student sidebar items with dynamic hrefs based on centerId
+     */
+    static getStudentSidebarItems(centerId: string): SidebarItem[] {
+        return LMS_STUDENT_SIDEBAR_ITEMS.map(item => ({
+            ...item,
+            href: `/lms/student/${centerId}/${item.href}`,
+        }));
+    }
+
+    /**
+     * Get teacher sidebar items with dynamic hrefs based on centerId
+     */
+    static getTeacherSidebarItems(centerId: string): SidebarItem[] {
+        return LMS_TEACHER_SIDEBAR_ITEMS.map(item => ({
+            ...item,
+            href: `/lms/teacher/${centerId}/${item.href}`,
+        }));
+    }
+
+    /**
+     * Get student navigation items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getStudentNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
+        const items = LMS_STUDENT_NAV_ITEMS.map(item => ({
+            ...item,
+            href: item.href.replace('/lms/student', `/lms/student/${centerId}`),
+        }));
+        
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => item.devices.includes(device));
+        }
+        
+        return items;
+    }
+
+    /**
+     * Get teacher navigation items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getTeacherNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
+        const items = LMS_TEACHER_NAV_ITEMS.map(item => ({
+            ...item,
+            href: item.href.replace('/lms/teacher', `/lms/teacher/${centerId}`),
+        }));
+        
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => item.devices.includes(device));
+        }
+        
+        return items;
+    }
+
+    /**
+     * Get student header items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getStudentHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
+        const items = LMS_STUDENT_HEADER_ITEMS.map(item => {
+            if (item.action.type === 'navigate' && item.action.href) {
+                return {
+                    ...item,
+                    action: {
+                        ...item.action,
+                        href: item.action.href.replace('/lms/student', `/lms/student/${centerId}`)
+                    }
+                };
+            }
+            return item;
+        });
+        
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => 
+                !item.showOn?.devices || item.showOn.devices.includes(device)
+            );
+        }
+        
+        return items;
+    }
+
+    /**
+     * Get teacher header items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getTeacherHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
+        const items = LMS_TEACHER_HEADER_ITEMS.map(item => {
+            if (item.action.type === 'navigate' && item.action.href) {
+                return {
+                    ...item,
+                    action: {
+                        ...item.action,
+                        href: item.action.href.replace('/lms/teacher', `/lms/teacher/${centerId}`)
+                    }
+                };
+            }
+            return item;
+        });
+        
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => 
+                !item.showOn?.devices || item.showOn.devices.includes(device)
+            );
+        }
+        
+        return items;
     }
 
     /**

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Building2, AlertCircle, GraduationCap } from 'lucide-react';
 import { CoachingAPI } from '@/lib/coaching';
-import type { CoachingCenter, CoachingBranch } from '@/lib/schema/coaching.types';
+import type { CoachingCenter, CoachingBranch, StudentEnrollment, TeacherAssignment } from '@/lib/schema/coaching.types';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import {
     LMSHeader,
@@ -14,6 +14,8 @@ import {
     CoachingCenterCard,
     AssignedBranchCard
 } from './_components';
+import { StudentEnrollmentCard } from './_components/student-enrollment-card';
+import { TeacherAssignmentCard } from './_components/teacher-assignment-card';
 
 interface BranchWithRole extends CoachingBranch {
     coaching_center?: {
@@ -37,58 +39,90 @@ export default function LMSEntryPage() {
     const [error, setError] = useState<string | null>(null);
     const [ownedCenters, setOwnedCenters] = useState<CoachingCenterWithBranches[]>([]);
     const [assignedBranches, setAssignedBranches] = useState<BranchWithRole[]>([]);
+    const [studentEnrollments, setStudentEnrollments] = useState<StudentEnrollment[]>([]);
+    const [teacherAssignments, setTeacherAssignments] = useState<TeacherAssignment[]>([]);
 
     const fetchData = useCallback(async () => {
         setIsDataLoading(true);
         setError(null);
 
         try {
+            // Fetch branches data (for coaches and branch managers)
             const branchesResult = await CoachingAPI.getAllAccessibleBranches();
 
-            if (!branchesResult.success || !branchesResult.data) {
-                setError(branchesResult.error || 'Failed to load data');
-                return;
-            }
+            // Fetch student enrollments
+            const studentEnrollmentsResult = await CoachingAPI.getStudentEnrollments();
 
-            const { branches } = branchesResult.data;
+            // Fetch teacher assignments
+            const teacherAssignmentsResult = await CoachingAPI.getTeacherAssignments();
+
             const centersMap = new Map<string, CoachingCenterWithBranches>();
             const assignedBranchList: BranchWithRole[] = [];
+            const enrollmentsList: StudentEnrollment[] = [];
+            const assignmentsList: TeacherAssignment[] = [];
 
-            for (const branch of branches) {
-                if (branch.role === 'owner' || branch.role === 'center_manager') {
-                    const centerId = branch.coaching_center?.id;
-                    if (centerId) {
-                        if (!centersMap.has(centerId)) {
-                            const centerResult = await CoachingAPI.getCenter(centerId);
-                            if (centerResult.success && centerResult.data) {
-                                centersMap.set(centerId, {
-                                    ...centerResult.data,
-                                    branches: [],
-                                    role: branch.role,
-                                });
+            // Process branches data
+            if (branchesResult.success && branchesResult.data) {
+                const { branches } = branchesResult.data;
+
+                for (const branch of branches) {
+                    if (branch.role === 'owner' || branch.role === 'center_manager') {
+                        const centerId = branch.coaching_center?.id;
+                        if (centerId) {
+                            if (!centersMap.has(centerId)) {
+                                const centerResult = await CoachingAPI.getCenter(centerId);
+                                if (centerResult.success && centerResult.data) {
+                                    centersMap.set(centerId, {
+                                        ...centerResult.data,
+                                        branches: [],
+                                        role: branch.role,
+                                    });
+                                }
+                            }
+                            const center = centersMap.get(centerId);
+                            if (center) {
+                                center.branches.push(branch);
                             }
                         }
-                        const center = centersMap.get(centerId);
-                        if (center) {
-                            center.branches.push(branch);
-                        }
+                    } else if (branch.role === 'branch_manager') {
+                        assignedBranchList.push(branch);
                     }
-                } else if (branch.role === 'branch_manager') {
-                    assignedBranchList.push(branch);
                 }
+            }
+
+            // Process student enrollments
+            if (studentEnrollmentsResult.success && studentEnrollmentsResult.data) {
+                enrollmentsList.push(...studentEnrollmentsResult.data);
+            }
+
+            // Process teacher assignments
+            if (teacherAssignmentsResult.success && teacherAssignmentsResult.data) {
+                assignmentsList.push(...teacherAssignmentsResult.data);
             }
 
             const ownedCentersList = Array.from(centersMap.values());
             setOwnedCenters(ownedCentersList);
             setAssignedBranches(assignedBranchList);
+            setStudentEnrollments(enrollmentsList);
+            setTeacherAssignments(assignmentsList);
 
             const totalOwnedCenters = ownedCentersList.length;
             const totalAssignedBranches = assignedBranchList.length;
+            const totalEnrollments = enrollmentsList.length;
+            const totalAssignments = assignmentsList.length;
+            const totalCards = totalOwnedCenters + totalAssignedBranches + totalEnrollments + totalAssignments;
 
-            if (totalOwnedCenters === 1 && totalAssignedBranches === 0) {
-                router.push('/lms/coach');
-            } else if (totalOwnedCenters === 0 && totalAssignedBranches === 1) {
-                router.push(`/lms/manager/branches/${assignedBranchList[0].id}/dashboard`);
+            // Auto-redirect logic based on user's role
+            if (totalCards === 1) {
+                if (totalOwnedCenters === 1) {
+                    router.push('/lms/coach');
+                } else if (totalAssignedBranches === 1) {
+                    router.push(`/lms/manager/branches/${assignedBranchList[0].id}/dashboard`);
+                } else if (totalEnrollments === 1) {
+                    router.push(`/lms/student/${enrollmentsList[0].coaching_center_id}`);
+                } else if (totalAssignments === 1) {
+                    router.push(`/lms/teacher/${assignmentsList[0].coaching_center_id}`);
+                }
             }
         } catch (err) {
             console.error('[LMSEntry] Error fetching data:', err);
@@ -115,6 +149,14 @@ export default function LMSEntryPage() {
         router.push(`/lms/manager/branches/${branch.id}/dashboard`);
     }, [router]);
 
+    const handleSelectStudentEnrollment = useCallback((enrollment: StudentEnrollment) => {
+        router.push(`/lms/student/${enrollment.coaching_center_id}`);
+    }, [router]);
+
+    const handleSelectTeacherAssignment = useCallback((assignment: TeacherAssignment) => {
+        router.push(`/lms/teacher/${assignment.coaching_center_id}`);
+    }, [router]);
+
     const handleNotificationClick = useCallback(() => {
         router.push('/notifications');
     }, [router]);
@@ -128,12 +170,15 @@ export default function LMSEntryPage() {
     }, [router]);
 
     const hasNoAccess = useMemo(
-        () => ownedCenters.length === 0 && assignedBranches.length === 0,
-        [ownedCenters.length, assignedBranches.length]
+        () => ownedCenters.length === 0 && assignedBranches.length === 0 && studentEnrollments.length === 0 && teacherAssignments.length === 0,
+        [ownedCenters.length, assignedBranches.length, studentEnrollments.length, teacherAssignments.length]
     );
 
     const allCards = useMemo(() => {
-        const cards: Array<{ type: 'center' | 'branch'; data: CoachingCenterWithBranches | BranchWithRole }> = [];
+        const cards: Array<{
+            type: 'center' | 'branch' | 'student' | 'teacher';
+            data: CoachingCenterWithBranches | BranchWithRole | StudentEnrollment | TeacherAssignment
+        }> = [];
 
         ownedCenters.forEach(center => {
             cards.push({ type: 'center', data: center });
@@ -143,8 +188,16 @@ export default function LMSEntryPage() {
             cards.push({ type: 'branch', data: branch });
         });
 
+        studentEnrollments.forEach(enrollment => {
+            cards.push({ type: 'student', data: enrollment });
+        });
+
+        teacherAssignments.forEach(assignment => {
+            cards.push({ type: 'teacher', data: assignment });
+        });
+
         return cards;
-    }, [ownedCenters, assignedBranches]);
+    }, [ownedCenters, assignedBranches, studentEnrollments, teacherAssignments]);
 
     if (isPageLoading) {
         return (
@@ -199,8 +252,8 @@ export default function LMSEntryPage() {
                             </div>
                             <h2 className="text-3xl font-bold mb-3">Welcome to LMS</h2>
                             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-                                You don&apos;t have any coaching centers or branch assignments yet.
-                                Create a coaching center or get assigned to a branch to access the LMS.
+                                You don&apos;t have any coaching centers, branch assignments, enrollments, or teaching assignments yet.
+                                Create a coaching center, enroll as a student, or get assigned as a teacher to access the LMS.
                             </p>
                             <div className="flex gap-4 justify-center">
                                 <Button onClick={handleCreateCenter}>
@@ -234,21 +287,42 @@ export default function LMSEntryPage() {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {allCards.map((card) => (
-                            card.type === 'center' ? (
-                                <CoachingCenterCard
-                                    key={`center-${(card.data as CoachingCenterWithBranches).id}`}
-                                    center={card.data as CoachingCenterWithBranches}
-                                    onSelect={handleSelectCoachingCenter}
-                                />
-                            ) : (
-                                <AssignedBranchCard
-                                    key={`branch-${(card.data as BranchWithRole).id}`}
-                                    branch={card.data as BranchWithRole}
-                                    onSelect={handleSelectAssignedBranch}
-                                />
-                            )
-                        ))}
+                        {allCards.map((card) => {
+                            if (card.type === 'center') {
+                                return (
+                                    <CoachingCenterCard
+                                        key={`center-${(card.data as CoachingCenterWithBranches).id}`}
+                                        center={card.data as CoachingCenterWithBranches}
+                                        onSelect={handleSelectCoachingCenter}
+                                    />
+                                );
+                            } else if (card.type === 'branch') {
+                                return (
+                                    <AssignedBranchCard
+                                        key={`branch-${(card.data as BranchWithRole).id}`}
+                                        branch={card.data as BranchWithRole}
+                                        onSelect={handleSelectAssignedBranch}
+                                    />
+                                );
+                            } else if (card.type === 'student') {
+                                return (
+                                    <StudentEnrollmentCard
+                                        key={`student-${(card.data as StudentEnrollment).enrollment_id}`}
+                                        enrollment={card.data as StudentEnrollment}
+                                        onSelect={handleSelectStudentEnrollment}
+                                    />
+                                );
+                            } else if (card.type === 'teacher') {
+                                return (
+                                    <TeacherAssignmentCard
+                                        key={`teacher-${(card.data as TeacherAssignment).assignment_id}`}
+                                        assignment={card.data as TeacherAssignment}
+                                        onSelect={handleSelectTeacherAssignment}
+                                    />
+                                );
+                            }
+                            return null;
+                        })}
                     </div>
                 </div>
             </div>

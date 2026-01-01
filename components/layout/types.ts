@@ -71,6 +71,7 @@ export interface SidebarConfig {
     width?: string; // e.g., '280px', '20rem'
     collapsible?: boolean;
     overlay?: boolean; // Show overlay on mobile when open
+    devices?: DeviceType[]; // Show sidebar only on specified devices, defaults to all if not specified
 }
 
 export interface LayoutConfig {
@@ -155,4 +156,8 @@ export interface ConditionalLayoutProps {
     forceConfig?: Partial<LayoutConfig>;
     // Custom sidebar items - overrides items from page config
     sidebarItems?: SidebarItem[];
+    // Custom navigation items for bottom nav - overrides items from platform config
+    navigationItems?: NavigationItem[];
+    // Custom header items - overrides items from page config
+    headerItems?: HeaderItem[];
 }
