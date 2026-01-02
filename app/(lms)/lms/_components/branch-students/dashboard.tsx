@@ -126,7 +126,7 @@ function RecentEnrollmentsList() {
                             </Badge>
                         </div>
                     </div>
-                    {index < recentEnrollments.length - 1 && <Separator className="mt-4" />}
+                    {index < recentEnrollments.length - 1 && <Separator key={`separator-${student.id}`} className="mt-4" />}
                 </div>
             ))}
         </div>

@@ -85,10 +85,10 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
  */
 function getEnrollmentStatusVariant(status: ClassEnrollmentStatus | null | undefined): BadgeVariant {
     if (!status) return 'secondary';
-    
+
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status];
     if (!statusConfig) return 'secondary';
-    
+
     // Map from status config color to Badge variant
     const colorMap: Record<string, BadgeVariant> = {
         'success': 'success',
@@ -98,7 +98,7 @@ function getEnrollmentStatusVariant(status: ClassEnrollmentStatus | null | undef
         'outline': 'outline',
         'default': 'default',
     };
-    
+
     return colorMap[statusConfig.color] || 'secondary';
 }
 
@@ -109,7 +109,7 @@ function getEnrollmentStatusVariant(status: ClassEnrollmentStatus | null | undef
 function getPaymentStatusVariant(status: PaymentStatus): BadgeVariant {
     const statusConfig = PAYMENT_STATUS_OPTIONS[status];
     if (!statusConfig) return 'secondary';
-    
+
     // Map from status config color to Badge variant
     const colorMap: Record<string, BadgeVariant> = {
         'success': 'success',
@@ -119,7 +119,7 @@ function getPaymentStatusVariant(status: PaymentStatus): BadgeVariant {
         'outline': 'outline',
         'default': 'default',
     };
-    
+
     return colorMap[statusConfig.color] || 'secondary';
 }
 
@@ -137,14 +137,14 @@ function getEnrollmentStatusLabel(status: ClassEnrollmentStatus | null | undefin
  */
 function getPaymentUrgencyVariant(urgency: string | null): BadgeVariant | null {
     if (!urgency || urgency === 'ok') return null;
-    
+
     const urgencyMap: Record<string, BadgeVariant> = {
         'overdue': 'destructive',
         'urgent': 'destructive',
         'warning': 'warning',
         'reminder': 'secondary',
     };
-    
+
     return urgencyMap[urgency] || null;
 }
 
@@ -153,10 +153,10 @@ function getPaymentUrgencyVariant(urgency: string | null): BadgeVariant | null {
  */
 function getPaymentUrgencyLabel(urgency: string | null, daysUntil: number | null): string | null {
     if (!urgency || urgency === 'ok') return null;
-    
+
     if (urgency === 'overdue') return 'Overdue';
     if (daysUntil !== null) return `Due in ${daysUntil} days`;
-    
+
     return null;
 }
 
@@ -295,7 +295,7 @@ const StudentRowActions = memo(function StudentRowActions({
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleEdit}>
                     <Edit className="mr-2 h-4 w-4" />
-                    Edit Enrollment
+                    Edit Registration
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {/* Class Enrollment Actions */}
@@ -344,10 +344,10 @@ const StudentRow = memo(function StudentRow({
     const paymentUrgencyBadge = useMemo(() => {
         const urgency = getPaymentUrgency(student.next_payment_due);
         const daysUntil = calculateDaysUntilPayment(student.next_payment_due);
-        
+
         const variant = getPaymentUrgencyVariant(urgency);
         const label = getPaymentUrgencyLabel(urgency, daysUntil);
-        
+
         if (!variant || !label) return null;
 
         return (
@@ -360,9 +360,13 @@ const StudentRow = memo(function StudentRow({
     // Memoize enrollment status badge using utility functions
     const enrollmentStatusBadge = useMemo(() => {
         const status = student.enrollment_status as ClassEnrollmentStatus | null;
-        
+
         if (!status) {
-            return <span className="text-xs text-muted-foreground">-</span>;
+            return (
+                <Badge variant="secondary" className="text-xs">
+                    Not Enrolled
+                </Badge>
+            );
         }
 
         const variant = getEnrollmentStatusVariant(status);
@@ -390,6 +394,12 @@ const StudentRow = memo(function StudentRow({
     // Memoize attendance display using utility function
     const attendanceDisplay = useMemo(() => {
         const attendance = student.attendance_percentage;
+
+        // If no class enrollment, show 'N/A'
+        if (!student.enrollment_status) {
+            return <span className="text-xs text-muted-foreground">N/A</span>;
+        }
+
         const colorClass = getAttendanceColorClass(attendance);
 
         return (
@@ -397,7 +407,7 @@ const StudentRow = memo(function StudentRow({
                 {attendance.toFixed(1)}%
             </span>
         );
-    }, [student.attendance_percentage]);
+    }, [student.attendance_percentage, student.enrollment_status]);
 
     return (
         <TableRow>
@@ -418,10 +428,16 @@ const StudentRow = memo(function StudentRow({
             <TableCell>
                 <div className="flex flex-col gap-1">
                     {enrollmentStatusBadge}
-                    {student.class_name && (
+                    {student.class_name ? (
                         <p className="text-xs text-muted-foreground truncate max-w-[120px]" title={student.class_name}>
                             {student.class_name}
                         </p>
+                    ) : (
+                        !student.enrollment_status && (
+                            <p className="text-xs text-muted-foreground">
+                                No class assigned
+                            </p>
+                        )
                     )}
                 </div>
             </TableCell>
