@@ -174,6 +174,18 @@ export default function LMSEntryPage() {
         [ownedCenters.length, assignedBranches.length, studentEnrollments.length, teacherAssignments.length]
     );
 
+    // Determine if user is only a student (no coaching/management roles)
+    const isStudentOnly = useMemo(
+        () => ownedCenters.length === 0 && assignedBranches.length === 0 && teacherAssignments.length === 0 && studentEnrollments.length > 0,
+        [ownedCenters.length, assignedBranches.length, teacherAssignments.length, studentEnrollments.length]
+    );
+
+    // Determine if user is only a teacher (no coaching/management roles)
+    const isTeacherOnly = useMemo(
+        () => ownedCenters.length === 0 && assignedBranches.length === 0 && studentEnrollments.length === 0 && teacherAssignments.length > 0,
+        [ownedCenters.length, assignedBranches.length, studentEnrollments.length, teacherAssignments.length]
+    );
+
     const allCards = useMemo(() => {
         const cards: Array<{
             type: 'center' | 'branch' | 'student' | 'teacher';
@@ -198,6 +210,25 @@ export default function LMSEntryPage() {
 
         return cards;
     }, [ownedCenters, assignedBranches, studentEnrollments, teacherAssignments]);
+
+    // Dynamic title and description based on user role
+    const pageTitle = useMemo(() => {
+        if (isStudentOnly) {
+            return 'My Learning';
+        } else if (isTeacherOnly) {
+            return 'My Teaching';
+        }
+        return 'Learning Management System';
+    }, [isStudentOnly, isTeacherOnly]);
+
+    const pageDescription = useMemo(() => {
+        if (isStudentOnly) {
+            return 'Select a coaching center to access your classes and learning materials';
+        } else if (isTeacherOnly) {
+            return 'Select a coaching center to teach';
+        }
+        return 'Select a coaching center or branch to manage';
+    }, [isStudentOnly, isTeacherOnly]);
 
     if (isPageLoading) {
         return (
@@ -277,12 +308,12 @@ export default function LMSEntryPage() {
                 notificationCount={0}
                 onNotificationClick={handleNotificationClick}
             />
-            <div >
+            <div>
                 <div className="max-w-6xl mx-auto space-y-8 p-6">
                     <div className="space-y-2">
-                        <h1 className="text-3xl font-bold">Learning Management System</h1>
+                        <h1 className="text-3xl font-bold">{pageTitle}</h1>
                         <p className="text-muted-foreground">
-                            Select a coaching center or branch to manage
+                            {pageDescription}
                         </p>
                     </div>
 

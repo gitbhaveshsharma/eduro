@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Building2, MapPin, GraduationCap, ArrowRight, Calendar, BookOpen } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';  // Importing Badge
 import type { StudentEnrollment } from '@/lib/schema/coaching.types';
 import { EnrollmentUtils, CoachingDisplayUtils } from '@/lib/utils/coaching.utils';
 
@@ -52,8 +53,8 @@ export const StudentEnrollmentCard = memo(({
                             </AvatarFallback>
                         </Avatar>
                         <div className="space-y-1 flex-1 min-w-0">
-                            <CardTitle className="text-lg flex items-center gap-2 truncate">
-                                <span className="truncate block w-full">{enrollment.coaching_name}</span>
+                            <CardTitle className="text-lg flex items-center gap-2 w-[90%] max-w-full overflow-hidden text-ellipsis whitespace-nowrap">
+                                <span className="truncate">{enrollment.coaching_name}</span>
                             </CardTitle>
                             {enrollment.coaching_description && (
                                 <CardDescription className="text-sm line-clamp-2 break-words">

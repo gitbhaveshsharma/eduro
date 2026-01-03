@@ -80,7 +80,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
  * Props for StudentProfilePage
  */
 interface StudentProfilePageProps {
-    enrollmentId: string;
+    branchStudentId: string;
     backUrl: string;
     showBranchInfo?: boolean;
 }
@@ -175,7 +175,7 @@ function getInitials(name: string | null): string {
  * Student Profile Page Component
  */
 export function StudentProfilePage({
-    enrollmentId,
+    branchStudentId,
     backUrl,
     showBranchInfo = true,
 }: StudentProfilePageProps) {
@@ -204,7 +204,7 @@ export function StudentProfilePage({
             const { data, error: fetchError } = await supabase
                 .from('student_enrollment_details')
                 .select('*')
-                .eq('enrollment_id', enrollmentId)
+                .eq('branch_student_id', branchStudentId)
                 .single();
 
             if (fetchError) {
@@ -212,16 +212,16 @@ export function StudentProfilePage({
             }
 
             if (!data) {
-                throw new Error('Enrollment not found');
+                throw new Error('Student not found');
             }
 
             setEnrollment(data as EnrichedClassEnrollment);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to load enrollment');
+            setError(err instanceof Error ? err.message : 'Failed to load student profile');
         } finally {
             setIsLoading(false);
         }
-    }, [enrollmentId]);
+    }, [branchStudentId]);
 
     useEffect(() => {
         fetchEnrollmentData();
@@ -375,9 +375,9 @@ export function StudentProfilePage({
                                 <Badge variant={enrollmentStatusConfig?.color as any || 'secondary'}>
                                     {enrollmentStatusConfig?.label || enrollment.enrollment_status}
                                 </Badge>
-                               <Badge variant={paymentStatusConfig?.color || 'secondary'}>
-    {paymentStatusConfig?.label || enrollment.payment_status}
-</Badge>
+                                <Badge variant={paymentStatusConfig?.color || 'secondary'}>
+                                    {paymentStatusConfig?.label || enrollment.payment_status}
+                                </Badge>
 
                                 {enrollment.is_payment_overdue && (
                                     <Badge variant="destructive">Payment Overdue</Badge>
@@ -397,11 +397,11 @@ export function StudentProfilePage({
                         {/* Quick Stats */}
                         <div className="grid grid-cols-2 gap-4 md:min-w-[200px]">
                             <div className="text-center p-3 bg-muted rounded-lg">
-                                <p className="text-2xl font-bold">{enrollment.attendance_percentage.toFixed(1)}%</p>
+                                <p className="text-2xl font-bold">{enrollment.attendance_percentage !== null ? enrollment.attendance_percentage.toFixed(1) : '0.0'}%</p>
                                 <p className="text-xs text-muted-foreground">Attendance</p>
                             </div>
                             <div className="text-center p-3 bg-muted rounded-lg">
-                                <p className="text-2xl font-bold">{enrollment.days_enrolled}</p>
+                                <p className="text-2xl font-bold">{enrollment.days_enrolled ?? 0}</p>
                                 <p className="text-xs text-muted-foreground">Days Enrolled</p>
                             </div>
                         </div>
@@ -420,23 +420,24 @@ export function StudentProfilePage({
                 />
                 <StatsCard
                     title="Attendance Rate"
-                    value={`${enrollment.attendance_percentage.toFixed(1)}%`}
+                    value={enrollment.attendance_percentage !== null ? `${enrollment.attendance_percentage.toFixed(1)}%` : 'N/A'}
                     icon={CheckCircle2}
                     variant={
-                        enrollment.attendance_percentage >= 75 ? 'success' :
-                            enrollment.attendance_percentage >= 60 ? 'warning' : 'danger'
+                        enrollment.attendance_percentage === null ? 'default' :
+                            enrollment.attendance_percentage >= 75 ? 'success' :
+                                enrollment.attendance_percentage >= 60 ? 'warning' : 'danger'
                     }
-                    description={`${enrollment.total_days_present} present / ${enrollment.total_days_absent} absent`}
+                    description={`${enrollment.total_days_present ?? 0} present / ${enrollment.total_days_absent ?? 0} absent`}
                 />
                 <StatsCard
                     title="Receipts"
-                    value={enrollment.total_receipts_paid}
+                    value={enrollment.total_receipts_paid ?? 0}
                     icon={Receipt}
-                    description={`${enrollment.total_receipts_pending} pending`}
+                    description={`${enrollment.total_receipts_pending ?? 0} pending`}
                 />
                 <StatsCard
                     title="Payment Progress"
-                    value={`${enrollment.payment_completion_percentage}%`}
+                    value={`${enrollment.payment_completion_percentage ?? 0}%`}
                     icon={TrendingUp}
                     variant={enrollment.payment_completion_percentage >= 100 ? 'success' : 'default'}
                     description={`${formatCurrency(enrollment.total_fees_paid)} of ${formatCurrency(enrollment.total_fees_due)}`}
@@ -555,14 +556,14 @@ export function StudentProfilePage({
                             <CardContent>
                                 <div className="text-center mb-4">
                                     <p className="text-4xl font-bold">
-                                        {enrollment.attendance_percentage.toFixed(1)}%
+                                        {enrollment.attendance_percentage !== null ? enrollment.attendance_percentage.toFixed(1) : '0.0'}%
                                     </p>
                                     <p className="text-sm text-muted-foreground">Overall Attendance</p>
                                 </div>
                                 <Separator className="my-4" />
-                                <InfoRow label="Days Present" value={enrollment.total_days_present} />
-                                <InfoRow label="Days Absent" value={enrollment.total_days_absent} />
-                                <InfoRow label="Days Enrolled" value={enrollment.days_enrolled} />
+                                <InfoRow label="Days Present" value={enrollment.total_days_present ?? 0} />
+                                <InfoRow label="Days Absent" value={enrollment.total_days_absent ?? 0} />
+                                <InfoRow label="Days Enrolled" value={enrollment.days_enrolled ?? 0} />
                             </CardContent>
                         </Card>
 
@@ -680,7 +681,7 @@ export function StudentProfilePage({
                                         </Badge>
                                     )}
                                 </div>
-                                <InfoRow label="Payment Completion" value={`${enrollment.payment_completion_percentage}%`} />
+                                <InfoRow label="Payment Completion" value={`${enrollment.payment_completion_percentage ?? 0}%`} />
                                 <InfoRow label="Last Payment" value={formatDate(enrollment.last_payment_date)} />
                                 <InfoRow
                                     label="Next Payment Due"
@@ -702,8 +703,8 @@ export function StudentProfilePage({
                                 </CardTitle>
                             </CardHeader>
                             <CardContent>
-                                <InfoRow label="Receipts Paid" value={enrollment.total_receipts_paid} />
-                                <InfoRow label="Receipts Pending" value={enrollment.total_receipts_pending} />
+                                <InfoRow label="Receipts Paid" value={enrollment.total_receipts_paid ?? 0} />
+                                <InfoRow label="Receipts Pending" value={enrollment.total_receipts_pending ?? 0} />
                                 <InfoRow label="Total Amount via Receipts" value={formatCurrency(enrollment.total_amount_paid_via_receipts)} />
                             </CardContent>
                         </Card>

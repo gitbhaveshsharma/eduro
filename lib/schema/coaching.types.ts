@@ -348,7 +348,7 @@ export interface CoachingCenterStats {
   total_branches: number;
   active_branches: number;
   average_branches_per_center: number;
-   comprehensive_stats?: CoachingCenterRPCStats;
+  comprehensive_stats?: CoachingCenterRPCStats;
 }
 
 /**
@@ -761,6 +761,7 @@ export interface StudentEnrollment {
   coaching_center_id: string;
   coaching_name: string;
   coaching_logo: string | null;
+  is_verified: boolean;
   coaching_description: string | null;
   branch_id: string;
   branch_name: string;
