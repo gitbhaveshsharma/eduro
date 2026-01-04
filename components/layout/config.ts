@@ -902,7 +902,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: 'dashboard',
+        href: '/',
         description: 'Teaching overview',
         roles: ['T'],
     },
@@ -1185,14 +1185,14 @@ export class LayoutUtils {
     static getStudentNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
         const items = LMS_STUDENT_NAV_ITEMS.map(item => ({
             ...item,
-            href: item.href.replace('/lms/student', `/lms/student/${centerId}`),
+            href: item.href?.replace('/lms/student', `/lms/student/${centerId}`),
         }));
-        
+
         // Filter by device if provided
         if (device) {
             return items.filter(item => item.devices.includes(device));
         }
-        
+
         return items;
     }
 
@@ -1204,14 +1204,14 @@ export class LayoutUtils {
     static getTeacherNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
         const items = LMS_TEACHER_NAV_ITEMS.map(item => ({
             ...item,
-            href: item.href.replace('/lms/teacher', `/lms/teacher/${centerId}`),
+            href: item.href?.replace('/lms/teacher', `/lms/teacher/${centerId}`),
         }));
-        
+
         // Filter by device if provided
         if (device) {
             return items.filter(item => item.devices.includes(device));
         }
-        
+
         return items;
     }
 
@@ -1222,7 +1222,7 @@ export class LayoutUtils {
      */
     static getStudentHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
         const items = LMS_STUDENT_HEADER_ITEMS.map(item => {
-            if (item.action.type === 'navigate' && item.action.href) {
+            if (item.action && item.action.type === 'navigate' && item.action.href) {
                 return {
                     ...item,
                     action: {
@@ -1233,14 +1233,14 @@ export class LayoutUtils {
             }
             return item;
         });
-        
+
         // Filter by device if provided
         if (device) {
-            return items.filter(item => 
+            return items.filter(item =>
                 !item.showOn?.devices || item.showOn.devices.includes(device)
             );
         }
-        
+
         return items;
     }
 
@@ -1251,7 +1251,7 @@ export class LayoutUtils {
      */
     static getTeacherHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
         const items = LMS_TEACHER_HEADER_ITEMS.map(item => {
-            if (item.action.type === 'navigate' && item.action.href) {
+            if (item.action && item.action.type === 'navigate' && item.action.href) {
                 return {
                     ...item,
                     action: {
@@ -1262,14 +1262,14 @@ export class LayoutUtils {
             }
             return item;
         });
-        
+
         // Filter by device if provided
         if (device) {
-            return items.filter(item => 
+            return items.filter(item =>
                 !item.showOn?.devices || item.showOn.devices.includes(device)
             );
         }
-        
+
         return items;
     }
 

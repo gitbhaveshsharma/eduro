@@ -32,13 +32,13 @@ export function DashboardGreeting({ profile, onAskAI }: DashboardGreetingProps) 
 
     return (
         <div className="flex items-center justify-between flex-wrap gap-4">
-            <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight">
+            <h1 className="text-2xl md:text-3xl font-bold text-brand-highlight tracking-tight">
                 {greeting}, {firstName} 👋
             </h1>
 
             <Button
                 onClick={onAskAI}
-                className="border border-border shadow-sm gap-2 rounded-full px-5 py-2.5 h-auto"
+                className="border-brand-highlight/30 bg-brand-highlight/5 hover:bg-brand-highlight hover:text-white shadow-sm gap-2 rounded-full px-5 py-2.5 h-auto transition-all"
                 variant="outline"
             >
                 <Sparkles className="w-4 h-4" />

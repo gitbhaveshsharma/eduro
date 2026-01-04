@@ -145,10 +145,10 @@ export default function TeacherCoachingLayout({ children, params }: TeacherCoach
     const deviceType = LayoutUtils.getDeviceType();
 
     const sidebarItems: SidebarItem[] = LayoutUtils.getTeacherSidebarItems(centerId);
-    
+
     // Get navigation items with dynamic hrefs for bottom nav (filtered by device)
     const navigationItems = LayoutUtils.getTeacherNavigationItems(centerId, deviceType);
-    
+
     // Get header items with dynamic hrefs (filtered by device)
     const headerItems = LayoutUtils.getTeacherHeaderItems(centerId, deviceType);
 
@@ -174,7 +174,7 @@ export default function TeacherCoachingLayout({ children, params }: TeacherCoach
                         width: '280px',
                         collapsible: true,
                         overlay: true,
-                        devices: ['desktop', 'tablet', 'mobile'], // Show sidebar on all devices
+                        devices: ['desktop', 'tablet'], // Show sidebar on desktop and tablet devices
                     },
                 }}
                 sidebarItems={sidebarItems}

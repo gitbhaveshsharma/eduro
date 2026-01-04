@@ -1,229 +1,130 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BookOpen, Users, Calendar, ClipboardList } from 'lucide-react';
+import { CoachingAPI } from '@/lib/coaching';
 import { useTeacherContext } from './layout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { 
-    Building2, 
-    BookOpen, 
-    Calendar, 
-    Users, 
-    ClipboardList 
-} from 'lucide-react';
+import type { TeacherAssignment } from '@/lib/schema/coaching.types';
 
-export default function TeacherCoachingPage() {
+import { DashboardHeader } from './_components/dashboard/teacher-dashboard-header';
+import { StatsCard } from './_components/dashboard/stats-card';
+import { QuickActionCard } from './_components/dashboard/quick-action-card';
+import { AssignmentsList } from './_components/dashboard/assignments-list';
+import { CenterInfo } from './_components/dashboard/center-info';
+
+export default function TeacherDashboardPage() {
     const router = useRouter();
     const { coachingCenter, centerId } = useTeacherContext();
-    const [assignments, setAssignments] = useState<any[]>([]);
+
+    const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Fetch assignments logic here
-        setAssignments([]);
+        async function loadAssignments() {
+            if (!coachingCenter) return;
+            setLoading(true);
+            try {
+                const res = await CoachingAPI.getTeacherAssignments();
+                if (res.success && res.data) {
+                    setAssignments(res.data);
+                } else {
+                    setError(res.error || 'Failed to load assignments');
+                }
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Unexpected error');
+            } finally {
+                setLoading(false);
+            }
+        }
+        loadAssignments();
     }, [coachingCenter]);
 
     if (!coachingCenter) {
-        return <div>Coaching center not found</div>;
+        return (
+            <div className="flex items-center justify-center min-h-[50vh]">
+                <p className="text-muted-foreground">Coaching center not found</p>
+            </div>
+        );
     }
 
     return (
-        <div className="space-y-6">
-            {/* Header Section */}
-            <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-xl p-6 border">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="bg-white p-3 rounded-lg border shadow-sm">
-                            <Building2 className="h-8 w-8 text-primary" />
-                        </div>
-                        <div>
-                            <h1 className="text-3xl font-bold">{coachingCenter.name}</h1>
-                            <p className="text-muted-foreground">
-                                Welcome to your teacher portal at {coachingCenter.name}
-                            </p>
-                        </div>
-                    </div>
-                    <Badge variant="outline" className="text-lg px-4 py-2">
-                        Teacher Portal
-                    </Badge>
-                </div>
+        <div className="space-y-6 pb-8">
+            {/* Header */}
+            <DashboardHeader coachingCenter={coachingCenter} />
+
+            {/* Stats Grid - 2 columns on mobile, 4 on desktop */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                <StatsCard
+                    title="My Classes"
+                    value={4}
+                    icon={BookOpen}
+                    iconColor="text-blue-600"
+                    bgColor="bg-blue-100"
+                />
+                <StatsCard
+                    title="Active Assignments"
+                    value={assignments.length}
+                    icon={ClipboardList}
+                    iconColor="text-green-600"
+                    bgColor="bg-green-100"
+                />
+                <StatsCard
+                    title="Total Students"
+                    value={156}
+                    icon={Users}
+                    iconColor="text-purple-600"
+                    bgColor="bg-purple-100"
+                />
+                <StatsCard
+                    title="Classes Today"
+                    value={3}
+                    icon={Calendar}
+                    iconColor="text-amber-600"
+                    bgColor="bg-amber-100"
+                />
             </div>
 
-            {/* Stats Section */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            My Classes
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div className="text-2xl font-bold">4</div>
-                            <BookOpen className="h-8 w-8 text-primary/30" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Active Assignments
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div className="text-2xl font-bold">{assignments.length}</div>
-                            <ClipboardList className="h-8 w-8 text-green-500/30" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Total Students
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div className="text-2xl font-bold">156</div>
-                            <Users className="h-8 w-8 text-blue-500/30" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground">
-                            Classes Today
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="flex items-center justify-between">
-                            <div className="text-2xl font-bold">3</div>
-                            <Calendar className="h-8 w-8 text-yellow-500/30" />
-                        </div>
-                    </CardContent>
-                </Card>
+            {/* Quick Actions - 2 columns on mobile, 3 on desktop */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <QuickActionCard
+                    title="My Classes"
+                    description="Manage your classes and course materials"
+                    icon={BookOpen}
+                    iconColor="text-blue-600"
+                    buttonText="View Classes"
+                    buttonVariant="default"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/classes`)}
+                />
+                <QuickActionCard
+                    title="Students"
+                    description="View and manage your students"
+                    icon={Users}
+                    iconColor="text-purple-600"
+                    buttonText="View Students"
+                    buttonVariant="outline"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/students`)}
+                />
+                <QuickActionCard
+                    title="Attendance"
+                    description="Mark attendance and view records"
+                    icon={Calendar}
+                    iconColor="text-green-600"
+                    buttonText="Take Attendance"
+                    buttonVariant="secondary"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/attendance`)}
+                />
             </div>
 
-            {/* Quick Actions */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/lms/teacher/${centerId}/classes`)}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <BookOpen className="h-5 w-5 text-primary" />
-                            My Classes
-                        </CardTitle>
-                        <CardDescription>
-                            Manage your classes and course materials
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button className="w-full">View Classes</Button>
-                    </CardContent>
-                </Card>
+            {/* Assignments */}
+            <AssignmentsList
+                assignments={assignments}
+                onViewAll={() => router.push(`/lms/teacher/${centerId}/assignments`)}
+            />
 
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/lms/teacher/${centerId}/students`)}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Users className="h-5 w-5 text-blue-500" />
-                            Students
-                        </CardTitle>
-                        <CardDescription>
-                            View and manage your students
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button variant="outline" className="w-full">View Students</Button>
-                    </CardContent>
-                </Card>
-
-                <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => router.push(`/lms/teacher/${centerId}/attendance`)}>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Calendar className="h-5 w-5 text-green-500" />
-                            Attendance
-                        </CardTitle>
-                        <CardDescription>
-                            Mark attendance and view records
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Button variant="secondary" className="w-full">Take Attendance</Button>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Assignments Section */}
-            {assignments.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <ClipboardList className="h-5 w-5 text-primary" />
-                            Recent Assignments to Review
-                        </CardTitle>
-                        <CardDescription>
-                            {assignments.length} assignment{assignments.length !== 1 ? 's' : ''} pending review
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            {assignments.slice(0, 3).map((assignment) => (
-                                <div key={assignment.assignment_id} className="p-3 border rounded-lg hover:bg-accent cursor-pointer">
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-medium">{assignment.coaching_name}</p>
-                                            {assignment.branch_name && (
-                                                <p className="text-sm text-muted-foreground">{assignment.branch_name}</p>
-                                            )}
-                                        </div>
-                                        <Badge variant={assignment.is_active ? 'default' : 'secondary'}>
-                                            {assignment.is_active ? 'Active' : 'Inactive'}
-                                        </Badge>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        {assignments.length > 3 && (
-                            <Button variant="link" className="w-full mt-4" onClick={() => router.push(`/lms/teacher/${centerId}/assignments`)}>
-                                View All Assignments
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
-
-            {/* Coaching Center Info */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Building2 className="h-5 w-5 text-primary" />
-                        About {coachingCenter.name}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    {coachingCenter.description && (
-                        <p className="text-muted-foreground">{coachingCenter.description}</p>
-                    )}
-                    <div className="flex flex-wrap gap-4 text-sm">
-                        {coachingCenter.email && (
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium">Email:</span>
-                                <span className="text-muted-foreground">{coachingCenter.email}</span>
-                            </div>
-                        )}
-                        {coachingCenter.phone && (
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium">Phone:</span>
-                                <span className="text-muted-foreground">{coachingCenter.phone}</span>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Center Info */}
+            <CenterInfo coachingCenter={coachingCenter} />
         </div>
     );
 }

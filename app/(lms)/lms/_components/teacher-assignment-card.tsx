@@ -53,20 +53,20 @@ export const TeacherAssignmentCard = memo(({
 
     return (
         <Card className={`hover:shadow-lg transition-all duration-200 cursor-pointer group border-2 ${isActive
-            ? 'hover:border-green-500/30 bg-gradient-to-br from-white to-green-50/30'
+            ? 'hover:border-brand-highlight/30 bg-gradient-to-br from-white to-orange-50/30'
             : 'hover:border-gray-500/30 bg-gradient-to-br from-white to-gray-50/30'
             }`}>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-1">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
-                        <Avatar className={`h-12 w-12 border-2 flex-shrink-0 ${isActive ? 'border-green-100' : 'border-gray-100'}`}>
+                        <Avatar className={`h-12 w-12 border-2 flex-shrink-0 ${isActive ? 'border-brand-highlight/20' : 'border-gray-100'}`}>
                             <AvatarImage src={assignment.coaching_logo || undefined} alt={assignment.coaching_name} />
-                            <AvatarFallback className={`${isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                            <AvatarFallback className={`${isActive ? 'bg-brand-highlight/10 text-brand-highlight' : 'bg-gray-100 text-gray-700'}`}>
                                 <Building2 className="h-6 w-6" />
                             </AvatarFallback>
                         </Avatar>
                         <div className="space-y-1 flex-1 min-w-0">
-                            <CardTitle className={`text-lg ${isActive ? 'group-hover:text-green-600' : 'group-hover:text-gray-600'} transition-colors`}>
+                            <CardTitle className={`text-lg ${isActive ? 'group-hover:text-brand-highlight' : 'group-hover:text-gray-600'} transition-colors`}>
                                 <span className="truncate block w-full">{assignment.coaching_name}</span>
                             </CardTitle>
                             {assignment.coaching_description && (
@@ -76,7 +76,7 @@ export const TeacherAssignmentCard = memo(({
                             )}
                         </div>
                     </div>
-                    <Badge variant={isActive ? 'default' : 'secondary'} className="ml-2 flex-shrink-0">
+                    <Badge variant={isActive ? 'secondary' : 'default'} className="ml-2 flex-shrink-0">
                         {isActive ? 'Active' : 'Inactive'}
                     </Badge>
                 </div>
@@ -84,11 +84,11 @@ export const TeacherAssignmentCard = memo(({
 
             <CardContent className="space-y-4">
                 <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-500'} text-white`}>
+                    <div className={`p-1.5 rounded-full flex-shrink-0 ${isActive ? 'bg-brand-highlight' : 'bg-gray-500'} text-white`}>
                         <UserCog className="h-3 w-3" />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className={`font-medium truncate ${isActive ? 'text-green-700' : 'text-gray-700'}`}>
+                        <p className={`font-medium truncate ${isActive ? 'text-brand-highlight' : 'text-gray-700'}`}>
                             Teacher Assignment
                         </p>
                         <p className="text-xs text-muted-foreground truncate">
@@ -98,13 +98,13 @@ export const TeacherAssignmentCard = memo(({
                 </div>
 
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <MapPin className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-green-500' : 'text-gray-500'}`} />
+                    <MapPin className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-brand-highlight' : 'text-gray-500'}`} />
                     <span className="font-medium truncate">{assignment.branch_name}</span>
                 </div>
 
                 {assignment.teaching_subjects && assignment.teaching_subjects.length > 0 && (
                     <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                        <BookOpen className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isActive ? 'text-green-500' : 'text-gray-500'}`} />
+                        <BookOpen className={`h-4 w-4 mt-0.5 flex-shrink-0 ${isActive ? 'text-brand-highlight' : 'text-gray-500'}`} />
                         <div className="min-w-0 flex-1">
                             <p className="text-xs text-muted-foreground mb-1">Teaching Subjects:</p>
                             <p className="font-medium truncate">{subjectsDisplay}</p>
@@ -114,11 +114,11 @@ export const TeacherAssignmentCard = memo(({
 
                 <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                     <div className="flex items-center gap-1 min-w-0 flex-1">
-                        <Calendar className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-green-500' : 'text-gray-500'}`} />
+                        <Calendar className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-brand-highlight' : 'text-gray-500'}`} />
                         <span className="truncate">Assigned {assignmentDate}</span>
                     </div>
                     <div className="flex items-center gap-1 whitespace-nowrap">
-                        <Clock className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-green-500' : 'text-gray-500'}`} />
+                        <Clock className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-brand-highlight' : 'text-gray-500'}`} />
                         <span>Duration: {duration}</span>
                     </div>
                 </div>
@@ -129,7 +129,7 @@ export const TeacherAssignmentCard = memo(({
                     loading={loading}
                     loadingText="Loading..."
                     className={`w-full ${isActive
-                        ? 'group-hover:bg-green-50 group-hover:border-green-500 group-hover:text-green-700'
+                        ? 'group-hover:bg-brand-highlight/5 group-hover:border-brand-highlight group-hover:text-brand-highlight'
                         : 'group-hover:bg-gray-50 group-hover:border-gray-500 group-hover:text-gray-700'
                         } transition-all`}
                 >

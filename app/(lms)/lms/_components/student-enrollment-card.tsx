@@ -40,7 +40,7 @@ export const StudentEnrollmentCard = memo(({
 
     return (
         <Card className="hover:shadow-lg transition-shadow cursor-pointer group border-2 hover:border-primary/20">
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-1">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-3 flex-1 min-w-0">
                         <Avatar className="h-12 w-12 border-2 border-muted flex-shrink-0">

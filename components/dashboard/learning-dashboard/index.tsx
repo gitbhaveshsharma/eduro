@@ -25,7 +25,7 @@ import {
 import type { Profile } from '@/lib/schema/profile.types';
 import { useBranchClassesStore, useUpcomingClasses } from '@/lib/branch-system/stores/branch-classes.store';
 import { mapUpcomingClassData } from '@/lib/branch-system/utils/branch-classes.utils';
-import type { UpcomingClass } from './types';
+import type { UpcomingClass, SubjectId } from './types';
 
 // Add the getProfileUrl function here
 export const getProfileUrl = (username: string): string => {
@@ -71,9 +71,18 @@ export function LearningDashboard({
 
     // Map RPC data to UI format
     const upcomingClasses: UpcomingClass[] = upcomingClassesData
-        ? upcomingClassesData.map(mapUpcomingClassData)
+        ? upcomingClassesData.map(classData => {
+            const mapped = mapUpcomingClassData(classData);
+            return {
+                ...mapped,
+                subject: {
+                    ...mapped.subject,
+                    id: mapped.subject.id as SubjectId
+                }
+            };
+        })
         : [];
-        
+
     // Filter content based on selected subject
     const filteredClasses =
         selectedSubject === 'all'
