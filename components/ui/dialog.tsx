@@ -12,7 +12,7 @@ const DialogTrigger = DialogPrimitive.Trigger
 const DialogPortal = DialogPrimitive.Portal
 const DialogClose = DialogPrimitive.Close
 
-// Dialog Overlay
+// Dialog Overlay - Enhanced with backdrop blur
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
@@ -20,9 +20,14 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/80',
+      'fixed inset-0 z-50',
+      // Enhanced overlay with blur effect - using your color system
+      'bg-black/50 backdrop-blur-sm',
+      // Smooth animations
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+      // Transition for smooth backdrop appearance
+      'transition-all duration-200',
       className
     )}
     {...props}
@@ -30,7 +35,7 @@ const DialogOverlay = React.forwardRef<
 ))
 DialogOverlay.displayName = DialogPrimitive.Overlay.displayName
 
-// Dialog Content
+// Dialog Content - Enhanced styling with card colors
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & {
@@ -43,14 +48,18 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-0',
-        'bg-background border shadow-lg duration-200',
-        'rounded-lg overflow-hidden', // Changed to overflow-hidden to contain children
+        // Use card colors for clean, professional look
+        'bg-card border border-border shadow-lg',
+        // Smooth transitions
+        'duration-200 rounded-lg overflow-hidden',
+        // Animations
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
         'data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%]',
         'data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]',
-        'max-h-[85vh] flex flex-col', // Added max-height and flex column
+        // Layout
+        'max-h-[85vh] flex flex-col',
         className
       )}
       {...props}
@@ -59,10 +68,17 @@ const DialogContent = React.forwardRef<
       {showCloseButton && (
         <DialogPrimitive.Close
           className={cn(
-            'absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity',
-            'hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+            'absolute right-4 top-4 rounded-sm',
+            // Using muted colors for subtle close button
+            'text-muted-foreground opacity-70',
+            'ring-offset-background transition-all',
+            // Hover state with brand color hint
+            'hover:opacity-100 hover:text-foreground',
+            // Focus state with ring
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             'disabled:pointer-events-none',
-            'data-[state=open]:bg-accent data-[state=open]:text-muted-foreground'
+            // Enhanced close button background on hover
+            'hover:bg-accent rounded-md p-1'
           )}
         >
           <XIcon className="h-4 w-4" />
@@ -74,16 +90,17 @@ const DialogContent = React.forwardRef<
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
-// Dialog Header - Fixed at top
+// Dialog Header - Fixed at top with card background
 const DialogHeader = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-1.5 p-6 pb-4 border-b',
-      'bg-background',
-      'flex-shrink-0', // Prevent shrinking
+      'flex flex-col space-y-1.5 p-6 pb-4',
+      // Use card background with subtle border
+      'bg-card border-b border-border',
+      'flex-shrink-0',
       className
     )}
     {...props}
@@ -98,9 +115,11 @@ const DialogBody = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      COMMON_SCROLLABLE_PATTERNS.DIALOG_BODY, // Using the predefined pattern
-      'p-6 py-4', // Keep padding separate for easier override
-      'max-h-full', // Take available height
+      COMMON_SCROLLABLE_PATTERNS.DIALOG_BODY,
+      // Background using card color for consistency
+      'bg-card',
+      'p-6 py-4',
+      'max-h-full',
       className
     )}
     {...props}
@@ -108,16 +127,17 @@ const DialogBody = ({
 )
 DialogBody.displayName = "DialogBody"
 
-// Dialog Footer - Fixed at bottom
+// Dialog Footer - Fixed at bottom with card background
 const DialogFooter = ({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-4 border-t',
-      'bg-background',
-      'flex-shrink-0', // Prevent shrinking
+      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 pt-4',
+      // Use card background with subtle border
+      'bg-card border-t border-border',
+      'flex-shrink-0',
       className
     )}
     {...props}
@@ -125,7 +145,7 @@ const DialogFooter = ({
 )
 DialogFooter.displayName = "DialogFooter"
 
-// Dialog Title
+// Dialog Title - Enhanced typography
 const DialogTitle = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Title>
@@ -134,6 +154,8 @@ const DialogTitle = React.forwardRef<
     ref={ref}
     className={cn(
       'text-lg font-semibold leading-none tracking-tight',
+      // Use primary text color for emphasis
+      'text-foreground',
       className
     )}
     {...props}
@@ -141,7 +163,7 @@ const DialogTitle = React.forwardRef<
 ))
 DialogTitle.displayName = DialogPrimitive.Title.displayName
 
-// Dialog Description
+// Dialog Description - Enhanced typography
 const DialogDescription = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Description>
@@ -165,7 +187,7 @@ export {
   DialogContent,
   DialogClose,
   DialogHeader,
-  DialogBody, // New export
+  DialogBody,
   DialogFooter,
   DialogTitle,
   DialogDescription,
