@@ -624,6 +624,78 @@ export class BranchStudentsService {
         }
     }
 
+    /**
+     * Gets students taught by a teacher (limited data for privacy)
+     * Teachers can only see basic student info, not sensitive financial data
+     * 
+     * @param teacherId - Teacher UUID
+     * @returns Operation result with minimal student data
+     */
+    async getTeacherStudents(
+        teacherId: string
+    ): Promise<BranchStudentOperationResult<import('../types/branch-students.types').TeacherStudent[]>> {
+        try {
+            console.log('🔵 [getTeacherStudents] Fetching students for teacher:', teacherId);
+
+            const { data, error } = await this.supabase
+                .from(this.ENROLLMENT_VIEW)
+                .select(`
+                    enrollment_id,
+                    student_id,
+                    student_name,
+                    avatar_url,
+                    date_of_birth,
+                    class_id,
+                    class_name,
+                    attendance_percentage,
+                    emergency_contact_name,
+                    emergency_contact_phone,
+                    enrollment_status,
+                    enrollment_date
+                `)
+                .eq('teacher_id', teacherId)
+                .eq('enrollment_status', 'ENROLLED')
+                .order('student_name', { ascending: true });
+
+            if (error) {
+                console.error('❌ [getTeacherStudents] Error:', error);
+                return {
+                    success: false,
+                    error: `Failed to fetch students: ${error.message}`,
+                };
+            }
+            console.log('🔵 [getTeacherStudents] Raw data fetched:', data);
+            console.log(`✅ [getTeacherStudents] Found ${data?.length || 0} students`);
+
+            // Map to TeacherStudent type
+            const teacherStudents = (data || []).map(row => ({
+                enrollment_id: row.enrollment_id,
+                student_id: row.student_id,
+                student_name: row.student_name,
+                avatar_url: row.avatar_url,
+                class_id: row.class_id,
+                class_name: row.class_name,
+                enrollment_status: row.enrollment_status,
+                attendance_percentage: row.attendance_percentage || 0,
+                emergency_contact_name: row.emergency_contact_name,
+                emergency_contact_phone: row.emergency_contact_phone,
+                date_of_birth: row.date_of_birth,
+                enrollment_date: row.enrollment_date,
+            }));
+
+            return {
+                success: true,
+                data: teacherStudents,
+            };
+        } catch (error) {
+            console.error('❌ [getTeacherStudents] Unexpected error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
     // ============================================================
     // UPDATE OPERATIONS
     // ============================================================
@@ -743,7 +815,7 @@ export class BranchStudentsService {
     ): Promise<BranchStudentOperationResult<BranchStudent>> {
         // Delegate to class enrollments service
         const result = await classEnrollmentsService.updateClassEnrollmentByTeacher(enrollmentId, input);
-        
+
         if (!result.success) {
             return {
                 success: false,
@@ -816,13 +888,13 @@ export class BranchStudentsService {
     ): Promise<BranchStudentOperationResult<BranchStudent>> {
         try {
             // Separate class-specific and branch-specific fields
-            const classFields = ['enrollment_status', 'expected_completion_date', 'actual_completion_date', 
-                                 'attendance_percentage', 'current_grade', 'performance_notes',
-                                 'preferred_batch', 'special_requirements'];
-            const branchFields = ['payment_status', 'total_fees_due', 'total_fees_paid', 
-                                  'last_payment_date', 'next_payment_due', 'emergency_contact_name',
-                                  'emergency_contact_phone', 'parent_guardian_name', 'parent_guardian_phone',
-                                  'metadata'];
+            const classFields = ['enrollment_status', 'expected_completion_date', 'actual_completion_date',
+                'attendance_percentage', 'current_grade', 'performance_notes',
+                'preferred_batch', 'special_requirements'];
+            const branchFields = ['payment_status', 'total_fees_due', 'total_fees_paid',
+                'last_payment_date', 'next_payment_due', 'emergency_contact_name',
+                'emergency_contact_phone', 'parent_guardian_name', 'parent_guardian_phone',
+                'metadata'];
 
             const classUpdate: Record<string, any> = {};
             const branchUpdate: Record<string, any> = {};
@@ -1090,7 +1162,7 @@ export class BranchStudentsService {
      */
     private mapViewToBranchStudent(viewData: any): BranchStudentWithRelations {
         return {
-            id: viewData.enrollment_id || viewData.id,
+            id: viewData.branch_student_id || viewData.enrollment_id || viewData.id,
             student_id: viewData.student_id,
             branch_id: viewData.branch_id,
             student_name: viewData.student_name || viewData.branch_student_name,
@@ -1140,11 +1212,11 @@ export class BranchStudentsService {
      */
     private mapViewToPublicStudent(viewData: any): PublicBranchStudent {
         const outstandingBalance = (viewData.total_fees_due || 0) - (viewData.total_fees_paid || 0);
-        const isOverdue = viewData.is_payment_overdue || 
+        const isOverdue = viewData.is_payment_overdue ||
             (viewData.next_payment_due && new Date(viewData.next_payment_due) < new Date());
 
         return {
-            id: viewData.enrollment_id || viewData.id,
+            id: viewData.branch_student_id || viewData.enrollment_id || viewData.id,
             student_id: viewData.student_id,
             branch_id: viewData.branch_id,
             student_name: viewData.student_name || viewData.branch_student_name,
@@ -1170,17 +1242,17 @@ export class BranchStudentsService {
      */
     private calculateStudentSummary(enrollments: BranchStudentWithRelations[]): StudentEnrollmentSummary {
         const totalEnrollments = enrollments.length;
-        const activeEnrollments = enrollments.filter(e => 
+        const activeEnrollments = enrollments.filter(e =>
             e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'ENROLLED')
         ).length;
-        const completedEnrollments = enrollments.filter(e => 
+        const completedEnrollments = enrollments.filter(e =>
             e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'COMPLETED')
         ).length;
 
         const totalFeesDue = enrollments.reduce((sum, e) => sum + (e.total_fees_due || 0), 0);
         const totalFeesPaid = enrollments.reduce((sum, e) => sum + (e.total_fees_paid || 0), 0);
 
-        const attendances = enrollments.flatMap(e => 
+        const attendances = enrollments.flatMap(e =>
             e.class_enrollments?.map((ce: { attendance_percentage: number }) => ce.attendance_percentage) || []
         );
         const avgAttendance = attendances.length > 0

@@ -258,8 +258,9 @@ export function UniversalHeader({
                 <div className="flex items-center justify-between h-16 gap-3">
                     {/* Left Side - Sidebar Toggle & Title */}
                     <div className="flex items-center gap-3 flex-shrink-0 min-w-0">
-                        {/* Sidebar Toggle Button */}
-                        {config.sidebar?.enabled && onSidebarToggle && (
+                        {/* Sidebar Toggle Button - Only show if sidebar is enabled and current device is allowed */}
+                        {config.sidebar?.enabled && onSidebarToggle && 
+                         (!config.sidebar.devices || config.sidebar.devices.includes(config.device)) && (
                             <Button
                                 variant="ghost"
                                 size="sm"

@@ -163,7 +163,7 @@ export function AssignTeacherDialog({ open, onOpenChange, branchId }: AssignTeac
 
             if (profile) {
                 // Check if user has appropriate role (Teacher or general user roles)
-                if (!['T', 'U', 'A', 'SA'].includes(profile.role || '')) {
+                if (!['T', 'C', 'A', 'SA'].includes(profile.role || '')) {
                     setTeacherError("User must have Teacher or appropriate role");
                     setTeacherSearchResults([]);
                     setShowTeacherResults(false);

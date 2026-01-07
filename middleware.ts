@@ -9,7 +9,8 @@ import {
   RequestContext,
   SecurityEvent,
   SecurityEventType,
-  SecurityLevel
+  SecurityLevel,
+  CorsOrigin,
 } from './lib/middleware/types'
 import middlewareConfig from './lib/middleware/config'
 import { AuthHandler } from './lib/middleware/auth-utils'
@@ -291,7 +292,7 @@ function applyCORSHeaders(response: NextResponse, corsConfig: any, request: Next
 /**
  * Get appropriate origin header value
  */
-function getOriginHeader(request: NextRequest, allowedOrigins: string | string[] | boolean | undefined): string {
+function getOriginHeader(request: NextRequest, allowedOrigins: CorsOrigin | undefined): string {
   if (allowedOrigins === true) {
     return '*'
   }
@@ -300,16 +301,45 @@ function getOriginHeader(request: NextRequest, allowedOrigins: string | string[]
     return 'null'
   }
 
+  // string origin
   if (typeof allowedOrigins === 'string') {
     return allowedOrigins
   }
 
+  const requestOrigin = request.headers.get('origin')
+
+  // RegExp origin
+  if (allowedOrigins instanceof RegExp) {
+    if (requestOrigin && allowedOrigins.test(requestOrigin)) return requestOrigin
+    return '*'
+  }
+
+  // Array of origins - can contain strings or RegExp
   if (Array.isArray(allowedOrigins)) {
-    const requestOrigin = request.headers.get('origin')
-    if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    // If array contains strings, prefer exact match
+    const stringMatches = allowedOrigins.filter((o) => typeof o === 'string') as string[]
+    if (requestOrigin && stringMatches.length > 0 && stringMatches.includes(requestOrigin)) {
       return requestOrigin
     }
-    return allowedOrigins[0] || '*'
+
+    // Check regex entries
+    const regexEntries = (allowedOrigins.filter((o) => o instanceof RegExp) as RegExp[])
+    if (requestOrigin && regexEntries.length > 0) {
+      for (const rx of regexEntries) {
+        if (rx.test(requestOrigin)) return requestOrigin
+      }
+    }
+
+    // Fallback to first string origin or wildcard
+    if (stringMatches.length > 0) return stringMatches[0]
+    return '*'
+  }
+
+  // Function origin (dynamic) - can't reliably run synchronously here.
+  // Use request origin if present, otherwise allow wildcard.
+  if (typeof allowedOrigins === 'function') {
+    if (requestOrigin) return requestOrigin
+    return '*'
   }
 
   return '*'

@@ -25,7 +25,7 @@ export const StatCard = memo(({
         className={onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}
         onClick={onClick}
     >
-        <CardContent className="pt-6">
+        <CardContent className="">
             <div className="flex items-center justify-between">
                 <div>
                     <p className="text-sm font-medium text-muted-foreground">{title}</p>

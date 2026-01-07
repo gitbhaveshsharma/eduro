@@ -2,9 +2,9 @@
  * Student Profile Page - Coach Route
  * 
  * Displays comprehensive student profile for coaches
- * Route: /lms/coach/branch-students/[enrollmentId]
+ * Route: /lms/coach/branch-students/[branchStudentId]
  * 
- * @module lms/coach/branch-students/[enrollmentId]
+ * @module lms/coach/branch-students/[branchStudentId]
  */
 
 'use client';
@@ -15,13 +15,13 @@ import { EditEnrollmentDialog } from '@/app/(lms)/lms/_components/branch-student
 import { DeleteEnrollmentDialog } from '@/app/(lms)/lms/_components/branch-students/delete-enrollment-dialog';
 
 export default function StudentProfileRoute() {
-    const params = useParams<{ enrollmentId: string }>();
-    const enrollmentId = params?.enrollmentId ?? '';
+    const params = useParams<{ branchStudentId: string }>();
+    const branchStudentId = params?.branchStudentId ?? '';
 
     return (
         <>
             <StudentProfilePage
-                enrollmentId={enrollmentId}
+                branchStudentId={branchStudentId}
                 backUrl="/lms/coach/branch-students"
                 showBranchInfo={true}
             />

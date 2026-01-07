@@ -12,11 +12,15 @@ A comprehensive conditional navigation system that adapts to different platforms
 4. **Dynamic Header Items** - Items rendered based on page, device, and platform
 5. **Sidebar Integration** - Header includes sidebar toggle functionality
 6. **Backward Compatible** - Existing ConditionalHeader still works
+7. **Role-based Navigation** - Student and Teacher specific navigation items
+8. **LMS Student Portal** - Dedicated navigation for enrolled students
+9. **LMS Teacher Portal** - Dedicated navigation for assigned teachers
 
 ## Features
 
 - **Platform-aware**: Supports Community and LMS platforms with different navigation patterns
 - **Page-aware**: Headers and navigation adapt to specific pages (feed, network, dashboard, settings, etc.)
+- **Role-aware**: Different navigation for students, teachers, coaches, and branch managers
 - **Responsive**: Adapts to mobile, tablet, and desktop screen sizes
 - **Webview-ready**: Detects and optimizes for mobile app webviews
 - **Sidebar Support**: Collapsible sidebar with responsive behavior
@@ -117,6 +121,11 @@ Mobile-optimized bottom navigation with platform-specific items.
 - `settings`: Settings page
 - `profile`: User profile page
 - `connections`: Connections page
+- `coaching`: Coaching centers page
+- `lms-coach`: Coaching center owner dashboard
+- `lms-branch-manager`: Branch manager dashboard
+- `lms-student`: Student portal (enrolled students)
+- `lms-teacher`: Teacher portal (assigned teachers)
 
 ### Device Types
 
@@ -238,6 +247,64 @@ const customItems = [
   }}
 >
   <CoursePage />
+</ConditionalLayout>
+```
+
+### LMS Student Portal (NEW)
+
+```tsx
+// app/(lms)/lms/(student)/student/layout.tsx
+<ConditionalLayout
+  platform="lms"
+  forceConfig={{
+    page: "lms-student",
+    headerType: "universal",
+    showBottomNav: true, // Show bottom nav on mobile/tablet
+    branding: {
+      logoUrl: coachingCenter?.logo_url,
+      name: coachingCenter?.name || "Learning Portal",
+      subtitle: "Student Portal",
+    },
+    sidebar: {
+      enabled: true,
+      defaultOpen: true,
+      position: "left",
+      width: "280px",
+      collapsible: true,
+      overlay: true,
+    },
+  }}
+>
+  <StudentContent />
+</ConditionalLayout>
+```
+
+### LMS Teacher Portal (NEW)
+
+```tsx
+// app/(lms)/lms/(teacher)/teacher/layout.tsx
+<ConditionalLayout
+  platform="lms"
+  forceConfig={{
+    page: "lms-teacher",
+    headerType: "universal",
+    showBottomNav: true, // Show bottom nav on mobile/tablet
+    branding: {
+      logoUrl: coachingCenter?.logo_url,
+      name: coachingCenter?.name || "Teaching Portal",
+      subtitle: "Teacher Portal",
+    },
+    sidebar: {
+      enabled: true,
+      defaultOpen: true,
+      position: "left",
+      width: "280px",
+      collapsible: true,
+      overlay: true,
+    },
+  }}
+>
+  <TeacherContent />
 </ConditionalLayout>
 ```
 

@@ -1532,6 +1532,43 @@ LEFT JOIN coaching_branches cb ON cb.id = sa.branch_id
 LEFT JOIN coaching_centers cc ON cc.id = cb.coaching_center_id;
 
 -- ============================================================
+-- ADDITIONAL FUNCTIONS FOR DATA RETRIEVAL
+-- ============================================================
+CREATE OR REPLACE FUNCTION get_student_enrollments(student_uuid uuid)
+RETURNS TABLE (
+  coaching_center_id uuid,
+  coaching_name text,
+  coaching_logo text,
+  coaching_description text,
+  branch_id uuid,
+  branch_name text,
+  enrollment_id uuid,
+  registration_date date
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    cc.id as coaching_center_id,
+    cc.name as coaching_name,
+    cc.logo_url as coaching_logo,
+    cc.description as coaching_description,
+    cb.id as branch_id,
+    cb.name as branch_name,
+    bs.id as enrollment_id,
+    bs.registration_date
+  FROM branch_students bs
+  INNER JOIN coaching_branches cb ON bs.branch_id = cb.id
+  INNER JOIN coaching_centers cc ON cb.coaching_center_id = cc.id
+  WHERE bs.student_id = student_uuid
+    AND cb.is_active = true
+    AND cc.status = 'ACTIVE'
+  ORDER BY bs.registration_date DESC;
+END;
+$$;
+
+-- ============================================================
 -- COMMENTS
 -- ============================================================
 

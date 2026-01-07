@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 import { ConditionalLayout } from "@/components/layout/conditional-layout";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { CoachingFilterPanelProvider } from "@/components/coaching/search/coaching-filter-panel-context";
@@ -17,13 +18,39 @@ function CoachingPageLoader() {
     );
 }
 
+/**
+ * Check if the current path is a detail page (coaching center or branch)
+ * These pages load their own data and don't need search results
+ */
+function isDetailPage(pathname: string | null): boolean {
+    if (!pathname) return false;
+    // Match /coaching/[slug] or /coaching/[slug]/branch/[branchId]
+    // But NOT /coaching (the search page)
+    const pathParts = pathname.split('/').filter(Boolean);
+    // pathParts for /coaching = ['coaching']
+    // pathParts for /coaching/thebluebe = ['coaching', 'thebluebe']
+    // pathParts for /coaching/thebluebe/branch/xyz = ['coaching', 'thebluebe', 'branch', 'xyz']
+    return pathParts.length >= 2 && pathParts[0] === 'coaching';
+}
+
 export default function CoachingLayoutClient({ children }: { children: React.ReactNode }) {
+    const pathname = usePathname();
     const [isDataLoading, setIsDataLoading] = useState(true);
     const hasPrefetchedRef = useRef(false);
     const { searchCoachingCenters, centerSearchResults } = useCoachingStore();
 
-    // Prefetch data immediately on mount
+    // Determine if we're on a detail page (coaching center or branch profile)
+    const isOnDetailPage = isDetailPage(pathname);
+
+    // Prefetch data immediately on mount - ONLY for the search page
     useEffect(() => {
+        // Skip prefetch for detail pages - they load their own specific data
+        if (isOnDetailPage) {
+            console.log('🔷 CoachingLayout - Skipping prefetch on detail page:', pathname);
+            setIsDataLoading(false);
+            return;
+        }
+
         if (hasPrefetchedRef.current) return;
         hasPrefetchedRef.current = true;
 
@@ -45,7 +72,7 @@ export default function CoachingLayoutClient({ children }: { children: React.Rea
                 console.log('⚠️ CoachingLayout - Prefetch failed');
                 setIsDataLoading(false);
             });
-    }, [searchCoachingCenters, centerSearchResults]);
+    }, [searchCoachingCenters, centerSearchResults, isOnDetailPage, pathname]);
 
     return (
         <CoachingFilterPanelProvider>

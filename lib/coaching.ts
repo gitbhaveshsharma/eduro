@@ -39,7 +39,9 @@ export type {
   CoachingContactInfo,
   CoachingMediaInfo,
   CoachingBusinessInfo,
-  CoachingValidationError
+  CoachingValidationError,
+  StudentEnrollment,
+  TeacherAssignment
 } from './schema/coaching.types';
 
 export {
@@ -93,7 +95,14 @@ export {
   useBranchesFromCache,
   useBranchesCacheLoading,
   useCentersByCategory,
-  useCentersByCategoryLoading
+  useCentersByCategoryLoading,
+  // Enrollments and assignments
+  useStudentEnrollments,
+  useStudentEnrollmentsLoading,
+  useStudentEnrollmentsError,
+  useTeacherAssignments,
+  useTeacherAssignmentsLoading,
+  useTeacherAssignmentsError
 } from './store/coaching.store';
 
 // Utilities
@@ -105,6 +114,7 @@ export {
   CoachingTransformUtils,
   CoachingUrlUtils,
   CoachingAnalyticsUtils,
+  EnrollmentUtils,
   COACHING_CONSTANTS,
   COACHING_ERROR_CODES
 } from './utils/coaching.utils';
@@ -146,6 +156,10 @@ export const CoachingAPI = {
   uploadLogo: CoachingService.uploadCoachingLogo,
   uploadCover: CoachingService.uploadCoachingCover,
 
+  // Enrollments and assignments
+  getStudentEnrollments: CoachingService.getStudentEnrollments,
+  getTeacherAssignments: CoachingService.getTeacherAssignments,
+
   // Utilities
   isSlugAvailable: CoachingService.isSlugAvailable
 };
@@ -175,6 +189,14 @@ export const CoachingStoreAPI = {
     useCoachingStore.getState().uploadLogo(centerId, file),
   uploadCover: (centerId: string, file: File) => 
     useCoachingStore.getState().uploadCover(centerId, file),
+
+  // Enrollments and assignments
+  loadStudentEnrollments: (studentId?: string) => 
+    useCoachingStore.getState().loadStudentEnrollments(studentId),
+  loadTeacherAssignments: (teacherId?: string) => 
+    useCoachingStore.getState().loadTeacherAssignments(teacherId),
+  clearStudentEnrollments: () => useCoachingStore.getState().clearStudentEnrollments(),
+  clearTeacherAssignments: () => useCoachingStore.getState().clearTeacherAssignments(),
 
   // UI state
   setEditMode: (enabled: boolean) => useCoachingStore.getState().setEditMode(enabled),

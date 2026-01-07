@@ -70,16 +70,16 @@ function InfoRow({ label, value }: InfoRowProps) {
 /**
  * Get profile URL based on current route context
  */
-function getProfileUrl(pathname: string, enrollmentId: string): string {
+function getProfileUrl(pathname: string, branchStudentId: string): string {
     // Check if we're in branch-manager context (has branchId in path)
     const branchManagerMatch = pathname.match(/\/manager\/branches\/([^/]+)/);
     if (branchManagerMatch) {
         const branchId = branchManagerMatch[1];
-        return `/lms/manager/branches/${branchId}/students/${enrollmentId}`;
+        return `/lms/manager/branches/${branchId}/students/${branchStudentId}`;
     }
 
     // Default to coach context
-    return `/lms/coach/branch-students/${enrollmentId}`;
+    return `/lms/coach/branch-students/${branchStudentId}`;
 }
 
 /**
@@ -137,7 +137,14 @@ export function StudentDetailsDialog({ open, onOpenChange }: StudentDetailsDialo
     const handleViewFullProfile = useCallback(() => {
         if (!student || !pathname) return;
 
-        const profileUrl = getProfileUrl(pathname, student.id);
+        // Use the student's ID - this will be the branch_student_id from the mapped data
+        const branchStudentId = student.id;
+        if (!branchStudentId) {
+            // console.error('Student ID is missing');
+            return;
+        }
+
+        const profileUrl = getProfileUrl(pathname, branchStudentId);
         closeDetailsDialog();
         router.push(profileUrl);
     }, [student, pathname, closeDetailsDialog, router]);

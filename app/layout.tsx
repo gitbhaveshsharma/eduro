@@ -18,12 +18,18 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preconnects */}
+        {/* DNS Prefetch and Preconnects for faster external resource loading */}
+        <link rel="dns-prefetch" href="https://ixhlpassuqmqpzpumkuw.supabase.co" />
+        <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
+        <link rel="dns-prefetch" href="https://gravatar.com" />
+        <link rel="dns-prefetch" href="https://robohash.org" />
+
+        {/* Preconnect with crossorigin for authenticated requests */}
+        <link rel="preconnect" href="https://ixhlpassuqmqpzpumkuw.supabase.co" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="" />
         <link rel="preconnect" href="https://gravatar.com" crossOrigin="" />
         <link rel="preconnect" href="https://robohash.org" crossOrigin="" />
-        <link rel="preconnect" href="https://ixhlpassuqmqpzpumkuw.supabase.co" crossOrigin="" />
         <link rel="preconnect" href="https://fonts.googleapis.com" crossOrigin="" />
 
         {/* Font preload */}
