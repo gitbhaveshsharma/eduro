@@ -24,7 +24,9 @@ import {
     GraduationCap,
     DollarSign,
     ArrowLeft,
-    MapPin
+    SquareLibrary,
+    MapPin,
+    Users2
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
@@ -43,7 +45,7 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'lms',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         href: '/lms',
         platforms: ['community'],
         devices: ['mobile', 'tablet', 'desktop']
@@ -86,7 +88,7 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'lms',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         href: '/lms',
         platforms: ['lms'],
         devices: ['mobile', 'tablet', 'desktop']
@@ -314,7 +316,7 @@ export const DASHBOARD_HEADER_ITEMS: HeaderItem[] = [
 export const SETTINGS_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'back',
-        label: 'Back',
+        label: 'Home',
         icon: Home,
         action: {
             type: 'navigate',
@@ -392,7 +394,7 @@ export const LMS_COACH_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
@@ -437,7 +439,7 @@ export const LMS_BRANCH_MANAGER_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
@@ -706,7 +708,7 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
@@ -788,8 +790,8 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
 export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'dashboard',
-        label: 'Home',
-        icon: Home,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
         href: '/lms/teacher',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -822,15 +824,24 @@ export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
         devices: ['mobile', 'tablet'],
         roles: ['T'],
     },
+    // {
+    //     id: 'feed',
+    //     label: 'Feed',
+    //     icon: Plus,
+    //     href: '/feed',
+    //     platforms: ['lms'],
+    //     devices: ['mobile', 'tablet'],
+    //     roles: ['T'],
+    // },
     {
-        id: 'feed',
-        label: 'Feed',
-        icon: Plus,
-        href: '/feed',
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: '/lms/teacher/assignments',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
         roles: ['T'],
-    },
+    }
 ];
 
 /**
@@ -866,26 +877,26 @@ export const LMS_TEACHER_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'feed',
         label: 'Feed',
-        icon: Plus,
+        icon: Users2,
         action: {
             type: 'navigate',
             href: '/feed'
         },
         showOn: {
-            devices: ['desktop', 'tablet'],
+            devices: ['desktop', 'tablet', 'mobile'],
             pages: ['lms-teacher']
         }
     },
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
         },
         showOn: {
-            devices: ['desktop'],
+            devices: ['desktop', 'tablet', 'mobile'],
             pages: ['lms-teacher']
         }
     }

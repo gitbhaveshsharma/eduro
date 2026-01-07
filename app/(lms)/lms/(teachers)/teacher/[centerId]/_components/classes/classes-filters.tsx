@@ -110,12 +110,12 @@ export function ClassesFilters({
                             </SheetTrigger>
                             <SheetContent
                                 side="bottom"
-                                className="h-[85vh] flex flex-col"
+                                className="h-[85vh] flex flex-col border-t rounded-t-2xl "
                             >
                                 <SheetHeader className="text-left pb-4 border-b">
                                     <SheetTitle className="flex items-center gap-2">
                                         <SlidersHorizontal className="h-5 w-5" />
-                                        Filter Classes
+                                        Filter
                                     </SheetTitle>
                                     <SheetDescription>
                                         Refine your class search with filters below
@@ -123,11 +123,11 @@ export function ClassesFilters({
                                 </SheetHeader>
 
                                 {/* Scrollable Filter Content */}
-                                <div className="flex-1 overflow-y-auto py-6 space-y-6 scrollbar-modern">
+                                <div className="flex-1 overflow-y-auto py-6 space-y-6 scrollbar-modern p-4">
                                     {/* Status Filter */}
                                     <div className="space-y-3">
                                         <label className="text-sm font-medium flex items-center gap-2">
-                                            <Filter className="h-4 w-4 text-brand-primary" />
+                                            <Filter className="h-4 w-4 " />
                                             Status
                                         </label>
                                         <Select
@@ -150,7 +150,7 @@ export function ClassesFilters({
                                     {/* Subject Filter */}
                                     <div className="space-y-3">
                                         <label className="text-sm font-medium flex items-center gap-2">
-                                            <BookOpen className="h-4 w-4 text-brand-primary" />
+                                            <BookOpen className="h-4 w-4 " />
                                             Subject
                                         </label>
                                         <Select
