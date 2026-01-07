@@ -33,21 +33,32 @@ export function createClient() {
       auth: {
         // CRITICAL: flowType must be 'pkce' for cookie-based auth
         flowType: 'pkce',
-        
+
         // Auto-refresh tokens before they expire
         autoRefreshToken: true,
-        
+
         // Detect session from URL (OAuth callbacks)
         detectSessionInUrl: true,
-        
+
         // Persist session across browser tabs
         persistSession: true,
-        
+
         // Enable debug logging in development
         debug: process.env.NODE_ENV === 'development',
       },
       // Cookie storage is handled automatically by createBrowserClient
       // It will store tokens in cookies prefixed with: sb-{project-ref}-auth-token
+
+      // Global fetch options for better performance
+      global: {
+        fetch: (url, options = {}) => {
+          return fetch(url, {
+            ...options,
+            // Add keepalive for better connection reuse
+            keepalive: true,
+          })
+        },
+      },
     }
   )
 

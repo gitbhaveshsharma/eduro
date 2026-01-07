@@ -343,6 +343,51 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- ============================================================
+-- FUNCTION TO GET TEACHER ASSIGNMENTS
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION get_teacher_assignments(teacher_uuid uuid)
+RETURNS TABLE (
+  coaching_center_id uuid,
+  coaching_name text,
+  coaching_logo text,
+  coaching_description text,
+  branch_id uuid,
+  branch_name text,
+  assignment_id uuid,
+  assignment_date date,
+  assignment_end_date date,
+  is_active boolean,
+  teaching_subjects text[]
+) 
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT 
+    cc.id as coaching_center_id,
+    cc.name as coaching_name,
+    cc.logo_url as coaching_logo,
+    cc.description as coaching_description,
+    cb.id as branch_id,
+    cb.name as branch_name,
+    bt.id as assignment_id,
+    bt.assignment_date,
+    bt.assignment_end_date,
+    bt.is_active,
+    bt.teaching_subjects
+  FROM branch_teacher bt
+  INNER JOIN coaching_branches cb ON bt.branch_id = cb.id
+  INNER JOIN coaching_centers cc ON cb.coaching_center_id = cc.id
+  WHERE bt.teacher_id = teacher_uuid
+    AND cb.is_active = true
+    AND cc.status = 'ACTIVE'
+  ORDER BY bt.assignment_date DESC;
+END;
+$$;
+
+
+-- ============================================================
 -- VIEW FOR TEACHER ASSIGNMENT AUDITING
 -- ============================================================
 

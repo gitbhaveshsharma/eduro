@@ -348,7 +348,7 @@ export interface CoachingCenterStats {
   total_branches: number;
   active_branches: number;
   average_branches_per_center: number;
-   comprehensive_stats?: CoachingCenterRPCStats;
+  comprehensive_stats?: CoachingCenterRPCStats;
 }
 
 /**
@@ -749,3 +749,39 @@ export const COACHING_CATEGORY_METADATA: Record<CoachingCategory, CoachingCatego
     color: 'gray'
   },
 };
+
+// ============================================================
+// STUDENT & TEACHER ENROLLMENT TYPES
+// ============================================================
+
+/**
+ * Student Enrollment Record (from get_student_enrollments RPC)
+ */
+export interface StudentEnrollment {
+  coaching_center_id: string;
+  coaching_name: string;
+  coaching_logo: string | null;
+  is_verified: boolean;
+  coaching_description: string | null;
+  branch_id: string;
+  branch_name: string;
+  enrollment_id: string;
+  registration_date: string; // ISO date string
+}
+
+/**
+ * Teacher Assignment Record (from get_teacher_assignments RPC)
+ */
+export interface TeacherAssignment {
+  coaching_center_id: string;
+  coaching_name: string;
+  coaching_logo: string | null;
+  coaching_description: string | null;
+  branch_id: string;
+  branch_name: string;
+  assignment_id: string;
+  assignment_date: string; // ISO date string
+  assignment_end_date: string | null; // ISO date string
+  is_active: boolean;
+  teaching_subjects: string[] | null;
+}

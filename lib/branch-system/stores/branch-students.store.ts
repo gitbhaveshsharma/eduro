@@ -24,6 +24,7 @@ import type {
     BranchStudentStats,
     StudentEnrollmentSummary,
     BranchStudentValidationError,
+    TeacherStudent,
 } from '../types/branch-students.types';
 import { branchStudentsService } from '../services/branch-students.service';
 
@@ -43,6 +44,13 @@ interface BranchStudentsState {
     searchResult: BranchStudentSearchResult | null;
     stats: BranchStudentStats | null;
     summary: StudentEnrollmentSummary | null;
+
+    // Teacher students cache (privacy-focused limited data)
+    teacherStudentsCache: Record<string, {
+        students: TeacherStudent[];
+        timestamp: number;
+    }>;
+    currentTeacherStudents: TeacherStudent[]; // Current list for teacher view
 
     // Dialog open states
     isDetailsDialogOpen: boolean;
@@ -125,6 +133,15 @@ interface BranchStudentsState {
         classId: string,
         filters?: Omit<BranchStudentFilters, 'class_id'>,
         sort?: BranchStudentSort
+    ) => Promise<void>;
+
+    /**
+     * Fetches students for a teacher (limited data for privacy)
+     * Cached by teacher ID to prevent redundant API calls
+     */
+    fetchTeacherStudents: (
+        teacherId: string,
+        forceRefresh?: boolean
     ) => Promise<void>;
 
     /**
@@ -278,6 +295,7 @@ const initialState: Omit<BranchStudentsState,
     | 'fetchBranchStats'
     | 'fetchStudentsNeedingAttention'
     | 'fetchStudentsWithUpcomingPayments'
+    | 'fetchTeacherStudents'
     | 'setCurrentEnrollment'
     | 'setCurrentEnrollmentWithRelations'
     | 'openDetailsDialog'
@@ -303,6 +321,8 @@ const initialState: Omit<BranchStudentsState,
     searchResult: null,
     stats: null,
     summary: null,
+    teacherStudentsCache: {},
+    currentTeacherStudents: [],
     isDetailsDialogOpen: false,
     isEditDialogOpen: false,
     isDeleteDialogOpen: false,
@@ -582,6 +602,48 @@ export const useBranchStudentsStore = create<BranchStudentsState>()(
                             error: result.error || 'Failed to fetch class students',
                             studentEnrollments: [],
                             studentEnrollmentsWithRelations: [],
+                        });
+                    }
+                },
+
+                fetchTeacherStudents: async (
+                    teacherId: string,
+                    forceRefresh: boolean = false
+                ) => {
+                    const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+                    
+                    // Check cache first
+                    const cached = get().teacherStudentsCache[teacherId];
+                    const now = Date.now();
+                    
+                    if (cached && !forceRefresh && (now - cached.timestamp < CACHE_TTL)) {
+                        console.log('✅ [Store] Using cached teacher students data');
+                        set({ currentTeacherStudents: cached.students });
+                        return;
+                    }
+
+                    set({ listLoading: true, error: null });
+
+                    const result = await branchStudentsService.getTeacherStudents(teacherId);
+
+                    if (result.success && result.data) {
+                        // Update cache
+                        set((state) => ({
+                            listLoading: false,
+                            currentTeacherStudents: result.data!,
+                            teacherStudentsCache: {
+                                ...state.teacherStudentsCache,
+                                [teacherId]: {
+                                    students: result.data!,
+                                    timestamp: now,
+                                },
+                            },
+                        }));
+                    } else {
+                        set({
+                            listLoading: false,
+                            error: result.error || 'Failed to fetch teacher students',
+                            currentTeacherStudents: [],
                         });
                     }
                 },
@@ -980,6 +1042,11 @@ export const selectStudentEnrollments = (state: BranchStudentsState) => state.st
  * Gets student enrollments with relations
  */
 export const selectStudentEnrollmentsWithRelations = (state: BranchStudentsState) => state.studentEnrollmentsWithRelations;
+
+/**
+ * Gets teacher students (limited data for privacy)
+ */
+export const selectTeacherStudents = (state: BranchStudentsState) => state.currentTeacherStudents;
 
 /**
  * Gets search result

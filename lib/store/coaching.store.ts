@@ -36,7 +36,9 @@ import type {
   CoachingCenterPermissions,
   CoachingBranchPermissions,
   CoachingCategory,
-  CoachingCenterSortBy
+  CoachingCenterSortBy,
+  StudentEnrollment,
+  TeacherAssignment
 } from '../schema/coaching.types';
 
 // Store state interface
@@ -116,6 +118,15 @@ interface CoachingState {
   featuredCentersLoading: boolean;
   centersByCategory: Map<CoachingCategory, PublicCoachingCenter[]>;
   centersByCategoryLoading: Set<CoachingCategory>;
+
+  // Student & Teacher Enrollments
+  studentEnrollments: StudentEnrollment[];
+  studentEnrollmentsLoading: boolean;
+  studentEnrollmentsError: string | null;
+  
+  teacherAssignments: TeacherAssignment[];
+  teacherAssignmentsLoading: boolean;
+  teacherAssignmentsError: string | null;
 }
 
 // Store actions interface
@@ -206,6 +217,12 @@ interface CoachingActions {
   loadFeaturedCenters: () => Promise<void>;
   loadCentersByCategory: (category: CoachingCategory) => Promise<void>;
 
+  // Student & Teacher Enrollment actions
+  loadStudentEnrollments: (studentId?: string) => Promise<void>;
+  loadTeacherAssignments: (teacherId?: string) => Promise<void>;
+  clearStudentEnrollments: () => void;
+  clearTeacherAssignments: () => void;
+
   // Utility actions
   checkSlugAvailability: (slug: string, excludeCenterId?: string) => Promise<boolean>;
 
@@ -228,6 +245,9 @@ const generateSearchCacheKey = (
 ): string => {
   return JSON.stringify({ filters, sortBy, page, perPage });
 };
+
+// Request deduplication map to prevent duplicate in-flight requests
+const pendingSearchRequests = new Map<string, Promise<any>>();
 
 // Initial state
 const initialState: CoachingState = {
@@ -290,6 +310,14 @@ const initialState: CoachingState = {
   featuredCentersLoading: false,
   centersByCategory: new Map(),
   centersByCategoryLoading: new Set(),
+
+  studentEnrollments: [],
+  studentEnrollmentsLoading: false,
+  studentEnrollmentsError: null,
+  
+  teacherAssignments: [],
+  teacherAssignmentsLoading: false,
+  teacherAssignmentsError: null,
 };
 
 export const useCoachingStore = create<CoachingStore>()(
@@ -356,6 +384,27 @@ export const useCoachingStore = create<CoachingStore>()(
         },
 
         loadCoachingCenterBySlug: async (slug: string) => {
+          // Check if current coaching center already matches this slug (avoid duplicate API call)
+          const currentCenter = get().currentCoachingCenter;
+          if (currentCenter && currentCenter.slug === slug) {
+            console.log('[CoachingStore] Current center already loaded for slug:', slug);
+            return;
+          }
+
+          // Check cache for this slug - look through cache by slug
+          const cache = get().coachingCenterCache;
+          for (const [, center] of cache.entries()) {
+            if (center.slug === slug) {
+              console.log('[CoachingStore] Found cached center for slug:', slug);
+              set((state) => {
+                state.currentCoachingCenter = center as unknown as CoachingCenter;
+                state.currentCoachingCenterLoading = false;
+                state.currentCoachingCenterError = null;
+              });
+              return;
+            }
+          }
+
           set((state) => {
             state.currentCoachingCenterLoading = true;
             state.currentCoachingCenterError = null;
@@ -718,7 +767,7 @@ export const useCoachingStore = create<CoachingStore>()(
           });
         },
 
-        // UPDATED: Search and filtering actions for centers with caching
+        // UPDATED: Search and filtering actions for centers with caching and deduplication
         searchCoachingCenters: async (
           filters: CoachingCenterFilters = {},
           sortBy: CoachingCenterSortBy = 'recent',
@@ -745,6 +794,18 @@ export const useCoachingStore = create<CoachingStore>()(
             return;
           }
 
+          // Check for pending request with same key (request deduplication)
+          const pendingRequest = pendingSearchRequests.get(cacheKey);
+          if (pendingRequest) {
+            console.log('[CoachingStore] Request already in flight, waiting for existing request');
+            try {
+              await pendingRequest;
+            } catch (e) {
+              // Ignore - the original request handler will set the error
+            }
+            return;
+          }
+
           // Cache miss or expired - fetch fresh data
           console.log('[CoachingStore] Cache miss or expired, fetching fresh results');
           set((state) => {
@@ -761,40 +822,50 @@ export const useCoachingStore = create<CoachingStore>()(
             }, timeoutMs);
           });
 
-          // Race between the actual request and timeout
-          const result = await Promise.race([
+          // Create the actual request and store it for deduplication
+          const requestPromise = Promise.race([
             CoachingService.searchCoachingCenters(filters, sortBy, page, perPage),
             timeoutPromise
           ]);
 
-          set((state) => {
-            state.centerSearchLoading = false;
-            if (result.success && result.data) {
-              state.centerSearchResults = result.data;
+          // Store the pending request
+          pendingSearchRequests.set(cacheKey, requestPromise);
 
-              // Store in cache with timestamp
-              state.centerSearchCache.set(cacheKey, {
-                result: result.data,
-                timestamp: now,
-                expiresAt: now + CACHE_DURATION
-              });
+          try {
+            const result = await requestPromise;
 
-              // Cache individual center items
-              result.data.results.forEach((item: CoachingCenterSearchItem) => {
-                state.coachingCenterCache.set(item.center_id, {
-                  id: item.center_id,
-                  slug: item.center_slug,
-                  name: item.center_name,
-                  category: item.center_category,
-                  subjects: item.center_subjects || [],
-                  logo_url: item.center_logo_url,
-                  is_verified: item.center_is_verified,
-                } as any);
-              });
-            } else {
-              state.centerSearchError = result.error || 'Failed to search centers';
-            }
-          });
+            set((state) => {
+              state.centerSearchLoading = false;
+              if (result.success && result.data) {
+                state.centerSearchResults = result.data;
+
+                // Store in cache with timestamp
+                state.centerSearchCache.set(cacheKey, {
+                  result: result.data,
+                  timestamp: now,
+                  expiresAt: now + CACHE_DURATION
+                });
+
+                // Cache individual center items
+                result.data.results.forEach((item: CoachingCenterSearchItem) => {
+                  state.coachingCenterCache.set(item.center_id, {
+                    id: item.center_id,
+                    slug: item.center_slug,
+                    name: item.center_name,
+                    category: item.center_category,
+                    subjects: item.center_subjects || [],
+                    logo_url: item.center_logo_url,
+                    is_verified: item.center_is_verified,
+                  } as any);
+                });
+              } else {
+                state.centerSearchError = result.error || 'Failed to search centers';
+              }
+            });
+          } finally {
+            // Clean up pending request
+            pendingSearchRequests.delete(cacheKey);
+          }
         },
 
         updateCenterFilters: (filters: Partial<CoachingCenterFilters>) => {
@@ -1106,6 +1177,77 @@ export const useCoachingStore = create<CoachingStore>()(
           });
         },
 
+        // Student & Teacher Enrollment actions
+        loadStudentEnrollments: async (studentId?: string) => {
+          console.log('[CoachingStore] Loading student enrollments...');
+          set((state) => {
+            state.studentEnrollmentsLoading = true;
+            state.studentEnrollmentsError = null;
+          });
+
+          const result = await CoachingService.getStudentEnrollments(studentId);
+
+          console.log('[CoachingStore] getStudentEnrollments result:', {
+            success: result.success,
+            dataLength: result.data?.length,
+            error: result.error
+          });
+
+          set((state) => {
+            state.studentEnrollmentsLoading = false;
+            if (result.success && result.data) {
+              state.studentEnrollments = result.data;
+              state.studentEnrollmentsError = null;
+              console.log('[CoachingStore] Successfully loaded student enrollments:', result.data.length);
+            } else {
+              state.studentEnrollmentsError = result.error || 'Failed to load student enrollments';
+              console.error('[CoachingStore] Failed to load student enrollments:', result.error);
+            }
+          });
+        },
+
+        loadTeacherAssignments: async (teacherId?: string) => {
+          console.log('[CoachingStore] Loading teacher assignments...');
+          set((state) => {
+            state.teacherAssignmentsLoading = true;
+            state.teacherAssignmentsError = null;
+          });
+
+          const result = await CoachingService.getTeacherAssignments(teacherId);
+
+          console.log('[CoachingStore] getTeacherAssignments result:', {
+            success: result.success,
+            dataLength: result.data?.length,
+            error: result.error
+          });
+
+          set((state) => {
+            state.teacherAssignmentsLoading = false;
+            if (result.success && result.data) {
+              state.teacherAssignments = result.data;
+              state.teacherAssignmentsError = null;
+              console.log('[CoachingStore] Successfully loaded teacher assignments:', result.data.length);
+            } else {
+              state.teacherAssignmentsError = result.error || 'Failed to load teacher assignments';
+              console.error('[CoachingStore] Failed to load teacher assignments:', result.error);
+            }
+          });
+        },
+
+        clearStudentEnrollments: () => {
+          set((state) => {
+            state.studentEnrollments = [];
+            state.studentEnrollmentsError = null;
+          });
+        },
+
+        clearTeacherAssignments: () => {
+          set((state) => {
+            state.teacherAssignments = [];
+            state.teacherAssignmentsError = null;
+          });
+        },
+
         // Utility actions
         checkSlugAvailability: async (slug: string, excludeCenterId?: string) => {
           const result = await CoachingService.isSlugAvailable(slug, excludeCenterId);
@@ -1234,3 +1376,12 @@ export const useCentersByCategory = (category: CoachingCategory) => {
 export const useCentersByCategoryLoading = (category: CoachingCategory) => {
   return useCoachingStore(state => state.centersByCategoryLoading.has(category));
 };
+
+// Student & Teacher Enrollment selectors
+export const useStudentEnrollments = () => useCoachingStore(state => state.studentEnrollments);
+export const useStudentEnrollmentsLoading = () => useCoachingStore(state => state.studentEnrollmentsLoading);
+export const useStudentEnrollmentsError = () => useCoachingStore(state => state.studentEnrollmentsError);
+
+export const useTeacherAssignments = () => useCoachingStore(state => state.teacherAssignments);
+export const useTeacherAssignmentsLoading = () => useCoachingStore(state => state.teacherAssignmentsLoading);
+export const useTeacherAssignmentsError = () => useCoachingStore(state => state.teacherAssignmentsError);

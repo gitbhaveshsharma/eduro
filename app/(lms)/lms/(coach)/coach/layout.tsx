@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, createContext, useContext, useRef, useMemo } from 'react';
+import { useState, useEffect, createContext, useContext, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -9,19 +9,32 @@ import {
     ArrowLeft,
     AlertCircle,
 } from 'lucide-react';
-import { useCoachingStore } from '@/lib/coaching';
-import type { CoachingCenter } from '@/lib/schema/coaching.types';
+import { useCoachingStore, CoachingService } from '@/lib/coaching';
+import type { CoachingCenter, CoachingBranch } from '@/lib/schema/coaching.types';
 import { ConditionalLayout } from '@/components/layout/conditional-layout';
 import { LayoutUtils } from '@/components/layout/config';
 import type { BrandingConfig, SidebarItem } from '@/components/layout/types';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 
 /**
+ * Branch info type for context (minimal data needed for filters)
+ */
+interface BranchInfo {
+    id: string;
+    name: string;
+}
+
+/**
  * Coach Context - Provides coaching center data across coach routes
+ * OPTIMIZATION: Includes branches to prevent duplicate API calls in child components
  */
 interface CoachContextType {
     coachingCenter: CoachingCenter | null;
     coachingCenterId: string | null;
+    /** Branches for the coaching center - loaded once, shared with all children */
+    branches: BranchInfo[];
+    /** Branch IDs for quick lookups */
+    branchIds: string[];
     isLoading: boolean;
     error: string | null;
     refetch: () => Promise<void>;
@@ -30,6 +43,8 @@ interface CoachContextType {
 const CoachContext = createContext<CoachContextType>({
     coachingCenter: null,
     coachingCenterId: null,
+    branches: [],
+    branchIds: [],
     isLoading: true,
     error: null,
     refetch: async () => { },
@@ -51,11 +66,15 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
     const [error, setError] = useState<string | null>(null);
     const hasLoadedRef = useRef(false);
 
+    // State for branches (loaded once with coaching center)
+    const [branches, setBranches] = useState<BranchInfo[]>([]);
+
     // Subscribe to store state directly - no selectors
     const myCoachingCenters = useCoachingStore((state) => state.myCoachingCenters);
 
     /**
-     * Load coaching centers on mount - ONLY ONCE
+     * Load coaching centers AND branches on mount - ONLY ONCE
+     * This prevents duplicate API calls from child components
      */
     useEffect(() => {
         if (hasLoadedRef.current) {
@@ -64,13 +83,32 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
 
         hasLoadedRef.current = true;
 
-        const loadCenters = async () => {
+        const loadData = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
+                // Load coaching centers first
                 const loadMyCoachingCenters = useCoachingStore.getState().loadMyCoachingCenters;
                 await loadMyCoachingCenters();
+
+                // Get the primary coaching center
+                const centers = useCoachingStore.getState().myCoachingCenters;
+                const primaryCenter = centers && centers.length > 0 ? centers[0] : null;
+
+                // If we have a center, load branches
+                if (primaryCenter?.id) {
+                    console.log('[CoachLayout] 🔄 Loading branches for coaching center:', primaryCenter.id);
+                    const branchResult = await CoachingService.getBranchesByCenter(primaryCenter.id);
+                    if (branchResult.success && branchResult.data) {
+                        const branchInfos = branchResult.data.map((b: CoachingBranch) => ({
+                            id: b.id,
+                            name: b.name,
+                        }));
+                        setBranches(branchInfos);
+                        console.log('[CoachLayout] ✅ Loaded', branchInfos.length, 'branches');
+                    }
+                }
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load coaching center');
             } finally {
@@ -78,7 +116,7 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
             }
         };
 
-        loadCenters();
+        loadData();
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Get primary coaching center
@@ -88,24 +126,42 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
 
     const coachingCenterId = coachingCenter?.id || null;
 
+    // Memoize branch IDs for quick lookups
+    const branchIds = useMemo(() => branches.map(b => b.id), [branches]);
+
     /**
-     * Refetch coaching center data
+     * Refetch coaching center and branches data
      */
-    const refetch = async () => {
+    const refetch = useCallback(async () => {
         hasLoadedRef.current = false;
         setIsLoading(true);
         setError(null);
+        setBranches([]);
 
         try {
             const loadMyCoachingCenters = useCoachingStore.getState().loadMyCoachingCenters;
             await loadMyCoachingCenters();
+
+            // Reload branches
+            const centers = useCoachingStore.getState().myCoachingCenters;
+            const primaryCenter = centers && centers.length > 0 ? centers[0] : null;
+
+            if (primaryCenter?.id) {
+                const branchResult = await CoachingService.getBranchesByCenter(primaryCenter.id);
+                if (branchResult.success && branchResult.data) {
+                    setBranches(branchResult.data.map((b: CoachingBranch) => ({
+                        id: b.id,
+                        name: b.name,
+                    })));
+                }
+            }
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to load coaching center');
         } finally {
             setIsLoading(false);
             hasLoadedRef.current = true;
         }
-    };
+    }, []);
 
     // Build branding config
     const branding: BrandingConfig = useMemo(() => ({
@@ -136,14 +192,16 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
         },
     }), [branding]);
 
-    // Memoize context value
+    // Memoize context value - includes branches for child components
     const contextValue = useMemo(() => ({
         coachingCenter,
         coachingCenterId,
+        branches,
+        branchIds,
         isLoading,
         error,
         refetch,
-    }), [coachingCenter, coachingCenterId, isLoading, error]);
+    }), [coachingCenter, coachingCenterId, branches, branchIds, isLoading, error, refetch]);
 
     // Loading state
     if (isLoading) {

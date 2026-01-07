@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import Image from 'next/image';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Building2, Phone, Mail, Globe } from 'lucide-react';
@@ -20,9 +21,11 @@ export const CoachingCenterInfo = memo(({ coachingCenter }: CoachingCenterInfoPr
                     {/* Logo - Full width on mobile */}
                     <div className="w-full lg:w-16 flex-shrink-0">
                         {coachingCenter.logo_url ? (
-                            <img
+                            <Image
                                 src={coachingCenter.logo_url}
                                 alt={coachingCenter.name}
+                                width={64}
+                                height={64}
                                 className="w-full lg:w-16 h-auto lg:h-16 rounded-lg object-cover"
                             />
                         ) : (

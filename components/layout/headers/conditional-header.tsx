@@ -1,15 +1,20 @@
 "use client";
 
+import { memo } from "react";
 import { FeedHeader } from "@/components/layout/headers/feed-header";
 import { LMSHeader } from "./lms-header";
 import { NetworkHeader } from "./network-header";
 import type { HeaderProps } from "../types";
+import { useCurrentProfile } from '@/lib/profile';
 
-export function ConditionalHeader({
+function ConditionalHeaderComponent({
     config,
     className = "",
     onNavigationClick
 }: HeaderProps) {
+    // Single profile fetch for the entire header system
+    // This prevents multiple components from triggering separate fetches
+    const profile = useCurrentProfile();
 
     // Centralized control: decide whether the avatar should be shown in headers
     // Default to true; this can be toggled per-platform or page as needed.
@@ -56,9 +61,10 @@ export function ConditionalHeader({
                 showSearch={config.device !== 'mobile'}
                 showAvatar={true}
                 config={config}
+                profile={profile} // Pass profile to avoid duplicate fetches
                 notificationCount={0} // TODO: Get from notification store
-                userName="User" // TODO: Get from auth store
-                userAvatar="" // TODO: Get from profile store
+                userName={profile?.full_name || "User"}
+                userAvatar={profile?.avatar_url || ""}
                 onMenuClick={() => {
                     // TODO: Handle mobile menu toggle
                 }}
@@ -86,3 +92,7 @@ export function ConditionalHeader({
         </header>
     );
 }
+
+// Memoize to prevent unnecessary re-renders when parent updates
+export const ConditionalHeader = memo(ConditionalHeaderComponent);
+ConditionalHeader.displayName = 'ConditionalHeader';

@@ -23,6 +23,7 @@ import type {
     ClassAvailability,
     TeacherClassSummary,
     BranchClassSummary,
+    UpcomingClassData,
 } from '../types/branch-classes.types';
 import {
     createBranchClassSchema,
@@ -998,6 +999,62 @@ export class BranchClassesService {
             };
         } catch (error) {
             console.error('❌ [getBranchClassSummary] Unexpected error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    // ============================================================
+    // UPCOMING CLASSES (RPC)
+    // ============================================================
+
+    /**
+     * Gets upcoming classes for a student
+     * Uses RPC function to get enrolled classes that are active and not ended
+     * @param studentId - Student UUID
+     * @returns Operation result with upcoming classes array
+     */
+    async getUpcomingClasses(
+        studentId: string
+    ): Promise<BranchClassOperationResult<UpcomingClassData[]>> {
+        try {
+            console.log('🔵 [getUpcomingClasses] Fetching upcoming classes for student:', studentId);
+
+            // Call the RPC function
+            const { data, error } = await this.supabase
+                .rpc('get_upcoming_classes', {
+                    p_student_id: studentId
+                });
+
+            if (error) {
+                console.error('❌ [getUpcomingClasses] Database error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to fetch upcoming classes',
+                };
+            }
+
+            if (!data) {
+                console.log('✅ [getUpcomingClasses] No upcoming classes found');
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
+
+            console.log('✅ [getUpcomingClasses] Upcoming classes fetched:', {
+                count: data.length,
+                studentId,
+            });
+
+            return {
+                success: true,
+                data: data as UpcomingClassData[],
+            };
+        } catch (error) {
+            console.error('❌ [getUpcomingClasses] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',

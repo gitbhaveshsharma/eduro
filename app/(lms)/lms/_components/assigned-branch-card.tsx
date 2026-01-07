@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -33,11 +33,19 @@ export const AssignedBranchCard = memo(({
     branch,
     onSelect
 }: AssignedBranchCardProps) => {
+    const [loading, setLoading] = useState(false);
+
     const config = useMemo(() => roleConfig, []);
     const RoleIcon = config.icon;
 
-    const handleSelect = useCallback(() => {
-        onSelect(branch);
+    const handleSelect = useCallback(async () => {
+        setLoading(true);
+
+        // Simulate loading for better UX
+        setTimeout(() => {
+            setLoading(false);
+            onSelect(branch);
+        }, 1500);
     }, [onSelect, branch]);
 
     return (
@@ -79,11 +87,17 @@ export const AssignedBranchCard = memo(({
                 <Button
                     onClick={handleSelect}
                     variant="outline"
+                    loading={loading}
+                    loadingText="Loading..."
                     className="w-full group-hover:bg-green-50 group-hover:border-green-500 group-hover:text-green-700"
                 >
-                    <Users className="h-4 w-4 mr-2" />
-                    Manage Branch
-                    <ArrowRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                    {!loading && (
+                        <>
+                            <Users className="h-4 w-4 mr-2" />
+                            Manage Branch
+                            <ArrowRight className="h-4 w-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </>
+                    )}
                 </Button>
             </CardContent>
         </Card>

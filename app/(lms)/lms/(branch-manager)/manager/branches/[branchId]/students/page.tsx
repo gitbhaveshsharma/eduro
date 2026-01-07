@@ -32,11 +32,42 @@ export default function BranchStudentsPage() {
 
     const {
         fetchBranchStudents,
+        branchStudents,
         fetchEnrollment,
         openDetailsDialog,
         openEditDialog,
         openDeleteDialog,
+        setCurrentEnrollment,
     } = useBranchStudentsStore();
+
+    // Helper to convert PublicBranchStudent to BranchStudent format
+    const convertToBranchStudent = useCallback((studentId: string) => {
+        const student = branchStudents.find(s => s.id === studentId);
+        if (!student) return null;
+
+        return {
+            id: student.id,
+            student_id: student.student_id,
+            branch_id: student.branch_id,
+            student_name: student.student_name,
+            student_email: student.student_email,
+            student_phone: student.student_phone,
+            payment_status: student.payment_status,
+            next_payment_due: student.next_payment_due,
+            registration_date: student.registration_date,
+            created_at: student.created_at,
+            updated_at: student.updated_at,
+            total_fees_due: student.outstanding_balance || 0,
+            total_fees_paid: 0,
+            last_payment_date: null,
+            emergency_contact_name: null,
+            emergency_contact_phone: null,
+            parent_guardian_name: null,
+            parent_guardian_phone: null,
+            student_notes: null,
+            metadata: null,
+        };
+    }, [branchStudents]);
 
     // Fetch students for this specific branch
     useEffect(() => {
@@ -48,30 +79,45 @@ export default function BranchStudentsPage() {
     // Action handlers
     const handleViewStudent = useCallback(async (studentId: string) => {
         try {
-            await fetchEnrollment(studentId);
+            const branchStudent = convertToBranchStudent(studentId);
+            if (!branchStudent) {
+                console.error('Student not found');
+                return;
+            }
+            setCurrentEnrollment(branchStudent);
             openDetailsDialog();
         } catch (err) {
-            console.error('Failed to load enrollment for details:', err);
+            console.error('Failed to load student details:', err);
         }
-    }, [fetchEnrollment, openDetailsDialog]);
+    }, [convertToBranchStudent, setCurrentEnrollment, openDetailsDialog]);
 
     const handleEditStudent = useCallback(async (studentId: string) => {
         try {
-            await fetchEnrollment(studentId);
+            const branchStudent = convertToBranchStudent(studentId);
+            if (!branchStudent) {
+                console.error('Student not found');
+                return;
+            }
+            setCurrentEnrollment(branchStudent);
             openEditDialog();
         } catch (err) {
-            console.error('Failed to load enrollment for edit:', err);
+            console.error('Failed to load student for edit:', err);
         }
-    }, [fetchEnrollment, openEditDialog]);
+    }, [convertToBranchStudent, setCurrentEnrollment, openEditDialog]);
 
     const handleDeleteStudent = useCallback(async (studentId: string) => {
         try {
-            await fetchEnrollment(studentId);
+            const branchStudent = convertToBranchStudent(studentId);
+            if (!branchStudent) {
+                console.error('Student not found');
+                return;
+            }
+            setCurrentEnrollment(branchStudent);
             openDeleteDialog();
         } catch (err) {
-            console.error('Failed to load enrollment for delete:', err);
+            console.error('Failed to load student for delete:', err);
         }
-    }, [fetchEnrollment, openDeleteDialog]);
+    }, [convertToBranchStudent, setCurrentEnrollment, openDeleteDialog]);
 
     if (isLoading || !branch) {
         return (

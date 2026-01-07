@@ -24,7 +24,9 @@ import {
     GraduationCap,
     DollarSign,
     ArrowLeft,
-    MapPin
+    SquareLibrary,
+    MapPin,
+    Users2
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
@@ -43,7 +45,7 @@ export const COMMUNITY_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'lms',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         href: '/lms',
         platforms: ['community'],
         devices: ['mobile', 'tablet', 'desktop']
@@ -86,7 +88,7 @@ export const LMS_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'lms',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         href: '/lms',
         platforms: ['lms'],
         devices: ['mobile', 'tablet', 'desktop']
@@ -314,7 +316,7 @@ export const DASHBOARD_HEADER_ITEMS: HeaderItem[] = [
 export const SETTINGS_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'back',
-        label: 'Back',
+        label: 'Home',
         icon: Home,
         action: {
             type: 'navigate',
@@ -392,7 +394,7 @@ export const LMS_COACH_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
@@ -437,7 +439,7 @@ export const LMS_BRANCH_MANAGER_HEADER_ITEMS: HeaderItem[] = [
     {
         id: 'lms-home',
         label: 'LMS',
-        icon: BookOpen,
+        icon: SquareLibrary,
         action: {
             type: 'navigate',
             href: '/lms'
@@ -603,6 +605,361 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
 ];
 
 /**
+ * ============================================================================
+ * LMS STUDENT NAVIGATION CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * LMS Student bottom navigation items
+ * Student-focused navigation for enrolled students
+ */
+export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Home',
+        icon: Home,
+        href: '/lms/student',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        href: '/lms/student/classes',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'assignments',
+        label: 'Tasks',
+        icon: FileText,
+        href: '/lms/student/assignments',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'calendar',
+        label: 'Schedule',
+        icon: Calendar,
+        href: '/lms/student/calendar',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        href: '/feed',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['S'],
+    },
+];
+
+/**
+ * LMS Student header items (for desktop navigation)
+ */
+export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms/student/classes'
+        },
+        showOn: {
+            devices: ['tablet', 'mobile'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Plus,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-student']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: SquareLibrary,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop'],
+            pages: ['lms-student']
+        }
+    }
+];
+
+/**
+ * LMS Student sidebar items
+ * Sidebar navigation for student dashboard
+ * These items use relative paths that will be prefixed with the center base path
+ * Note: The actual href will be constructed dynamically based on centerId
+ */
+export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: 'dashboard',
+        description: 'Your learning overview',
+        roles: ['S'],
+    },
+    {
+        id: 'classes',
+        label: 'My Classes',
+        icon: BookOpen,
+        href: 'classes',
+        description: 'View enrolled classes',
+        roles: ['S'],
+    },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: 'assignments',
+        description: 'View and submit assignments',
+        roles: ['S'],
+    },
+    {
+        id: 'calendar',
+        label: 'Schedule',
+        icon: Calendar,
+        href: 'calendar',
+        description: 'Class schedule and events',
+        roles: ['S'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Users,
+        href: 'attendance',
+        description: 'View your attendance record',
+        roles: ['S'],
+    },
+    {
+        id: 'fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: 'fees',
+        description: 'View fee status and payments',
+        roles: ['S'],
+    },
+];
+
+/**
+ * ============================================================================
+ * LMS TEACHER NAVIGATION CONFIGURATION
+ * ============================================================================
+ */
+
+/**
+ * LMS Teacher bottom navigation items
+ * Teacher-focused navigation for assigned teachers
+ */
+export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/lms/teacher',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        href: '/lms/teacher/classes',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'students',
+        label: 'Students',
+        icon: Users,
+        href: '/lms/teacher/students',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: '/lms/teacher/attendance',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    },
+    // {
+    //     id: 'feed',
+    //     label: 'Feed',
+    //     icon: Plus,
+    //     href: '/feed',
+    //     platforms: ['lms'],
+    //     devices: ['mobile', 'tablet'],
+    //     roles: ['T'],
+    // },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: '/lms/teacher/assignments',
+        platforms: ['lms'],
+        devices: ['mobile', 'tablet'],
+        roles: ['T'],
+    }
+];
+
+/**
+ * LMS Teacher header items (for desktop navigation)
+ */
+export const LMS_TEACHER_HEADER_ITEMS: HeaderItem[] = [
+    {
+        id: 'home',
+        label: 'Home',
+        icon: Home,
+        action: {
+            type: 'navigate',
+            href: '/dashboard'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'classes',
+        label: 'Classes',
+        icon: BookOpen,
+        action: {
+            type: 'navigate',
+            href: '/lms/teacher/classes'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'feed',
+        label: 'Feed',
+        icon: Users2,
+        action: {
+            type: 'navigate',
+            href: '/feed'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet', 'mobile'],
+            pages: ['lms-teacher']
+        }
+    },
+    {
+        id: 'lms-home',
+        label: 'LMS',
+        icon: SquareLibrary,
+        action: {
+            type: 'navigate',
+            href: '/lms'
+        },
+        showOn: {
+            devices: ['desktop', 'tablet', 'mobile'],
+            pages: ['lms-teacher']
+        }
+    }
+];
+
+/**
+ * LMS Teacher sidebar items
+ * Sidebar navigation for teacher dashboard
+ * These items use relative paths that will be prefixed with the center base path
+ * Note: The actual href will be constructed dynamically based on centerId
+ */
+export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
+    {
+        id: 'dashboard',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        href: '/',
+        description: 'Teaching overview',
+        roles: ['T'],
+    },
+    {
+        id: 'classes',
+        label: 'My Classes',
+        icon: BookOpen,
+        href: 'classes',
+        description: 'Classes you teach',
+        roles: ['T'],
+    },
+    {
+        id: 'students',
+        label: 'Students',
+        icon: Users,
+        href: 'students',
+        description: 'View your students',
+        roles: ['T'],
+    },
+    {
+        id: 'assignments',
+        label: 'Assignments',
+        icon: FileText,
+        href: 'assignments',
+        description: 'Create and manage assignments',
+        roles: ['T'],
+    },
+    {
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Calendar,
+        href: 'attendance',
+        description: 'Mark and view attendance',
+        roles: ['T'],
+    },
+    {
+        id: 'analytics',
+        label: 'Analytics',
+        icon: BarChart3,
+        href: 'analytics',
+        description: 'Student performance analytics',
+        roles: ['T'],
+    },
+];
+
+/**
  * Utility functions for layout configuration
  */
 export class LayoutUtils {
@@ -675,8 +1032,17 @@ export class LayoutUtils {
 
     /**
      * Get navigation items for specific platform
+     * Supports page-specific navigation items for student and teacher views
      */
-    static getNavigationItems(platform: PlatformType): NavigationItem[] {
+    static getNavigationItems(platform: PlatformType, page?: PageType): NavigationItem[] {
+        // Return page-specific navigation for student/teacher
+        if (page === 'lms-student') {
+            return LMS_STUDENT_NAV_ITEMS;
+        }
+        if (page === 'lms-teacher') {
+            return LMS_TEACHER_NAV_ITEMS;
+        }
+        // Default platform-based navigation
         return platform === 'community' ? COMMUNITY_NAV_ITEMS : LMS_NAV_ITEMS;
     }
 
@@ -719,6 +1085,10 @@ export class LayoutUtils {
                 return LMS_COACH_HEADER_ITEMS;
             case 'lms-branch-manager':
                 return LMS_BRANCH_MANAGER_HEADER_ITEMS;
+            case 'lms-student':
+                return LMS_STUDENT_HEADER_ITEMS;
+            case 'lms-teacher':
+                return LMS_TEACHER_HEADER_ITEMS;
             default:
                 return [];
         }
@@ -779,6 +1149,10 @@ export class LayoutUtils {
                 return LMS_BRANCH_MANAGER_SIDEBAR_ITEMS;
             case 'lms-coach':
                 return LMS_COACH_SIDEBAR_ITEMS;
+            case 'lms-student':
+                return LMS_STUDENT_SIDEBAR_ITEMS;
+            case 'lms-teacher':
+                return LMS_TEACHER_SIDEBAR_ITEMS;
             default:
                 return [];
         }
@@ -792,6 +1166,122 @@ export class LayoutUtils {
             ...item,
             href: `/lms/manager/branches/${branchId}/${item.href}`,
         }));
+    }
+
+    /**
+     * Get student sidebar items with dynamic hrefs based on centerId
+     */
+    static getStudentSidebarItems(centerId: string): SidebarItem[] {
+        return LMS_STUDENT_SIDEBAR_ITEMS.map(item => ({
+            ...item,
+            href: `/lms/student/${centerId}/${item.href}`,
+        }));
+    }
+
+    /**
+     * Get teacher sidebar items with dynamic hrefs based on centerId
+     */
+    static getTeacherSidebarItems(centerId: string): SidebarItem[] {
+        return LMS_TEACHER_SIDEBAR_ITEMS.map(item => ({
+            ...item,
+            href: `/lms/teacher/${centerId}/${item.href}`,
+        }));
+    }
+
+    /**
+     * Get student navigation items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getStudentNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
+        const items = LMS_STUDENT_NAV_ITEMS.map(item => ({
+            ...item,
+            href: item.href?.replace('/lms/student', `/lms/student/${centerId}`),
+        }));
+
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => item.devices.includes(device));
+        }
+
+        return items;
+    }
+
+    /**
+     * Get teacher navigation items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getTeacherNavigationItems(centerId: string, device?: DeviceType): NavigationItem[] {
+        const items = LMS_TEACHER_NAV_ITEMS.map(item => ({
+            ...item,
+            href: item.href?.replace('/lms/teacher', `/lms/teacher/${centerId}`),
+        }));
+
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item => item.devices.includes(device));
+        }
+
+        return items;
+    }
+
+    /**
+     * Get student header items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getStudentHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
+        const items = LMS_STUDENT_HEADER_ITEMS.map(item => {
+            if (item.action && item.action.type === 'navigate' && item.action.href) {
+                return {
+                    ...item,
+                    action: {
+                        ...item.action,
+                        href: item.action.href.replace('/lms/student', `/lms/student/${centerId}`)
+                    }
+                };
+            }
+            return item;
+        });
+
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item =>
+                !item.showOn?.devices || item.showOn.devices.includes(device)
+            );
+        }
+
+        return items;
+    }
+
+    /**
+     * Get teacher header items with dynamic hrefs based on centerId
+     * @param centerId - Coaching center ID to inject into hrefs
+     * @param device - Optional device type to filter items (defaults to all devices)
+     */
+    static getTeacherHeaderItems(centerId: string, device?: DeviceType): HeaderItem[] {
+        const items = LMS_TEACHER_HEADER_ITEMS.map(item => {
+            if (item.action && item.action.type === 'navigate' && item.action.href) {
+                return {
+                    ...item,
+                    action: {
+                        ...item.action,
+                        href: item.action.href.replace('/lms/teacher', `/lms/teacher/${centerId}`)
+                    }
+                };
+            }
+            return item;
+        });
+
+        // Filter by device if provided
+        if (device) {
+            return items.filter(item =>
+                !item.showOn?.devices || item.showOn.devices.includes(device)
+            );
+        }
+
+        return items;
     }
 
     /**

@@ -107,6 +107,39 @@ export interface PublicBranchStudent {
 }
 
 /**
+ * Teacher Student - Limited data for teachers (privacy-focused)
+ * Teachers can only see essential student information
+ * NO sensitive payment or personal data
+ */
+export interface TeacherStudent {
+    // Identity
+    student_id: string;
+    student_name: string | null;
+    avatar_url: string | null;
+    
+    // Enrollment reference
+    enrollment_id: string; // Needed to fetch full details
+    
+    // Class information
+    class_name: string | null;
+    class_id: string | null;
+    
+    // Enrollment status
+    enrollment_status: string | null;
+    attendance_percentage: number;
+    
+    // Emergency contact (for safety)
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    
+    // Basic info
+    date_of_birth: string | null;
+    
+    // Metadata
+    enrollment_date: string | null;
+}
+
+/**
  * Student Editable Fields
  * Fields that students can update themselves
  */
@@ -511,24 +544,25 @@ export const PAYMENT_STATUS_OPTIONS: Record<PaymentStatus, { label: string; desc
     PAID: {
         label: 'Paid',
         description: 'Fees are fully paid',
-        color: 'green',
+        color: 'success',  // Changed from 'green' to 'success'
     },
     PARTIAL: {
         label: 'Partial',
         description: 'Partial payment made',
-        color: 'blue',
+        color: 'secondary',  // Changed from 'blue' to 'secondary' or 'outline'
     },
     PENDING: {
         label: 'Pending',
         description: 'Payment is pending',
-        color: 'yellow',
+        color: 'warning',  // Changed from 'yellow' to 'warning'
     },
     OVERDUE: {
         label: 'Overdue',
         description: 'Payment is overdue',
-        color: 'red',
+        color: 'destructive',  // Changed from 'red' to 'destructive'
     },
 } as const;
+
 
 /**
  * Attendance thresholds

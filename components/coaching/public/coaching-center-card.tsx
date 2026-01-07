@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -214,7 +215,7 @@ export function CoachingCenterCard({
                                 )}
                             </div>
 
-                            <div className="flex items-center gap-1 text-primary group-hover:gap-2 transition-all">
+                            <div className="flex items-center gap-1 text-primary group-hover:gap-2 hover:text-primary transition-all">
                                 <span className="font-medium">View Details</span>
                                 <ChevronRight className="h-4 w-4" />
                             </div>
@@ -239,6 +240,18 @@ export function CoachingCenterGrid({
     loading = false,
     emptyMessage = 'No coaching centers found'
 }: CoachingCenterGridProps) {
+    const [browseLoading, setBrowseLoading] = useState(false);
+
+    const handleBrowseAllClick = () => {
+        setBrowseLoading(true);
+        // Simulate loading for demo purposes
+        setTimeout(() => {
+            setBrowseLoading(false);
+            // Navigate to coaching page
+            window.location.href = '/coaching';
+        }, 1500);
+    };
+
     if (loading) {
         return (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -263,8 +276,14 @@ export function CoachingCenterGrid({
             <div className="text-center py-12 space-y-3">
                 <Building2 className="h-16 w-16 mx-auto text-muted-foreground opacity-50" />
                 <p className="text-lg text-muted-foreground">{emptyMessage}</p>
-                <Button variant="outline" asChild>
-                    <Link href="/coaching">Browse All Coaching Centers</Link>
+                <Button
+                    variant="outline"
+                    loading={browseLoading}
+                    loadingText="Loading..."
+                    onClick={handleBrowseAllClick}
+                    className="min-w-40"
+                >
+                    Browse All Coaching Centers
                 </Button>
             </div>
         );
@@ -286,40 +305,58 @@ export function CoachingCenterGrid({
     }
 
     return (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {searchItems && searchItems.length > 0 ? (
-                // Render based on search items (one card per branch)
-                searchItems.map((searchItem) => {
-                    const center = centers.find(c => c.id === searchItem.center_id);
-                    if (!center) return null;
+        <div className="space-y-8">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {searchItems && searchItems.length > 0 ? (
+                    // Render based on search items (one card per branch)
+                    searchItems.map((searchItem) => {
+                        const center = centers.find(c => c.id === searchItem.center_id);
+                        if (!center) return null;
 
-                    // Get branch info
-                    const centerBranches = branchIndexMap.get(searchItem.center_id);
-                    const branchIndex = centerBranches?.get(searchItem.branch_id) || 1;
-                    const totalBranches = centerBranches?.size || 1;
+                        // Get branch info
+                        const centerBranches = branchIndexMap.get(searchItem.center_id);
+                        const branchIndex = centerBranches?.get(searchItem.branch_id) || 1;
+                        const totalBranches = centerBranches?.size || 1;
 
-                    return (
+                        return (
+                            <CoachingCenterCard
+                                key={`${searchItem.center_id}-${searchItem.branch_id}`}
+                                center={center}
+                                searchItem={searchItem}
+                                averageRating={parseFloat(searchItem.avg_rating.toString())}
+                                totalReviews={searchItem.total_reviews || 0}
+                                branchIndex={totalBranches > 1 ? branchIndex : undefined}
+                                totalBranches={totalBranches}
+                            />
+                        );
+                    })
+                ) : (
+                    // Fallback: render based on centers only
+                    centers.map((center) => (
                         <CoachingCenterCard
-                            key={`${searchItem.center_id}-${searchItem.branch_id}`}
+                            key={center.id}
                             center={center}
-                            searchItem={searchItem}
-                            averageRating={parseFloat(searchItem.avg_rating.toString())}
-                            totalReviews={searchItem.total_reviews || 0}
-                            branchIndex={totalBranches > 1 ? branchIndex : undefined}
-                            totalBranches={totalBranches}
+                            averageRating={0}
+                            totalReviews={0}
                         />
-                    );
-                })
-            ) : (
-                // Fallback: render based on centers only
-                centers.map((center) => (
-                    <CoachingCenterCard
-                        key={center.id}
-                        center={center}
-                        averageRating={0}
-                        totalReviews={0}
-                    />
-                ))
+                    ))
+                )}
+            </div>
+
+            {/* Load More / View More Button */}
+            {centers.length >= 6 && (
+                <div className="text-center">
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        loading={browseLoading}
+                        loadingText="Loading more centers..."
+                        onClick={handleBrowseAllClick}
+                        className="px-8"
+                    >
+                        View All Coaching Centers
+                    </Button>
+                </div>
             )}
         </div>
     );

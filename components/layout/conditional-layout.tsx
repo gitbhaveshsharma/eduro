@@ -16,7 +16,9 @@ export function ConditionalLayout({
     platform,
     className = "",
     forceConfig,
-    sidebarItems: customSidebarItems
+    sidebarItems: customSidebarItems,
+    navigationItems: customNavigationItems,
+    headerItems: customHeaderItems
 }: ConditionalLayoutProps) {
     // Get user profile for role-based filtering
     const profile = useCurrentProfile();
@@ -82,15 +84,21 @@ export function ConditionalLayout({
     }, [platform, forceConfig]);
 
     // ✅ Update navigation items when config changes
+    // Pass page parameter to support page-specific navigation (student/teacher)
+    // Use custom navigation items if provided
     useEffect(() => {
-        const items = LayoutUtils.getNavigationItems(config.platform);
-        const filteredItems = LayoutUtils.filterNavigationItems(
-            items,
-            config.platform,
-            config.device
-        );
-        setNavigationItems(filteredItems);
-    }, [config.platform, config.device]);
+        if (customNavigationItems) {
+            setNavigationItems(customNavigationItems);
+        } else {
+            const items = LayoutUtils.getNavigationItems(config.platform, config.page);
+            const filteredItems = LayoutUtils.filterNavigationItems(
+                items,
+                config.platform,
+                config.device
+            );
+            setNavigationItems(filteredItems);
+        }
+    }, [config.platform, config.device, config.page, customNavigationItems]);
 
     // ✅ Get platform-specific loading message
     const getLoadingMessage = () => {
@@ -148,6 +156,7 @@ export function ConditionalLayout({
                             branding={config.branding}
                             sidebarOpen={sidebarOpen}
                             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
+                            items={customHeaderItems} // Pass custom header items if provided
                             onNavigationClick={(item) => {
                                 console.log('Navigation item clicked:', item);
                             }}
@@ -165,6 +174,9 @@ export function ConditionalLayout({
 
             {/* Sidebar (if enabled) */}
             {config.sidebar?.enabled && (
+                // Show sidebar only if devices array is not specified, or current device is in the array
+                !config.sidebar.devices || config.sidebar.devices.includes(config.device)
+            ) && (
                 <Sidebar
                     open={sidebarOpen}
                     onOpenChange={setSidebarOpen}
@@ -174,7 +186,9 @@ export function ConditionalLayout({
                         config.page === 'settings' ? 'Settings' :
                             config.page === 'lms-branch-manager' ? 'Branch Manager' :
                                 config.page === 'lms-coach' ? 'Coaching Center' :
-                                    'Menu'
+                                    config.page === 'lms-student' ? 'Student Portal' :
+                                        config.page === 'lms-teacher' ? 'Teacher Portal' :
+                                            'Menu'
                     }
                 />
             )}

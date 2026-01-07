@@ -10,7 +10,8 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { BranchStudentsDashboard } from '../../../_components/branch-students/dashboard';
 import { StudentsTable } from '../../../_components/branch-students/students-table';
 import { EnrollStudentDialog } from '../../../_components/branch-students/enroll-student-dialog';
@@ -30,6 +31,9 @@ import { useCoachContext } from '../layout';
 /**
  * Branch Students Page Component for Coaches
  * Manages students across ALL branches of the coaching center
+ * 
+ * OPTIMIZATION: Uses useShallow to combine multiple store selectors
+ * and prevent unnecessary re-renders
  */
 export default function BranchStudentsPage() {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'list'>('dashboard');
@@ -41,13 +45,58 @@ export default function BranchStudentsPage() {
     // Track if students have been fetched to prevent duplicate calls
     const studentsFetchedRef = useRef<string | null>(null);
 
-    // Get branch students store - use stable selector
-    const fetchCoachingCenterStudents = useBranchStudentsStore((state) => state.fetchCoachingCenterStudents);
-    const branchStudents = useBranchStudentsStore((state) => state.branchStudents);
-    const fetchEnrollment = useBranchStudentsStore((state) => state.fetchEnrollment);
-    const openDetailsDialog = useBranchStudentsStore((state) => state.openDetailsDialog);
-    const openEditDialog = useBranchStudentsStore((state) => state.openEditDialog);
-    const openDeleteDialog = useBranchStudentsStore((state) => state.openDeleteDialog);
+    // OPTIMIZATION: Use useShallow to combine multiple selectors into one
+    // This reduces re-renders when unrelated store state changes
+    const {
+        fetchCoachingCenterStudents,
+        branchStudents,
+        fetchEnrollment,
+        openDetailsDialog,
+        openEditDialog,
+        openDeleteDialog,
+        setCurrentEnrollment,
+    } = useBranchStudentsStore(
+        useShallow((state) => ({
+            fetchCoachingCenterStudents: state.fetchCoachingCenterStudents,
+            branchStudents: state.branchStudents,
+            fetchEnrollment: state.fetchEnrollment,
+            openDetailsDialog: state.openDetailsDialog,
+            openEditDialog: state.openEditDialog,
+            openDeleteDialog: state.openDeleteDialog,
+            setCurrentEnrollment: state.setCurrentEnrollment,
+        }))
+    );
+
+    /**
+     * Helper to convert PublicBranchStudent to BranchStudent format
+     */
+    const convertToBranchStudent = useCallback((studentId: string) => {
+        const student = branchStudents.find(s => s.id === studentId);
+        if (!student) return null;
+
+        return {
+            id: student.id,
+            student_id: student.student_id,
+            branch_id: student.branch_id,
+            student_name: student.student_name,
+            student_email: student.student_email,
+            student_phone: student.student_phone,
+            payment_status: student.payment_status,
+            next_payment_due: student.next_payment_due,
+            registration_date: student.registration_date,
+            created_at: student.created_at,
+            updated_at: student.updated_at,
+            total_fees_due: student.outstanding_balance || 0,
+            total_fees_paid: 0,
+            last_payment_date: null,
+            emergency_contact_name: null,
+            emergency_contact_phone: null,
+            parent_guardian_name: null,
+            parent_guardian_phone: null,
+            student_notes: null,
+            metadata: null,
+        };
+    }, [branchStudents]);
 
     /**
      * Load students data once when coaching center ID is available
@@ -163,26 +212,41 @@ export default function BranchStudentsPage() {
                                 coachingCenterId={coachingCenterId}
                                 onViewStudent={async (studentId: string) => {
                                     try {
-                                        await fetchEnrollment(studentId);
+                                        const branchStudent = convertToBranchStudent(studentId);
+                                        if (!branchStudent) {
+                                            console.error('Student not found');
+                                            return;
+                                        }
+                                        setCurrentEnrollment(branchStudent);
                                         openDetailsDialog();
                                     } catch (err) {
-                                        console.error('Failed to load enrollment for details:', err);
+                                        console.error('Failed to load student details:', err);
                                     }
                                 }}
                                 onEditStudent={async (studentId: string) => {
                                     try {
-                                        await fetchEnrollment(studentId);
+                                        const branchStudent = convertToBranchStudent(studentId);
+                                        if (!branchStudent) {
+                                            console.error('Student not found');
+                                            return;
+                                        }
+                                        setCurrentEnrollment(branchStudent);
                                         openEditDialog();
                                     } catch (err) {
-                                        console.error('Failed to load enrollment for edit:', err);
+                                        console.error('Failed to load student for edit:', err);
                                     }
                                 }}
                                 onDeleteStudent={async (studentId: string) => {
                                     try {
-                                        await fetchEnrollment(studentId);
+                                        const branchStudent = convertToBranchStudent(studentId);
+                                        if (!branchStudent) {
+                                            console.error('Student not found');
+                                            return;
+                                        }
+                                        setCurrentEnrollment(branchStudent);
                                         openDeleteDialog();
                                     } catch (err) {
-                                        console.error('Failed to load enrollment for delete:', err);
+                                        console.error('Failed to load student for delete:', err);
                                     }
                                 }}
                             />

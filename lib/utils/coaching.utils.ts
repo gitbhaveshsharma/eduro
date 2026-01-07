@@ -785,17 +785,14 @@ export class CoachingUrlUtils {
 
   /**
    * Generate cover image URL with fallback
-   * Handles Supabase storage URLs and applies proxy in production
+   * NOTE: Cover images are typically large (4MB+) and should NOT go through the avatar-proxy
+   * Instead, use Next.js Image optimization or serve directly from Supabase CDN
    */
   static getCoverUrl(center: Partial<CoachingCenter | PublicCoachingCenter>): string {
     if (center.cover_url) {
-      // If it's a Supabase storage URL or external URL, apply proxy in production
-      try {
-        const AvatarUtils = require('./avatar.utils').AvatarUtils;
-        return AvatarUtils.getPublicAvatarUrlFromRemote(center.cover_url);
-      } catch {
-        return center.cover_url;
-      }
+      // Return cover_url directly - do NOT proxy large images
+      // Next.js Image component will handle optimization via /_next/image
+      return center.cover_url;
     }
 
     // Generate category-based cover URL
@@ -969,3 +966,74 @@ export const COACHING_ERROR_CODES = {
   FILE_TOO_LARGE: 'FILE_TOO_LARGE',
   INVALID_FILE_TYPE: 'INVALID_FILE_TYPE',
 } as const;
+
+/**
+ * Enrollment & Assignment Utilities
+ */
+export class EnrollmentUtils {
+  /**
+   * Format registration/assignment date
+   */
+  static formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months ago`;
+    return `${Math.floor(diffDays / 365)} years ago`;
+  }
+
+  /**
+   * Get enrollment status badge color
+   */
+  static getEnrollmentBadgeColor(isActive: boolean): string {
+    return isActive ? 'bg-green-500' : 'bg-gray-500';
+  }
+
+  /**
+   * Check if assignment is currently active
+   */
+  static isAssignmentActive(assignment: { is_active: boolean; assignment_end_date: string | null }): boolean {
+    if (!assignment.is_active) return false;
+    if (!assignment.assignment_end_date) return true;
+
+    const endDate = new Date(assignment.assignment_end_date);
+    const now = new Date();
+    return endDate > now;
+  }
+
+  /**
+   * Get subjects display text
+   */
+  static getSubjectsDisplay(subjects: string[] | null, maxDisplay: number = 3): string {
+    if (!subjects || subjects.length === 0) return 'No subjects';
+    
+    if (subjects.length <= maxDisplay) {
+      return subjects.join(', ');
+    }
+    
+    const displayed = subjects.slice(0, maxDisplay).join(', ');
+    const remaining = subjects.length - maxDisplay;
+    return `${displayed} +${remaining} more`;
+  }
+
+  /**
+   * Get enrollment/assignment duration text
+   */
+  static getDurationText(startDate: string, endDate?: string | null): string {
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date();
+    
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 30) return `${diffDays} days`;
+    if (diffDays < 365) return `${Math.floor(diffDays / 30)} months`;
+    return `${Math.floor(diffDays / 365)} years`;
+  }
+}

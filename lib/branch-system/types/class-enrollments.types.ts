@@ -19,6 +19,7 @@
  * Class enrollment status enum - matches database enum
  */
 export type ClassEnrollmentStatus =
+    | 'null'  // Placeholder for no enrollment
     | 'ENROLLED'    // Student is actively enrolled in the class
     | 'PENDING'     // Enrollment is pending approval
     | 'SUSPENDED'   // Student is temporarily suspended from the class
@@ -44,7 +45,7 @@ export interface ClassEnrollment {
     student_id: string; // UUID - References auth.users(id)
     branch_id: string; // UUID - References coaching_branches(id)
     class_id: string; // UUID - References branch_classes(id)
-    
+
     // Link to branch_students (optional, for tracking student profile)
     branch_student_id: string | null; // UUID - References branch_students(id)
 
@@ -89,7 +90,7 @@ export interface PublicClassEnrollment {
     special_requirements: string | null;
     created_at: string;
     updated_at: string;
-    
+
     // Computed fields
     enrollment_duration_days: number;
     is_on_track: boolean;
@@ -285,14 +286,14 @@ export interface ClassEnrollmentFilters {
  */
 export interface ClassEnrollmentSort {
     field:
-        | 'student_name'
-        | 'class_name'
-        | 'enrollment_date'
-        | 'enrollment_status'
-        | 'attendance_percentage'
-        | 'current_grade'
-        | 'created_at'
-        | 'updated_at';
+    | 'student_name'
+    | 'class_name'
+    | 'enrollment_date'
+    | 'enrollment_status'
+    | 'attendance_percentage'
+    | 'current_grade'
+    | 'created_at'
+    | 'updated_at';
     direction: 'asc' | 'desc';
 }
 
@@ -396,29 +397,35 @@ export const CLASS_ENROLLMENT_STATUS_OPTIONS: Record<ClassEnrollmentStatus, { la
     ENROLLED: {
         label: 'Enrolled',
         description: 'Student is actively enrolled in the class',
-        color: 'green',
+        color: 'success',  // Changed from 'green' to 'success'
     },
     PENDING: {
         label: 'Pending',
         description: 'Class enrollment is pending approval',
-        color: 'yellow',
+        color: 'warning',  // Changed from 'yellow' to 'warning'
     },
     SUSPENDED: {
         label: 'Suspended',
         description: 'Student is temporarily suspended from the class',
-        color: 'orange',
+        color: 'warning',  // Changed from 'orange' to 'warning' (closest match)
     },
     DROPPED: {
         label: 'Dropped',
         description: 'Student has dropped from the class',
-        color: 'red',
+        color: 'destructive',  // Changed from 'red' to 'destructive'
     },
     COMPLETED: {
         label: 'Completed',
         description: 'Student has completed the class',
-        color: 'blue',
+        color: 'secondary',  // Changed from 'blue' to 'secondary'
+    },
+    'null': {
+        label: 'Not Enrolled',
+        description: 'Student is not enrolled in any class',
+        color: 'muted',  // Changed from 'gray' to 'muted'
     },
 } as const;
+
 
 /**
  * Attendance thresholds for class enrollments

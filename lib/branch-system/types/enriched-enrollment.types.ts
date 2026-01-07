@@ -39,6 +39,7 @@ export interface EnrichedClassEnrollment {
     // ENROLLMENT IDENTIFIERS
     // ============================================================
     enrollment_id: string;
+    branch_student_id: string;
     student_id: string;
     branch_id: string;
     class_id: string;
