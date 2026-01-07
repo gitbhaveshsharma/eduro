@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { InfoRow } from '@/components/ui/info-row';
 import {
     ArrowLeft,
     BookOpen,
@@ -80,6 +82,13 @@ export default function TeacherClassDetailPage() {
         router.push(`/lms/teacher/${centerId}/classes`);
     };
 
+    // Determine progress variant based on utilization
+    const getProgressVariant = (utilization: number): 'primary' | 'warning' | 'error' => {
+        if (utilization >= 90) return 'error';
+        if (utilization >= 70) return 'warning';
+        return 'primary';
+    };
+
     // Loading state
     if (fetchClass) {
         return (
@@ -126,7 +135,7 @@ export default function TeacherClassDetailPage() {
     const subjectColor = getSubjectColor(mapSubjectToId(classData.subject));
 
     return (
-        <div className="container max-w-5xl mx-auto px-4 py-6 space-y-6">
+        <div className="space-y-6">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Button
@@ -177,31 +186,27 @@ export default function TeacherClassDetailPage() {
                             Basic Information
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Grade Level</span>
-                                <span className="text-sm font-medium">{classData.grade_level}</span>
-                            </div>
-                            {classData.batch_name && (
-                                <div className="flex justify-between items-start">
-                                    <span className="text-sm text-muted-foreground">Batch Name</span>
-                                    <span className="text-sm font-medium">{classData.batch_name}</span>
-                                </div>
-                            )}
-                            <Separator />
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Fee Frequency</span>
-                                <span className="text-sm font-medium capitalize">
-                                    {classData.fees_frequency.toLowerCase()}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Visibility</span>
-                                <Badge variant={classData.is_visible ? 'default' : 'secondary'}>
-                                    {classData.is_visible ? 'Visible' : 'Hidden'}
-                                </Badge>
-                            </div>
+                    <CardContent className="space-y-3">
+                        <InfoRow
+                            label="Grade Level"
+                            value={classData.grade_level}
+                        />
+                        {classData.batch_name && (
+                            <InfoRow
+                                label="Batch Name"
+                                value={classData.batch_name}
+                            />
+                        )}
+
+                        <InfoRow
+                            label="Fee Frequency"
+                            value={classData.fees_frequency.toLowerCase().charAt(0).toUpperCase() + classData.fees_frequency.toLowerCase().slice(1)}
+                        />
+                        <div className="flex justify-between items-start">
+                            <span className="text-sm text-muted-foreground">Visibility</span>
+                            <Badge variant={classData.is_visible ? 'default' : 'secondary'}>
+                                {classData.is_visible ? 'Visible' : 'Hidden'}
+                            </Badge>
                         </div>
                     </CardContent>
                 </Card>
@@ -214,36 +219,29 @@ export default function TeacherClassDetailPage() {
                             Schedule & Timing
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="space-y-3">
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Class Days</span>
-                                <span className="text-sm font-medium text-right">
-                                    {schedule || 'Not set'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Class Time</span>
-                                <span className="text-sm font-medium">{timeRange}</span>
-                            </div>
-                            <Separator />
-                            {classData.start_date && (
-                                <div className="flex justify-between items-start">
-                                    <span className="text-sm text-muted-foreground">Start Date</span>
-                                    <span className="text-sm font-medium">
-                                        {formatDate(classData.start_date, 'medium')}
-                                    </span>
-                                </div>
-                            )}
-                            {classData.end_date && (
-                                <div className="flex justify-between items-start">
-                                    <span className="text-sm text-muted-foreground">End Date</span>
-                                    <span className="text-sm font-medium">
-                                        {formatDate(classData.end_date, 'medium')}
-                                    </span>
-                                </div>
-                            )}
-                        </div>
+                    <CardContent className="space-y-3">
+                        <InfoRow
+                            label="Class Days"
+                            value={schedule || 'Not set'}
+                            valueClassName="text-right"
+                        />
+                        <InfoRow
+                            label="Class Time"
+                            value={timeRange}
+                        />
+
+                        {classData.start_date && (
+                            <InfoRow
+                                label="Start Date"
+                                value={formatDate(classData.start_date, 'medium')}
+                            />
+                        )}
+                        {classData.end_date && (
+                            <InfoRow
+                                label="End Date"
+                                value={formatDate(classData.end_date, 'medium')}
+                            />
+                        )}
                     </CardContent>
                 </Card>
 
@@ -257,45 +255,32 @@ export default function TeacherClassDetailPage() {
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-3">
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Current Students</span>
-                                <span className="text-sm font-medium">
-                                    {classData.current_enrollment}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Maximum Capacity</span>
-                                <span className="text-sm font-medium">
-                                    {classData.max_students}
-                                </span>
-                            </div>
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Available Seats</span>
-                                <span className="text-sm font-medium text-primary">
-                                    {availableSeats}
-                                </span>
-                            </div>
+                            <InfoRow
+                                label="Current Students"
+                                value={classData.current_enrollment}
+                            />
+                            <InfoRow
+                                label="Maximum Capacity"
+                                value={classData.max_students}
+                            />
+                            <InfoRow
+                                label="Available Seats"
+                                value={availableSeats}
+                                valueClassName="text-primary"
+                            />
                             <Separator />
-                            <div className="flex justify-between items-start">
-                                <span className="text-sm text-muted-foreground">Utilization</span>
-                                <span className="text-sm font-medium">{utilization}%</span>
-                            </div>
+                            <InfoRow
+                                label="Utilization"
+                                value={`${utilization}%`}
+                            />
                         </div>
 
-                        {/* Utilization Progress Bar */}
-                        <div className="space-y-2">
-                            <div className="w-full bg-muted rounded-full h-2">
-                                <div
-                                    className={cn(
-                                        "h-2 rounded-full transition-all",
-                                        utilization >= 90 ? "bg-destructive" :
-                                            utilization >= 70 ? "bg-amber-500" :
-                                                "bg-primary"
-                                    )}
-                                    style={{ width: `${utilization}%` }}
-                                />
-                            </div>
-                        </div>
+                        {/* Utilization Progress Bar using shadcn Progress */}
+                        <Progress
+                            value={utilization}
+                            variant={getProgressVariant(utilization)}
+                            className="h-2"
+                        />
                     </CardContent>
                 </Card>
 
