@@ -107,6 +107,39 @@ export interface PublicBranchStudent {
 }
 
 /**
+ * Teacher Student - Limited data for teachers (privacy-focused)
+ * Teachers can only see essential student information
+ * NO sensitive payment or personal data
+ */
+export interface TeacherStudent {
+    // Identity
+    student_id: string;
+    student_name: string | null;
+    avatar_url: string | null;
+    
+    // Enrollment reference
+    enrollment_id: string; // Needed to fetch full details
+    
+    // Class information
+    class_name: string | null;
+    class_id: string | null;
+    
+    // Enrollment status
+    enrollment_status: string | null;
+    attendance_percentage: number;
+    
+    // Emergency contact (for safety)
+    emergency_contact_name: string | null;
+    emergency_contact_phone: string | null;
+    
+    // Basic info
+    date_of_birth: string | null;
+    
+    // Metadata
+    enrollment_date: string | null;
+}
+
+/**
  * Student Editable Fields
  * Fields that students can update themselves
  */

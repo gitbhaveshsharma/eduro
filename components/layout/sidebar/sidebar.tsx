@@ -116,7 +116,7 @@ export function Sidebar({
             {/* Sidebar container */}
             <aside
                 className={cn(
-                    "fixed top-0 bottom-0 z-50",
+                    "fixed top-0 bottom-0 z-50 border-t border-gray-200",
                     "bg-white border-gray-200",
                     "flex flex-col",
                     "transition-transform duration-300 ease-in-out",
