@@ -269,7 +269,7 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
-  '/coach/*': {
+  '/lms/coach/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
     allowedRoles: [UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
     rateLimiting: {
@@ -279,15 +279,35 @@ const routeProtections = {
     requiresCSRF: true,
     logRequests: true
   },
-  '/manager/*': {
+  '/lms/manager/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
-    allowedRoles: [UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    allowedRoles: [UserRole.COACH, UserRole.TEACHER, UserRole.ADMIN, UserRole.SUPER_ADMIN],
     rateLimiting: {
       requests: 100,
       window: RateLimitWindow.MINUTE
     },
     requiresCSRF: true,
     logRequests: true
+  },
+  '/lms/teacher/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.TEACHER,UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    rateLimiting: {
+      requests: 150,
+      window: RateLimitWindow.MINUTE
+    },
+    requiresCSRF: true,
+    logRequests: true
+  },
+  '/lms/student/*': {
+    securityLevel: SecurityLevel.ROLE_BASED,
+    allowedRoles: [UserRole.STUDENT, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    rateLimiting: {
+      requests: 200,
+      window: RateLimitWindow.MINUTE
+    },
+    requiresCSRF: true,
+    logRequests: false
   },
   // API routes by role
   '/api/admin/*': {
