@@ -50,7 +50,7 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
      */
     const getEnrollmentBadgeVariant = (status: string): BadgeVariant => {
         const normalizedStatus = status.toUpperCase() as ClassEnrollmentStatus;
-        
+
         const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[normalizedStatus];
         if (!statusConfig) return 'secondary';
 
@@ -74,9 +74,9 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
      */
     const getEnrollmentStatusLabel = (status: string | null | undefined): string => {
         if (!status) return 'Not Enrolled';
-        
+
         const normalizedStatus = status.toUpperCase() as ClassEnrollmentStatus;
-        
+
         const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[normalizedStatus];
         return statusConfig?.label || status;
     };
@@ -90,7 +90,7 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
             await navigator.clipboard.writeText(email);
             setIsCopied(true);
             showSuccessToast('Email copied to clipboard!');
-            
+
             // Reset copied state after 2 seconds
             setTimeout(() => {
                 setIsCopied(false);
@@ -150,16 +150,20 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
                     <div className="flex-shrink-0 relative">
                         <div className="absolute -inset-0.5 sm:-inset-1 rounded-full bg-gradient-to-tr from-brand-primary to-brand-secondary opacity-20 blur-sm" />
                         <UserAvatar
-                            userId={enrollment.student_id}
-                            src={enrollment.student?.avatar_url}
-                            fullName={enrollment.student?.full_name || enrollment.student_name}
+                            profile={{
+                                id: enrollment.student_id,
+                                avatar_url: enrollment.student?.avatar_url,
+                                full_name: enrollment.student?.full_name || enrollment.student_name
+                            }}
                             size="lg"
                             className="border-2 border-background relative z-10 md:hidden"
                         />
                         <UserAvatar
-                            userId={enrollment.student_id}
-                            src={enrollment.student?.avatar_url}
-                            fullName={enrollment.student?.full_name || enrollment.student_name}
+                            profile={{
+                                id: enrollment.student_id,
+                                avatar_url: enrollment.student?.avatar_url,
+                                full_name: enrollment.student?.full_name || enrollment.student_name
+                            }}
                             size="xl"
                             className="border-2 border-background relative z-10 hidden md:block"
                         />
@@ -179,9 +183,9 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
                                     </p>
                                 </div>
                             </div>
-                            
+
                             {/* Badge - Stacked on mobile if needed */}
-                            <Badge 
+                            <Badge
                                 variant={enrollmentBadgeVariant}
                                 className=""
                             >
@@ -205,8 +209,8 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
                                             <span className="truncate">{enrollment.student.email}</span>
                                         </div>
                                     </TooltipTrigger>
-                                    <TooltipContent 
-                                        side="bottom" 
+                                    <TooltipContent
+                                        side="bottom"
                                         align="start"
                                         sideOffset={8}
                                         className="p-1.5 border border-border shadow-lg"
@@ -242,7 +246,7 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
 
                             {/* Mobile: Email with Copy Button */}
                             <div className="flex items-center justify-between gap-2 min-w-0 sm:hidden">
-                                <div 
+                                <div
                                     onClick={() => handleMailTo(enrollment.student.email)}
                                     className="flex items-center gap-2 text-xs text-text-secondary min-w-0 cursor-pointer active:text-brand-primary transition-colors"
                                 >
@@ -264,7 +268,7 @@ export function StudentProfileHeader({ enrollment }: StudentProfileHeaderProps) 
                             </div>
                         </>
                     )}
-                    
+
                     {enrollment.student?.phone && (
                         <div className="flex items-center gap-2 text-xs sm:text-sm text-text-secondary group min-w-0">
                             <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 transition-colors group-hover:text-brand-primary flex-shrink-0" />
