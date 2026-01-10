@@ -632,9 +632,9 @@ export default function MarkAttendanceDialog({
                                 </Button>
                                 <Button
                                     type="submit"
-                                    disabled={!selectedStudent || markAttendance.isPending}
+                                    disabled={!selectedStudent || form.formState.isSubmitting}
                                 >
-                                    {markAttendance.isPending ? 'Marking...' : 'Mark Attendance'}
+                                    {form.formState.isSubmitting ? 'Marking...' : 'Mark Attendance'}
                                 </Button>
                             </div>
                         </form>
