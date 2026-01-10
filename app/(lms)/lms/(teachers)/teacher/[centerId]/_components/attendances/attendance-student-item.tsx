@@ -127,8 +127,7 @@ export function AttendanceStudentItem({
                 variant="default"
                 className={cn(
                     'group/item hover:shadow-sm transition-all duration-200',
-                    'items-center gap-4 px-4 py-3 cursor-pointer',
-                    isMarked && 'bg-muted/30'
+                    'items-center gap-4 px-4 py-3 cursor-pointer'
                 )}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}

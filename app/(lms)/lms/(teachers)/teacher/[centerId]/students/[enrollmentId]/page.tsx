@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { useTeacherContext } from '../../layout';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
@@ -13,6 +13,29 @@ import MarkAttendanceDialog from '@/app/(lms)/lms/_components/student-attendance
 import { StudentProfileHeader } from '../../_components/students/student-details-header';
 import { StudentQuickActions } from '../../_components/students/student-quick-actions';
 import { StudentDetailsGrid } from '../../_components/students/student-details-grid';
+
+// Helper function to map enrollment to dialog's SelectedStudent format
+function mapEnrollmentToSelectedStudent(enrollment: any) {
+    // Extract class info from first enrollment if available
+    const classEnrollment = Array.isArray(enrollment.class_enrollments) && enrollment.class_enrollments.length > 0
+        ? enrollment.class_enrollments[0]
+        : null;
+
+    return {
+        enrollment_id: enrollment.id,
+        student_id: enrollment.student_id,
+        student_name: enrollment.student?.full_name || null,
+        student_username: enrollment.student?.username || null,
+        branch_id: enrollment.branch_id,
+        branch_name: enrollment.branch?.name || null,
+        coaching_center_name: null, // Not available in current structure
+        class_id: classEnrollment?.class_id || null,
+        class_name: classEnrollment?.class_name || null,
+        subject: null, // Can be added if available
+        enrollment_status: enrollment.enrollment_status,
+        avatar_url: enrollment.student?.avatar_url || null,
+    };
+}
 
 export default function TeacherStudentDetailPage() {
     const params = useParams();
@@ -136,6 +159,7 @@ export default function TeacherStudentDetailPage() {
                         open={isMarkAttendanceOpen}
                         onOpenChange={setIsMarkAttendanceOpen}
                         branchId={currentEnrollment.branch_id}
+                        preSelectedStudent={mapEnrollmentToSelectedStudent(currentEnrollment)}
                     />
                 )}
             </>

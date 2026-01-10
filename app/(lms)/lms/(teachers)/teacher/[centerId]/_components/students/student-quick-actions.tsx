@@ -29,7 +29,7 @@ export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQui
     const totalDaysPresent = attendanceData.total_days_present ?? 0;
     const totalDaysAbsent = attendanceData.total_days_absent ?? 0;
     const attendancePercentage = attendanceData.attendance_percentage_calculated ?? 0;
-    const totalDays = totalDaysPresent + totalDaysAbsent;
+    const totalDays = attendanceData.total_attendance_records ?? 0;
 
     const handleAssignAssignment = () => {
         toast({
@@ -102,7 +102,7 @@ export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQui
                             icon={AlertCircle}
                             label="Absent"
                             value={totalDaysAbsent}
-                            variant="danger"
+                            variant="error"
                         />
                         <StatCard
                             icon={TrendingUp}
@@ -114,7 +114,7 @@ export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQui
                             icon={Calendar}
                             label="Total Days"
                             value={totalDays}
-                            variant="default"
+                            variant="secondary"
                         />
                     </div>
                 </CardContent>
@@ -123,34 +123,60 @@ export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQui
     );
 }
 
-// StatCard Helper Component
+// StatCard Helper Component// StatCard Helper Component
 interface StatCardProps {
     icon: React.ElementType;
     label: string;
     value: string | number;
-    variant?: 'default' | 'success' | 'danger';
+    variant?: 'default' | 'success' | 'warning' | 'error' | 'secondary';
 }
 
 function StatCard({ icon: Icon, label, value, variant = 'default' }: StatCardProps) {
     const variantStyles = {
-        default: 'bg-card border-border',
-        success: 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800',
-        danger: 'bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800',
+        default: 'bg-primary/10 border-primary/20',
+        secondary: 'bg-secondary/10 border-secondary/20',
+        success: 'bg-success/10 border-success/20 dark:bg-success/20 dark:border-success/30',
+        warning: 'bg-warning/10 border-warning/20 dark:bg-warning/20 dark:border-warning/30',
+        error: 'bg-error/10 border-error/20 dark:bg-error/20 dark:border-error/30',
     };
 
     const iconStyles = {
-        default: 'text-muted-foreground',
-        success: 'text-green-600 dark:text-green-400',
-        danger: 'text-red-600 dark:text-red-400',
+        default: 'text-primary',
+        secondary: 'text-secondary',
+        success: 'text-success dark:text-success-foreground',
+        warning: 'text-warning dark:text-warning-foreground',
+        error: 'text-error dark:text-error-foreground',
+    };
+
+    const textStyles = {
+        default: 'text-primary',
+        secondary: 'text-secondary',
+        success: 'text-success dark:text-success-foreground',
+        warning: 'text-warning dark:text-warning-foreground',
+        error: 'text-error dark:text-error-foreground',
     };
 
     return (
-        <div className={cn('p-4 rounded-lg border', variantStyles[variant])}>
+        <div className={cn('p-4 rounded-lg border transition-all duration-200 hover:scale-[1.02]', variantStyles[variant])}>
             <div className="flex items-center gap-2 mb-2">
                 <Icon className={cn('h-4 w-4', iconStyles[variant])} />
-                <span className="text-xs text-muted-foreground uppercase tracking-wide">{label}</span>
+                <span className={cn(
+                    'text-xs uppercase tracking-wide font-medium',
+                    variant === 'default'
+                        ? 'text-primary/80'
+                        : variant === 'secondary'
+                            ? 'text-secondary/80'
+                            : 'text-muted-foreground'
+                )}>
+                    {label}
+                </span>
             </div>
-            <p className="text-2xl font-bold">{value}</p>
+            <p className={cn(
+                'text-2xl font-bold tracking-tight',
+                textStyles[variant]
+            )}>
+                {value}
+            </p>
         </div>
     );
 }
