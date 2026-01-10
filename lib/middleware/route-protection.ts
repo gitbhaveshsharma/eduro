@@ -95,6 +95,7 @@ export class RouteProtector {
   private static getRouteConfig(pathname: string, routes: Record<string, RouteProtection>): RouteProtection | null {
     // First try exact match
     if (routes[pathname]) {
+      Logger.debug(`Route config: exact match found for ${pathname}`, { pattern: pathname })
       return routes[pathname]
     }
 
@@ -107,7 +108,10 @@ export class RouteProtector {
       }
     }
 
-    if (matches.length === 0) return null
+    if (matches.length === 0) {
+      Logger.debug(`Route config: no match found for ${pathname}`)
+      return null
+    }
 
     // Heuristic: prefer the most specific pattern. Compute a simple specificity
     // score based on number of non-wildcard characters (longer more specific).
@@ -115,6 +119,14 @@ export class RouteProtector {
       const scoreA = a.pattern.replace(/\*|\[|\]|\./g, '').length
       const scoreB = b.pattern.replace(/\*|\[|\]|\./g, '').length
       return scoreB - scoreA
+    })
+
+    Logger.debug(`Route config: pattern match found for ${pathname}`, {
+      pattern: matches[0].pattern,
+      securityLevel: matches[0].config.securityLevel,
+      allowedRoles: matches[0].config.allowedRoles,
+      totalMatches: matches.length,
+      allMatches: matches.map(m => m.pattern)
     })
 
     return matches[0].config
@@ -184,9 +196,7 @@ export class RouteProtector {
 
     // Check for suspicious requests
     if (RequestValidator.isSuspiciousRequest(request)) {
-      // For PUBLIC routes we don't block on non-critical suspicious flags —
-      // just log and continue. For protected routes, we allow an override
-      // when the user is authenticated and holds one of the allowed roles.
+      // Log suspicious activity for monitoring and security analysis
       Logger.warn('Suspicious request detected', {
         url: request.nextUrl.href,
         userAgent: request.headers.get('user-agent')
@@ -205,35 +215,26 @@ export class RouteProtector {
 
       MetricsCollector.recordSecurityEvent('SUSPICIOUS_ACTIVITY' as any)
 
+      // For PUBLIC routes, allow to continue (just logging the suspicious activity)
       if (config.securityLevel === SecurityLevel.PUBLIC) {
-        // Allow public routes to continue; do not block the request.
         return { shouldContinue: true }
       }
 
-      // If route is protected (AUTHENTICATED / ROLE_BASED), allow requests
-      // that come from an authenticated user who already satisfies the
-      // required role constraints. This reduces false positives for internal
-      // users (e.g., devs, admins) while still blocking unauthenticated
-      // or unexpected traffic.
-      if (context.user && config.allowedRoles && Array.isArray(config.allowedRoles)) {
-        try {
-          const hasRole = AuthHandler.hasRole(context.user, config.allowedRoles)
-          if (hasRole) {
-            Logger.debug('Suspicious request allowed due to valid authenticated role', { userId: context.user.id, role: context.user.role }, context)
-            return { shouldContinue: true }
-          }
-        } catch (e) {
-          // Fall through to block below if role check fails unexpectedly
-        }
-      }
+      // For AUTHENTICATED or ROLE_BASED routes, suspicious requests should still
+      // go through the proper authorization checks (checkAuthentication and 
+      // checkAuthorization). We log the suspicious activity but don't bypass
+      // role-based access control. This ensures coaches can't access teacher
+      // routes even if flagged as suspicious.
+      // 
+      // The authorization will be properly enforced in the checkAuthorization step.
+      Logger.debug('Suspicious request on protected route - will verify authorization', {
+        userId: context.user?.id,
+        role: context.user?.role,
+        requiredRoles: config.allowedRoles
+      }, context)
 
-      return {
-        shouldContinue: false,
-        response: NextResponse.json(
-          { error: 'Request rejected' },
-          { status: 400 }
-        )
-      }
+      // Continue to the next security check (authentication and authorization)
+      return { shouldContinue: true }
     }
 
     return { shouldContinue: true }
@@ -483,70 +484,119 @@ export class RouteProtector {
 
     // Check role-based access
     if (config.securityLevel === SecurityLevel.ROLE_BASED && config.allowedRoles) {
-      if (!AuthHandler.hasRole(context.user, config.allowedRoles)) {
+      const hasRequiredRole = AuthHandler.hasRole(context.user, config.allowedRoles)
+      
+      Logger.debug('Role-based authorization check', {
+        userRole: context.user.role,
+        requiredRoles: config.allowedRoles,
+        hasRequiredRole,
+        pathname: context.request.nextUrl.pathname
+      }, context)
+
+      if (!hasRequiredRole) {
         Logger.warn('Insufficient role permissions', {
           userRole: context.user.role,
-          requiredRoles: config.allowedRoles
+          requiredRoles: config.allowedRoles,
+          pathname: context.request.nextUrl.pathname
         }, context)
 
-        // For API routes, return JSON error.
+        // For API routes, return JSON error with detailed information
         if (context.request.nextUrl.pathname.startsWith('/api/')) {
           return {
             shouldContinue: false,
             response: NextResponse.json(
-              { error: 'Insufficient permissions' },
+              { 
+                error: 'Insufficient permissions',
+                details: {
+                  userRole: context.user.role,
+                  requiredRoles: config.allowedRoles,
+                  pathname: context.request.nextUrl.pathname
+                }
+              },
               { status: 403 }
             )
           }
         }
 
-        // For web routes, show a friendly HTML message and redirect back to the
-        // previous page (referer) or history.back() after 5 seconds. This avoids
-        // rendering a raw JSON error body in the browser.
+        // For web routes, show a friendly HTML message with role information
         const referer = context.request.headers.get('referer')
-        const returnTo = referer || ''
+        const currentUrl = context.request.nextUrl.href
+        
+        // Prevent redirect loops: if referer is the same as current blocked URL,
+        // redirect to a safe fallback page instead
+        let returnTo = '/lms' // Default safe fallback
+        
+        if (referer && !referer.includes(context.request.nextUrl.pathname)) {
+          // Referer is different from current blocked page, safe to redirect back
+          returnTo = referer
+        } else {
+          // Referer is same as blocked page or missing - redirect to safe page
+          // Determine best fallback based on user role
+          if (context.user.role === 'T') {
+            returnTo = '/lms' // Teachers go to LMS main page
+          } else if (context.user.role === 'C') {
+            returnTo = '/lms' // Coaches go to LMS main page
+          } else if (context.user.role === 'S') {
+            returnTo = '/lms' // Students go to LMS main page
+          } else {
+            returnTo = '/dashboard' // Others go to dashboard
+          }
+        }
+        
+        // Map role codes to readable names
+        const roleNames: Record<string, string> = {
+          'S': 'Student',
+          'T': 'Teacher',
+          'C': 'Coach',
+          'A': 'Admin',
+          'SA': 'Super Admin'
+        }
+        
+        const userRoleName = roleNames[context.user.role] || context.user.role
+        const requiredRoleNames = config.allowedRoles.map(r => roleNames[r] || r).join(', ')
+        
         const html = `<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Insufficient permissions</title>
-    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#f8fafc;color:#111827} .card{max-width:520px;padding:24px;border-radius:8px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .muted{color:#6b7280}</style>
+    <title>Access Denied</title>
+    <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f8fafc;color:#111827;padding:20px} .card{max-width:520px;padding:32px;border-radius:12px;background:white;box-shadow:0 6px 18px rgba(17,24,39,0.08);text-align:center} .title{font-size:24px;font-weight:700;margin-bottom:12px;color:#dc2626} .muted{color:#6b7280;margin-bottom:16px;line-height:1.6} .info-box{background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin:20px 0;text-align:left} .info-label{font-weight:600;color:#991b1b;font-size:14px} .info-value{color:#dc2626;font-size:14px;margin-top:4px} .btn{display:inline-block;padding:10px 24px;background:#3b82f6;color:white;text-decoration:none;border-radius:6px;margin-top:16px;font-weight:500} .btn:hover{background:#2563eb}</style>
   </head>
   <body>
     <div class="card">
-      <h1>Insufficient permissions</h1>
-      <p class="muted">You don't have permission to access this resource.</p>
-      <p class="muted">You will be returned to the previous page in <span id="count">5</span> seconds.</p>
-      <p><a id="backNow" href="#">Go back now</a></p>
+      <h1 class="title">🚫 Access Denied</h1>
+      <p class="muted">You don't have the required permissions to access this page.</p>
+      
+      <div class="info-box">
+        <div style="margin-bottom:12px">
+          <div class="info-label">Your Role:</div>
+          <div class="info-value">${userRoleName}</div>
+        </div>
+        <div>
+          <div class="info-label">Required Roles:</div>
+          <div class="info-value">${requiredRoleNames}</div>
+        </div>
+      </div>
+      
+      <p class="muted">Redirecting you to a safe page in <span id="count">3</span> seconds...</p>
+      <a id="backNow" href="${returnTo}" class="btn">Go Back Now</a>
     </div>
 
     <script>
       (function(){
-        var seconds = 5;
+        var seconds = 3;
         var el = document.getElementById('count');
-        var backLink = document.getElementById('backNow');
+        var redirectUrl = ${JSON.stringify(returnTo)};
+        
         function tick(){
           seconds -= 1;
           if(el) el.textContent = String(seconds);
           if(seconds <= 0){
-            if(${returnTo ? 'true' : 'false'}){
-              // If referer provided, navigate there
-              window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
-            } else {
-              // Otherwise attempt history back
-              if(window.history.length > 1) window.history.back(); else window.location.href = '/';
-            }
+            window.location.href = redirectUrl;
           }
         }
-        backLink.addEventListener('click', function(e){
-          e.preventDefault();
-          if(${returnTo ? 'true' : 'false'}){
-            window.location.href = ${returnTo ? JSON.stringify(returnTo) : 'undefined'};
-          } else {
-            if(window.history.length > 1) window.history.back(); else window.location.href = '/';
-          }
-        });
+        
         setInterval(tick, 1000);
       })();
     </script>

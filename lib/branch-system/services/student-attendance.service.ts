@@ -889,150 +889,158 @@ export class StudentAttendanceService {
      * @param date - Date in YYYY-MM-DD format
      * @returns Operation result with daily attendance records
      */
-async getDailyAttendance(
-    classId: string,
-    date: string = getCurrentDateString()
-): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
-    try {
-        if (!classId) {
-            return {
-                success: false,
-                error: 'Class ID is required',
-            };
-        }
+    async getDailyAttendance(
+        classId: string,
+        date: string = getCurrentDateString()
+    ): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
+        try {
+            if (!classId) {
+                return {
+                    success: false,
+                    error: 'Class ID is required',
+                };
+            }
 
-        // Get class and branch info
-        const { data: classInfo } = await this.supabase
-            .from('branch_classes')
-            .select(`
+            // Get class and branch info
+            const { data: classInfo } = await this.supabase
+                .from('branch_classes')
+                .select(`
                 class_name,
                 branch_id,
                 coaching_branches:branch_id(id, name)
             `)
-            .eq('id', classId)
-            .single();
+                .eq('id', classId)
+                .single();
 
-        const className: string = classInfo?.class_name || 'Unknown Class';
-        const branchName: string = (classInfo?.coaching_branches as any)?.name || 'Unknown Branch';
+            const className: string = classInfo?.class_name || 'Unknown Class';
+            const branchName: string = (classInfo?.coaching_branches as any)?.name || 'Unknown Branch';
 
-        // ✅ SIMPLIFIED: Get enrollments with student info from branch_students
-        const { data: enrollments, error: enrollmentsError } = await this.supabase
-            .from('class_enrollments')
-            .select(`
-                student_id,
-                enrollment_status,
-                branch_students!class_enrollments_branch_student_id_fkey(student_name)
-            `)
-            .eq('class_id', classId)
-            .eq('enrollment_status', 'ENROLLED');
+            const { data: enrollmentsRaw, error: enrollmentsError } = await this.supabase
+                .rpc('get_class_enrollments_with_profiles', {
+                    class_id_param: classId
+                });
 
-        if (enrollmentsError) {
-            return {
-                success: false,
-                error: `Failed to fetch students: ${enrollmentsError.message}`,
-            };
-        }
-
-        if (!enrollments || enrollments.length === 0) {
-            return {
-                success: true,
-                data: [],
-            };
-        }
-
-        // Use attendance_details view for attendance records
-        const { data: attendanceRecords, error: attendanceError } = await this.supabase
-            .from('attendance_details')
-            .select('*')
-            .eq('class_id', classId)
-            .eq('attendance_date', date);
-
-        if (attendanceError) {
-            return {
-                success: false,
-                error: `Failed to fetch attendance: ${attendanceError.message}`,
-            };
-        }
-
-        // Create daily attendance records
-        const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
-            const studentName = enrollment.branch_students?.student_name || 'Unknown Student';
-            
-            // Find attendance from view data
-            const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
-                (record) => record.student_id === enrollment.student_id
-            );
-
-            if (attendanceFromView) {
+            if (enrollmentsError) {
                 return {
-                    student_id: enrollment.student_id,
-                    student_name: attendanceFromView.student_name || studentName,
-                    student_username: null, // Not needed
-                    student_avatar: null, // Not needed
-                    attendance_status: attendanceFromView.attendance_status,
-                    check_in_time: attendanceFromView.check_in_time,
-                    check_out_time: attendanceFromView.check_out_time,
-                    late_by_minutes: attendanceFromView.late_by_minutes,
-                    teacher_remarks: attendanceFromView.teacher_remarks,
-                    is_marked: true,
-                    branch_name: branchName,
-                    class_name: className,
-                    attendance_id: attendanceFromView.attendance_id,
-                    class_id: attendanceFromView.class_id,
-                    branch_id: attendanceFromView.branch_id,
-                    teacher_id: attendanceFromView.teacher_id,
-                    teacher_name: attendanceFromView.teacher_name,
-                    attendance_date: attendanceFromView.attendance_date,
-                    early_leave_minutes: attendanceFromView.early_leave_minutes,
-                    excuse_reason: attendanceFromView.excuse_reason,
-                    subject: attendanceFromView.subject,
-                    grade_level: attendanceFromView.grade_level,
-                    created_at: attendanceFromView.created_at,
-                    updated_at: attendanceFromView.updated_at,
+                    success: false,
+                    error: `Failed to fetch students: ${enrollmentsError.message}`,
                 };
             }
 
-            // No attendance marked yet
+            let enrollments = [];
+            if (enrollmentsRaw && Array.isArray(enrollmentsRaw)) {
+                enrollments = enrollmentsRaw;
+            } else if (enrollmentsRaw && enrollmentsRaw.length === 0) {
+                enrollments = [];
+            }
+
+            if (enrollments.length === 0) {
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
+
+            // console.log('Enrollments fetched:', enrollments);
+
+            // Use attendance_details view for attendance records
+            const { data: attendanceRecords, error: attendanceError } = await this.supabase
+                .from('attendance_details')
+                .select('*')
+                .eq('class_id', classId)
+                .eq('attendance_date', date);
+
+            if (attendanceError) {
+                return {
+                    success: false,
+                    error: `Failed to fetch attendance: ${attendanceError.message}`,
+                };
+            }
+
+            // Create daily attendance records
+            const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
+                const studentName = enrollment.branch_students?.student_name || 'Unknown Student';
+
+                // **UPDATED: Use profiles object for profile info (fallback to branch_students)**
+                const profileInfo = enrollment.profiles || {};
+                const studentUsername = profileInfo.username || null;
+                const studentAvatar = profileInfo.avatar_url || null;
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === enrollment.student_id
+                );
+
+                if (attendanceFromView) {
+                    return {
+                        student_id: enrollment.student_id,
+                        student_name: attendanceFromView.student_name || studentName,
+                        student_username: attendanceFromView.student_username || studentUsername, // Prefer view, fallback to profiles
+                        student_avatar: attendanceFromView.student_avatar || studentAvatar, // Prefer view, fallback to profiles
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: className,
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
+                    };
+                }
+
+                // No attendance marked yet - **UPDATED: Use profile info from enrollment**
+                return {
+                    student_id: enrollment.student_id,
+                    student_name: studentName,
+                    student_username: studentUsername, // Now uses profiles.username
+                    student_avatar: studentAvatar, // Now uses profiles.avatar_url
+                    attendance_status: 'UNMARKED' as AttendanceStatus,
+                    check_in_time: null,
+                    check_out_time: null,
+                    late_by_minutes: 0,
+                    teacher_remarks: null,
+                    is_marked: false,
+                    branch_name: branchName,
+                    class_name: className,
+                    attendance_id: null,
+                    class_id: classId,
+                    branch_id: classInfo?.branch_id || null,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
+                };
+            });
+
             return {
-                student_id: enrollment.student_id,
-                student_name: studentName,
-                student_username: null,
-                student_avatar: null,
-                attendance_status: 'UNMARKED' as AttendanceStatus,
-                check_in_time: null,
-                check_out_time: null,
-                late_by_minutes: 0,
-                teacher_remarks: null,
-                is_marked: false,
-                branch_name: branchName,
-                class_name: className,
-                attendance_id: null,
-                class_id: classId,
-                branch_id: classInfo?.branch_id || null,
-                teacher_id: null,
-                teacher_name: null,
-                attendance_date: date,
-                early_leave_minutes: 0,
-                excuse_reason: null,
-                subject: null,
-                grade_level: null,
-                created_at: undefined,
-                updated_at: undefined,
+                success: true,
+                data: dailyRecords,
             };
-        });
 
-        return {
-            success: true,
-            data: dailyRecords,
-        };
-
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
     }
-}
 
 
     /**
@@ -1043,148 +1051,148 @@ async getDailyAttendance(
      * @param date - Date in YYYY-MM-DD format
      * @returns Operation result with daily attendance records
      */
-async getBranchDailyAttendance(
-    branchId: string,
-    date: string = getCurrentDateString()
-): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
-    try {
-        if (!branchId) {
-            return {
-                success: false,
-                error: 'Branch ID is required',
-            };
-        }
+    async getBranchDailyAttendance(
+        branchId: string,
+        date: string = getCurrentDateString()
+    ): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
+        try {
+            if (!branchId) {
+                return {
+                    success: false,
+                    error: 'Branch ID is required',
+                };
+            }
 
-        // Get branch name
-        const { data: branch } = await this.supabase
-            .from('coaching_branches')
-            .select('name')
-            .eq('id', branchId)
-            .single();
+            // Get branch name
+            const { data: branch } = await this.supabase
+                .from('coaching_branches')
+                .select('name')
+                .eq('id', branchId)
+                .single();
 
-        const branchName: string = branch?.name || 'Unknown Branch';
+            const branchName: string = branch?.name || 'Unknown Branch';
 
-        // ✅ SIMPLIFIED: Get enrollments with student and class info
-        const { data: enrollments, error: enrollmentsError } = await this.supabase
-            .from('class_enrollments')
-            .select(`
+            // ✅ SIMPLIFIED: Get enrollments with student and class info
+            const { data: enrollments, error: enrollmentsError } = await this.supabase
+                .from('class_enrollments')
+                .select(`
                 student_id,
                 class_id,
                 enrollment_status,
                 branch_students!class_enrollments_branch_student_id_fkey(student_name),
                 branch_classes!class_enrollments_class_id_fkey(class_name)
             `)
-            .eq('branch_id', branchId)
-            .eq('enrollment_status', 'ENROLLED');
+                .eq('branch_id', branchId)
+                .eq('enrollment_status', 'ENROLLED');
 
-        if (enrollmentsError) {
-            return {
-                success: false,
-                error: `Failed to fetch students: ${enrollmentsError.message}`,
-            };
-        }
-
-        if (!enrollments || enrollments.length === 0) {
-            return {
-                success: true,
-                data: [],
-            };
-        }
-
-        // Use attendance_details view for attendance records
-        const { data: attendanceRecords, error: attendanceError } = await this.supabase
-            .from('attendance_details')
-            .select('*')
-            .eq('branch_id', branchId)
-            .eq('attendance_date', date);
-
-        if (attendanceError) {
-            return {
-                success: false,
-                error: `Failed to fetch attendance: ${attendanceError.message}`,
-            };
-        }
-
-        // Create daily attendance records
-        const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
-            const studentName: string = enrollment.branch_students?.student_name || 'Unknown Student';
-            const className: string | null = enrollment.branch_classes?.class_name || null;
-
-            // Find attendance from view data
-            const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
-                (record) => record.student_id === enrollment.student_id && record.class_id === enrollment.class_id
-            );
-
-            if (attendanceFromView) {
+            if (enrollmentsError) {
                 return {
-                    student_id: enrollment.student_id,
-                    student_name: attendanceFromView.student_name || studentName,
-                    student_username: null,
-                    student_avatar: null,
-                    attendance_status: attendanceFromView.attendance_status,
-                    check_in_time: attendanceFromView.check_in_time,
-                    check_out_time: attendanceFromView.check_out_time,
-                    late_by_minutes: attendanceFromView.late_by_minutes,
-                    teacher_remarks: attendanceFromView.teacher_remarks,
-                    is_marked: true,
-                    branch_name: branchName,
-                    class_name: attendanceFromView.class_name || className,
-                    attendance_id: attendanceFromView.attendance_id,
-                    class_id: attendanceFromView.class_id,
-                    branch_id: attendanceFromView.branch_id,
-                    teacher_id: attendanceFromView.teacher_id,
-                    teacher_name: attendanceFromView.teacher_name,
-                    attendance_date: attendanceFromView.attendance_date,
-                    early_leave_minutes: attendanceFromView.early_leave_minutes,
-                    excuse_reason: attendanceFromView.excuse_reason,
-                    subject: attendanceFromView.subject,
-                    grade_level: attendanceFromView.grade_level,
-                    created_at: attendanceFromView.created_at,
-                    updated_at: attendanceFromView.updated_at,
+                    success: false,
+                    error: `Failed to fetch students: ${enrollmentsError.message}`,
                 };
             }
 
-            // No attendance marked yet
+            if (!enrollments || enrollments.length === 0) {
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
+
+            // Use attendance_details view for attendance records
+            const { data: attendanceRecords, error: attendanceError } = await this.supabase
+                .from('attendance_details')
+                .select('*')
+                .eq('branch_id', branchId)
+                .eq('attendance_date', date);
+
+            if (attendanceError) {
+                return {
+                    success: false,
+                    error: `Failed to fetch attendance: ${attendanceError.message}`,
+                };
+            }
+
+            // Create daily attendance records
+            const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
+                const studentName: string = enrollment.branch_students?.student_name || 'Unknown Student';
+                const className: string | null = enrollment.branch_classes?.class_name || null;
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === enrollment.student_id && record.class_id === enrollment.class_id
+                );
+
+                if (attendanceFromView) {
+                    return {
+                        student_id: enrollment.student_id,
+                        student_name: attendanceFromView.student_name || studentName,
+                        student_username: null,
+                        student_avatar: null,
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: attendanceFromView.class_name || className,
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
+                    };
+                }
+
+                // No attendance marked yet
+                return {
+                    student_id: enrollment.student_id,
+                    student_name: studentName,
+                    student_username: null,
+                    student_avatar: null,
+                    attendance_status: 'UNMARKED' as AttendanceStatus,
+                    check_in_time: null,
+                    check_out_time: null,
+                    late_by_minutes: 0,
+                    teacher_remarks: null,
+                    is_marked: false,
+                    branch_name: branchName,
+                    class_name: className,
+                    attendance_id: null,
+                    class_id: enrollment.class_id || null,
+                    branch_id: branchId,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
+                };
+            });
+
             return {
-                student_id: enrollment.student_id,
-                student_name: studentName,
-                student_username: null,
-                student_avatar: null,
-                attendance_status: 'UNMARKED' as AttendanceStatus,
-                check_in_time: null,
-                check_out_time: null,
-                late_by_minutes: 0,
-                teacher_remarks: null,
-                is_marked: false,
-                branch_name: branchName,
-                class_name: className,
-                attendance_id: null,
-                class_id: enrollment.class_id || null,
-                branch_id: branchId,
-                teacher_id: null,
-                teacher_name: null,
-                attendance_date: date,
-                early_leave_minutes: 0,
-                excuse_reason: null,
-                subject: null,
-                grade_level: null,
-                created_at: undefined,
-                updated_at: undefined,
+                success: true,
+                data: dailyRecords,
             };
-        });
 
-        return {
-            success: true,
-            data: dailyRecords,
-        };
-
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
     }
-}
 
 
     /**
@@ -1195,46 +1203,46 @@ async getBranchDailyAttendance(
      * @param date - Date in YYYY-MM-DD format
      * @returns Operation result with daily attendance records
      */
-async getCoachingCenterDailyAttendance(
-    coachingCenterId: string,
-    date: string = getCurrentDateString()
-): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
-    try {
-        if (!coachingCenterId) {
-            return {
-                success: false,
-                error: 'Coaching Center ID is required',
-            };
-        }
+    async getCoachingCenterDailyAttendance(
+        coachingCenterId: string,
+        date: string = getCurrentDateString()
+    ): Promise<AttendanceOperationResult<DailyAttendanceRecord[]>> {
+        try {
+            if (!coachingCenterId) {
+                return {
+                    success: false,
+                    error: 'Coaching Center ID is required',
+                };
+            }
 
-        // Get all branches for this coaching center
-        const { data: branches, error: branchesError } = await this.supabase
-            .from('coaching_branches')
-            .select('id, name')
-            .eq('coaching_center_id', coachingCenterId)
-            .eq('is_active', true);
+            // Get all branches for this coaching center
+            const { data: branches, error: branchesError } = await this.supabase
+                .from('coaching_branches')
+                .select('id, name')
+                .eq('coaching_center_id', coachingCenterId)
+                .eq('is_active', true);
 
-        if (branchesError) {
-            return {
-                success: false,
-                error: `Failed to fetch branches: ${branchesError.message}`,
-            };
-        }
+            if (branchesError) {
+                return {
+                    success: false,
+                    error: `Failed to fetch branches: ${branchesError.message}`,
+                };
+            }
 
-        if (!branches || branches.length === 0) {
-            return {
-                success: true,
-                data: [],
-            };
-        }
+            if (!branches || branches.length === 0) {
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
 
-        const branchIds = branches.map((b: { id: string }) => b.id);
-        const branchMap = new Map<string, string>(branches.map((b: { id: string; name: string }) => [b.id, b.name]));
+            const branchIds = branches.map((b: { id: string }) => b.id);
+            const branchMap = new Map<string, string>(branches.map((b: { id: string; name: string }) => [b.id, b.name]));
 
-        // ✅ SIMPLIFIED: Get enrollments with student and class info
-        const { data: enrollments, error: enrollmentsError } = await this.supabase
-            .from('class_enrollments')
-            .select(`
+            // ✅ SIMPLIFIED: Get enrollments with student and class info
+            const { data: enrollments, error: enrollmentsError } = await this.supabase
+                .from('class_enrollments')
+                .select(`
                 student_id,
                 branch_id,
                 class_id,
@@ -1242,118 +1250,118 @@ async getCoachingCenterDailyAttendance(
                 branch_students!class_enrollments_branch_student_id_fkey(student_name),
                 branch_classes!class_enrollments_class_id_fkey(class_name)
             `)
-            .in('branch_id', branchIds)
-            .eq('enrollment_status', 'ENROLLED');
+                .in('branch_id', branchIds)
+                .eq('enrollment_status', 'ENROLLED');
 
-        if (enrollmentsError) {
-            return {
-                success: false,
-                error: `Failed to fetch students: ${enrollmentsError.message}`,
-            };
-        }
-
-        if (!enrollments || enrollments.length === 0) {
-            return {
-                success: true,
-                data: [],
-            };
-        }
-
-        // Use attendance_details view for attendance records
-        const { data: attendanceRecords, error: attendanceError } = await this.supabase
-            .from('attendance_details')
-            .select('*')
-            .in('branch_id', branchIds)
-            .eq('attendance_date', date);
-
-        if (attendanceError) {
-            return {
-                success: false,
-                error: `Failed to fetch attendance: ${attendanceError.message}`,
-            };
-        }
-
-        // Create daily attendance records
-        const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
-            const branchName: string = branchMap.get(enrollment.branch_id) || 'Unknown Branch';
-            const studentName: string = enrollment.branch_students?.student_name || 'Unknown Student';
-            const className: string | null = enrollment.branch_classes?.class_name || null;
-
-            // Find attendance from view data
-            const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
-                (record) => record.student_id === enrollment.student_id && record.class_id === enrollment.class_id
-            );
-
-            if (attendanceFromView) {
+            if (enrollmentsError) {
                 return {
-                    student_id: enrollment.student_id,
-                    student_name: attendanceFromView.student_name || studentName,
-                    student_username: null,
-                    student_avatar: null,
-                    attendance_status: attendanceFromView.attendance_status,
-                    check_in_time: attendanceFromView.check_in_time,
-                    check_out_time: attendanceFromView.check_out_time,
-                    late_by_minutes: attendanceFromView.late_by_minutes,
-                    teacher_remarks: attendanceFromView.teacher_remarks,
-                    is_marked: true,
-                    branch_name: branchName,
-                    class_name: attendanceFromView.class_name || className,
-                    attendance_id: attendanceFromView.attendance_id,
-                    class_id: attendanceFromView.class_id,
-                    branch_id: attendanceFromView.branch_id,
-                    teacher_id: attendanceFromView.teacher_id,
-                    teacher_name: attendanceFromView.teacher_name,
-                    attendance_date: attendanceFromView.attendance_date,
-                    early_leave_minutes: attendanceFromView.early_leave_minutes,
-                    excuse_reason: attendanceFromView.excuse_reason,
-                    subject: attendanceFromView.subject,
-                    grade_level: attendanceFromView.grade_level,
-                    created_at: attendanceFromView.created_at,
-                    updated_at: attendanceFromView.updated_at,
+                    success: false,
+                    error: `Failed to fetch students: ${enrollmentsError.message}`,
                 };
             }
 
-            // No attendance marked yet
+            if (!enrollments || enrollments.length === 0) {
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
+
+            // Use attendance_details view for attendance records
+            const { data: attendanceRecords, error: attendanceError } = await this.supabase
+                .from('attendance_details')
+                .select('*')
+                .in('branch_id', branchIds)
+                .eq('attendance_date', date);
+
+            if (attendanceError) {
+                return {
+                    success: false,
+                    error: `Failed to fetch attendance: ${attendanceError.message}`,
+                };
+            }
+
+            // Create daily attendance records
+            const dailyRecords: DailyAttendanceRecord[] = enrollments.map((enrollment: any) => {
+                const branchName: string = branchMap.get(enrollment.branch_id) || 'Unknown Branch';
+                const studentName: string = enrollment.branch_students?.student_name || 'Unknown Student';
+                const className: string | null = enrollment.branch_classes?.class_name || null;
+
+                // Find attendance from view data
+                const attendanceFromView = (attendanceRecords as AttendanceDetailsView[])?.find(
+                    (record) => record.student_id === enrollment.student_id && record.class_id === enrollment.class_id
+                );
+
+                if (attendanceFromView) {
+                    return {
+                        student_id: enrollment.student_id,
+                        student_name: attendanceFromView.student_name || studentName,
+                        student_username: null,
+                        student_avatar: null,
+                        attendance_status: attendanceFromView.attendance_status,
+                        check_in_time: attendanceFromView.check_in_time,
+                        check_out_time: attendanceFromView.check_out_time,
+                        late_by_minutes: attendanceFromView.late_by_minutes,
+                        teacher_remarks: attendanceFromView.teacher_remarks,
+                        is_marked: true,
+                        branch_name: branchName,
+                        class_name: attendanceFromView.class_name || className,
+                        attendance_id: attendanceFromView.attendance_id,
+                        class_id: attendanceFromView.class_id,
+                        branch_id: attendanceFromView.branch_id,
+                        teacher_id: attendanceFromView.teacher_id,
+                        teacher_name: attendanceFromView.teacher_name,
+                        attendance_date: attendanceFromView.attendance_date,
+                        early_leave_minutes: attendanceFromView.early_leave_minutes,
+                        excuse_reason: attendanceFromView.excuse_reason,
+                        subject: attendanceFromView.subject,
+                        grade_level: attendanceFromView.grade_level,
+                        created_at: attendanceFromView.created_at,
+                        updated_at: attendanceFromView.updated_at,
+                    };
+                }
+
+                // No attendance marked yet
+                return {
+                    student_id: enrollment.student_id,
+                    student_name: studentName,
+                    student_username: null,
+                    student_avatar: null,
+                    attendance_status: 'UNMARKED' as AttendanceStatus,
+                    check_in_time: null,
+                    check_out_time: null,
+                    late_by_minutes: 0,
+                    teacher_remarks: null,
+                    is_marked: false,
+                    branch_name: branchName,
+                    class_name: className,
+                    attendance_id: null,
+                    class_id: enrollment.class_id || null,
+                    branch_id: enrollment.branch_id || null,
+                    teacher_id: null,
+                    teacher_name: null,
+                    attendance_date: date,
+                    early_leave_minutes: 0,
+                    excuse_reason: null,
+                    subject: null,
+                    grade_level: null,
+                    created_at: undefined,
+                    updated_at: undefined,
+                };
+            });
+
             return {
-                student_id: enrollment.student_id,
-                student_name: studentName,
-                student_username: null,
-                student_avatar: null,
-                attendance_status: 'UNMARKED' as AttendanceStatus,
-                check_in_time: null,
-                check_out_time: null,
-                late_by_minutes: 0,
-                teacher_remarks: null,
-                is_marked: false,
-                branch_name: branchName,
-                class_name: className,
-                attendance_id: null,
-                class_id: enrollment.class_id || null,
-                branch_id: enrollment.branch_id || null,
-                teacher_id: null,
-                teacher_name: null,
-                attendance_date: date,
-                early_leave_minutes: 0,
-                excuse_reason: null,
-                subject: null,
-                grade_level: null,
-                created_at: undefined,
-                updated_at: undefined,
+                success: true,
+                data: dailyRecords,
             };
-        });
 
-        return {
-            success: true,
-            data: dailyRecords,
-        };
-
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
     }
-}
 
 
     // ============================================================
