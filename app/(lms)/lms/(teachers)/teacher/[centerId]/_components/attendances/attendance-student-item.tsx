@@ -112,7 +112,6 @@ export function AttendanceStudentItem({
 }: AttendanceStudentItemProps) {
     const [isHovered, setIsHovered] = useState(false);
     const [summaryModalOpen, setSummaryModalOpen] = useState(false);
-
     // Don't fetch summary on mount - only fetch when modal opens
     // This prevents showing stale data from previous students
 

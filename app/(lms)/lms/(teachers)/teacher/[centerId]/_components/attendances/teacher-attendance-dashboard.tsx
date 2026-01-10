@@ -86,7 +86,6 @@ export function TeacherAttendanceDashboard({ centerId }: TeacherAttendanceDashbo
     const attendanceError = useAttendanceError();
     const openEditDialog = useOpenEditDialog();
     const openDeleteDialog = useOpenDeleteDialog();
-
     // Class report hooks
     const fetchClassReport = useFetchClassReport();
     const classReport = useClassAttendanceReport();

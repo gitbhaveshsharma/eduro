@@ -108,6 +108,7 @@ export interface AttendanceDetailsView {
   student_id: string;
   student_name: string | null;
   student_username: string | null;
+  student_avatar: string | null;
   class_id: string;
   class_name: string | null;
   subject: string | null;
