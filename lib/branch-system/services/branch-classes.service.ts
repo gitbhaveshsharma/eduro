@@ -330,10 +330,10 @@ export class BranchClassesService {
                 };
             }
 
-            console.log('✅ [getClassesByBranch] Classes fetched:', {
-                branchId,
-                count: data?.length || 0,
-            });
+            // console.log('✅ [getClassesByBranch] Classes fetched:', {
+            //     branchId,
+            //     count: data?.length || 0,
+            // });
 
             return {
                 success: true,

@@ -19,6 +19,17 @@ interface StudentQuickActionsProps {
 
 export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQuickActionsProps) {
     const { toast } = useToast();
+    console.log('Rendering StudentQuickActions for enrollment:', enrollment);
+
+    // Extract attendance data from the class_attendence array
+    const attendanceData = Array.isArray(enrollment.class_attendence)
+        ? enrollment.class_attendence[0]
+        : enrollment.class_attendence || {};
+
+    const totalDaysPresent = attendanceData.total_days_present ?? 0;
+    const totalDaysAbsent = attendanceData.total_days_absent ?? 0;
+    const attendancePercentage = attendanceData.attendance_percentage_calculated ?? 0;
+    const totalDays = totalDaysPresent + totalDaysAbsent;
 
     const handleAssignAssignment = () => {
         toast({
@@ -84,28 +95,25 @@ export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQui
                         <StatCard
                             icon={CheckCircle2}
                             label="Present"
-                            value={enrollment.total_days_present ?? 0}
+                            value={totalDaysPresent}
                             variant="success"
                         />
                         <StatCard
                             icon={AlertCircle}
                             label="Absent"
-                            value={enrollment.total_days_absent ?? 0}
+                            value={totalDaysAbsent}
                             variant="danger"
                         />
                         <StatCard
                             icon={TrendingUp}
                             label="Percentage"
-                            value={`${enrollment.attendance_percentage ?? 0}%`}
+                            value={`${attendancePercentage}%`}
                             variant="default"
                         />
                         <StatCard
                             icon={Calendar}
                             label="Total Days"
-                            value={
-                                (enrollment.total_days_present ?? 0) +
-                                (enrollment.total_days_absent ?? 0)
-                            }
+                            value={totalDays}
                             variant="default"
                         />
                     </div>
