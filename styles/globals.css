@@ -589,3 +589,27 @@
 .animate-tabs-out {
   animation: tabs-out 0.3s ease-in-out;
 }
+
+
+/* Add to your global.css or styles */
+@keyframes toast-swipe-out {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+/* Enable swipe gestures on mobile */
+[data-sonner-toast] {
+  touch-action: pan-y;
+  user-select: none;
+}
+
+/* Smooth toast exit animation */
+[data-sonner-toast][data-dismissed="true"] {
+  animation: toast-swipe-out 0.2s ease-out forwards;
+}
