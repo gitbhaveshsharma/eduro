@@ -1,20 +1,13 @@
-/**
- * Attendance Student List Component
- * 
- * List of students with attendance marking capabilities
- */
-
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react'; // Add useEffect import
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ItemSeparator } from '@/components/ui/item';
-import { User, AlertCircle } from 'lucide-react';
+import { User } from 'lucide-react';
 import { AttendanceStudentItem } from './attendance-student-item';
 import { QuickAttendanceActions } from './quick-attendance-actions';
 import { AttendanceStatus } from '@/lib/branch-system/student-attendance';
 import type { DailyAttendanceRecord } from '@/lib/branch-system/types/student-attendance.types';
+import { showErrorToast } from '@/lib/toast'; // Import your toast function
 
 interface AttendanceStudentListProps {
     records: DailyAttendanceRecord[];
@@ -47,6 +40,13 @@ export function AttendanceStudentList({
     centerId,
     classId,
 }: AttendanceStudentListProps) {
+    // Use useEffect to handle error toasts
+    useEffect(() => {
+        if (error) {
+            showErrorToast(error);
+        }
+    }, [error]); // This will only trigger when error changes
+
     // Calculate stats
     const stats = useMemo(() => {
         const total = records.length;
@@ -78,16 +78,6 @@ export function AttendanceStudentList({
                     </div>
                 ))}
             </div>
-        );
-    }
-
-    // Error state
-    if (error) {
-        return (
-            <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-            </Alert>
         );
     }
 

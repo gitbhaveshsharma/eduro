@@ -26,6 +26,7 @@ import {
     Sparkles,
     PartyPopper,
     GraduationCap,
+    Filter,
 } from 'lucide-react';
 import type { TeacherStudent } from '@/lib/branch-system/types/branch-students.types';
 import {
@@ -36,6 +37,7 @@ import {
 import type { VariantProps } from 'class-variance-authority';
 import type { badgeVariants } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
 interface StudentsListViewProps {
     students: TeacherStudent[];
@@ -60,10 +62,10 @@ function getAttendanceBadgeVariant(percentage: number): BadgeVariant {
  */
 function isBirthdayToday(dateOfBirth: string | null): boolean {
     if (!dateOfBirth) return false;
-    
+
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
-    
+
     return (
         today.getMonth() === birthDate.getMonth() &&
         today.getDate() === birthDate.getDate()
@@ -75,16 +77,16 @@ function isBirthdayToday(dateOfBirth: string | null): boolean {
  */
 function calculateAge(dateOfBirth: string | null): number | null {
     if (!dateOfBirth) return null;
-    
+
     const today = new Date();
     const birthDate = new Date(dateOfBirth);
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
         age--;
     }
-    
+
     return age > 0 ? age : null;
 }
 
@@ -94,7 +96,7 @@ function calculateAge(dateOfBirth: string | null): number | null {
  */
 function getEnrollmentBadgeVariant(status: string): BadgeVariant {
     const normalizedStatus = status.toUpperCase() as ClassEnrollmentStatus;
-    
+
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[normalizedStatus];
     if (!statusConfig) return 'secondary';
 
@@ -117,14 +119,16 @@ function getEnrollmentBadgeVariant(status: string): BadgeVariant {
  */
 function getEnrollmentStatusLabel(status: string | null | undefined): string {
     if (!status) return 'Not Enrolled';
-    
+
     const normalizedStatus = status.toUpperCase() as ClassEnrollmentStatus;
-    
+
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[normalizedStatus];
     return statusConfig?.label || status;
 }
 
 export function StudentsListView({ students, onViewDetails }: StudentsListViewProps) {
+    const [showBirthdayStudents, setShowBirthdayStudents] = useState(false);
+
     if (!students || students.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -139,41 +143,116 @@ export function StudentsListView({ students, onViewDetails }: StudentsListViewPr
         );
     }
 
+    // Count students with birthday today
+    const birthdayStudentsCount = students.filter(student =>
+        isBirthdayToday(student.date_of_birth)
+    ).length;
+
+    // Check if any students have birthday today
+    const hasBirthdayStudents = birthdayStudentsCount > 0;
+
+    // Filter students based on birthday filter
+    const filteredStudents = showBirthdayStudents
+        ? students.filter(student => isBirthdayToday(student.date_of_birth))
+        : students;
+
     return (
         <TooltipProvider delayDuration={200}>
-            <div className="space-y-2">
-                {students.map((student, index) => {
-                    const attendancePercentage = student.attendance_percentage || 0;
-                    const attendanceBadgeVariant = getAttendanceBadgeVariant(attendancePercentage);
-                    const hasBirthday = isBirthdayToday(student.date_of_birth);
-                    const age = calculateAge(student.date_of_birth);
-                    const enrollmentBadgeVariant = student.enrollment_status 
-                        ? getEnrollmentBadgeVariant(student.enrollment_status)
-                        : 'secondary';
-                    const enrollmentStatusLabel = getEnrollmentStatusLabel(student.enrollment_status);
+            {/* Birthday Filter Header - Only shown when there are birthday students */}
+            {hasBirthdayStudents && (
+                <div className="mb-4">
+                    <div className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-pink-50 via-purple-50 to-blue-50 dark:from-pink-950/30 dark:via-purple-950/30 dark:to-blue-950/30 border border-pink-200/50 dark:border-pink-900/50">
+                        <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-gradient-to-r from-pink-100 to-purple-100 dark:from-pink-900 dark:to-purple-900">
+                                <PartyPopper className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                            </div>
+                            <div>
+                                <h3 className="font-semibold text-sm">
+                                    🎉 Birthday Celebration Today!
+                                </h3>
+                                <p className="text-xs text-muted-foreground">
+                                    {birthdayStudentsCount} student{birthdayStudentsCount !== 1 ? 's' : ''} celebrating today
+                                </p>
+                            </div>
+                        </div>
 
-                    return (
-                        <div key={student.student_id}>
-                            <Item
-                                variant="default"
-                                className={cn(
-                                    'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
-                                    'items-stretch gap-6 px-5 py-4',
-                                    hasBirthday && 'bg-gradient-to-r from-pink-50/50 via-purple-50/30 to-blue-50/50 border-pink-200/50 dark:from-pink-950/20 dark:via-purple-950/20 dark:to-blue-950/20'
-                                )}
-                            >
-                                {/* Student Avatar with Birthday Indicator */}
-                                <ItemMedia variant="icon">
-                                    <div className="relative rounded-full overflow-visible flex-shrink-0">
-                                        {/* Birthday celebration ring */}
-                                        {hasBirthday && (
-                                            <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 rounded-full animate-pulse" />
-                                        )}
-                                        
-                                        <div className={cn(
-                                            "relative w-full h-full rounded-full overflow-hidden",
-                                            hasBirthday && "ring-2 ring-white dark:ring-gray-900"
-                                        )}>
+                        <Button
+                            variant={showBirthdayStudents ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setShowBirthdayStudents(!showBirthdayStudents)}
+                            className={cn(
+                                "gap-2 transition-all duration-200",
+                                showBirthdayStudents && "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
+                            )}
+                        >
+                            <Filter className="h-4 w-4" />
+                            {showBirthdayStudents ? "Show All" : "Show Only Birthdays"}
+                        </Button>
+                    </div>
+
+                    {/* Celebration Message */}
+                    {showBirthdayStudents && (
+                        <div className="mt-2 p-3 rounded-lg bg-gradient-to-r from-pink-500/10 via-purple-500/10 to-blue-500/10 border border-pink-200/30 dark:border-pink-900/30">
+                            <p className="text-xs text-center font-medium">
+                                <Sparkles className="h-3 w-3 inline mr-1.5 animate-pulse" />
+                                Celebrating {birthdayStudentsCount} birthday{birthdayStudentsCount !== 1 ? 's' : ''} today!
+                                <Sparkles className="h-3 w-3 inline ml-1.5 animate-pulse" />
+                            </p>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Students List */}
+            {filteredStudents.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center rounded-lg border border-dashed">
+                    <div className="rounded-full bg-muted p-6 mb-4">
+                        <Cake className="h-12 w-12 text-muted-foreground" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">No Birthday Students</h3>
+                    <p className="text-sm text-muted-foreground max-w-md mb-4">
+                        No students are celebrating birthdays today.
+                    </p>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowBirthdayStudents(false)}
+                        className="gap-2"
+                    >
+                        <Filter className="h-4 w-4" />
+                        Show All Students
+                    </Button>
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {filteredStudents.map((student, index) => {
+                        const attendancePercentage = student.attendance_percentage || 0;
+                        const attendanceBadgeVariant = getAttendanceBadgeVariant(attendancePercentage);
+                        const hasBirthday = isBirthdayToday(student.date_of_birth);
+                        const age = calculateAge(student.date_of_birth);
+                        const enrollmentBadgeVariant = student.enrollment_status
+                            ? getEnrollmentBadgeVariant(student.enrollment_status)
+                            : 'secondary';
+                        const enrollmentStatusLabel = getEnrollmentStatusLabel(student.enrollment_status);
+
+                        return (
+                            <div key={student.student_id}>
+                                <Item
+                                    variant="default"
+                                    className={cn(
+                                        'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
+                                        'items-stretch gap-6 px-5 py-4',
+                                        hasBirthday && 'bg-gradient-to-r from-pink-50/50 via-purple-50/30 to-blue-50/50 border-pink-200/50 dark:from-pink-950/20 dark:via-purple-950/20 dark:to-blue-950/20'
+                                    )}
+                                >
+                                    {/* Student Avatar with Birthday Indicator */}
+                                    <ItemMedia variant="icon">
+                                        <div className="relative rounded-full overflow-visible flex-shrink-0">
+                                            {/* Birthday celebration ring */}
+                                            {hasBirthday && (
+                                                <div className="absolute -inset-1 bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 rounded-full animate-pulse w-14 h-14" />
+                                            )}
+
                                             <UserAvatar
                                                 profile={{
                                                     id: student.student_id,
@@ -193,8 +272,8 @@ export function StudentsListView({ students, onViewDetails }: StudentsListViewPr
                                                         <Cake className="h-3.5 w-3.5 text-white" />
                                                     </div>
                                                 </TooltipTrigger>
-                                                <TooltipContent 
-                                                    side="right" 
+                                                <TooltipContent
+                                                    side="right"
                                                     className="bg-gradient-to-r from-pink-500 via-purple-500 to-blue-500 text-white border-none shadow-xl"
                                                 >
                                                     <div className="flex items-center gap-2">
@@ -207,83 +286,83 @@ export function StudentsListView({ students, onViewDetails }: StudentsListViewPr
                                                 </TooltipContent>
                                             </Tooltip>
                                         )}
-                                    </div>
-                                </ItemMedia>
+                                    </ItemMedia>
 
-                                {/* Content - 2 lines like class list */}
-                                <ItemContent>
-                                    {/* Line 1: Student Name + Enrollment Badge + Birthday Sparkle */}
-                                    <ItemTitle className="flex items-center gap-2">
-                                        <span className={cn(
-                                            "font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary",
-                                            hasBirthday && "bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 bg-clip-text text-transparent"
-                                        )}>
-                                            {student.student_name || 'Unknown Student'}
-                                        </span>
-                                        
-                                        {/* Enrollment Status Badge */}
-                                        {student.enrollment_status && (
-                                            <Badge
-                                                variant={enrollmentBadgeVariant}
-                                                className="text-xs font-medium hidden sm:inline-flex"
-                                            >
-                                                {enrollmentStatusLabel}
-                                            </Badge>
-                                        )}
+                                    {/* Content - 2 lines like class list */}
+                                    <ItemContent>
+                                        {/* Line 1: Student Name + Enrollment Badge + Birthday Sparkle */}
+                                        <ItemTitle className="flex items-center gap-2">
+                                            <span className={cn(
+                                                "font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary",
+                                                hasBirthday && "bg-gradient-to-r from-pink-600 via-purple-600 to-blue-600 bg-clip-text text-transparent"
+                                            )}>
+                                                {student.student_name || 'Unknown Student'}
+                                            </span>
 
-                                        {/* Birthday Sparkle Icon */}
-                                        {hasBirthday && (
-                                            <Sparkles className="h-4 w-4 text-pink-500 animate-pulse flex-shrink-0" />
-                                        )}
-                                    </ItemTitle>
-
-                                    {/* Line 2: Class Name + Attendance (same line on desktop) */}
-                                    <ItemDescription>
-                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
-                                            {/* Class Name */}
-                                            {student.class_name && (
-                                                <span className="flex items-center gap-1.5 truncate">
-                                                    <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
-                                                    <span className="truncate" title={student.class_name}>
-                                                        {student.class_name}
-                                                    </span>
-                                                </span>
+                                            {/* Enrollment Status Badge */}
+                                            {student.enrollment_status && (
+                                                <Badge
+                                                    variant={enrollmentBadgeVariant}
+                                                    className="text-xs font-medium hidden sm:inline-flex"
+                                                >
+                                                    {enrollmentStatusLabel}
+                                                </Badge>
                                             )}
 
-                                            {/* Attendance */}
-                                            <span className="flex items-center gap-1.5">
-                                                <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
-                                                <span>Attendance:</span>
-                                                <Badge 
-                                                    variant={attendanceBadgeVariant}
-                                                    className="text-xs h-5 px-2 font-medium"
-                                                >
-                                                    {attendancePercentage}%
-                                                </Badge>
-                                            </span>
-                                        </div>
-                                    </ItemDescription>
-                                </ItemContent>
+                                            {/* Birthday Sparkle Icon */}
+                                            {hasBirthday && (
+                                                <Sparkles className="h-4 w-4 text-pink-500 animate-pulse flex-shrink-0" />
+                                            )}
+                                        </ItemTitle>
 
-                                {/* Actions */}
-                                <ItemActions>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => onViewDetails(student.student_id)}
-                                        className="gap-1.5 h-8 px-2 sm:px-3"
-                                    >
-                                        <Eye className="h-4 w-4" />
-                                        <span className="hidden sm:inline">View</span>
-                                    </Button>
-                                </ItemActions>
-                            </Item>
+                                        {/* Line 2: Class Name + Attendance (same line on desktop) */}
+                                        <ItemDescription>
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
+                                                {/* Class Name */}
+                                                {student.class_name && (
+                                                    <span className="flex items-center gap-1.5 truncate">
+                                                        <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
+                                                        <span className="truncate" title={student.class_name}>
+                                                            {student.class_name}
+                                                        </span>
+                                                    </span>
+                                                )}
 
-                            {index < students.length - 1 && <ItemSeparator />}
-                        </div>
-                    );
-                })}
-            </div>
+                                                {/* Attendance */}
+                                                <span className="flex items-center gap-1.5">
+                                                    <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
+                                                    <span>Attendance:</span>
+                                                    <Badge
+                                                        variant={attendanceBadgeVariant}
+                                                        className="text-xs h-5 px-2 font-medium"
+                                                    >
+                                                        {attendancePercentage}%
+                                                    </Badge>
+                                                </span>
+                                            </div>
+                                        </ItemDescription>
+                                    </ItemContent>
+
+                                    {/* Actions */}
+                                    <ItemActions>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => onViewDetails(student.student_id)}
+                                            className="gap-1.5 h-8 px-2 sm:px-3"
+                                        >
+                                            <Eye className="h-4 w-4" />
+                                            <span className="hidden sm:inline">View</span>
+                                        </Button>
+                                    </ItemActions>
+                                </Item>
+
+                                {index < filteredStudents.length - 1 && <ItemSeparator />}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </TooltipProvider>
     );
 }

@@ -127,8 +127,7 @@ export function AttendanceStudentItem({
                 variant="default"
                 className={cn(
                     'group/item hover:shadow-sm transition-all duration-200',
-                    'items-center gap-4 px-4 py-3 cursor-pointer',
-                    isMarked && 'bg-muted/30'
+                    'items-center gap-4 px-4 py-3 cursor-pointer'
                 )}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -232,7 +231,7 @@ export function AttendanceStudentItem({
                                         <Clock className="h-4 w-4" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Late</TooltipContent>
+                                <TooltipContent>Late By 15m</TooltipContent>
                             </Tooltip>
                         </div>
                     )}
