@@ -70,8 +70,6 @@ export interface TeacherAssignmentsDashboardProps {
     centerId: string;
     /** Teacher user ID */
     teacherId: string;
-    /** Branch ID for assignments */
-    branchId?: string;
     /** User role for conditional rendering */
     userRole?: 'student' | 'teacher' | 'coach' | 'manager';
 }
@@ -79,7 +77,6 @@ export interface TeacherAssignmentsDashboardProps {
 export function TeacherAssignmentsDashboard({
     centerId,
     teacherId,
-    branchId = '',
     userRole = 'teacher',
 }: TeacherAssignmentsDashboardProps) {
     const router = useRouter();
@@ -473,7 +470,7 @@ export function TeacherAssignmentsDashboard({
                     open={isCreateDialogOpen}
                     onOpenChange={setIsCreateDialogOpen}
                     teacherId={teacherId}
-                    branchId={branchId}
+                    branchId={teacherClasses[0]?.branch_id || ''}
                     availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))}
                     onSubmit={handleCreate}
                     isSubmitting={loading.create}
@@ -555,7 +552,7 @@ export function TeacherAssignmentsDashboard({
                 open={isCreateDialogOpen}
                 onOpenChange={setIsCreateDialogOpen}
                 teacherId={teacherId}
-                branchId={branchId}
+                branchId={teacherClasses[0]?.branch_id || ''}
                 availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))}
                 onSubmit={handleCreate}
                 isSubmitting={loading.create}
@@ -570,7 +567,7 @@ export function TeacherAssignmentsDashboard({
                 }}
                 assignment={editingAssignment}
                 teacherId={teacherId}
-                branchId={branchId}
+                branchId={editingAssignment?.branch_id || teacherClasses[0]?.branch_id || ''}
                 availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))}
                 onSubmit={handleUpdate}
                 isSubmitting={loading.update}

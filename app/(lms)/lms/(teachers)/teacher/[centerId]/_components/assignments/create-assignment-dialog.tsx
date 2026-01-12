@@ -69,7 +69,7 @@ export function CreateAssignmentDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 min-h-0 px-1">
+                <ScrollArea className="flex-1 min-h-0 p-4 overflow-x-auto">
                     <div className="p-4">
                         <AssignmentForm
                             mode="create"

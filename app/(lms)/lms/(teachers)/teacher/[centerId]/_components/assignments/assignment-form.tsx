@@ -35,7 +35,7 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Loader2, CalendarIcon, ChevronDownIcon } from 'lucide-react';
+import { Loader2, CalendarIcon, ChevronDownIcon, FileUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     createAssignmentSchema,
@@ -234,6 +234,39 @@ export function AssignmentForm({
                 <div className="space-y-4">
                     <h3 className="font-semibold text-sm border-b pb-2">Basic Information</h3>
 
+                    {/* Upload Instructions/Questions */}
+                    <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/50 p-4">
+                        <div className="flex items-start gap-3">
+                            <div className="rounded-full bg-primary/10 p-2">
+                                <FileUp className="h-5 w-5 text-primary" />
+                            </div>
+                            <div className="flex-1">
+                                <h4 className="font-medium text-sm mb-1">Upload Question Paper / Instructions</h4>
+                                <p className="text-xs text-muted-foreground mb-3">
+                                    Upload PDF, images, or documents that students need to complete this assignment.
+                                    These files will be available for students to download.
+                                </p>
+                                <div className="flex gap-2">
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            // TODO: Implement file upload
+                                            alert('File upload feature will be implemented. For now, use the Instructions field below.');
+                                        }}
+                                    >
+                                        <FileUp className="h-4 w-4 mr-2" />
+                                        Upload Files
+                                    </Button>
+                                </div>
+                                <p className="text-xs text-amber-600 mt-2">
+                                    Note: File upload UI will be added soon. For now, provide instructions in the text field below.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Class Selection */}
                     {showClassSelector && (
                         <FormField
@@ -351,6 +384,9 @@ export function AssignmentForm({
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <FormDescription>
+                                    Choose how students will submit their work (FILE = upload files, TEXT = type answer)
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
