@@ -1518,118 +1518,108 @@ export class AssignmentService {
 
     /**
      * Uploads a file to Supabase Storage bucket
+     * Requires a valid assignment UUID for context_id (no 'temp' values allowed)
+     * Should be called AFTER assignment is created
      */
- /**
- * Uploads a file to Supabase Storage bucket
- * Handles "temp" context_id by converting it to null for UUID database compatibility
- */
-async uploadFile(
-    input: UploadFileDTO
-): Promise<AssignmentOperationResult<FileUploadResult>> {
-    console.log('Starting file upload with input:', input);
-    try {
-        const validationResult = uploadFileSchema.safeParse(input);
-        if (!validationResult.success) {
-            return {
-                success: false,
-                validation_errors: validationResult.error.errors.map(err => ({
-                    field: err.path.join('.'),
-                    message: err.message,
-                })),
-            };
-        }
-
-        const validatedInput = validationResult.data;
-        const timestamp = Date.now();
-        const sanitizedName = validatedInput.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
-
-        // 1. Logic for Storage Path (Folder Structure)
-        // Keep using 'temp_userId' string here because Storage paths are just strings
-        const pathContextId = validatedInput.context_id === 'temp'
-            ? `temp_${validatedInput.uploaded_by}`
-            : validatedInput.context_id;
-
-        const storagePath = `${validatedInput.context_type}/${pathContextId}/${timestamp}_${sanitizedName}`;
-
-        // 2. Prepare File Blob
-        let fileBlob: Blob;
-        if (validatedInput.file_content) {
-            const base64Data = validatedInput.file_content.split(',')[1] || validatedInput.file_content;
-            const binaryString = atob(base64Data);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
+    async uploadFile(
+        input: UploadFileDTO
+    ): Promise<AssignmentOperationResult<FileUploadResult>> {
+        console.log('Starting file upload with input:', input);
+        try {
+            const validationResult = uploadFileSchema.safeParse(input);
+            if (!validationResult.success) {
+                return {
+                    success: false,
+                    validation_errors: validationResult.error.errors.map(err => ({
+                        field: err.path.join('.'),
+                        message: err.message,
+                    })),
+                };
             }
-            fileBlob = new Blob([bytes], { type: validatedInput.mime_type || 'application/octet-stream' });
-        } else {
-            return { success: false, error: 'File content is required' };
-        }
 
-        // 3. Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await this.supabase.storage
-            .from('assignments')
-            .upload(storagePath, fileBlob, {
-                contentType: validatedInput.mime_type,
-                upsert: false,
-            });
+            const validatedInput = validationResult.data;
+            const timestamp = Date.now();
+            const sanitizedName = validatedInput.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
 
-        if (uploadError) {
+            // Storage path: {context_type}/{assignment_id}/{filename}
+            const storagePath = `${validatedInput.context_type}/${validatedInput.context_id}/${timestamp}_${sanitizedName}`;
+
+            // Prepare File Blob
+            let fileBlob: Blob;
+            if (validatedInput.file_content) {
+                const base64Data = validatedInput.file_content.split(',')[1] || validatedInput.file_content;
+                const binaryString = atob(base64Data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                fileBlob = new Blob([bytes], { type: validatedInput.mime_type || 'application/octet-stream' });
+            } else {
+                return { success: false, error: 'File content is required' };
+            }
+
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await this.supabase.storage
+                .from('assignments')
+                .upload(storagePath, fileBlob, {
+                    contentType: validatedInput.mime_type,
+                    upsert: false,
+                });
+
+            if (uploadError) {
+                return {
+                    success: false,
+                    error: `Storage upload error: ${uploadError.message}`,
+                };
+            }
+
+            // Get Public URL
+            const { data: urlData } = this.supabase.storage
+                .from('assignments')
+                .getPublicUrl(storagePath);
+
+            // Create Database Record with real assignment UUID
+            const { data: file, error: dbError } = await this.supabase
+                .from('files')
+                .insert({
+                    file_name: validatedInput.file_name,
+                    file_path: storagePath,
+                    file_size: validatedInput.file_size,
+                    mime_type: validatedInput.mime_type,
+                    context_type: validatedInput.context_type,
+                    context_id: validatedInput.context_id, // Real UUID required
+                    uploaded_by: validatedInput.uploaded_by,
+                    is_permanent: validatedInput.is_permanent,
+                    storage_provider: 'supabase_storage',
+                    preview_url: urlData.publicUrl,
+                })
+                .select('*')
+                .single();
+
+            if (dbError) {
+                // Rollback storage if DB fails
+                await this.supabase.storage.from('assignments').remove([storagePath]);
+                return { success: false, error: `Database error: ${dbError.message}` };
+            }
+
+            return {
+                success: true,
+                data: {
+                    id: file.id,
+                    file_name: file.file_name,
+                    file_path: file.file_path,
+                    file_size: file.file_size,
+                    mime_type: file.mime_type,
+                    preview_url: file.preview_url,
+                },
+            };
+        } catch (error) {
             return {
                 success: false,
-                error: `Storage upload error: ${uploadError.message}`,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
             };
         }
-
-        // 4. Get Public URL
-        const { data: urlData } = this.supabase.storage
-            .from('assignments')
-            .getPublicUrl(storagePath);
-
-        // 5. Create Database Record
-        // FIX: Convert 'temp' string to null so the UUID column doesn't error out
-        const dbContextId = validatedInput.context_id === 'temp' ? null : validatedInput.context_id;
-
-        const { data: file, error: dbError } = await this.supabase
-            .from('files')
-            .insert({
-                file_name: validatedInput.file_name,
-                file_path: storagePath,
-                file_size: validatedInput.file_size,
-                mime_type: validatedInput.mime_type,
-                context_type: validatedInput.context_type,
-                context_id: dbContextId, // Now valid UUID or Null
-                uploaded_by: validatedInput.uploaded_by,
-                is_permanent: validatedInput.is_permanent,
-                storage_provider: 'supabase_storage',
-                preview_url: urlData.publicUrl,
-            })
-            .select('*')
-            .single();
-
-        if (dbError) {
-            // Rollback storage if DB fails
-            await this.supabase.storage.from('assignments').remove([storagePath]);
-            return { success: false, error: `Database error: ${dbError.message}` };
-        }
-
-        return {
-            success: true,
-            data: {
-                id: file.id,
-                file_name: file.file_name,
-                file_path: file.file_path,
-                file_size: file.file_size,
-                mime_type: file.mime_type,
-                preview_url: file.preview_url,
-            },
-        };
-    } catch (error) {
-        return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error occurred',
-        };
     }
-}
     /**
      * Deletes a file from both Storage bucket and database
      */

@@ -68,8 +68,12 @@ export interface ClassOption {
     subject?: string;
 }
 
-// Define onSubmit callback types for each mode
-type CreateSubmitHandler = (data: CreateAssignmentDTO) => Promise<void>;
+// Define onSubmit callback types for each mode - now returns assignment ID
+type CreateSubmitHandler = (data: CreateAssignmentDTO, pendingFiles: Array<{
+    file: File;
+    content: string;
+    preview: { name: string; size: number; type: string; };
+}>) => Promise<string | void>; // Returns assignment ID for file upload
 type UpdateSubmitHandler = (data: UpdateAssignmentDTO) => Promise<void>;
 
 // Base props shared between modes
@@ -146,20 +150,22 @@ export function AssignmentForm({
     showClassSelector = true,
     selectedClassId,
 }: AssignmentFormProps) {
-    // File upload state
-    const [uploadedFiles, setUploadedFiles] = useState<Array<{
-        id: string;
-        name: string;
-        size: number;
-        type: string;
-        url?: string;
+    // Local file state - files stored here until assignment is created
+    const [pendingFiles, setPendingFiles] = useState<Array<{
+        file: File;
+        content: string; // base64 content
+        preview: {
+            name: string;
+            size: number;
+            type: string;
+        };
     }>>([]);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Assignment store for file upload
+    // Assignment store for file upload (used after assignment creation)
     const { uploadFile, attachFileToAssignment, deleteFile, error: storeError } = useAssignmentStore();
 
     const [dueTime, setDueTime] = useState<string>(
@@ -207,7 +213,7 @@ export function AssignmentForm({
     const allowLateSubmission = form.watch('allow_late_submission');
     const submissionType = form.watch('submission_type');
 
-    // File upload handler
+    // File selection handler - stores files locally, no upload yet
     const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
@@ -237,6 +243,12 @@ export function AssignmentForm({
         ];
 
         try {
+            const newPendingFiles: Array<{
+                file: File;
+                content: string;
+                preview: { name: string; size: number; type: string; };
+            }> = [];
+
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
 
@@ -247,7 +259,7 @@ export function AssignmentForm({
                 if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
                     const errorMsg = `File "${file.name}" has invalid type. Allowed: ${allowedExtensions.join(', ').toUpperCase()}`;
                     setUploadError(errorMsg);
-                    toast.error(errorMsg);
+                    showErrorToast(errorMsg);
                     continue;
                 }
 
@@ -261,75 +273,42 @@ export function AssignmentForm({
                 if (file.size > 10 * 1024 * 1024) {
                     const errorMsg = `File "${file.name}" is too large. Maximum size is 10MB.`;
                     setUploadError(errorMsg);
-                    toast.error(errorMsg);
+                    showErrorToast(errorMsg);
                     continue;
                 }
 
-                // Simulate progress (in real implementation, use actual upload progress)
                 setUploadProgress(((i + 1) / files.length) * 100);
 
-                // Read file as base64 for small files
+                // Read file as base64 and store locally
                 const reader = new FileReader();
                 const fileContent = await new Promise<string>((resolve, reject) => {
-                    reader.onload = () => {
-                        const base64 = reader.result as string;
-                        // Extract base64 data without the data URL prefix
-                        const base64Data = base64.split(',')[1];
-                        resolve(base64Data);
-                    };
+                    reader.onload = () => resolve(reader.result as string);
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
                 });
 
-                // Upload file using assignment store
-                console.log('Uploading file:', file.name, 'Base64 length:', fileContent.length);
-                const result = await uploadFile({
-                    file_name: file.name,
-                    file_size: file.size,
-                    mime_type: file.type,
-                    context_type: 'assignment_instruction',
-                    context_id: assignmentId || 'temp', // Use temp for create mode
-                    uploaded_by: teacherId,
-                    is_permanent: false,
-                    file_content: fileContent,
+                newPendingFiles.push({
+                    file,
+                    content: fileContent,
+                    preview: {
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                    },
                 });
 
-                console.log('Upload result:', result);
-                console.log('Store error:', storeError);
-
-                if (result) {
-                    // Add to uploaded files list
-                    setUploadedFiles(prev => [
-                        ...prev,
-                        {
-                            id: result.id,
-                            name: file.name,
-                            size: file.size,
-                            type: file.type,
-                            url: result.file_path,
-                        },
-                    ]);
-
-                    // If in edit mode, attach to assignment
-                    if (mode === 'edit' && assignmentId) {
-                        await attachFileToAssignment(
-                            assignmentId,
-                            result.id,
-                            'instruction'
-                        );
-                    }
-
-                    showSuccessToast(`File "${file.name}" uploaded successfully`);
-                } else {
-                    const errorMsg = storeError || `Failed to upload "${file.name}"`;
-                    setUploadError(errorMsg);
-                    showErrorToast(errorMsg);
-                }
+                console.log(`File prepared for upload: ${file.name}`);
             }
+
+            setPendingFiles(prev => [...prev, ...newPendingFiles]);
             setUploadProgress(100);
+
+            if (newPendingFiles.length > 0) {
+                showSuccessToast(`${newPendingFiles.length} file(s) selected. They will be uploaded after assignment creation.`);
+            }
         } catch (error) {
-            console.error('File upload error:', error);
-            const errorMsg = error instanceof Error ? error.message : 'Failed to upload files';
+            console.error('File selection error:', error);
+            const errorMsg = error instanceof Error ? error.message : 'Failed to process files';
             setUploadError(errorMsg);
             showErrorToast(errorMsg);
         } finally {
@@ -340,27 +319,10 @@ export function AssignmentForm({
         }
     };
 
-    // Remove uploaded file
-    const handleRemoveFile = async (fileId: string) => {
-        try {
-            // Find the file to delete
-            const fileToDelete = uploadedFiles.find(f => f.id === fileId);
-            if (!fileToDelete) return;
-
-            // Delete from server and storage (requires userId)
-            const success = await deleteFile(fileId, teacherId);
-
-            if (success) {
-                // Remove from local state
-                setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
-                showSuccessToast('File deleted successfully');
-            } else {
-                showErrorToast('Failed to delete file. Please try again.');
-            }
-        } catch (error) {
-            console.error('Error deleting file:', error);
-            showErrorToast('Failed to delete file. Please try again.');
-        }
+    // Remove pending file (before upload)
+    const handleRemoveFile = (fileName: string) => {
+        setPendingFiles(prev => prev.filter(f => f.preview.name !== fileName));
+        showSuccessToast('File removed');
     };
 
     // Reset form when initialData changes
@@ -373,20 +335,48 @@ export function AssignmentForm({
         }
     }, [initialData]);
 
-    // Handle form submission
+    // Handle form submission - waterfall approach
     const handleSubmit = async (data: CreateFormData) => {
         try {
             if (mode === 'edit' && assignmentId) {
-                // Type assertion for edit mode - onSubmit is UpdateSubmitHandler
+                // Edit mode: submit form data first, then handle files if needed
                 const updateHandler = onSubmit as UpdateSubmitHandler;
                 await updateHandler({ id: assignmentId, ...data } as UpdateAssignmentDTO);
+
+                // Upload pending files if any (for edit mode)
+                if (pendingFiles.length > 0) {
+                    for (const pendingFile of pendingFiles) {
+                        const uploadResult = await uploadFile({
+                            file_name: pendingFile.file.name,
+                            file_size: pendingFile.file.size,
+                            mime_type: pendingFile.file.type,
+                            context_type: 'assignment_instruction',
+                            context_id: assignmentId,
+                            uploaded_by: teacherId,
+                            is_permanent: false,
+                            file_content: pendingFile.content,
+                        });
+
+                        if (uploadResult) {
+                            await attachFileToAssignment(assignmentId, uploadResult.id, 'instruction');
+                        }
+                    }
+                    setPendingFiles([]);
+                }
             } else {
-                // Type assertion for create mode - onSubmit is CreateSubmitHandler
+                // Create mode: WATERFALL APPROACH
+                // Step 1: Create assignment first
                 const createHandler = onSubmit as CreateSubmitHandler;
-                await createHandler(data as CreateAssignmentDTO);
+
+                // Pass pending files to parent - parent will handle file upload after getting assignment ID
+                await createHandler(data as CreateAssignmentDTO, pendingFiles);
+
+                // Clear pending files after successful submission
+                setPendingFiles([]);
             }
         } catch (error) {
             console.error('Form submission error:', error);
+            showErrorToast('Failed to submit assignment');
         }
     };
 
@@ -478,23 +468,23 @@ export function AssignmentForm({
                                         </Alert>
                                     )}
 
-                                    {/* Uploaded Files List */}
-                                    {uploadedFiles.length > 0 && (
+                                    {/* Pending Files List (Not Uploaded Yet) */}
+                                    {pendingFiles.length > 0 && (
                                         <div className="space-y-2">
-                                            <p className="text-xs font-medium">Uploaded Files:</p>
-                                            {uploadedFiles.map((file) => (
+                                            <p className="text-xs font-medium">Files Ready to Upload:</p>
+                                            {pendingFiles.map((file) => (
                                                 <div
-                                                    key={file.id}
+                                                    key={file.preview.name}
                                                     className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border"
                                                 >
                                                     <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                        <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
                                                         <div className="min-w-0 flex-1">
                                                             <p className="text-xs font-medium truncate">
-                                                                {file.name}
+                                                                {file.preview.name}
                                                             </p>
                                                             <p className="text-xs text-muted-foreground">
-                                                                {(file.size / 1024).toFixed(2)} KB
+                                                                {(file.preview.size / 1024).toFixed(2)} KB
                                                             </p>
                                                         </div>
                                                     </div>
@@ -502,7 +492,7 @@ export function AssignmentForm({
                                                         type="button"
                                                         variant="ghost"
                                                         size="sm"
-                                                        onClick={() => handleRemoveFile(file.id)}
+                                                        onClick={() => handleRemoveFile(file.preview.name)}
                                                         className="h-8 w-8 p-0 flex-shrink-0"
                                                     >
                                                         <X className="h-4 w-4" />
