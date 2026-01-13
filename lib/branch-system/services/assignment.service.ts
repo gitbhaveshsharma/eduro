@@ -1478,6 +1478,45 @@ export class AssignmentService {
     // ============================================================
 
     /**
+     * Ensures the assignments bucket exists
+     * @private
+     */
+    private async ensureAssignmentsBucketExists(): Promise<{ success: boolean; error?: string }> {
+        try {
+            // Try to get bucket info directly - if it exists, this will succeed
+            const { data: bucketData, error: getBucketError } = await this.supabase.storage
+                .getBucket('assignments');
+
+            if (!getBucketError && bucketData) {
+                // Bucket exists, we're good to go
+                return { success: true };
+            }
+
+            // If we can't get the bucket, try to list buckets
+            const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
+
+            // If listing works, check if bucket exists
+            if (!listError && buckets) {
+                const bucketExists = buckets.some((bucket: any) => bucket.id === 'assignments');
+                if (bucketExists) {
+                    return { success: true };
+                }
+            }
+
+            // If we reach here, bucket doesn't exist or we can't verify
+            // Instead of trying to create (which fails), just assume it exists
+            // The actual upload will fail if bucket truly doesn't exist
+            console.warn('Could not verify assignments bucket existence, proceeding with upload attempt');
+            return { success: true };
+
+        } catch (error) {
+            // If any error occurs, log it but proceed anyway
+            console.warn('Bucket check error:', error);
+            return { success: true };
+        }
+    }
+
+    /**
      * Uploads a file to Supabase Storage bucket
      */
     async uploadFile(
@@ -1485,6 +1524,9 @@ export class AssignmentService {
     ): Promise<AssignmentOperationResult<FileUploadResult>> {
         console.log('Starting file upload with input:', input);
         try {
+            // Skip bucket verification - just attempt upload directly
+            // If bucket doesn't exist or has permission issues, the upload will fail with clear error
+
             const validationResult = uploadFileSchema.safeParse(input);
             if (!validationResult.success) {
                 console.log('File upload validation failed:', validationResult.error);
@@ -1505,7 +1547,13 @@ export class AssignmentService {
             // Generate storage path based on context
             const timestamp = Date.now();
             const sanitizedName = validatedInput.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const storagePath = `${validatedInput.context_type}/${validatedInput.context_id}/${timestamp}_${sanitizedName}`;
+
+            // For 'temp' context_id (create mode), use user ID instead to avoid RLS policy issues
+            const pathContextId = validatedInput.context_id === 'temp'
+                ? `temp_${validatedInput.uploaded_by}`
+                : validatedInput.context_id;
+
+            const storagePath = `${validatedInput.context_type}/${pathContextId}/${timestamp}_${sanitizedName}`;
 
             // Upload to Supabase Storage bucket
             // Convert base64 to blob if file_content is provided
@@ -1526,26 +1574,8 @@ export class AssignmentService {
                 };
             }
             console.log('Uploading file to path:', storagePath);
+            console.log('File blob size:', fileBlob.size, 'Content-Type:', validatedInput.mime_type);
 
-            const { data: buckets, error: bucketCheckError } = await this.supabase.storage
-                .listBuckets();
-
-            if (bucketCheckError) {
-                return {
-                    success: false,
-                    error: `Failed to check storage: ${bucketCheckError.message}`
-                };
-            }
-            // code fisrt check buckt exting or not 
-            const bucketExists = buckets.some(bucket => bucket.name === 'assignments');
-            if (!bucketExists) {
-                return {
-                    success: false,
-                    error: 'Storage bucket "assignments" does not exist',
-                };
-
-            }
-            console.log('Storage bucket "assignments" exists, proceeding with upload');
             // Upload to bucket
             const { data: uploadData, error: uploadError } = await this.supabase.storage
                 .from('assignments')
@@ -1553,15 +1583,17 @@ export class AssignmentService {
                     contentType: validatedInput.mime_type,
                     upsert: false,
                 });
-            console.log('Upload response:', uploadData, uploadError);
+
+            console.log('Upload response:', uploadData);
+            console.log('Upload error:', uploadError);
+            console.log('Upload error details:', uploadError ? JSON.stringify(uploadError, null, 2) : 'No error');
 
             if (uploadError) {
                 return {
                     success: false,
-                    error: `Storage upload error: ${uploadError.message}`,
+                    error: `Storage upload error: ${uploadError.message} (${uploadError.name})`,
                 };
             }
-            console.log('File uploaded to storage:', uploadData);
             // Get public URL for the file
             const { data: urlData } = this.supabase.storage
                 .from('assignments')

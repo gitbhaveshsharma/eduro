@@ -150,9 +150,17 @@ USING (
     AND auth.role() = 'authenticated'
     AND public.get_user_role(auth.uid()) = 'T'
     AND (
+        -- Temp files they uploaded (for assignment creation)
+        (
+            (storage.foldername(name))[1] IN ('assignment_instruction', 'quiz_attachment')
+            AND array_length(storage.foldername(name), 1) >= 2
+            AND (storage.foldername(name))[2] LIKE 'temp_%'
+            AND (storage.foldername(name))[2] = 'temp_' || auth.uid()::text
+        )
+        OR
         -- Assignment instruction files they created
         (
-            (storage.foldername(name))[1] = 'instruction'
+            (storage.foldername(name))[1] IN ('instruction', 'assignment_instruction')
             AND array_length(storage.foldername(name), 1) >= 2
             AND EXISTS (
                 SELECT 1 FROM assignments 
@@ -176,7 +184,7 @@ USING (
         OR
         -- Quiz attachment files they created
         (
-            (storage.foldername(name))[1] = 'attachment'
+            (storage.foldername(name))[1] IN ('attachment', 'quiz_attachment')
             AND array_length(storage.foldername(name), 1) >= 2
             AND EXISTS (
                 SELECT 1 FROM quizzes 
@@ -314,9 +322,17 @@ WITH CHECK (
     AND auth.role() = 'authenticated'
     AND public.get_user_role(auth.uid()) = 'T'
     AND (
-        -- Assignment instruction files
+        -- Temp uploads for assignment creation (path: assignment_instruction/temp_{userId}/...)
         (
-            (storage.foldername(name))[1] = 'instruction'
+            (storage.foldername(name))[1] = 'assignment_instruction'
+            AND array_length(storage.foldername(name), 1) >= 2
+            AND (storage.foldername(name))[2] LIKE 'temp_%'
+            AND (storage.foldername(name))[2] = 'temp_' || auth.uid()::text
+        )
+        OR
+        -- Assignment instruction files for existing assignments
+        (
+            (storage.foldername(name))[1] IN ('instruction', 'assignment_instruction')
             AND array_length(storage.foldername(name), 1) >= 2
             AND EXISTS (
                 SELECT 1 FROM assignments 
@@ -325,9 +341,17 @@ WITH CHECK (
             )
         )
         OR
-        -- Quiz attachment files
+        -- Temp uploads for quiz creation (path: quiz_attachment/temp_{userId}/...)
         (
-            (storage.foldername(name))[1] = 'attachment'
+            (storage.foldername(name))[1] = 'quiz_attachment'
+            AND array_length(storage.foldername(name), 1) >= 2
+            AND (storage.foldername(name))[2] LIKE 'temp_%'
+            AND (storage.foldername(name))[2] = 'temp_' || auth.uid()::text
+        )
+        OR
+        -- Quiz attachment files for existing quizzes
+        (
+            (storage.foldername(name))[1] IN ('attachment', 'quiz_attachment')
             AND array_length(storage.foldername(name), 1) >= 2
             AND EXISTS (
                 SELECT 1 FROM quizzes 
