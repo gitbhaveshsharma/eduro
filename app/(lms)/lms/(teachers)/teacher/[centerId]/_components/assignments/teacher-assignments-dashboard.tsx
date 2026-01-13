@@ -18,7 +18,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText, X } from 'lucide-react';
 
 // Toast notifications
 import {
@@ -60,7 +60,7 @@ import { AssignmentCard } from './assignment-card';
 import { CreateAssignmentDialog } from './create-assignment-dialog';
 import { EditAssignmentDialog } from './edit-assignment-dialog';
 import { DeleteAssignmentDialog } from './delete-assignment-dialog';
-import { AssignmentDetailSheet } from './assignment-detail-sheet';
+import { AssignmentDetailDialog } from './assignment-detail-sheet';
 import { GradingDialog } from './grading-dialog';
 
 type ViewMode = 'grid' | 'list';
@@ -156,6 +156,87 @@ export function TeacherAssignmentsDashboard({
     }, [teacherId, fetchClassesByTeacher]);
 
     // ============================================================
+    // HELPER FUNCTIONS
+    // ============================================================
+
+    // Function to parse database error messages into user-friendly messages
+    const getFriendlyErrorMessage = (error: string): string => {
+        const lowerError = error.toLowerCase();
+
+        // Handle constraint violation errors
+        if (lowerError.includes('violates check constraint')) {
+            if (lowerError.includes('valid_dates')) {
+                return "Invalid dates: Due date must be before or equal to close date, and publish date must be before or equal to due date.";
+            }
+            if (lowerError.includes('valid_max_score')) {
+                return "Maximum score must be greater than 0.";
+            }
+            if (lowerError.includes('valid_late_penalty')) {
+                return "Late penalty must be between 0% and 100%.";
+            }
+            if (lowerError.includes('valid_file_size_limit')) {
+                return "Maximum file size must be greater than 0.";
+            }
+            return "Data validation failed. Please check your input values.";
+        }
+
+        // Handle foreign key constraint errors
+        if (lowerError.includes('foreign key constraint')) {
+            if (lowerError.includes('class_id')) {
+                return "Selected class does not exist or you don't have access to it.";
+            }
+            if (lowerError.includes('teacher_id')) {
+                return "Teacher information is invalid. Please try again.";
+            }
+            if (lowerError.includes('branch_id')) {
+                return "Branch information is invalid. Please try again.";
+            }
+            return "Related data not found. Please check your selections.";
+        }
+
+        // Handle unique constraint errors
+        if (lowerError.includes('unique constraint')) {
+            return "An assignment with similar details already exists.";
+        }
+
+        // Handle network/timeout errors
+        if (lowerError.includes('network') || lowerError.includes('timeout') || lowerError.includes('fetch')) {
+            return "Network error. Please check your internet connection and try again.";
+        }
+
+        // Handle authentication/authorization errors
+        if (lowerError.includes('unauthorized') || lowerError.includes('forbidden') || lowerError.includes('401') || lowerError.includes('403')) {
+            return "You don't have permission to perform this action.";
+        }
+
+        // Handle server errors
+        if (lowerError.includes('500') || lowerError.includes('server error')) {
+            return "Server error. Please try again in a few moments.";
+        }
+
+        // Handle not found errors
+        if (lowerError.includes('not found') || lowerError.includes('404')) {
+            return "The requested resource was not found.";
+        }
+
+        // Generic error messages based on common patterns
+        if (lowerError.includes('invalid') || lowerError.includes('validation')) {
+            return "Invalid data provided. Please check your input and try again.";
+        }
+
+        if (lowerError.includes('required') || lowerError.includes('missing')) {
+            return "Required information is missing. Please fill all required fields.";
+        }
+
+        if (lowerError.includes('deadline') || lowerError.includes('due date')) {
+            return "Invalid date selection. Please check the assignment dates.";
+        }
+
+        // Return original error if no match found
+        return error.length > 200 ? "An unexpected error occurred. Please try again." : error;
+    };
+
+    // ============================================================
     // COMPUTED VALUES
     // ============================================================
 
@@ -206,6 +287,12 @@ export function TeacherAssignmentsDashboard({
         return filtered;
     }, [assignments, searchQuery, statusFilter, classFilter]);
 
+    // Get friendly error message
+    const friendlyErrorMessage = useMemo(() => {
+        if (!error) return null;
+        return getFriendlyErrorMessage(error);
+    }, [error]);
+
     // ============================================================
     // EVENT HANDLERS
     // ============================================================
@@ -229,7 +316,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to create assignment');
             }
         } catch (err) {
-            showErrorToast('An error occurred while creating assignment');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [teacherId, createAssignment, fetchAssignments]);
 
@@ -264,7 +353,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to update assignment');
             }
         } catch (err) {
-            showErrorToast('An error occurred while updating assignment');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [editingAssignment, teacherId, updateAssignment, fetchAssignments]);
 
@@ -289,7 +380,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to publish assignment');
             }
         } catch (err) {
-            showErrorToast('An error occurred while publishing assignment');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [teacherId, publishAssignment, fetchAssignments]);
 
@@ -314,7 +407,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to close assignment');
             }
         } catch (err) {
-            showErrorToast('An error occurred while closing assignment');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [teacherId, closeAssignment, fetchAssignments]);
 
@@ -342,7 +437,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to delete assignment');
             }
         } catch (err) {
-            showErrorToast('An error occurred while deleting assignment');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [teacherId, deleteAssignment, closeDeleteDialog, fetchAssignments]);
 
@@ -383,7 +480,9 @@ export function TeacherAssignmentsDashboard({
                 showErrorToast('Failed to submit grade');
             }
         } catch (err) {
-            showErrorToast('An error occurred while submitting grade');
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            const friendlyMessage = getFriendlyErrorMessage(errorMessage);
+            showErrorToast(friendlyMessage);
         }
     }, [teacherId, selectedAssignment, gradeSubmission, closeGradingDialog, fetchSubmissionsForGrading]);
 
@@ -415,136 +514,124 @@ export function TeacherAssignmentsDashboard({
     }
 
     // ============================================================
-    // ERROR STATE
-    // ============================================================
-
-    if (error) {
-        return (
-            <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                    {error}
-                    <button
-                        onClick={clearError}
-                        className="ml-2 underline text-sm"
-                    >
-                        Dismiss
-                    </button>
-                </AlertDescription>
-            </Alert>
-        );
-    }
-
-    // ============================================================
-    // EMPTY STATE
-    // ============================================================
-
-    if (assignments.length === 0) {
-        return (
-            <div className="space-y-6">
-                {/* Header with create button */}
-                <AssignmentsHeader
-                    totalAssignments={0}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                    onCreateClick={() => setIsCreateDialogOpen(true)}
-                    showCreateButton={true}
-                />
-
-                {/* Empty state */}
-                <div className="flex flex-col items-center justify-center py-12">
-                    <div className="rounded-full bg-muted p-6">
-                        <FileText className="h-12 w-12 text-muted-foreground" />
-                    </div>
-                    <div className="text-center space-y-2 mt-4">
-                        <h3 className="text-lg font-semibold">No Assignments Yet</h3>
-                        <p className="text-sm text-muted-foreground max-w-md">
-                            You haven&apos;t created any assignments yet. Create your first
-                            assignment to get started with your class.
-                        </p>
-                    </div>
-                </div>
-
-                {/* Create Dialog */}
-                <CreateAssignmentDialog
-                    open={isCreateDialogOpen}
-                    onOpenChange={setIsCreateDialogOpen}
-                    teacherId={teacherId}
-                    branchId={teacherClasses[0]?.branch_id || ''}
-                    availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))}
-                    onSubmit={handleCreate}
-                    isSubmitting={loading.create}
-                />
-            </div>
-        );
-    }
-
-    // ============================================================
     // MAIN RENDER
     // ============================================================
 
     return (
         <div className="space-y-6">
-            {/* Header */}
-            <AssignmentsHeader
-                totalAssignments={filteredAssignments.length}
-                viewMode={viewMode}
-                onViewModeChange={setViewMode}
-                onCreateClick={() => setIsCreateDialogOpen(true)}
-                showCreateButton={true}
-            />
-
-            {/* Filters */}
-            <AssignmentsFilters
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                statusFilter={statusFilter}
-                onStatusChange={setStatusFilter}
-                classFilter={classFilter}
-                onClassChange={setClassFilter}
-                availableClasses={availableClasses}
-            />
-
-            {/* No Results after filtering */}
-            {filteredAssignments.length === 0 && assignments.length > 0 && (
-                <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                        No assignments match your search criteria. Try adjusting your filters.
-                    </AlertDescription>
+            {/* Error Alert - Shows at top without hiding UI */}
+            {error && (
+                <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex items-start gap-3">
+                        <div className="flex-1">
+                            <AlertDescription>
+                                {friendlyErrorMessage}
+                            </AlertDescription>
+                        </div>
+                        <button
+                            onClick={clearError}
+                            className="text-muted-foreground hover:text-foreground transition-colors ml-2 flex-shrink-0"
+                            aria-label="Dismiss error"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    </div>
                 </Alert>
             )}
 
-            {/* Grid View */}
-            {viewMode === 'grid' && filteredAssignments.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredAssignments.map((assignment) => (
-                        <AssignmentCard
-                            key={assignment.id}
-                            assignment={assignment}
+            {/* Empty state for no assignments */}
+            {assignments.length === 0 && (
+                <div className="space-y-6">
+                    {/* Header with create button */}
+                    <AssignmentsHeader
+                        totalAssignments={0}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        onCreateClick={() => setIsCreateDialogOpen(true)}
+                        showCreateButton={true}
+                    />
+
+                    {/* Empty state */}
+                    <div className="flex flex-col items-center justify-center py-12 border rounded-xl bg-card">
+                        <div className="rounded-full bg-muted p-6">
+                            <FileText className="h-12 w-12 text-muted-foreground" />
+                        </div>
+                        <div className="text-center space-y-2 mt-4">
+                            <h3 className="text-lg font-semibold">No Assignments Yet</h3>
+                            <p className="text-sm text-muted-foreground max-w-md">
+                                You haven&apos;t created any assignments yet. Create your first
+                                assignment to get started with your class.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Main content when assignments exist */}
+            {assignments.length > 0 && (
+                <>
+                    {/* Header */}
+                    <AssignmentsHeader
+                        totalAssignments={filteredAssignments.length}
+                        viewMode={viewMode}
+                        onViewModeChange={setViewMode}
+                        onCreateClick={() => setIsCreateDialogOpen(true)}
+                        showCreateButton={true}
+                    />
+
+                    {/* Filters */}
+                    <AssignmentsFilters
+                        searchQuery={searchQuery}
+                        onSearchChange={setSearchQuery}
+                        statusFilter={statusFilter}
+                        onStatusChange={setStatusFilter}
+                        classFilter={classFilter}
+                        onClassChange={setClassFilter}
+                        availableClasses={availableClasses}
+                    />
+
+                    {/* No Results after filtering */}
+                    {filteredAssignments.length === 0 && assignments.length > 0 && (
+                        <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                No assignments match your search criteria. Try adjusting your filters.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Grid View */}
+                    {viewMode === 'grid' && filteredAssignments.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {filteredAssignments.map((assignment) => (
+                                <AssignmentCard
+                                    key={assignment.id}
+                                    assignment={assignment}
+                                    onViewDetails={handleViewDetails}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDeleteClick}
+                                    onPublish={handlePublish}
+                                    onClose={handleClose}
+                                    showTeacherActions={true}
+                                    userRole={userRole}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {/* List View */}
+                    {viewMode === 'list' && filteredAssignments.length > 0 && (
+                        <AssignmentsListView
+                            assignments={filteredAssignments}
                             onViewDetails={handleViewDetails}
                             onEdit={handleEdit}
                             onDelete={handleDeleteClick}
                             onPublish={handlePublish}
                             onClose={handleClose}
-                            showTeacherActions={true}
                             userRole={userRole}
                         />
-                    ))}
-                </div>
-            )}
-
-            {/* List View */}
-            {viewMode === 'list' && filteredAssignments.length > 0 && (
-                <AssignmentsListView
-                    assignments={filteredAssignments}
-                    onViewDetails={handleViewDetails}
-                    onEdit={handleEdit}
-                    onDelete={handleDeleteClick}
-                    onPublish={handlePublish}
-                    onClose={handleClose}
-                    userRole={userRole}
-                />
+                    )}
+                </>
             )}
 
             {/* Create Assignment Dialog */}
@@ -584,8 +671,8 @@ export function TeacherAssignmentsDashboard({
                 isDeleting={loading.delete}
             />
 
-            {/* Assignment Detail Sheet */}
-            <AssignmentDetailSheet
+            {/* Assignment Detail Dialog */}
+            <AssignmentDetailDialog
                 open={isDetailSheetOpen}
                 onOpenChange={(open) => {
                     setIsDetailSheetOpen(open);

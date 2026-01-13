@@ -38,8 +38,8 @@ export { DeleteAssignmentDialog } from './delete-assignment-dialog';
 export type { DeleteAssignmentDialogProps } from './delete-assignment-dialog';
 
 // Detail views
-export { AssignmentDetailSheet } from './assignment-detail-sheet';
-export type { AssignmentDetailSheetProps } from './assignment-detail-sheet';
+export { AssignmentDetailDialog } from './assignment-detail-sheet';
+export type { AssignmentDetailDialogProps } from './assignment-detail-sheet';
 
 // Submissions and grading
 export { SubmissionsList } from './submissions-list';

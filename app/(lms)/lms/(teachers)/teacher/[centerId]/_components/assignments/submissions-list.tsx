@@ -27,11 +27,13 @@ import {
 import {
     Search,
     Clock,
-    CheckCircle2,
+    CheckCircle,
     AlertCircle,
     FileText,
     Edit,
     Eye,
+    Cpu,
+    LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { SubmissionForGrading } from '@/lib/branch-system/types/assignment.types';
@@ -81,18 +83,14 @@ export function SubmissionsList({
         );
     });
 
-    // Get grading status badge variant
-    const getGradingBadgeVariant = (status: GradingStatus) => {
-        switch (status) {
-            case GradingStatus.NOT_GRADED:
-                return 'warning';
-            case GradingStatus.AUTO_GRADED:
-                return 'secondary';
-            case GradingStatus.MANUAL_GRADED:
-                return 'default';
-            default:
-                return 'outline';
-        }
+    // Get icon component dynamically
+    const getGradingIcon = (iconName: string): LucideIcon => {
+        const icons: Record<string, LucideIcon> = {
+            Clock,
+            Cpu,
+            CheckCircle,
+        };
+        return icons[iconName] || Clock;
     };
 
     // Calculate score percentage
@@ -224,6 +222,7 @@ export function SubmissionsList({
                                             </span>
                                             {submission.is_late && (
                                                 <Badge variant="destructive" className="text-xs">
+                                                    <AlertCircle className="h-3 w-3" />
                                                     Late
                                                 </Badge>
                                             )}
@@ -241,14 +240,14 @@ export function SubmissionsList({
                                                 </span>
                                                 {/* Grading Status */}
                                                 <Badge
-                                                    variant={
-                                                        submission.grading_status === GradingStatus.NOT_GRADED ? 'secondary' :
-                                                            submission.grading_status === GradingStatus.MANUAL_GRADED ? 'default' :
-                                                                'outline'
-                                                    }
-                                                    className="text-xs"
+                                                    variant={gradingConfig.variant}
+                                                    className="text-xs flex items-center gap-1"
                                                 >
-                                                    {gradingConfig?.icon} {gradingConfig?.label}
+                                                    {(() => {
+                                                        const GradingIcon = getGradingIcon(gradingConfig.icon);
+                                                        return <GradingIcon className="h-3 w-3" />;
+                                                    })()}
+                                                    {gradingConfig.label}
                                                 </Badge>
                                             </div>
                                         </ItemDescription>

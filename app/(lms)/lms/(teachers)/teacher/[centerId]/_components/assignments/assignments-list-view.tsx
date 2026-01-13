@@ -30,6 +30,9 @@ import {
     Send,
     Lock,
     Trash2,
+    FileEdit,
+    CheckCircle2,
+    LucideIcon,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -77,22 +80,14 @@ export function AssignmentsListView({
     showTeacherActions = false,
     userRole = 'teacher',
 }: AssignmentsListViewProps) {
-    const getStatusBadgeVariant = (status: AssignmentStatus) => {
-        switch (status) {
-            case AssignmentStatus.DRAFT:
-                return 'secondary';
-            case AssignmentStatus.PUBLISHED:
-                return 'default';
-            case AssignmentStatus.CLOSED:
-                return 'destructive';
-            default:
-                return 'outline';
-        }
-    };
-
-    const getStatusIcon = (status: AssignmentStatus) => {
-        const config = ASSIGNMENT_STATUS_CONFIG[status];
-        return config?.icon || '📄';
+    // Get icon component dynamically
+    const getStatusIcon = (iconName: string): LucideIcon => {
+        const icons: Record<string, LucideIcon> = {
+            FileEdit,
+            CheckCircle2,
+            Lock,
+        };
+        return icons[iconName] || FileText;
     };
 
     return (
@@ -107,6 +102,9 @@ export function AssignmentsListView({
                 const canEdit = assignment.status === AssignmentStatus.DRAFT;
                 const canDelete = assignment.status === AssignmentStatus.DRAFT;
 
+                const statusConfig = ASSIGNMENT_STATUS_CONFIG[assignment.status];
+                const StatusIcon = getStatusIcon(statusConfig.icon);
+
                 return (
                     <div key={assignment.id}>
                         <Item
@@ -120,11 +118,11 @@ export function AssignmentsListView({
                             <ItemMedia variant="icon">
                                 <div className={cn(
                                     'w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center',
-                                    assignment.status === AssignmentStatus.DRAFT && 'bg-secondary',
+                                    assignment.status === AssignmentStatus.DRAFT && 'bg-secondary/30',
                                     assignment.status === AssignmentStatus.PUBLISHED && 'bg-green-100 dark:bg-green-900/30',
                                     assignment.status === AssignmentStatus.CLOSED && 'bg-red-100 dark:bg-red-900/30',
                                 )}>
-                                    <FileText className={cn(
+                                    <StatusIcon className={cn(
                                         'h-5 w-5 sm:h-6 sm:w-6',
                                         assignment.status === AssignmentStatus.DRAFT && 'text-muted-foreground',
                                         assignment.status === AssignmentStatus.PUBLISHED && 'text-green-600',
@@ -140,10 +138,10 @@ export function AssignmentsListView({
                                         {assignment.title}
                                     </span>
                                     <Badge
-                                        variant={getStatusBadgeVariant(assignment.status)}
+                                        variant={statusConfig.variant}
                                         className="text-xs font-medium flex-shrink-0"
                                     >
-                                        {getStatusIcon(assignment.status)} {formatAssignmentStatus(assignment.status)}
+                                        {statusConfig.label}
                                     </Badge>
                                 </ItemTitle>
                                 <ItemDescription>

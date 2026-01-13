@@ -8,10 +8,12 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
+import { useAssignmentStore } from '@/lib/branch-system/assignment';
 import {
     Form,
     FormControl,
@@ -24,6 +26,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
+import { MarkdownTextarea } from '@/components/ui/MarkdownTextarea';
 import {
     Select,
     SelectContent,
@@ -35,7 +38,9 @@ import { Switch } from '@/components/ui/switch';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { TimePicker } from '@/components/ui/time-picker';
-import { Loader2, CalendarIcon, ChevronDownIcon, FileUp } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, CalendarIcon, ChevronDownIcon, FileUp, FileText, LucideIcon, X, CheckCircle2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     createAssignmentSchema,
@@ -47,6 +52,11 @@ import {
 } from '@/lib/branch-system/assignment';
 import type { CreateAssignmentDTO, UpdateAssignmentDTO } from '@/lib/branch-system/types/assignment.types';
 import type { z } from 'zod';
+import {
+    showSuccessToast,
+    showErrorToast,
+    showLoadingToast,
+} from '@/lib/toast';
 
 // Type for form data
 type CreateFormData = z.infer<typeof createAssignmentSchema>;
@@ -136,6 +146,22 @@ export function AssignmentForm({
     showClassSelector = true,
     selectedClassId,
 }: AssignmentFormProps) {
+    // File upload state
+    const [uploadedFiles, setUploadedFiles] = useState<Array<{
+        id: string;
+        name: string;
+        size: number;
+        type: string;
+        url?: string;
+    }>>([]);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Assignment store for file upload
+    const { uploadFile, attachFileToAssignment, deleteFile, error: storeError } = useAssignmentStore();
+
     const [dueTime, setDueTime] = useState<string>(
         initialData?.due_date ? extractTime(initialData.due_date) : '23:59'
     );
@@ -180,6 +206,162 @@ export function AssignmentForm({
     // Watch for late submission toggle
     const allowLateSubmission = form.watch('allow_late_submission');
     const submissionType = form.watch('submission_type');
+
+    // File upload handler
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
+
+        setIsUploading(true);
+        setUploadError(null);
+        setUploadProgress(0);
+
+        // Allowed file extensions and MIME types
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'zip'];
+        const allowedMimeTypes = [
+            'application/pdf',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'text/plain',
+            'application/rtf',
+            'image/jpeg',
+            'image/png',
+            'image/gif',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv',
+            'application/vnd.ms-powerpoint',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/zip',
+            'application/x-zip-compressed',
+        ];
+
+        try {
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+
+                // Get file extension
+                const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+                // Validate file type
+                if (!fileExtension || !allowedExtensions.includes(fileExtension)) {
+                    const errorMsg = `File "${file.name}" has invalid type. Allowed: ${allowedExtensions.join(', ').toUpperCase()}`;
+                    setUploadError(errorMsg);
+                    toast.error(errorMsg);
+                    continue;
+                }
+
+                // Validate MIME type
+                if (!allowedMimeTypes.includes(file.type)) {
+                    console.warn(`File "${file.name}" has unexpected MIME type: ${file.type}`);
+                    // Don't reject, just warn - some browsers report different MIME types
+                }
+
+                // Validate file size (max 10MB)
+                if (file.size > 10 * 1024 * 1024) {
+                    const errorMsg = `File "${file.name}" is too large. Maximum size is 10MB.`;
+                    setUploadError(errorMsg);
+                    toast.error(errorMsg);
+                    continue;
+                }
+
+                // Simulate progress (in real implementation, use actual upload progress)
+                setUploadProgress(((i + 1) / files.length) * 100);
+
+                // Read file as base64 for small files
+                const reader = new FileReader();
+                const fileContent = await new Promise<string>((resolve, reject) => {
+                    reader.onload = () => {
+                        const base64 = reader.result as string;
+                        // Extract base64 data without the data URL prefix
+                        const base64Data = base64.split(',')[1];
+                        resolve(base64Data);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                // Upload file using assignment store
+                console.log('Uploading file:', file.name, 'Base64 length:', fileContent.length);
+                const result = await uploadFile({
+                    file_name: file.name,
+                    file_size: file.size,
+                    mime_type: file.type,
+                    context_type: 'assignment_instruction',
+                    context_id: assignmentId || 'temp', // Use temp for create mode
+                    uploaded_by: teacherId,
+                    is_permanent: false,
+                    file_content: fileContent,
+                });
+
+                console.log('Upload result:', result);
+                console.log('Store error:', storeError);
+
+                if (result) {
+                    // Add to uploaded files list
+                    setUploadedFiles(prev => [
+                        ...prev,
+                        {
+                            id: result.id,
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            url: result.file_path,
+                        },
+                    ]);
+
+                    // If in edit mode, attach to assignment
+                    if (mode === 'edit' && assignmentId) {
+                        await attachFileToAssignment(
+                            assignmentId,
+                            result.id,
+                            'instruction'
+                        );
+                    }
+
+                    showSuccessToast(`File "${file.name}" uploaded successfully`);
+                } else {
+                    const errorMsg = storeError || `Failed to upload "${file.name}"`;
+                    setUploadError(errorMsg);
+                    showErrorToast(errorMsg);
+                }
+            }
+            setUploadProgress(100);
+        } catch (error) {
+            console.error('File upload error:', error);
+            const errorMsg = error instanceof Error ? error.message : 'Failed to upload files';
+            setUploadError(errorMsg);
+            showErrorToast(errorMsg);
+        } finally {
+            setIsUploading(false);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        }
+    };
+
+    // Remove uploaded file
+    const handleRemoveFile = async (fileId: string) => {
+        try {
+            // Find the file to delete
+            const fileToDelete = uploadedFiles.find(f => f.id === fileId);
+            if (!fileToDelete) return;
+
+            // Delete from server and storage (requires userId)
+            const success = await deleteFile(fileId, teacherId);
+
+            if (success) {
+                // Remove from local state
+                setUploadedFiles(prev => prev.filter(f => f.id !== fileId));
+                showSuccessToast('File deleted successfully');
+            } else {
+                showErrorToast('Failed to delete file. Please try again.');
+            }
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            showErrorToast('Failed to delete file. Please try again.');
+        }
+    };
 
     // Reset form when initialData changes
     useEffect(() => {
@@ -246,23 +428,95 @@ export function AssignmentForm({
                                     Upload PDF, images, or documents that students need to complete this assignment.
                                     These files will be available for students to download.
                                 </p>
-                                <div className="flex gap-2">
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            // TODO: Implement file upload
-                                            alert('File upload feature will be implemented. For now, use the Instructions field below.');
-                                        }}
-                                    >
-                                        <FileUp className="h-4 w-4 mr-2" />
-                                        Upload Files
-                                    </Button>
+
+                                <div className="space-y-3">
+                                    {/* Upload Button */}
+                                    <div className="flex gap-2">
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            onChange={handleFileUpload}
+                                            multiple
+                                            accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.xls,.xlsx,.csv,.ppt,.pptx,.zip"
+                                            className="hidden"
+                                        />
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                        >
+                                            {isUploading ? (
+                                                <>
+                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                                    Uploading...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <FileUp className="h-4 w-4 mr-2" />
+                                                    Upload Files
+                                                </>
+                                            )}
+                                        </Button>
+                                    </div>
+
+                                    {/* Upload Progress */}
+                                    {isUploading && (
+                                        <div className="space-y-1">
+                                            <Progress value={uploadProgress} className="h-2" />
+                                            <p className="text-xs text-muted-foreground">
+                                                Uploading... {Math.round(uploadProgress)}%
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Error Message */}
+                                    {uploadError && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription>{uploadError}</AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {/* Uploaded Files List */}
+                                    {uploadedFiles.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-medium">Uploaded Files:</p>
+                                            {uploadedFiles.map((file) => (
+                                                <div
+                                                    key={file.id}
+                                                    className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border"
+                                                >
+                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                        <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-xs font-medium truncate">
+                                                                {file.name}
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground">
+                                                                {(file.size / 1024).toFixed(2)} KB
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleRemoveFile(file.id)}
+                                                        className="h-8 w-8 p-0 flex-shrink-0"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Info Note */}
+                                    <p className="text-xs text-muted-foreground">
+                                        Accepted formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max 10MB per file)
+                                    </p>
                                 </div>
-                                <p className="text-xs text-amber-600 mt-2">
-                                    Note: File upload UI will be added soon. For now, provide instructions in the text field below.
-                                </p>
                             </div>
                         </div>
                     </div>
@@ -340,18 +594,27 @@ export function AssignmentForm({
                         name="instructions"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Instructions</FormLabel>
+                                <FormLabel>Instructions or Questions</FormLabel>
                                 <FormControl>
-                                    <Textarea
-                                        placeholder="Detailed instructions for students"
-                                        className="resize-none"
-                                        rows={5}
-                                        {...field}
+                                    <MarkdownTextarea
                                         value={field.value || ''}
+                                        onMarkdownChange={field.onChange}
+                                        placeholder="Detailed instructions for students (supports markdown)"
+                                        className="resize-none"
+                                        rows={8}
+                                        previewClassName="min-h-[120px] bg-muted/50"
                                     />
                                 </FormControl>
                                 <FormDescription>
-                                    Provide clear instructions on how to complete the assignment
+                                    Provide clear questions and instructions for students. You can format text using
+                                    <a
+                                        href="https://www.markdownguide.org/cheat-sheet/"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline ml-1"
+                                    >
+                                        markdown. ↗
+                                    </a>
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -367,29 +630,47 @@ export function AssignmentForm({
                     <FormField
                         control={form.control}
                         name="submission_type"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Submission Type *</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select submission type" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {Object.entries(SUBMISSION_TYPE_CONFIG).map(([key, config]) => (
-                                            <SelectItem key={key} value={key}>
-                                                {config.icon} {config.label}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormDescription>
-                                    Choose how students will submit their work (FILE = upload files, TEXT = type answer)
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
+                        render={({ field }) => {
+                            const selectedConfig = field.value ? SUBMISSION_TYPE_CONFIG[field.value as keyof typeof SUBMISSION_TYPE_CONFIG] : null;
+                            const SelectedIcon = selectedConfig?.icon === 'FileUp' ? FileUp : FileText;
+
+                            return (
+                                <FormItem>
+                                    <FormLabel>Submission Type *</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select submission type">
+                                                    {selectedConfig && (
+                                                        <div className="flex items-center gap-2">
+                                                            <SelectedIcon className="h-4 w-4" />
+                                                            <span>{selectedConfig.label}</span>
+                                                        </div>
+                                                    )}
+                                                </SelectValue>
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {Object.entries(SUBMISSION_TYPE_CONFIG).map(([key, config]) => {
+                                                const IconComponent = config.icon === 'FileUp' ? FileUp : FileText;
+                                                return (
+                                                    <SelectItem key={key} value={key}>
+                                                        <div className="flex items-center gap-2">
+                                                            <IconComponent className="h-4 w-4" />
+                                                            <span>{config.label}</span>
+                                                        </div>
+                                                    </SelectItem>
+                                                );
+                                            })}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormDescription>
+                                        Choose how students will submit their work (FILE = upload files, TEXT = type answer)
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            );
+                        }}
                     />
 
                     {/* File-specific settings */}

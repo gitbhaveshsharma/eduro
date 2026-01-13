@@ -366,7 +366,7 @@ export const uploadFileSchema = z.object({
         .max(104857600, 'Maximum file size is 100MB'),
     mime_type: z.string().min(1, 'MIME type is required'),
     context_type: fileContextTypeSchema,
-    context_id: uuidSchema,
+    context_id: z.string().min(1, 'Context ID is required'), // Allow 'temp' or UUID
     uploaded_by: uuidSchema,
     is_permanent: z.boolean().default(false),
     file_content: z.string().optional(), // Base64 for small files

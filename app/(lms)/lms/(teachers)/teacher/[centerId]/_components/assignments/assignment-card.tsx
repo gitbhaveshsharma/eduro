@@ -17,13 +17,15 @@ import {
     Eye,
     Edit,
     FileText,
-    Users,
     MoreHorizontal,
     Send,
     Lock,
     Trash2,
     FileUp,
     Type,
+    FileEdit,
+    CheckCircle2,
+    LucideIcon,
 } from 'lucide-react';
 import {
     DropdownMenu,
@@ -82,22 +84,19 @@ export function AssignmentCard({
     const canEdit = assignment.status === AssignmentStatus.DRAFT;
     const canDelete = assignment.status === AssignmentStatus.DRAFT;
 
-    const getStatusBadgeVariant = (status: AssignmentStatus) => {
-        switch (status) {
-            case AssignmentStatus.DRAFT:
-                return 'secondary';
-            case AssignmentStatus.PUBLISHED:
-                return 'default';
-            case AssignmentStatus.CLOSED:
-                return 'destructive';
-            default:
-                return 'outline';
-        }
+    const statusConfig = ASSIGNMENT_STATUS_CONFIG[assignment.status];
+
+    // Get icon component dynamically
+    const getStatusIcon = (iconName: string): LucideIcon => {
+        const icons: Record<string, LucideIcon> = {
+            FileEdit,
+            CheckCircle2,
+            Lock,
+        };
+        return icons[iconName] || FileText;
     };
 
-    const getStatusConfig = (status: AssignmentStatus) => {
-        return ASSIGNMENT_STATUS_CONFIG[status];
-    };
+    const StatusIcon = getStatusIcon(statusConfig.icon);
 
     const getSubmissionTypeIcon = (type: AssignmentSubmissionType) => {
         return type === AssignmentSubmissionType.FILE ? FileUp : Type;
@@ -105,20 +104,20 @@ export function AssignmentCard({
 
     return (
         <Card className={cn(
-            'group hover:shadow-md transition-all duration-200 hover:-translate-y-1',
+            'group hover:shadow-md transition-all duration-200 ',
             'flex flex-col h-full',
         )}>
-            <CardHeader className="pb-3">
+            <CardHeader className="">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         {/* Status Icon */}
                         <div className={cn(
-                            'w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0',
-                            assignment.status === AssignmentStatus.DRAFT && 'bg-secondary',
+                            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
+                            assignment.status === AssignmentStatus.DRAFT && 'bg-secondary/30',
                             assignment.status === AssignmentStatus.PUBLISHED && 'bg-green-100 dark:bg-green-900/30',
                             assignment.status === AssignmentStatus.CLOSED && 'bg-red-100 dark:bg-red-900/30',
                         )}>
-                            <FileText className={cn(
+                            <StatusIcon className={cn(
                                 'h-5 w-5',
                                 assignment.status === AssignmentStatus.DRAFT && 'text-muted-foreground',
                                 assignment.status === AssignmentStatus.PUBLISHED && 'text-green-600',
@@ -137,66 +136,19 @@ export function AssignmentCard({
                         </div>
                     </div>
 
-                    {/* Status Badge & Actions */}
-                    <div className="flex items-center gap-1 flex-shrink-0">
+                    {/* Status Badge & Actions - Fixed width constraints */}
+                    <div className="flex items-center gap-1 flex-shrink-0 min-w-[80px] max-w-[120px]">
                         <Badge
-                            variant={getStatusBadgeVariant(assignment.status)}
-                            className="text-xs"
+                            variant={statusConfig.variant}
+                            className="text-xs truncate max-w-full"
                         >
-                            {getStatusConfig(assignment.status)?.icon} {formatAssignmentStatus(assignment.status)}
+                            {statusConfig.label}
                         </Badge>
-
-                        {showTeacherActions && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0"
-                                    >
-                                        <MoreHorizontal className="h-4 w-4" />
-                                        <span className="sr-only">More actions</span>
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48">
-                                    {canEdit && onEdit && (
-                                        <DropdownMenuItem onClick={() => onEdit(assignment)}>
-                                            <Edit className="h-4 w-4 mr-2" />
-                                            Edit
-                                        </DropdownMenuItem>
-                                    )}
-                                    {canPublish && onPublish && (
-                                        <DropdownMenuItem onClick={() => onPublish(assignment)}>
-                                            <Send className="h-4 w-4 mr-2" />
-                                            Publish
-                                        </DropdownMenuItem>
-                                    )}
-                                    {canClose && onClose && (
-                                        <DropdownMenuItem onClick={() => onClose(assignment)}>
-                                            <Lock className="h-4 w-4 mr-2" />
-                                            Close
-                                        </DropdownMenuItem>
-                                    )}
-                                    {canDelete && onDelete && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            <DropdownMenuItem
-                                                onClick={() => onDelete(assignment)}
-                                                className="text-destructive focus:text-destructive"
-                                            >
-                                                <Trash2 className="h-4 w-4 mr-2" />
-                                                Delete
-                                            </DropdownMenuItem>
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
                     </div>
                 </div>
             </CardHeader>
 
-            <CardContent className="flex-1 pb-3">
+            <CardContent className="flex-1 ">
                 {/* Description */}
                 {assignment.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
@@ -261,17 +213,66 @@ export function AssignmentCard({
                 </div>
             </CardContent>
 
-            <CardFooter className="pt-3 border-t">
+            <CardFooter className="border-t flex items-center gap-2">
                 <Button
                     variant="outline"
                     size="sm"
                     onClick={() => onViewDetails(assignment.id)}
-                    className="w-full gap-2"
+                    className="flex-1 gap-2"
                 >
                     <Eye className="h-4 w-4" />
                     View Details
                 </Button>
+
+                {showTeacherActions && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 shrink-0"
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">More actions</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+
+                        <DropdownMenuContent align="end" className="w-48">
+                            {canEdit && onEdit && (
+                                <DropdownMenuItem onClick={() => onEdit(assignment)}>
+                                    <Edit className="h-4 w-4 mr-2" />
+                                    Edit
+                                </DropdownMenuItem>
+                            )}
+                            {canPublish && onPublish && (
+                                <DropdownMenuItem onClick={() => onPublish(assignment)}>
+                                    <Send className="h-4 w-4 mr-2" />
+                                    Publish
+                                </DropdownMenuItem>
+                            )}
+                            {canClose && onClose && (
+                                <DropdownMenuItem onClick={() => onClose(assignment)}>
+                                    <Lock className="h-4 w-4 mr-2" />
+                                    Close
+                                </DropdownMenuItem>
+                            )}
+                            {canDelete && onDelete && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                        onClick={() => onDelete(assignment)}
+                                        className="text-destructive focus:text-destructive"
+                                    >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </CardFooter>
+
         </Card>
     );
 }
