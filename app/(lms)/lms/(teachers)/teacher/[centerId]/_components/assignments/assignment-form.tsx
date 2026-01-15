@@ -345,22 +345,24 @@ export function AssignmentForm({
 
                 // Upload pending files if any (for edit mode)
                 if (pendingFiles.length > 0) {
-                    for (const pendingFile of pendingFiles) {
-                        const uploadResult = await uploadFile({
-                            file_name: pendingFile.file.name,
-                            file_size: pendingFile.file.size,
-                            mime_type: pendingFile.file.type,
-                            context_type: 'assignment_instruction',
-                            context_id: assignmentId,
-                            uploaded_by: teacherId,
-                            is_permanent: false,
-                            file_content: pendingFile.content,
-                        });
+                    setIsUploading(true);
+                    setUploadError(null);
+
+                    for (let i = 0; i < pendingFiles.length; i++) {
+                        const pendingFile = pendingFiles[i];
+                        setUploadProgress(Math.round(((i) / pendingFiles.length) * 100));
+
+                        const uploadResult = await uploadFile(pendingFile.file, assignmentId);
 
                         if (uploadResult) {
-                            await attachFileToAssignment(assignmentId, uploadResult.id, 'instruction');
+                            // File uploaded successfully to storage
+                            // Note: attachFileToAssignment may not be needed if we're just storing in storage
+                            console.log('File uploaded:', uploadResult.fileName);
                         }
                     }
+
+                    setUploadProgress(100);
+                    setIsUploading(false);
                     setPendingFiles([]);
                 }
             } else {
@@ -369,7 +371,7 @@ export function AssignmentForm({
                 const createHandler = onSubmit as CreateSubmitHandler;
 
                 // Pass pending files to parent - parent will handle file upload after getting assignment ID
-                await createHandler(data as CreateAssignmentDTO, pendingFiles);
+                const assignmentId = await createHandler(data as CreateAssignmentDTO, pendingFiles);
 
                 // Clear pending files after successful submission
                 setPendingFiles([]);
@@ -377,6 +379,7 @@ export function AssignmentForm({
         } catch (error) {
             console.error('Form submission error:', error);
             showErrorToast('Failed to submit assignment');
+            setIsUploading(false);
         }
     };
 

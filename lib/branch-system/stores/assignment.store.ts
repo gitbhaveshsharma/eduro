@@ -166,8 +166,8 @@ interface AssignmentState {
     // ASSIGNMENT ACTIONS
     // ============================================================
 
-    /** Creates a new assignment */
-    createAssignment: (input: CreateAssignmentDTO) => Promise<boolean>;
+    /** Creates a new assignment - returns assignment data for file upload workflow */
+    createAssignment: (input: CreateAssignmentDTO) => Promise<{ success: boolean; data?: Assignment; error?: string }>;
 
     /** Updates an existing assignment */
     updateAssignment: (input: UpdateAssignmentDTO) => Promise<boolean>;
@@ -240,10 +240,10 @@ interface AssignmentState {
     // ============================================================
 
     /** Uploads a file */
-    uploadFile: (input: UploadFileDTO) => Promise<FileUploadResult | null>;
+    uploadFile: (file: File, assignmentId: string) => Promise<{ fileName: string; filePath: string; fileSize: number; mimeType: string; signedUrl?: string } | null>;
 
     /** Deletes a file */
-    deleteFile: (fileId: string, userId: string) => Promise<boolean>;
+    deleteFile: (filePath: string) => Promise<boolean>;
 
     /** Attaches file to assignment */
     attachFileToAssignment: (assignmentId: string, fileId: string, type: 'instruction' | 'attachment') => Promise<boolean>;
@@ -414,19 +414,20 @@ export const useAssignmentStore = create<AssignmentState>()(
                     if (result.success && result.data) {
                         set((state) => {
                             state.loading.create = false;
-                            state.successMessage = 'Assignment created successfully';
+                            // Don't show success message yet if files need to be uploaded
+                            // state.successMessage = 'Assignment created successfully';
                             state.assignments.unshift(result.data!);
                             state.currentAssignment = result.data!;
                             // Invalidate cache
                             state._cacheMetadata.lastListFetch = null;
                         });
-                        return true;
+                        return { success: true, data: result.data };
                     } else {
                         set((state) => {
                             state.loading.create = false;
                             state.error = result.error || 'Failed to create assignment';
                         });
-                        return false;
+                        return { success: false, error: result.error || 'Failed to create assignment' };
                     }
                 },
 
@@ -960,36 +961,47 @@ export const useAssignmentStore = create<AssignmentState>()(
                 // FILE ACTIONS
                 // ============================================================
 
-                uploadFile: async (input: UploadFileDTO) => {
+                uploadFile: async (file: File, assignmentId: string) => {
+                    console.log('📤 [Store] uploadFile started for:', file.name);
+
                     set((state) => {
                         state.loading.upload = true;
                         state.error = null;
                     });
 
-                    const result = await assignmentService.uploadFile(input);
+                    try {
+                        const result = await assignmentService.uploadFile(file, assignmentId);
+                        console.log('📤 [Store] uploadFile result:', result.success ? 'SUCCESS' : 'FAILED', result.error || '');
 
-                    if (result.success && result.data) {
+                        if (result.success && result.data) {
+                            set((state) => {
+                                state.loading.upload = false;
+                            });
+                            return result.data;
+                        } else {
+                            set((state) => {
+                                state.loading.upload = false;
+                                state.error = result.error || 'Failed to upload file';
+                            });
+                            return null;
+                        }
+                    } catch (error) {
+                        console.error('📤 [Store] uploadFile exception:', error);
                         set((state) => {
                             state.loading.upload = false;
-                            state.successMessage = 'File uploaded successfully';
-                        });
-                        return result.data;
-                    } else {
-                        set((state) => {
-                            state.loading.upload = false;
-                            state.error = result.error || 'Failed to upload file';
+                            state.error = error instanceof Error ? error.message : 'Upload failed unexpectedly';
                         });
                         return null;
                     }
                 },
 
-                deleteFile: async (fileId: string, userId: string) => {
+                deleteFile: async (filePath: string) => {
                     set((state) => {
                         state.loading.delete = true;
                         state.error = null;
                     });
 
-                    const result = await assignmentService.deleteFile(fileId, userId);
+                    const result = await assignmentService.deleteFile(filePath);
 
                     if (result.success) {
                         set((state) => {
@@ -1017,7 +1029,6 @@ export const useAssignmentStore = create<AssignmentState>()(
                     if (result.success && result.data) {
                         set((state) => {
                             state.loading.update = false;
-                            state.successMessage = 'File attached successfully';
                             if (state.currentAssignment?.id === assignmentId) {
                                 state.currentAssignment = result.data!;
                             }

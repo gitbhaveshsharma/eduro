@@ -6,6 +6,8 @@ import { BookOpen, Users, Calendar, ClipboardList } from 'lucide-react';
 import { CoachingAPI } from '@/lib/coaching';
 import { useTeacherContext } from './layout';
 import type { TeacherAssignment } from '@/lib/schema/coaching.types';
+// import { UploadDiagnostics } from './_components/assignments/UploadDiagnostics';
+// import AdvancedUploadDiagnostics from './_components/assignments/AdvancedUploadDiagnostics';
 
 import { DashboardHeader } from './_components/dashboard/teacher-dashboard-header';
 import { StatsCard } from './_components/dashboard/stats-card';
@@ -125,6 +127,9 @@ export default function TeacherDashboardPage() {
 
             {/* Center Info */}
             <CenterInfo coachingCenter={coachingCenter} />
+            {/* <UploadDiagnostics />
+            // <AdvancedUploadDiagnostics /> */}
+
         </div>
     );
 }

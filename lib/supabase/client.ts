@@ -44,7 +44,7 @@ export function createClient() {
         persistSession: true,
 
         // Enable debug logging in development
-        debug: process.env.NODE_ENV === 'development',
+        // debug: process.env.NODE_ENV === 'development',
       },
       // Cookie storage is handled automatically by createBrowserClient
       // It will store tokens in cookies prefixed with: sb-{project-ref}-auth-token

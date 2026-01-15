@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -33,8 +34,12 @@ export interface CreateAssignmentDialogProps {
     onSuccess?: (assignment: CreateAssignmentDTO) => void;
     /** Whether form is submitting */
     isSubmitting?: boolean;
-    /** Submit handler */
-    onSubmit: (data: CreateAssignmentDTO) => Promise<void>;
+    /** Submit handler - now returns assignment ID for file upload */
+    onSubmit: (data: CreateAssignmentDTO, pendingFiles: Array<{
+        file: File;
+        content: string;
+        preview: { name: string; size: number; type: string; };
+    }>) => Promise<string | void>;
     /** Pre-selected class ID (optional) */
     selectedClassId?: string;
 }
@@ -50,18 +55,63 @@ export function CreateAssignmentDialog({
     onSubmit,
     selectedClassId,
 }: CreateAssignmentDialogProps) {
-    const handleSubmit = async (data: CreateAssignmentDTO) => {
-        await onSubmit(data);
-        onSuccess?.(data);
+    // Track if submission is in progress to prevent dialog closing
+    const [isSubmissionInProgress, setIsSubmissionInProgress] = useState(false);
+
+    const handleSubmit = async (
+        data: CreateAssignmentDTO,
+        pendingFiles: Array<{
+            file: File;
+            content: string;
+            preview: { name: string; size: number; type: string; };
+        }>
+    ) => {
+        // Mark submission as in progress to prevent accidental dialog close
+        setIsSubmissionInProgress(true);
+
+        try {
+            const result = await onSubmit(data, pendingFiles);
+            onSuccess?.(data);
+            return result;
+        } finally {
+            setIsSubmissionInProgress(false);
+        }
     };
 
     const handleCancel = () => {
-        onOpenChange(false);
+        // Don't allow cancel while submission is in progress
+        if (!isSubmissionInProgress) {
+            onOpenChange(false);
+        }
+    };
+
+    // Prevent dialog from closing via escape/outside click during submission
+    const handleOpenChange = (newOpen: boolean) => {
+        if (!newOpen && isSubmissionInProgress) {
+            // Prevent closing while submission in progress
+            console.log('⚠️ Cannot close dialog while submission is in progress');
+            return;
+        }
+        onOpenChange(newOpen);
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
+        <Dialog open={open} onOpenChange={handleOpenChange}>
+            <DialogContent
+                className="max-w-3xl max-h-[95vh] flex flex-col"
+                onInteractOutside={(e) => {
+                    // Prevent closing by clicking outside during submission
+                    if (isSubmissionInProgress) {
+                        e.preventDefault();
+                    }
+                }}
+                onEscapeKeyDown={(e) => {
+                    // Prevent closing by escape key during submission
+                    if (isSubmissionInProgress) {
+                        e.preventDefault();
+                    }
+                }}
+            >
                 <DialogHeader className="flex-shrink-0">
                     <DialogTitle>Create New Assignment</DialogTitle>
                     <DialogDescription>
@@ -78,7 +128,7 @@ export function CreateAssignmentDialog({
                             availableClasses={availableClasses}
                             onSubmit={handleSubmit}
                             onCancel={handleCancel}
-                            isSubmitting={isSubmitting}
+                            isSubmitting={isSubmitting || isSubmissionInProgress}
                             showClassSelector={!selectedClassId}
                             selectedClassId={selectedClassId}
                         />

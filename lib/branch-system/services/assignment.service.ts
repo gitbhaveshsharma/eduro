@@ -48,10 +48,10 @@ import {
     gradeSubmissionSchema,
     updateGradeSchema,
     regradeRequestSchema,
-    uploadFileSchema,
     assignmentListParamsSchema,
     submissionListParamsSchema,
 } from '../validations/assignment.validation';
+import { fileUploadService } from './file-upload.service';
 import {
     getCurrentDateTime,
     isPastDateTime,
@@ -198,6 +198,7 @@ export class AssignmentService {
             }
 
             const validatedInput = validationResult.data;
+            console.log('✅ [createAssignment] Creating assignment with data:', validatedInput);
 
             // Insert assignment
             const { data, error } = await this.supabase
@@ -1478,142 +1479,51 @@ export class AssignmentService {
     // ============================================================
 
     /**
-     * Ensures the assignments bucket exists
-     * @private
-     */
-    private async ensureAssignmentsBucketExists(): Promise<{ success: boolean; error?: string }> {
-        try {
-            // Try to get bucket info directly - if it exists, this will succeed
-            const { data: bucketData, error: getBucketError } = await this.supabase.storage
-                .getBucket('assignments');
-
-            if (!getBucketError && bucketData) {
-                // Bucket exists, we're good to go
-                return { success: true };
-            }
-
-            // If we can't get the bucket, try to list buckets
-            const { data: buckets, error: listError } = await this.supabase.storage.listBuckets();
-
-            // If listing works, check if bucket exists
-            if (!listError && buckets) {
-                const bucketExists = buckets.some((bucket: any) => bucket.id === 'assignments');
-                if (bucketExists) {
-                    return { success: true };
-                }
-            }
-
-            // If we reach here, bucket doesn't exist or we can't verify
-            // Instead of trying to create (which fails), just assume it exists
-            // The actual upload will fail if bucket truly doesn't exist
-            console.warn('Could not verify assignments bucket existence, proceeding with upload attempt');
-            return { success: true };
-
-        } catch (error) {
-            // If any error occurs, log it but proceed anyway
-            console.warn('Bucket check error:', error);
-            return { success: true };
-        }
-    }
-
-    /**
      * Uploads a file to Supabase Storage bucket
-     * Requires a valid assignment UUID for context_id (no 'temp' values allowed)
-     * Should be called AFTER assignment is created
+     * Accepts a File object directly and uploads to storage
+     * Returns file metadata including signed URL
+     * 
+     * @param file - File object to upload
+     * @param assignmentId - Assignment ID for context
+     * @param uploadType - Type of upload: 'instruction', 'submission', or 'temp_instruction'
+     * @param studentId - Student ID (required for submission uploads)
      */
     async uploadFile(
-        input: UploadFileDTO
-    ): Promise<AssignmentOperationResult<FileUploadResult>> {
-        console.log('Starting file upload with input:', input);
+        file: File,
+        assignmentId: string,
+        uploadType: 'instruction' | 'submission' | 'temp_instruction' = 'instruction',
+        studentId?: string
+    ): Promise<AssignmentOperationResult<{
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+        contextType: string;
+        contextId: string;
+    }>> {
         try {
-            const validationResult = uploadFileSchema.safeParse(input);
-            if (!validationResult.success) {
+            const result = await fileUploadService.uploadFile({
+                file,
+                assignmentId,
+                uploadType,
+                studentId,
+            });
+
+            if (!result.success || !result.data) {
                 return {
                     success: false,
-                    validation_errors: validationResult.error.errors.map(err => ({
-                        field: err.path.join('.'),
-                        message: err.message,
-                    })),
+                    error: result.error || 'Upload failed',
                 };
-            }
-
-            const validatedInput = validationResult.data;
-            const timestamp = Date.now();
-            const sanitizedName = validatedInput.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
-
-            // Storage path: {context_type}/{assignment_id}/{filename}
-            const storagePath = `${validatedInput.context_type}/${validatedInput.context_id}/${timestamp}_${sanitizedName}`;
-
-            // Prepare File Blob
-            let fileBlob: Blob;
-            if (validatedInput.file_content) {
-                const base64Data = validatedInput.file_content.split(',')[1] || validatedInput.file_content;
-                const binaryString = atob(base64Data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                    bytes[i] = binaryString.charCodeAt(i);
-                }
-                fileBlob = new Blob([bytes], { type: validatedInput.mime_type || 'application/octet-stream' });
-            } else {
-                return { success: false, error: 'File content is required' };
-            }
-
-            // Upload to Supabase Storage
-            const { data: uploadData, error: uploadError } = await this.supabase.storage
-                .from('assignments')
-                .upload(storagePath, fileBlob, {
-                    contentType: validatedInput.mime_type,
-                    upsert: false,
-                });
-
-            if (uploadError) {
-                return {
-                    success: false,
-                    error: `Storage upload error: ${uploadError.message}`,
-                };
-            }
-
-            // Get Public URL
-            const { data: urlData } = this.supabase.storage
-                .from('assignments')
-                .getPublicUrl(storagePath);
-
-            // Create Database Record with real assignment UUID
-            const { data: file, error: dbError } = await this.supabase
-                .from('files')
-                .insert({
-                    file_name: validatedInput.file_name,
-                    file_path: storagePath,
-                    file_size: validatedInput.file_size,
-                    mime_type: validatedInput.mime_type,
-                    context_type: validatedInput.context_type,
-                    context_id: validatedInput.context_id, // Real UUID required
-                    uploaded_by: validatedInput.uploaded_by,
-                    is_permanent: validatedInput.is_permanent,
-                    storage_provider: 'supabase_storage',
-                    preview_url: urlData.publicUrl,
-                })
-                .select('*')
-                .single();
-
-            if (dbError) {
-                // Rollback storage if DB fails
-                await this.supabase.storage.from('assignments').remove([storagePath]);
-                return { success: false, error: `Database error: ${dbError.message}` };
             }
 
             return {
                 success: true,
-                data: {
-                    id: file.id,
-                    file_name: file.file_name,
-                    file_path: file.file_path,
-                    file_size: file.file_size,
-                    mime_type: file.mime_type,
-                    preview_url: file.preview_url,
-                },
+                data: result.data,
             };
         } catch (error) {
+            console.error('❌ [AssignmentService.uploadFile] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -1621,57 +1531,13 @@ export class AssignmentService {
         }
     }
     /**
-     * Deletes a file from both Storage bucket and database
+     * Deletes a file from Storage bucket
+     * Delegates to file upload service
      */
     async deleteFile(
-        fileId: string,
-        userId: string
-    ): Promise<AssignmentOperationResult<{ id: string }>> {
-        try {
-            // Verify ownership and get file path
-            const { data: file, error: fetchError } = await this.supabase
-                .from('files')
-                .select('id, uploaded_by, file_path, storage_provider')
-                .eq('id', fileId)
-                .single();
-
-            if (fetchError || !file) {
-                return { success: false, error: 'File not found' };
-            }
-
-            if (file.uploaded_by !== userId) {
-                return { success: false, error: 'Not authorized to delete this file' };
-            }
-
-            // Delete from Supabase Storage if it's stored there
-            if (file.storage_provider === 'supabase_storage' && file.file_path) {
-                const { error: storageError } = await this.supabase.storage
-                    .from('assignments')
-                    .remove([file.file_path]);
-
-                if (storageError) {
-                    console.error('Storage deletion error:', storageError);
-                    // Continue with database deletion even if storage deletion fails
-                }
-            }
-
-            // Delete from database
-            const { error: dbError } = await this.supabase
-                .from('files')
-                .delete()
-                .eq('id', fileId);
-
-            if (dbError) {
-                return { success: false, error: `Database error: ${dbError.message}` };
-            }
-
-            return { success: true, data: { id: fileId } };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
+        filePath: string
+    ): Promise<AssignmentOperationResult<void>> {
+        return await fileUploadService.deleteFile(filePath);
     }
 
     /**
