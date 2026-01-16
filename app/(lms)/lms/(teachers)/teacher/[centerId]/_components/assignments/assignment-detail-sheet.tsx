@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -34,6 +35,9 @@ import {
     FileEdit,
     CheckCircle2,
     LucideIcon,
+    Download,
+    Paperclip,
+    Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Assignment } from '@/lib/branch-system/types/assignment.types';
@@ -43,10 +47,13 @@ import {
     formatDateTime,
     formatAssignmentStatus,
     getDueDateStatus,
+    formatFileSize,
     ASSIGNMENT_STATUS_CONFIG,
     SUBMISSION_TYPE_CONFIG,
     CLEANUP_FREQUENCY_CONFIG,
 } from '@/lib/branch-system/assignment';
+import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
+import { toast } from 'sonner';
 
 export interface AssignmentDetailDialogProps {
     /** Whether the dialog is open */
@@ -83,6 +90,147 @@ export function AssignmentDetailDialog({
     showTeacherActions = false,
     userRole = 'teacher',
 }: AssignmentDetailDialogProps) {
+    const [instructionFiles, setInstructionFiles] = useState<Array<{
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+    }>>([]);
+    const [loadingFiles, setLoadingFiles] = useState(false);
+    const [downloadingFile, setDownloadingFile] = useState<string | null>(null);
+    const [previewingFile, setPreviewingFile] = useState<string | null>(null);
+
+    // Fetch instruction files when assignment changes
+    useEffect(() => {
+        if (assignment?.id && open) {
+            setLoadingFiles(true);
+            fileUploadService
+                .getFilesByAssignmentId(assignment.id, 'assignment_instruction')
+                .then((result) => {
+                    if (result.success && result.data) {
+                        setInstructionFiles(result.data);
+                    }
+                })
+                .finally(() => setLoadingFiles(false));
+        } else {
+            setInstructionFiles([]);
+        }
+    }, [assignment?.id, open]);
+
+    const handleFileDownload = async (file: {
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+    }) => {
+        try {
+            setDownloadingFile(file.id);
+
+            let downloadUrl = file.signedUrl;
+
+            if (!downloadUrl) {
+                const result = await fileUploadService.getSignedUrl(
+                    file.filePath,
+                    3600
+                );
+
+                if (!result.success || !result.data) {
+                    toast.error('Failed to prepare file for download');
+                    return;
+                }
+
+                downloadUrl = result.data;
+            }
+
+            if (!downloadUrl) {
+                toast.error('Failed to get download URL');
+                return;
+            }
+
+            // 🔒 FORCE DOWNLOAD USING BLOB
+            const response = await fetch(downloadUrl);
+            const blob = await response.blob();
+
+            const blobUrl = window.URL.createObjectURL(blob);
+
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = file.fileName;
+            document.body.appendChild(link);
+            link.click();
+
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(blobUrl);
+
+            toast.success(`Downloading ${file.fileName}`);
+        } catch (error) {
+            console.error(error);
+            toast.error('Failed to download file');
+        } finally {
+            setDownloadingFile(null);
+        }
+    };
+
+
+    const handleFilePreview = async (file: {
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+    }) => {
+        try {
+            setPreviewingFile(file.id);
+
+            let previewUrl: string;
+
+            if (file.signedUrl) {
+                previewUrl = file.signedUrl;
+            } else {
+                // Get a signed URL for preview (read-only)
+                const result = await fileUploadService.getSignedUrl(file.filePath, 3600);
+
+                if (!result.success || !result.data) {
+                    toast.error('Failed to open file for preview');
+                    return;
+                }
+
+                previewUrl = result.data;
+            }
+
+            // Check if file is viewable in browser (PDF, images, text files)
+            const viewableMimeTypes = [
+                'application/pdf',
+                'image/',
+                'text/',
+            ];
+            const isViewable = viewableMimeTypes.some(type => file.mimeType.startsWith(type));
+
+            if (isViewable) {
+                // Open in new tab for viewing
+                window.open(previewUrl, '_blank', 'noopener,noreferrer');
+            } else {
+                // For non-viewable files, offer download instead
+                toast.info(`"${file.fileName}" cannot be previewed. Downloading instead.`, {
+                    action: {
+                        label: 'Download',
+                        onClick: () => handleFileDownload(file),
+                    },
+                });
+            }
+        } catch (error) {
+            console.error('Error previewing file:', error);
+            toast.error('Failed to preview file');
+        } finally {
+            setPreviewingFile(null);
+        }
+    };
+
     if (!assignment) return null;
 
     const dueDateStatus = assignment.due_date
@@ -167,6 +315,75 @@ export function AssignmentDetailDialog({
                                 <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                                     {assignment.instructions}
                                 </p>
+                            </div>
+                        )}
+
+                        {/* Instruction Files */}
+                        {(instructionFiles.length > 0 || loadingFiles) && (
+                            <div className="mb-6">
+                                <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                                    <Paperclip className="h-4 w-4" />
+                                    Attached Files
+                                </h4>
+                                {loadingFiles ? (
+                                    <p className="text-sm text-muted-foreground">Loading files...</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {instructionFiles.map((file) => (
+                                            <div
+                                                key={file.id}
+                                                className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                    <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium truncate">
+                                                            {file.fileName}
+                                                        </p>
+                                                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-xs text-muted-foreground">
+                                                            <span>{formatFileSize(file.fileSize)}</span>
+                                                            {file.mimeType && (
+                                                                <span className="text-xs px-1.5 py-0.5 bg-muted rounded">
+                                                                    {file.mimeType.split('/')[1]?.toUpperCase() || file.mimeType}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="flex gap-1 flex-shrink-0">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFilePreview(file)}
+                                                        disabled={previewingFile === file.id}
+                                                        className="h-8 w-8 p-0"
+                                                        title="Preview file"
+                                                    >
+                                                        {previewingFile === file.id ? (
+                                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                        ) : (
+                                                            <Eye className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => handleFileDownload(file)}
+                                                        disabled={downloadingFile === file.id}
+                                                        className="h-8 w-8 p-0"
+                                                        title="Download file"
+                                                    >
+                                                        {downloadingFile === file.id ? (
+                                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                        ) : (
+                                                            <Download className="h-4 w-4" />
+                                                        )}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -262,7 +479,7 @@ export function AssignmentDetailDialog({
                                     <div className="flex items-center justify-between">
                                         <span className="text-sm text-muted-foreground">Max file size</span>
                                         <span className="text-sm font-medium">
-                                            {Math.round(assignment.max_file_size / 1048576)} MB
+                                            {formatFileSize(assignment.max_file_size)}
                                         </span>
                                     </div>
                                     {assignment.allowed_extensions && assignment.allowed_extensions.length > 0 && (

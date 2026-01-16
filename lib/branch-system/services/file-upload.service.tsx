@@ -485,6 +485,62 @@ export class FileUploadService {
             };
         }
     }
+
+    /**
+     * Get files by assignment ID and context type
+     */
+    async getFilesByAssignmentId(
+        assignmentId: string,
+        contextType: 'assignment_instruction' | 'submission' = 'assignment_instruction'
+    ): Promise<FileOperationResult<Array<{
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+        createdAt: string;
+    }>>> {
+        try {
+            const { data, error } = await this.supabase
+                .from('files')
+                .select('*')
+                .eq('context_id', assignmentId)
+                .eq('context_type', contextType)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                return { success: false, error: error.message };
+            }
+
+            if (!data || data.length === 0) {
+                return { success: true, data: [] };
+            }
+
+            // Generate signed URLs for each file
+            const filesWithUrls = await Promise.all(
+                data.map(async (file: any) => {
+                    const urlResult = await this.getSignedUrl(file.file_path, 3600);
+                    return {
+                        id: file.id,
+                        fileName: file.file_name,
+                        filePath: file.file_path,
+                        fileSize: file.file_size,
+                        mimeType: file.mime_type || 'application/octet-stream',
+                        signedUrl: urlResult.success ? urlResult.data : undefined,
+                        createdAt: file.created_at,
+                    };
+                })
+            );
+
+            return { success: true, data: filesWithUrls };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error fetching files',
+            };
+        }
+    }
 }
 
 export const fileUploadService = FileUploadService.getInstance();

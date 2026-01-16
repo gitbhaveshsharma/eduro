@@ -85,7 +85,6 @@ export interface FileRow {
     file_size: number;
     mime_type: string | null;
     storage_provider: StorageProvider;
-    file_content: string | null; // Base64 for small files
     preview_url: string | null;
     thumbnail_url: string | null;
     uploaded_by: string;
@@ -458,7 +457,6 @@ export interface UploadFileDTO {
     context_id: string;
     uploaded_by: string;
     is_permanent?: boolean;
-    file_content?: string; // Base64 for small files
 }
 
 /**

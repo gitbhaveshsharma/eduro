@@ -365,7 +365,7 @@ export function AssignmentsFilters({
                         <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t">
                             <span className="text-sm text-muted-foreground">Active:</span>
                             {statusFilter !== 'all' && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-medium">
+                                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-medium">
                                     <Filter className="h-3 w-3" />
                                     {statusOptions.find(s => s.value === statusFilter)?.label}
                                     <button
@@ -377,7 +377,7 @@ export function AssignmentsFilters({
                                 </div>
                             )}
                             {classFilter !== 'all' && (
-                                <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-medium">
+                                <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-medium">
                                     <BookOpen className="h-3 w-3" />
                                     {availableClasses.find(c => c.id === classFilter)?.name}
                                     <button

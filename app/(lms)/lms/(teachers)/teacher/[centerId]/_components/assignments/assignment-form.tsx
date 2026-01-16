@@ -14,6 +14,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { useAssignmentStore } from '@/lib/branch-system/assignment';
+import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
 import {
     Form,
     FormControl,
@@ -49,6 +50,9 @@ import {
     CleanupFrequency,
     SUBMISSION_TYPE_CONFIG,
     CLEANUP_FREQUENCY_CONFIG,
+    DEFAULT_ALLOWED_EXTENSIONS,
+    FILE_SIZE_CONSTANTS,
+    formatFileSize,
 } from '@/lib/branch-system/assignment';
 import type { CreateAssignmentDTO, UpdateAssignmentDTO } from '@/lib/branch-system/types/assignment.types';
 import type { z } from 'zod';
@@ -57,6 +61,7 @@ import {
     showErrorToast,
     showLoadingToast,
 } from '@/lib/toast';
+import { DeleteAttachmentDialog } from './delete-attachment-dialog';
 
 // Type for form data
 type CreateFormData = z.infer<typeof createAssignmentSchema>;
@@ -160,13 +165,47 @@ export function AssignmentForm({
             type: string;
         };
     }>>([]);
+
+    // Existing files (for edit mode) - fetched from server
+    const [existingFiles, setExistingFiles] = useState<Array<{
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+    }>>([]);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [fileToDelete, setFileToDelete] = useState<{
+        id: string;
+        fileName: string;
+        fileSize: number;
+    } | null>(null);
+
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [uploadError, setUploadError] = useState<string | null>(null);
+    const [loadingExistingFiles, setLoadingExistingFiles] = useState(false);
+    const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // Assignment store for file upload (used after assignment creation)
     const { uploadFile, attachFileToAssignment, deleteFile, error: storeError } = useAssignmentStore();
+
+    // Fetch existing files when in edit mode
+    useEffect(() => {
+        if (mode === 'edit' && assignmentId) {
+            setLoadingExistingFiles(true);
+            fileUploadService
+                .getFilesByAssignmentId(assignmentId, 'assignment_instruction')
+                .then((result) => {
+                    if (result.success && result.data) {
+                        setExistingFiles(result.data);
+                    }
+                })
+                .finally(() => setLoadingExistingFiles(false));
+        }
+    }, [mode, assignmentId]);
 
     const [dueTime, setDueTime] = useState<string>(
         initialData?.due_date ? extractTime(initialData.due_date) : '23:59'
@@ -187,7 +226,7 @@ export function AssignmentForm({
         description: '',
         instructions: '',
         submission_type: AssignmentSubmissionType.FILE,
-        max_file_size: 10485760, // 10MB
+        max_file_size: FILE_SIZE_CONSTANTS.DEFAULT_MAX_SIZE,
         allowed_extensions: ['pdf', 'doc', 'docx', 'txt'],
         max_submissions: 1,
         allow_late_submission: false,
@@ -218,12 +257,24 @@ export function AssignmentForm({
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
+        // Check total file limit (max 2 files total)
+        const totalFiles = existingFiles.length + pendingFiles.length + files.length;
+        if (totalFiles > 2) {
+            const errorMsg = 'Maximum 2 files allowed per assignment. Please remove existing files first.';
+            setUploadError(errorMsg);
+            showErrorToast(errorMsg);
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+            return;
+        }
+
         setIsUploading(true);
         setUploadError(null);
         setUploadProgress(0);
 
         // Allowed file extensions and MIME types
-        const allowedExtensions = ['pdf', 'doc', 'docx', 'txt', 'rtf', 'jpg', 'jpeg', 'png', 'gif', 'xls', 'xlsx', 'csv', 'ppt', 'pptx', 'zip'];
+        const allowedExtensions: string[] = [...DEFAULT_ALLOWED_EXTENSIONS];
         const allowedMimeTypes = [
             'application/pdf',
             'application/msword',
@@ -270,8 +321,8 @@ export function AssignmentForm({
                 }
 
                 // Validate file size (max 10MB)
-                if (file.size > 10 * 1024 * 1024) {
-                    const errorMsg = `File "${file.name}" is too large. Maximum size is 10MB.`;
+                if (file.size > FILE_SIZE_CONSTANTS.DEFAULT_MAX_SIZE) {
+                    const errorMsg = `File "${file.name}" is too large. Maximum size is ${FILE_SIZE_CONSTANTS.DEFAULT_MAX_SIZE / FILE_SIZE_CONSTANTS.MB}MB.`;
                     setUploadError(errorMsg);
                     showErrorToast(errorMsg);
                     continue;
@@ -325,6 +376,34 @@ export function AssignmentForm({
         showSuccessToast('File removed');
     };
 
+    // Delete existing file from server
+    // Open delete dialog
+    const openDeleteDialog = (file: typeof existingFiles[0]) => {
+        setFileToDelete({
+            id: file.id,
+            fileName: file.fileName,
+            fileSize: file.fileSize,
+        });
+        setDeleteDialogOpen(true);
+    };
+
+    // Handle confirmed deletion
+    const handleConfirmDelete = async (fileId: string, fileName: string) => {
+        setDeletingFileId(fileId);
+        const result = await fileUploadService.deleteFileById(fileId);
+
+        if (result.success) {
+            setExistingFiles(prev => prev.filter(f => f.id !== fileId));
+            showSuccessToast('File deleted successfully');
+            setDeleteDialogOpen(false);
+            setFileToDelete(null);
+        } else {
+            showErrorToast(result.error || 'Failed to delete file');
+        }
+
+        setDeletingFileId(null);
+    };
+
     // Reset form when initialData changes
     useEffect(() => {
         if (initialData) {
@@ -352,18 +431,29 @@ export function AssignmentForm({
                         const pendingFile = pendingFiles[i];
                         setUploadProgress(Math.round(((i) / pendingFiles.length) * 100));
 
-                        const uploadResult = await uploadFile(pendingFile.file, assignmentId);
+                        const uploadResult = await fileUploadService.uploadFile({
+                            file: pendingFile.file,
+                            assignmentId: assignmentId,
+                            uploadType: 'instruction',
+                        });
 
-                        if (uploadResult) {
-                            // File uploaded successfully to storage
-                            // Note: attachFileToAssignment may not be needed if we're just storing in storage
-                            console.log('File uploaded:', uploadResult.fileName);
+                        if (uploadResult.success) {
+                            console.log('File uploaded:', uploadResult.data?.fileName);
+                            showSuccessToast(`File "${pendingFile.preview.name}" uploaded successfully`);
+                        } else {
+                            showErrorToast(uploadResult.error || 'Failed to upload file');
                         }
                     }
 
                     setUploadProgress(100);
                     setIsUploading(false);
                     setPendingFiles([]);
+
+                    // Refresh existing files list
+                    const filesResult = await fileUploadService.getFilesByAssignmentId(assignmentId, 'assignment_instruction');
+                    if (filesResult.success && filesResult.data) {
+                        setExistingFiles(filesResult.data);
+                    }
                 }
             } else {
                 // Create mode: WATERFALL APPROACH
@@ -409,7 +499,7 @@ export function AssignmentForm({
                 <div className="space-y-4">
                     <h3 className="font-semibold text-sm border-b pb-2">Basic Information</h3>
 
-                    {/* Upload Instructions/Questions */}
+                    {/* Upload Instructions/Questions - CONSOLIDATED SECTION */}
                     <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/50 p-4">
                         <div className="flex items-start gap-3">
                             <div className="rounded-full bg-primary/10 p-2">
@@ -419,75 +509,91 @@ export function AssignmentForm({
                                 <h4 className="font-medium text-sm mb-1">Upload Question Paper / Instructions</h4>
                                 <p className="text-xs text-muted-foreground mb-3">
                                     Upload PDF, images, or documents that students need to complete this assignment.
-                                    These files will be available for students to download.
+                                    These files will be available for students to download. Maximum 2 files, up to {FILE_SIZE_CONSTANTS.DEFAULT_MAX_SIZE / FILE_SIZE_CONSTANTS.MB}MB each.
                                 </p>
 
                                 <div className="space-y-3">
-                                    {/* Upload Button */}
-                                    <div className="flex gap-2">
-                                        <input
-                                            ref={fileInputRef}
-                                            type="file"
-                                            onChange={handleFileUpload}
-                                            multiple
-                                            accept=".pdf,.doc,.docx,.txt,.rtf,.jpg,.jpeg,.png,.gif,.xls,.xlsx,.csv,.ppt,.pptx,.zip"
-                                            className="hidden"
-                                        />
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => fileInputRef.current?.click()}
-                                            disabled={isUploading}
-                                        >
-                                            {isUploading ? (
-                                                <>
-                                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                                    Uploading...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <FileUp className="h-4 w-4 mr-2" />
-                                                    Upload Files
-                                                </>
-                                            )}
-                                        </Button>
-                                    </div>
-
-                                    {/* Upload Progress */}
-                                    {isUploading && (
-                                        <div className="space-y-1">
-                                            <Progress value={uploadProgress} className="h-2" />
-                                            <p className="text-xs text-muted-foreground">
-                                                Uploading... {Math.round(uploadProgress)}%
-                                            </p>
-                                        </div>
+                                    {/* Existing Files (Edit Mode) */}
+                                    {mode === 'edit' && (
+                                        <>
+                                            {loadingExistingFiles ? (
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                    Loading existing files...
+                                                </div>
+                                            ) : existingFiles.length > 0 ? (
+                                                <div className="space-y-2">
+                                                    {existingFiles.map((file) => (
+                                                        <div
+                                                            key={file.id}
+                                                            className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                                                        >
+                                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                                <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="text-sm font-medium truncate">
+                                                                        {file.fileName}
+                                                                    </p>
+                                                                    <p className="text-xs text-muted-foreground">
+                                                                        {formatFileSize(file.fileSize)}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                {file.signedUrl && (
+                                                                    <Button
+                                                                        type="button"
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        asChild
+                                                                    >
+                                                                        <a
+                                                                            href={file.signedUrl}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            download={file.fileName}
+                                                                        >
+                                                                            <FileText className="h-4 w-4" />
+                                                                        </a>
+                                                                    </Button>
+                                                                )}
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => openDeleteDialog(file)}
+                                                                    disabled={deletingFileId === file.id}
+                                                                >
+                                                                    {deletingFileId === file.id ? (
+                                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                                    ) : (
+                                                                        <X className="h-4 w-4" />
+                                                                    )}
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : null}
+                                        </>
                                     )}
 
-                                    {/* Error Message */}
-                                    {uploadError && (
-                                        <Alert variant="destructive">
-                                            <AlertDescription>{uploadError}</AlertDescription>
-                                        </Alert>
-                                    )}
-
-                                    {/* Pending Files List (Not Uploaded Yet) */}
+                                    {/* Pending Files (Not Uploaded Yet) */}
                                     {pendingFiles.length > 0 && (
                                         <div className="space-y-2">
-                                            <p className="text-xs font-medium">Files Ready to Upload:</p>
-                                            {pendingFiles.map((file) => (
+                                            {pendingFiles.map((file, index) => (
                                                 <div
-                                                    key={file.preview.name}
-                                                    className="flex items-center justify-between gap-2 p-2 rounded-md bg-background border"
+                                                    key={index}
+                                                    className="flex items-center justify-between p-3 rounded-lg border bg-muted/50"
                                                 >
-                                                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                        <FileText className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                        <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                                                         <div className="min-w-0 flex-1">
-                                                            <p className="text-xs font-medium truncate">
+                                                            <p className="text-sm font-medium truncate">
                                                                 {file.preview.name}
                                                             </p>
                                                             <p className="text-xs text-muted-foreground">
-                                                                {(file.preview.size / 1024).toFixed(2)} KB
+                                                                {formatFileSize(file.preview.size)} • Pending upload
                                                             </p>
                                                         </div>
                                                     </div>
@@ -496,7 +602,6 @@ export function AssignmentForm({
                                                         variant="ghost"
                                                         size="sm"
                                                         onClick={() => handleRemoveFile(file.preview.name)}
-                                                        className="h-8 w-8 p-0 flex-shrink-0"
                                                     >
                                                         <X className="h-4 w-4" />
                                                     </Button>
@@ -505,14 +610,77 @@ export function AssignmentForm({
                                         </div>
                                     )}
 
+                                    {/* Upload Button */}
+                                    {(existingFiles.length + pendingFiles.length) < 2 && (
+                                        <div>
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept={DEFAULT_ALLOWED_EXTENSIONS.map(ext => `.${ext}`).join(',')}
+                                                onChange={handleFileUpload}
+                                                className="hidden"
+                                                multiple={false}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                disabled={isUploading || (existingFiles.length + pendingFiles.length) >= 2}
+                                                className="w-full"
+                                            >
+                                                {isUploading ? (
+                                                    <>
+                                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                        Processing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <FileUp className="mr-2 h-4 w-4" />
+                                                        {(existingFiles.length + pendingFiles.length) === 0
+                                                            ? 'Upload Files (Max 2)'
+                                                            : `Upload File (${2 - existingFiles.length - pendingFiles.length} remaining)`}
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    )}
+
+                                    {/* Upload Progress */}
+                                    {isUploading && uploadProgress > 0 && (
+                                        <div className="space-y-2">
+                                            <Progress value={uploadProgress} className="h-2" />
+                                            <p className="text-xs text-muted-foreground text-center">
+                                                Processing files... {Math.round(uploadProgress)}%
+                                            </p>
+                                        </div>
+                                    )}
+
+                                    {/* Upload Error */}
+                                    {uploadError && (
+                                        <Alert variant="destructive">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <AlertDescription>{uploadError}</AlertDescription>
+                                        </Alert>
+                                    )}
+
+                                    {/* File Limit Warning */}
+                                    {(existingFiles.length + pendingFiles.length) >= 2 && (
+                                        <Alert variant="destructive">
+                                            <AlertDescription>
+                                                Maximum file limit reached (2 files). Remove a file to upload a new one.
+                                            </AlertDescription>
+                                        </Alert>
+                                    )}
+
                                     {/* Info Note */}
                                     <p className="text-xs text-muted-foreground">
-                                        Accepted formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max 10MB per file)
+                                        Accepted formats: PDF, DOC, DOCX, TXT, JPG, PNG, GIF (Max {FILE_SIZE_CONSTANTS.DEFAULT_MAX_SIZE / FILE_SIZE_CONSTANTS.MB}MB per file)
                                     </p>
                                 </div>
                             </div>
                         </div>
                     </div>
+
 
                     {/* Class Selection */}
                     {showClassSelector && (
@@ -1078,6 +1246,14 @@ export function AssignmentForm({
                     </Button>
                 </div>
             </form>
+            {/* Delete Attachment Dialog */}
+            <DeleteAttachmentDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                file={fileToDelete}
+                onConfirm={handleConfirmDelete}
+                isDeleting={deletingFileId !== null}
+            />
         </Form>
     );
 }

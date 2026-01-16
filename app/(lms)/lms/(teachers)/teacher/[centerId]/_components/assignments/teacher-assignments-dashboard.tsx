@@ -37,6 +37,8 @@ import {
 // Types
 import type { Assignment, CreateAssignmentDTO, UpdateAssignmentDTO, GradeSubmissionDTO, SubmissionForGrading } from '@/lib/branch-system/types/assignment.types';
 import { AssignmentStatus } from '@/lib/branch-system/assignment';
+import { formatFileSize } from '@/lib/branch-system/utils/assignment.utils';
+import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
 
 // Child components
 import { AssignmentsHeader } from './assignments-header';
@@ -86,8 +88,6 @@ export function TeacherAssignmentsDashboard({
         closeAssignment,
         deleteAssignment,
         gradeSubmission,
-        uploadFile,
-        attachFileToAssignment,
         openDeleteDialog,
         closeDeleteDialog,
         openGradingDialog,
@@ -196,49 +196,34 @@ export function TeacherAssignmentsDashboard({
                 for (let i = 0; i < totalFiles; i++) {
                     const pendingFile = pendingFiles[i];
                     const fileNum = i + 1;
-                    const fileSizeKB = Math.round(pendingFile.file.size / 1024);
 
                     // Update toast to show progress with file info
                     showLoadingToast(
-                        `Uploading file ${fileNum}/${totalFiles}: ${pendingFile.file.name} (${fileSizeKB}KB)...`,
+                        `Uploading file ${fileNum}/${totalFiles}: ${pendingFile.file.name} (${formatFileSize(pendingFile.file.size)})...`,
                         { id: toastId }
                     );
 
-                    console.log(`📎 [handleCreate] Uploading file ${fileNum}/${totalFiles}: ${pendingFile.file.name} (${fileSizeKB}KB)`);
+                    console.log(`📎 [handleCreate] Uploading file ${fileNum}/${totalFiles}: ${pendingFile.file.name} (${formatFileSize(pendingFile.file.size)})`);
 
                     try {
                         // Upload file to storage - this will wait for the upload to complete
                         const uploadStartTime = Date.now();
 
-                        const uploadResult = await uploadFile({
-                            file_name: pendingFile.file.name,
-                            file_size: pendingFile.file.size,
-                            mime_type: pendingFile.file.type,
-                            context_type: 'assignment_instruction',
-                            context_id: assignmentId,
-                            uploaded_by: teacherId,
-                            is_permanent: false,
-                            file_content: pendingFile.content,
+                        const uploadResult = await fileUploadService.uploadFile({
+                            file: pendingFile.file,
+                            assignmentId: assignmentId,
+                            uploadType: 'instruction',
                         });
 
                         const uploadDuration = Date.now() - uploadStartTime;
-                        console.log(`📎 [handleCreate] Upload took ${uploadDuration}ms, result:`, uploadResult ? 'SUCCESS' : 'FAILED');
+                        console.log(`📎 [handleCreate] Upload took ${uploadDuration}ms, result:`, uploadResult.success ? 'SUCCESS' : 'FAILED');
 
-                        if (uploadResult) {
-                            // Attach file to assignment
-                            console.log(`📎 [handleCreate] Attaching file ${uploadResult.id} to assignment...`);
-                            const attachResult = await attachFileToAssignment(assignmentId, uploadResult.id, 'instruction');
-
-                            if (attachResult) {
-                                uploadedCount++;
-                                console.log(`✅ [handleCreate] File ${fileNum} uploaded and attached successfully`);
-                            } else {
-                                failedCount++;
-                                console.error(`❌ [handleCreate] Failed to attach file: ${pendingFile.file.name}`);
-                            }
+                        if (uploadResult.success && uploadResult.data) {
+                            uploadedCount++;
+                            console.log(`✅ [handleCreate] File ${fileNum} uploaded successfully: ${uploadResult.data.fileName}`);
                         } else {
                             failedCount++;
-                            console.error(`❌ [handleCreate] Failed to upload file: ${pendingFile.file.name}`);
+                            console.error(`❌ [handleCreate] Failed to upload file: ${pendingFile.file.name}`, uploadResult.error);
                         }
                     } catch (fileError) {
                         failedCount++;
@@ -271,7 +256,7 @@ export function TeacherAssignmentsDashboard({
             console.error('❌ [handleCreate] Unexpected error:', err);
             showErrorToast(getFriendlyErrorMessage(err instanceof Error ? err.message : 'Unknown error'), { id: toastId });
         }
-    }, [teacherId, createAssignment, uploadFile, attachFileToAssignment, fetchAssignments]);
+    }, [teacherId, createAssignment, fetchAssignments]);
 
     const handleUpdate = useCallback(async (data: UpdateAssignmentDTO) => {
         if (!editingAssignment) return;
