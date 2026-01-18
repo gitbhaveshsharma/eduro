@@ -1,12 +1,31 @@
 'use client';
 
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import type { CoachingCenter } from '@/lib/schema/coaching.types';
 
 interface DashboardHeaderProps {
     coachingCenter: CoachingCenter;
+    isRefreshing?: boolean;
+    onRefresh?: () => void;
+    lastUpdated?: Date | null;
 }
 
-export function DashboardHeader({ coachingCenter }: DashboardHeaderProps) {
+export function DashboardHeader({
+    coachingCenter,
+    isRefreshing = false,
+    onRefresh,
+    lastUpdated
+}: DashboardHeaderProps) {
+    const formattedTime = lastUpdated
+        ? lastUpdated.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true,
+        })
+        : null;
+
     return (
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-4 md:p-8 shadow-sm">
             {/* 🎨 Background Illustration Layer */}
@@ -37,23 +56,52 @@ export function DashboardHeader({ coachingCenter }: DashboardHeaderProps) {
             </div>
 
             {/* ✍️ Content Layer */}
-            <div className="relative z-10 flex flex-col gap-2">
-                <div className="space-y-1">
-                    <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-brand-primary dark:text-foreground">
-                        {coachingCenter.name}
-                    </h1>
-                    <div className="flex items-center gap-2">
-                        {/* Subtle accent line using Highlight color */}
-                        <div className="h-1 w-12 rounded-full bg-brand-highlight" />
-                        <p className="text-base md:text-lg font-medium text-muted-foreground">
-                            Teacher Portal
-                        </p>
+            <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                {/* Main Content */}
+                <div className="flex flex-col gap-4 lg:flex-1">
+                    <div className="space-y-1">
+                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold tracking-tight text-brand-primary dark:text-foreground">
+                            {coachingCenter.name}
+                        </h1>
+                        <div className="flex items-center gap-2">
+                            {/* Subtle accent line using Highlight color */}
+                            <div className="h-1 w-12 rounded-full bg-brand-highlight" />
+                            <p className="text-base md:text-lg font-medium text-muted-foreground">
+                                Teacher Portal
+                            </p>
+                        </div>
                     </div>
+
+                    <p className="max-w-md text-sm md:text-base text-text-secondary leading-relaxed">
+                        Manage your classes, track student progress, and organize your teaching schedule from one central dashboard.
+                    </p>
                 </div>
 
-                <p className="max-w-md text-sm md:text-base text-text-secondary leading-relaxed">
-                    Manage your classes, track student progress, and organize your teaching schedule from one central dashboard.
-                </p>
+                {/* Refresh Controls - Only show if onRefresh is provided */}
+                {/* {onRefresh && (
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3 shrink-0">
+                        {formattedTime && (
+                            <span className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap">
+                                Updated {formattedTime}
+                            </span>
+                        )}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={onRefresh}
+                            disabled={isRefreshing}
+                            className="gap-2 h-9 px-3"
+                        >
+                            <RefreshCw className={cn(
+                                'h-4 w-4 shrink-0',
+                                isRefreshing && 'animate-spin'
+                            )} />
+                            <span className="hidden sm:inline">
+                                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                            </span>
+                        </Button>
+                    </div>
+                )} */}
             </div>
         </div>
     );

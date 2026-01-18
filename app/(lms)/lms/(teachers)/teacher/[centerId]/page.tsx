@@ -1,48 +1,123 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, Users, Calendar, ClipboardList } from 'lucide-react';
-import { CoachingAPI } from '@/lib/coaching';
+import { BookOpen, Users, ClipboardList, TrendingUp } from 'lucide-react';
 import { useTeacherContext } from './layout';
-import type { TeacherAssignment } from '@/lib/schema/coaching.types';
-// import { UploadDiagnostics } from './_components/assignments/UploadDiagnostics';
-// import AdvancedUploadDiagnostics from './_components/assignments/AdvancedUploadDiagnostics';
+import { useTeacherDashboardStore } from '@/lib/branch-system/stores/teacher-dashboard.store';
+import { useAuthStore } from '@/lib/auth-store';
 
-import { DashboardHeader } from './_components/dashboard/teacher-dashboard-header';
-import { StatsCard } from './_components/dashboard/stats-card';
-import { QuickActionCard } from './_components/dashboard/quick-action-card';
-import { AssignmentsList } from './_components/dashboard/assignments-list';
-import { CenterInfo } from './_components/dashboard/center-info';
+// Dashboard components
+import {
+    DashboardHeader,
+    DashboardStatsCard,
+    DashboardSkeleton,
+    DashboardError,
+    DashboardEmpty,
+    TodaySchedule,
+    GradingOverview,
+    UpcomingDeadlines,
+    ClassPerformance,
+    AtRiskStudents,
+    RecentActivity,
+    QuickActionCard,
+    CenterInfo,
+} from './_components/dashboard';
 
 export default function TeacherDashboardPage() {
     const router = useRouter();
     const { coachingCenter, centerId } = useTeacherContext();
+    const user = useAuthStore((state) => state.user);
 
-    const [assignments, setAssignments] = useState<TeacherAssignment[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    // Dashboard store
+    const {
+        dashboardStats,
+        quickStats,
+        formattedSchedule,
+        formattedDeadlines,
+        loading,
+        refreshing,
+        error,
+        fetchDashboardStats,
+        refreshDashboardStats,
+        clearError,
+    } = useTeacherDashboardStore();
 
+    // Fetch dashboard data on mount
     useEffect(() => {
-        async function loadAssignments() {
-            if (!coachingCenter) return;
-            setLoading(true);
-            try {
-                const res = await CoachingAPI.getTeacherAssignments();
-                if (res.success && res.data) {
-                    setAssignments(res.data);
-                } else {
-                    setError(res.error || 'Failed to load assignments');
-                }
-            } catch (err) {
-                setError(err instanceof Error ? err.message : 'Unexpected error');
-            } finally {
-                setLoading(false);
-            }
+        if (user?.id && coachingCenter) {
+            fetchDashboardStats(user.id);
         }
-        loadAssignments();
-    }, [coachingCenter]);
+    }, [user?.id, coachingCenter, fetchDashboardStats]);
 
+    // Refresh handler
+    const handleRefresh = useCallback(() => {
+        refreshDashboardStats();
+    }, [refreshDashboardStats]);
+
+    // Navigation handlers
+    const handleClassClick = useCallback((classId: string) => {
+        router.push(`/lms/teacher/${centerId}/classes/${classId}`);
+    }, [router, centerId]);
+
+    const handleAssignmentClick = useCallback((assignmentId: string) => {
+        router.push(`/lms/teacher/${centerId}/assignments/${assignmentId}`);
+    }, [router, centerId]);
+
+    const handleViewGrading = useCallback(() => {
+        router.push(`/lms/teacher/${centerId}/assignments?filter=pending`);
+    }, [router, centerId]);
+
+    const handleViewAllDeadlines = useCallback(() => {
+        router.push(`/lms/teacher/${centerId}/assignments`);
+    }, [router, centerId]);
+
+    // Prepare chart data for stats cards
+    const gradingChartData = useMemo(() => {
+        if (!dashboardStats?.grading_stats) return [];
+        const { pending_count, urgent_count, graded_today } = dashboardStats.grading_stats;
+        return [
+            { label: 'Pending', value: pending_count, color: 'bg-yellow-500' },
+            { label: 'Urgent', value: urgent_count, color: 'bg-red-500' },
+            { label: 'Today', value: graded_today, color: 'bg-green-500' },
+        ].filter(d => d.value > 0);
+    }, [dashboardStats?.grading_stats]);
+
+    const scheduleChartData = useMemo(() => {
+        if (!formattedSchedule.length) return [];
+        const statusCounts = formattedSchedule.reduce((acc, item) => {
+            acc[item.status] = (acc[item.status] || 0) + 1;
+            return acc;
+        }, {} as Record<string, number>);
+
+        return [
+            { label: 'Completed', value: statusCounts['completed'] || 0, color: 'bg-gray-400' },
+            { label: 'Ongoing', value: statusCounts['ongoing'] || 0, color: 'bg-green-500' },
+            { label: 'Upcoming', value: statusCounts['upcoming'] || 0, color: 'bg-blue-500' },
+        ].filter(d => d.value > 0);
+    }, [formattedSchedule]);
+
+    // Loading state
+    if (loading && !dashboardStats) {
+        return <DashboardSkeleton />;
+    }
+
+    // Error state
+    if (error && !dashboardStats) {
+        return (
+            <DashboardError
+                error={error}
+                onRetry={() => {
+                    clearError();
+                    if (user?.id) {
+                        fetchDashboardStats(user.id, null, true);
+                    }
+                }}
+            />
+        );
+    }
+
+    // No coaching center
     if (!coachingCenter) {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
@@ -51,44 +126,110 @@ export default function TeacherDashboardPage() {
         );
     }
 
+    // Empty state (no data yet)
+    if (!dashboardStats || !quickStats) {
+        return <DashboardEmpty />;
+    }
+
     return (
         <div className="space-y-6 pb-8">
-            {/* Header */}
-            <DashboardHeader coachingCenter={coachingCenter} />
+            {/* Header with refresh */}
+            <DashboardHeader
+                coachingCenter={coachingCenter}
+                isRefreshing={refreshing}
+                onRefresh={handleRefresh}
+                lastUpdated={dashboardStats ? new Date() : null}
+            />
 
             {/* Stats Grid - 2 columns on mobile, 4 on desktop */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                <StatsCard
+                <DashboardStatsCard
                     title="My Classes"
-                    value={4}
+                    value={quickStats.classes.total}
+                    subtitle={`${quickStats.classes.today} scheduled today`}
                     icon={BookOpen}
                     iconColor="text-blue-600"
                     bgColor="bg-blue-100"
+                    chartData={scheduleChartData}
+                    chartOrientation="vertical"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/classes`)}
                 />
-                <StatsCard
-                    title="Active Assignments"
-                    value={assignments.length}
-                    icon={ClipboardList}
-                    iconColor="text-green-600"
-                    bgColor="bg-green-100"
-                />
-                <StatsCard
+                <DashboardStatsCard
                     title="Total Students"
-                    value={156}
+                    value={quickStats.students.total}
+                    subtitle={quickStats.students.at_risk > 0
+                        ? `${quickStats.students.at_risk} at risk`
+                        : 'All performing well'
+                    }
                     icon={Users}
                     iconColor="text-purple-600"
                     bgColor="bg-purple-100"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/students`)}
                 />
-                <StatsCard
-                    title="Classes Today"
-                    value={3}
-                    icon={Calendar}
+                <DashboardStatsCard
+                    title="Assignments"
+                    value={quickStats.assignments.total}
+                    subtitle={quickStats.assignments.pending_grading > 0
+                        ? `${quickStats.assignments.pending_grading} pending grading`
+                        : 'All graded'
+                    }
+                    icon={ClipboardList}
+                    iconColor="text-green-600"
+                    bgColor="bg-green-100"
+                    chartData={gradingChartData}
+                    chartOrientation="vertical"
+                    onClick={() => router.push(`/lms/teacher/${centerId}/assignments`)}
+                />
+                <DashboardStatsCard
+                    title="Submissions"
+                    value={quickStats.submissions.week}
+                    subtitle={`${quickStats.submissions.today} in last 24h`}
+                    icon={TrendingUp}
                     iconColor="text-amber-600"
                     bgColor="bg-amber-100"
                 />
             </div>
 
-            {/* Quick Actions - 2 columns on mobile, 3 on desktop */}
+            {/* Today's Schedule */}
+            <TodaySchedule
+                schedule={formattedSchedule}
+                onClassClick={handleClassClick}
+            />
+
+            {/* Grading and Deadlines - 2 columns on desktop */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <GradingOverview
+                    gradingStats={dashboardStats.grading_stats}
+                    onViewGrading={handleViewGrading}
+                />
+                <UpcomingDeadlines
+                    deadlines={formattedDeadlines}
+                    onDeadlineClick={handleAssignmentClick}
+                    onViewAll={handleViewAllDeadlines}
+                />
+            </div>
+
+            {/* Class Performance and At-Risk */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2">
+                    <ClassPerformance
+                        classStats={dashboardStats.assignments_by_class}
+                        onClassClick={handleClassClick}
+                    />
+                </div>
+                <div className="space-y-4">
+                    <AtRiskStudents
+                        lowAttendance={dashboardStats.at_risk_students.low_attendance_count}
+                        failing={dashboardStats.at_risk_students.failing_count}
+                    />
+                    <RecentActivity
+                        recentSubmissions={dashboardStats.recent_activity.recent_submissions}
+                        weeklySubmissions={dashboardStats.recent_activity.submissions_last_7days}
+                    />
+                </div>
+            </div>
+
+            {/* Quick Actions - 3 columns on desktop */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <QuickActionCard
                     title="My Classes"
@@ -109,27 +250,18 @@ export default function TeacherDashboardPage() {
                     onClick={() => router.push(`/lms/teacher/${centerId}/students`)}
                 />
                 <QuickActionCard
-                    title="Attendance"
-                    description="Mark attendance and view records"
-                    icon={Calendar}
+                    title="Assignments"
+                    description="Create and grade assignments"
+                    icon={ClipboardList}
                     iconColor="text-green-600"
-                    buttonText="Take Attendance"
+                    buttonText="View Assignments"
                     buttonVariant="secondary"
-                    onClick={() => router.push(`/lms/teacher/${centerId}/attendance`)}
+                    onClick={() => router.push(`/lms/teacher/${centerId}/assignments`)}
                 />
             </div>
 
-            {/* Assignments */}
-            <AssignmentsList
-                assignments={assignments}
-                onViewAll={() => router.push(`/lms/teacher/${centerId}/assignments`)}
-            />
-
             {/* Center Info */}
             <CenterInfo coachingCenter={coachingCenter} />
-            {/* <UploadDiagnostics />
-            // <AdvancedUploadDiagnostics /> */}
-
         </div>
     );
 }
