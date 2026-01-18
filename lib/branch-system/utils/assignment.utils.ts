@@ -33,106 +33,110 @@ import { StudentSubmissionStatus } from '../types/assignment.types';
 
 /**
  * Assignment status display configurations
+ * Icon names from lucide-react
  */
 export const ASSIGNMENT_STATUS_CONFIG = {
     DRAFT: {
         label: 'Draft',
-        color: 'secondary',
+        variant: 'secondary' as const,
         priority: 1,
-        icon: '📝',
+        icon: 'FileEdit',
         description: 'Not visible to students',
     },
     PUBLISHED: {
         label: 'Published',
-        color: 'success',
+        variant: 'success' as const,
         priority: 2,
-        icon: '✅',
+        icon: 'CheckCircle2',
         description: 'Visible to students',
     },
     CLOSED: {
         label: 'Closed',
-        color: 'destructive',
+        variant: 'destructive' as const,
         priority: 3,
-        icon: '🔒',
+        icon: 'Lock',
         description: 'No more submissions accepted',
     },
 } as const;
 
 /**
  * Submission type display configurations
+ * Icon names from lucide-react
  */
 export const SUBMISSION_TYPE_CONFIG = {
     FILE: {
         label: 'File Upload',
-        color: 'outline',
-        icon: '📎',
+        variant: 'outline' as const,
+        icon: 'FileUp',
         description: 'Submit a file',
     },
     TEXT: {
         label: 'Text Entry',
-        color: 'outline',
-        icon: '📝',
+        variant: 'outline' as const,
+        icon: 'FileText',
         description: 'Write your submission',
     },
 } as const;
 
 /**
  * Grading status display configurations
+ * Icon names from lucide-react
  */
 export const GRADING_STATUS_CONFIG = {
     NOT_GRADED: {
         label: 'Awaiting Grading',
-        color: 'warning',
+        variant: 'warning' as const,
         priority: 1,
-        icon: '⏳',
+        icon: 'Clock',
     },
     AUTO_GRADED: {
         label: 'Auto Graded',
-        color: 'outline',
+        variant: 'outline' as const,
         priority: 2,
-        icon: '🤖',
+        icon: 'Cpu',
     },
     MANUAL_GRADED: {
         label: 'Graded',
-        color: 'success',
+        variant: 'success' as const,
         priority: 3,
-        icon: '✅',
+        icon: 'CheckCircle',
     },
 } as const;
 
 /**
  * Student submission status display configurations
+ * Icon names from lucide-react
  */
 export const STUDENT_STATUS_CONFIG = {
     NOT_STARTED: {
         label: 'Not Started',
-        color: 'secondary',
+        variant: 'secondary' as const,
         priority: 1,
-        icon: '📋',
+        icon: 'Circle',
     },
     DRAFT_SAVED: {
         label: 'Draft Saved',
-        color: 'warning',
+        variant: 'warning' as const,
         priority: 2,
-        icon: '💾',
+        icon: 'Save',
     },
     SUBMITTED: {
         label: 'Submitted',
-        color: 'success',
+        variant: 'success' as const,
         priority: 3,
-        icon: '✅',
+        icon: 'CheckCircle',
     },
     LATE: {
         label: 'Late Submission',
-        color: 'destructive',
+        variant: 'destructive' as const,
         priority: 4,
-        icon: '⏰',
+        icon: 'AlertCircle',
     },
     GRADED: {
         label: 'Graded',
-        color: 'success',
+        variant: 'success' as const,
         priority: 5,
-        icon: '📊',
+        icon: 'BarChart3',
     },
 } as const;
 

@@ -48,10 +48,10 @@ import {
     gradeSubmissionSchema,
     updateGradeSchema,
     regradeRequestSchema,
-    uploadFileSchema,
     assignmentListParamsSchema,
     submissionListParamsSchema,
 } from '../validations/assignment.validation';
+import { fileUploadService } from './file-upload.service';
 import {
     getCurrentDateTime,
     isPastDateTime,
@@ -198,6 +198,7 @@ export class AssignmentService {
             }
 
             const validatedInput = validationResult.data;
+            console.log('✅ [createAssignment] Creating assignment with data:', validatedInput);
 
             // Insert assignment
             const { data, error } = await this.supabase
@@ -1478,110 +1479,65 @@ export class AssignmentService {
     // ============================================================
 
     /**
-     * Uploads a file
+     * Uploads a file to Supabase Storage bucket
+     * Accepts a File object directly and uploads to storage
+     * Returns file metadata including signed URL
+     * 
+     * @param file - File object to upload
+     * @param assignmentId - Assignment ID for context
+     * @param uploadType - Type of upload: 'instruction', 'submission', or 'temp_instruction'
+     * @param studentId - Student ID (required for submission uploads)
      */
     async uploadFile(
-        input: UploadFileDTO
-    ): Promise<AssignmentOperationResult<FileUploadResult>> {
+        file: File,
+        assignmentId: string,
+        uploadType: 'instruction' | 'submission' | 'temp_instruction' = 'instruction',
+        studentId?: string
+    ): Promise<AssignmentOperationResult<{
+        id: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        signedUrl?: string;
+        contextType: string;
+        contextId: string;
+    }>> {
         try {
-            const validationResult = uploadFileSchema.safeParse(input);
-            if (!validationResult.success) {
+            const result = await fileUploadService.uploadFile({
+                file,
+                assignmentId,
+                uploadType,
+                studentId,
+            });
+
+            if (!result.success || !result.data) {
                 return {
                     success: false,
-                    validation_errors: validationResult.error.errors.map(err => ({
-                        field: err.path.join('.'),
-                        message: err.message,
-                    })),
+                    error: result.error || 'Upload failed',
                 };
-            }
-
-            const validatedInput = validationResult.data;
-
-            // Generate file path
-            const timestamp = Date.now();
-            const sanitizedName = validatedInput.file_name.replace(/[^a-zA-Z0-9.-]/g, '_');
-            const filePath = `${validatedInput.context_type}/${validatedInput.context_id}/${timestamp}_${sanitizedName}`;
-
-            // Create file record
-            const { data: file, error } = await this.supabase
-                .from('files')
-                .insert({
-                    file_name: validatedInput.file_name,
-                    file_path: filePath,
-                    file_size: validatedInput.file_size,
-                    mime_type: validatedInput.mime_type,
-                    context_type: validatedInput.context_type,
-                    context_id: validatedInput.context_id,
-                    uploaded_by: validatedInput.uploaded_by,
-                    is_permanent: validatedInput.is_permanent,
-                    file_content: validatedInput.file_content,
-                })
-                .select('*')
-                .single();
-
-            if (error) {
-                return { success: false, error: `Database error: ${error.message}` };
             }
 
             return {
                 success: true,
-                data: {
-                    id: file.id,
-                    file_name: file.file_name,
-                    file_path: file.file_path,
-                    file_size: file.file_size,
-                    mime_type: file.mime_type,
-                },
+                data: result.data,
             };
         } catch (error) {
+            console.error('❌ [AssignmentService.uploadFile] Unexpected error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
             };
         }
     }
-
     /**
-     * Deletes a file
+     * Deletes a file from Storage bucket
+     * Delegates to file upload service
      */
     async deleteFile(
-        fileId: string,
-        userId: string
-    ): Promise<AssignmentOperationResult<{ id: string }>> {
-        try {
-            // Verify ownership
-            const { data: file, error: fetchError } = await this.supabase
-                .from('files')
-                .select('id, uploaded_by')
-                .eq('id', fileId)
-                .single();
-
-            if (fetchError || !file) {
-                return { success: false, error: 'File not found' };
-            }
-
-            if (file.uploaded_by !== userId) {
-                return { success: false, error: 'Not authorized to delete this file' };
-            }
-
-            const { error } = await this.supabase
-                .from('files')
-                .delete()
-                .eq('id', fileId);
-
-            if (error) {
-                return { success: false, error: `Database error: ${error.message}` };
-            }
-
-            // TODO: Delete from storage as well
-
-            return { success: true, data: { id: fileId } };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
+        filePath: string
+    ): Promise<AssignmentOperationResult<void>> {
+        return await fileUploadService.deleteFile(filePath);
     }
 
     /**

@@ -20,13 +20,13 @@ const alertVariants = cva(
       variant: {
         default: 'bg-card border-border text-card-foreground [&>[data-slot=alert-icon]]:text-muted-foreground',
         destructive:
-          'bg-destructive/10 border-destructive/20 text-destructive [&>[data-slot=alert-icon]]:text-destructive', // Changed to text-destructive
+          'bg-destructive/10 border-destructive/20 text-destructive [&>[data-slot=alert-icon]]:text-destructive',
         warning:
           'bg-yellow-50 border-yellow-200 text-yellow-600 [&>[data-slot=alert-icon]]:text-yellow-600',
         success:
-          'bg-success/10 border-success/20 text-success [&>[data-slot=alert-icon]]:text-success', // Changed to text-success
+          'bg-success/10 border-success/20 text-success [&>[data-slot=alert-icon]]:text-success',
         info:
-          'bg-blue-50 border-blue-200 text-blue-700 [&>[data-slot=alert-icon]]:text-blue-600', // Darker text
+          'bg-blue-50 border-blue-200 text-blue-700 [&>[data-slot=alert-icon]]:text-blue-600',
       },
       size: {
         sm: 'text-xs p-3',
@@ -115,14 +115,17 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
         {showIcon && (
           <div
             data-slot="alert-icon"
-            className="flex items-start"
+            className="flex items-center h-5" // Changed from items-start to items-center and added fixed height
           >
             {getIcon()}
           </div>
         )}
 
         {/* Content */}
-        <div className={cn('space-y-1', !showIcon && 'col-start-1')}>
+        <div className={cn(
+          'flex flex-col justify-center min-h-5', // Added flex column, center alignment, and minimum height
+          !showIcon && 'col-start-1'
+        )}>
           {children}
         </div>
 
@@ -132,7 +135,7 @@ const Alert = React.forwardRef<HTMLDivElement, AlertProps>(
             type="button"
             onClick={onClose}
             className={cn(
-              'size-4 rounded flex items-center justify-center transition-colors hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+              'size-4 rounded flex items-center justify-center transition-colors hover:bg-black/5 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 self-center', // Added self-center for vertical alignment
               variant === 'destructive' && 'hover:bg-destructive/20',
               variant === 'warning' && 'hover:bg-yellow-100',
               variant === 'success' && 'hover:bg-success/20',
@@ -162,7 +165,7 @@ const AlertTitle = React.forwardRef<HTMLDivElement, AlertTitleProps>(
         ref={ref}
         data-slot="alert-title"
         className={cn(
-          'font-semibold leading-6 tracking-tight flex items-center gap-2',
+          'font-semibold leading-none tracking-tight flex items-center gap-2', // Changed leading-6 to leading-none
           className
         )}
         {...props}
@@ -185,7 +188,7 @@ const AlertDescription = React.forwardRef<HTMLDivElement, AlertDescriptionProps>
         ref={ref}
         data-slot="alert-description"
         className={cn(
-          'text-sm leading-relaxed [&_p]:leading-relaxed text-inherit', // Added text-inherit here
+          'text-sm leading-normal mt-1 text-inherit [&_p]:leading-normal', // Changed leading-relaxed to leading-normal
           className
         )}
         {...props}

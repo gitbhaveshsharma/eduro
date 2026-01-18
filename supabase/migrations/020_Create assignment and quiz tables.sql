@@ -65,7 +65,6 @@ CREATE TABLE files (
   storage_provider TEXT DEFAULT 'local', -- 'local', 's3', 'gcs'
   
   -- File content/context
-  file_content BYTEA, -- For small files (< 1MB), optional
   preview_url TEXT,   -- For images/PDFs
   thumbnail_url TEXT, -- For faster loading
   
@@ -1277,7 +1276,6 @@ COMMENT ON FUNCTION extend_file_expiry(UUID, INTEGER) IS 'Manually extends file 
 -- COMMENT ON VIEW student_submission_details IS 'Student assignment submissions with assignment and student info.';
 -- COMMENT ON VIEW quiz_details IS 'Quiz details with class and teacher information.';
 -- COMMENT ON VIEW student_quiz_attempts IS 'Student quiz attempts with quiz and student information.';
--- COMMENT ON VIEW storage_usage_by_context IS 'Storage usage breakdown by file context type.';
 
 -- ============================================================
 -- MIGRATION COMPLETE

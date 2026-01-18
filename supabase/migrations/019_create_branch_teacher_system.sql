@@ -142,6 +142,192 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
+
+CREATE OR REPLACE FUNCTION get_teacher_dashboard_stats_v2(
+  p_teacher_id UUID,
+  p_branch_id UUID DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+STABLE
+AS $$
+DECLARE
+  v_result JSON;
+  v_today DATE := CURRENT_DATE;
+  v_current_day TEXT := TRIM(TO_CHAR(v_today, 'Day'));
+  v_current_time TIME := LOCALTIME;
+BEGIN
+  SELECT json_build_object(
+    -- Core stats
+    'total_classes', (
+      SELECT COUNT(*)
+      FROM branch_classes bc
+      WHERE bc.teacher_id = p_teacher_id
+        AND bc.status = 'ACTIVE'
+        AND (p_branch_id IS NULL OR bc.branch_id = p_branch_id)
+    ),
+    
+    'total_students', (
+      SELECT COUNT(DISTINCT ce.student_id)
+      FROM class_enrollments ce
+      INNER JOIN branch_classes bc ON ce.class_id = bc.id
+      WHERE bc.teacher_id = p_teacher_id
+        AND ce.enrollment_status = 'ENROLLED'
+        AND (p_branch_id IS NULL OR ce.branch_id = p_branch_id)
+    ),
+    
+    'total_assignments', (
+      SELECT COUNT(*)
+      FROM assignments a
+      WHERE a.teacher_id = p_teacher_id
+        AND (p_branch_id IS NULL OR a.branch_id = p_branch_id)
+    ),
+    
+    -- Today's schedule (fixed enum: class_status)
+    'today_schedule', (
+      SELECT COALESCE(json_agg(
+        json_build_object(
+          'class_id', bc.id,
+          'class_name', bc.class_name,
+          'subject', bc.subject,
+          'batch_name', bc.batch_name,
+          'start_time', bc.start_time,
+          'end_time', bc.end_time,
+          'current_enrollment', bc.current_enrollment,
+          'max_students', bc.max_students
+        ) ORDER BY bc.start_time
+      ), '[]'::json)
+      FROM branch_classes bc
+      WHERE bc.teacher_id = p_teacher_id
+        AND bc.status = 'ACTIVE'  -- Fixed: matches your enum
+        AND (p_branch_id IS NULL OR bc.branch_id = p_branch_id)
+        AND v_current_day = ANY(bc.class_days)
+        AND (bc.start_date IS NULL OR bc.start_date <= v_today)
+        AND (bc.end_date IS NULL OR bc.end_date >= v_today)
+    ),
+    
+    -- Grading workload (fixed enum: grading_status)
+    'grading_stats', (
+      SELECT json_build_object(
+        'pending_count', COUNT(*) FILTER (WHERE asub.grading_status = 'NOT_GRADED'),
+        'auto_graded_count', COUNT(*) FILTER (WHERE asub.grading_status = 'AUTO_GRADED'),
+        'manual_graded_count', COUNT(*) FILTER (WHERE asub.grading_status = 'MANUAL_GRADED'),
+        'urgent_count', COUNT(*) FILTER (WHERE asub.grading_status = 'NOT_GRADED' 
+          AND asub.submitted_at < (NOW() - INTERVAL '3 days')),
+        'graded_today', COUNT(*) FILTER (WHERE asub.graded_at::date = v_today)
+      )
+      FROM assignment_submissions asub
+      INNER JOIN assignments a ON asub.assignment_id = a.id
+      WHERE a.teacher_id = p_teacher_id
+        AND (p_branch_id IS NULL OR a.branch_id = p_branch_id)
+    ),
+    
+    -- Upcoming deadlines (fixed enum: assignment_status)
+    'upcoming_deadlines', (
+      SELECT COALESCE(json_agg(
+        json_build_object(
+          'assignment_id', a.id,
+          'title', a.title,
+          'class_name', bc.class_name,
+          'status', a.status,  -- 'DRAFT', 'PUBLISHED', 'CLOSED'
+          'due_date', a.due_date,
+          'total_students', bc.current_enrollment,
+          'submissions_received', a.total_submissions
+        ) ORDER BY a.due_date
+      ), '[]'::json)
+      FROM assignments a
+      INNER JOIN branch_classes bc ON a.class_id = bc.id
+      WHERE a.teacher_id = p_teacher_id
+        AND (p_branch_id IS NULL OR a.branch_id = p_branch_id)
+        AND a.status IN ('PUBLISHED')  -- Fixed: exact enum value
+        AND a.due_date BETWEEN NOW() AND (NOW() + INTERVAL '7 days')
+      LIMIT 10
+    ),
+    
+    -- At-risk students
+    'at_risk_students', (
+      SELECT json_build_object(
+        'low_attendance_count', COUNT(*) FILTER (WHERE ce.attendance_percentage < 75),
+        'failing_count', COUNT(DISTINCT asub.student_id) FILTER (
+          WHERE asub.score IS NOT NULL 
+          AND asub.score < (asub.max_score * 0.5)
+          AND asub.grading_status IN ('AUTO_GRADED', 'MANUAL_GRADED')  -- Fixed enum
+        )
+      )
+      FROM class_enrollments ce
+      INNER JOIN branch_classes bc ON ce.class_id = bc.id
+      LEFT JOIN assignment_submissions asub ON asub.student_id = ce.student_id 
+        AND asub.class_id = ce.class_id
+      WHERE bc.teacher_id = p_teacher_id
+        AND ce.enrollment_status = 'ENROLLED'  -- Fixed enum
+        AND (p_branch_id IS NULL OR ce.branch_id = p_branch_id)
+    ),
+    
+    -- Assignment stats by class (fixed enums)
+    'assignments_by_class', (
+      SELECT COALESCE(json_agg(
+        json_build_object(
+          'class_id', bc.id,
+          'class_name', bc.class_name,
+          'subject', bc.subject,
+          'assignment_count', COALESCE(class_stats.assignment_count, 0),
+          'published_count', COALESCE(class_stats.published_count, 0),
+          'total_submissions', COALESCE(class_stats.total_submissions, 0),
+          'pending_grading', COALESCE(class_stats.pending_grading, 0),
+          'avg_score', COALESCE(class_stats.avg_score, 0)
+        )
+      ), '[]'::json)
+      FROM branch_classes bc
+      LEFT JOIN (
+        SELECT 
+          a.class_id,
+          COUNT(DISTINCT a.id) as assignment_count,
+          COUNT(DISTINCT a.id) FILTER (WHERE a.status = 'PUBLISHED') as published_count,
+          COALESCE(SUM(a.total_submissions), 0) as total_submissions,
+          COUNT(asub.id) FILTER (WHERE asub.grading_status = 'NOT_GRADED') as pending_grading,
+          ROUND(AVG(asub.score) FILTER (WHERE asub.grading_status IN ('AUTO_GRADED', 'MANUAL_GRADED')), 2) as avg_score
+        FROM assignments a
+        LEFT JOIN assignment_submissions asub ON asub.assignment_id = a.id
+        WHERE a.teacher_id = p_teacher_id
+          AND (p_branch_id IS NULL OR a.branch_id = p_branch_id)
+        GROUP BY a.class_id
+      ) class_stats ON bc.id = class_stats.class_id
+      WHERE bc.teacher_id = p_teacher_id
+        AND bc.status = 'ACTIVE'  -- Fixed enum
+        AND (p_branch_id IS NULL OR bc.branch_id = p_branch_id)
+    ),
+    
+    -- Recent activity
+    'recent_activity', (
+      SELECT json_build_object(
+        'recent_submissions', COUNT(*) FILTER (WHERE asub.submitted_at > (NOW() - INTERVAL '24 hours')),
+        'submissions_last_7days', COUNT(*) FILTER (WHERE asub.submitted_at > (NOW() - INTERVAL '7 days')),
+        'pending_grading_breakdown', json_build_object(
+          'not_graded', COUNT(*) FILTER (WHERE asub.grading_status = 'NOT_GRADED'),
+          'auto_graded', COUNT(*) FILTER (WHERE asub.grading_status = 'AUTO_GRADED'),
+          'manual_graded', COUNT(*) FILTER (WHERE asub.grading_status = 'MANUAL_GRADED')
+        )
+      )
+      FROM assignment_submissions asub
+      INNER JOIN assignments a ON asub.assignment_id = a.id
+      WHERE a.teacher_id = p_teacher_id
+        AND (p_branch_id IS NULL OR a.branch_id = p_branch_id)
+    )
+  ) INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION get_teacher_dashboard_stats_v2(UUID, UUID) TO authenticated;
+
+COMMENT ON FUNCTION get_teacher_dashboard_stats_v2 IS 
+'Updated teacher dashboard stats using exact enums: assignment_status (DRAFT/PUBLISHED/CLOSED), grading_status (NOT_GRADED/AUTO_GRADED/MANUAL_GRADED), enrollment_status (ENROLLED), class_status (ACTIVE)';
+
+
 -- ============================================================
 -- TRIGGERS FOR BRANCH TEACHER
 -- ============================================================

@@ -357,7 +357,7 @@ export class BranchClassesService {
         teacherId: string
     ): Promise<BranchClassOperationResult<BranchClass[]>> {
         try {
-            console.log('🔵 [getClassesByTeacher] Fetching classes for teacher:', teacherId);
+            // console.log('🔵 [getClassesByTeacher] Fetching classes for teacher:', teacherId);
 
             const { data, error } = await this.supabase
                 .from('branch_classes')
@@ -378,10 +378,10 @@ export class BranchClassesService {
                 };
             }
 
-            console.log('✅ [getClassesByTeacher] Classes fetched:', {
-                teacherId,
-                count: data?.length || 0,
-            });
+            // console.log('✅ [getClassesByTeacher] Classes fetched:', {
+            //     teacherId,
+            //     count: data?.length || 0,
+            // });
 
             return {
                 success: true,
@@ -407,10 +407,10 @@ export class BranchClassesService {
         includeInactive: boolean = false
     ): Promise<BranchClassOperationResult<BranchClass[]>> {
         try {
-            console.log('🔵 [getClassesByCoachingCenter] Fetching classes for coaching center:', {
-                coachingCenterId,
-                includeInactive,
-            });
+            //     console.log('🔵 [getClassesByCoachingCenter] Fetching classes for coaching center:', {
+            //     coachingCenterId,
+            //     includeInactive,
+            // });
 
             // Join with coaching_branches to filter by coaching_center_id
             let query = this.supabase
@@ -440,10 +440,10 @@ export class BranchClassesService {
                 };
             }
 
-            console.log('✅ [getClassesByCoachingCenter] Classes fetched:', {
-                coachingCenterId,
-                count: data?.length || 0,
-            });
+            // console.log('✅ [getClassesByCoachingCenter] Classes fetched:', {
+            //     coachingCenterId,
+            //     count: data?.length || 0,
+            // });
 
             return {
                 success: true,
@@ -1037,17 +1037,17 @@ export class BranchClassesService {
             }
 
             if (!data) {
-                console.log('✅ [getUpcomingClasses] No upcoming classes found');
+                // console.log('✅ [getUpcomingClasses] No upcoming classes found');
                 return {
                     success: true,
                     data: [],
                 };
             }
 
-            console.log('✅ [getUpcomingClasses] Upcoming classes fetched:', {
-                count: data.length,
-                studentId,
-            });
+            // console.log('✅ [getUpcomingClasses] Upcoming classes fetched:', {
+            //     count: data.length,
+            //     studentId,
+            // });
 
             return {
                 success: true,

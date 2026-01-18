@@ -664,8 +664,8 @@ export class BranchStudentsService {
                     error: `Failed to fetch students: ${error.message}`,
                 };
             }
-            console.log('🔵 [getTeacherStudents] Raw data fetched:', data);
-            console.log(`✅ [getTeacherStudents] Found ${data?.length || 0} students`);
+            // console.log('🔵 [getTeacherStudents] Raw data fetched:', data);
+            // console.log(`✅ [getTeacherStudents] Found ${data?.length || 0} students`);
 
             // Map to TeacherStudent type
             const teacherStudents = (data || []).map(row => ({
