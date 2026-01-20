@@ -32,7 +32,7 @@ export function QuickActionCard({
             <CardHeader className="space-y-2">
                 <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2 text-lg">
-                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 group-hover:from-primary/20 group-hover:to-primary/10 transition-colors">
+                        <div className="p-2 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 ">
                             <Icon className={cn("h-5 w-5", iconColor)} strokeWidth={2} />
                         </div>
                         {title}

@@ -47,7 +47,7 @@ export function ClassPerformance({ classStats, onClassClick }: ClassPerformanceP
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-brand-primary" />
+                        <TrendingUp className="h-5 w-5 " />
                         Class Performance
                     </CardTitle>
                     <Badge variant="secondary" className="text-xs">
