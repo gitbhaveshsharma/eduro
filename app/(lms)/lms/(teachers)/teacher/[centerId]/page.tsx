@@ -150,7 +150,7 @@ export default function TeacherDashboardPage() {
                     icon={BookOpen}
                     iconColor="text-blue-600"
                     bgColor="bg-blue-100"
-                    chartData={scheduleChartData}
+                    // chartData={scheduleChartData}
                     chartOrientation="vertical"
                     onClick={() => router.push(`/lms/teacher/${centerId}/classes`)}
                 />

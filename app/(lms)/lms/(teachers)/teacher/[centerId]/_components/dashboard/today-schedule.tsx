@@ -6,6 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { Clock, Users, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FormattedScheduleItem } from '@/lib/branch-system/types/teacher-dashboard.types';
+import { getSubjectColor } from '@/lib/utils/subject-assets';
+import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
+import { mapSubjectToId } from '@/lib/branch-system/utils/branch-classes.utils';
 
 interface TodayScheduleProps {
     schedule: FormattedScheduleItem[];
@@ -22,7 +25,7 @@ export function TodaySchedule({ schedule, onClassClick }: TodayScheduleProps) {
             <Card className="border-muted/50">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-primary" />
+                        <Clock className="h-5 w-5 text-brand-primary" />
                         Today&apos;s Schedule
                     </CardTitle>
                 </CardHeader>
@@ -42,7 +45,7 @@ export function TodaySchedule({ schedule, onClassClick }: TodayScheduleProps) {
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <Clock className="h-5 w-5 text-primary" />
+                        <Clock className="h-5 w-5 text-brand-primary" />
                         Today&apos;s Schedule
                     </CardTitle>
                     <Badge variant="secondary" className="text-xs">
@@ -73,10 +76,11 @@ interface ScheduleCardProps {
 }
 
 function ScheduleCard({ item, onClick }: ScheduleCardProps) {
-    const statusColors = {
-        upcoming: 'bg-blue-100 text-blue-700 border-blue-200',
-        ongoing: 'bg-green-100 text-green-700 border-green-200 animate-pulse',
-        completed: 'bg-gray-100 text-gray-600 border-gray-200',
+    // Map status to badge variants
+    const statusVariants = {
+        upcoming: 'secondary', // Using secondary variant (brand-secondary)
+        ongoing: 'success',    // Using success variant (green #10B981)
+        completed: 'outline',  // Using outline variant for completed
     };
 
     const statusLabels = {
@@ -85,21 +89,28 @@ function ScheduleCard({ item, onClick }: ScheduleCardProps) {
         completed: 'Completed',
     };
 
+    // Get subject color for badge styling
+    const subjectId = mapSubjectToId(item.subject) as SubjectId;
+    const subjectColor = getSubjectColor(subjectId);
+
     return (
         <div
             className={cn(
                 'min-w-[260px] sm:min-w-0 snap-start flex-shrink-0 md:flex-shrink',
                 'p-4 rounded-xl border bg-card hover:shadow-md transition-all duration-200',
-                'cursor-pointer hover:border-primary/30',
-                item.status === 'ongoing' && 'ring-2 ring-green-500/20'
+                'cursor-pointer hover:border-brand-primary/30',
+                item.status === 'ongoing' && 'ring-2 ring-success/20'
             )}
             onClick={onClick}
         >
             {/* Status badge */}
             <div className="flex items-center justify-between mb-3">
                 <Badge
-                    variant="outline"
-                    className={cn('text-[10px] font-medium', statusColors[item.status])}
+                    variant={statusVariants[item.status] as any}
+                    className={cn(
+                        'text-[10px] font-medium',
+                        item.status === 'completed' && 'text-muted-foreground'
+                    )}
                 >
                     {statusLabels[item.status]}
                 </Badge>
@@ -112,7 +123,14 @@ function ScheduleCard({ item, onClick }: ScheduleCardProps) {
             <div className="space-y-2">
                 <h4 className="font-semibold text-sm line-clamp-1">{item.class_name}</h4>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="secondary" className="text-[10px] px-2 py-0">
+                    {/* Updated: Subject badge with proper color from subject-assets */}
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            'text-[10px] font-medium px-2 py-0.5 border-0',
+                            subjectColor
+                        )}
+                    >
                         {item.subject}
                     </Badge>
                     {item.batch_name && (
@@ -137,7 +155,7 @@ function ScheduleCard({ item, onClick }: ScheduleCardProps) {
                     className="h-1.5"
                 />
                 {item.is_full && (
-                    <Badge variant="secondary" className="text-[10px] mt-1">
+                    <Badge variant="warning" className="text-[10px] mt-1">
                         Class Full
                     </Badge>
                 )}
@@ -155,17 +173,22 @@ interface ScheduleListItemProps {
  * Compact list item for schedule (alternative view)
  */
 export function ScheduleListItem({ item, onClick }: ScheduleListItemProps) {
+    // Status colors for dots
     const statusDots = {
-        upcoming: 'bg-blue-500',
-        ongoing: 'bg-green-500 animate-pulse',
+        upcoming: 'bg-brand-secondary',
+        ongoing: 'bg-success',
         completed: 'bg-gray-400',
     };
+
+    // Get subject color for badge styling
+    const subjectId = mapSubjectToId(item.subject) as SubjectId;
+    const subjectColor = getSubjectColor(subjectId);
 
     return (
         <div
             className={cn(
                 'flex items-center gap-3 p-3 rounded-lg border hover:bg-accent/50 cursor-pointer transition-colors',
-                item.status === 'ongoing' && 'bg-green-50 border-green-200'
+                item.status === 'ongoing' && 'bg-success/5 border-success/20'
             )}
             onClick={onClick}
         >
@@ -180,9 +203,23 @@ export function ScheduleListItem({ item, onClick }: ScheduleListItemProps) {
             {/* Class info */}
             <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{item.class_name}</p>
-                <p className="text-xs text-muted-foreground truncate">
-                    {item.subject} {item.batch_name && `• ${item.batch_name}`}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                    {/* Updated: Subject badge with proper color from subject-assets */}
+                    <Badge
+                        variant="outline"
+                        className={cn(
+                            'text-[10px] font-medium px-1.5 py-0 h-4 border-0',
+                            subjectColor
+                        )}
+                    >
+                        {item.subject}
+                    </Badge>
+                    {item.batch_name && (
+                        <span className="text-xs text-muted-foreground truncate">
+                            {item.batch_name}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Enrollment */}

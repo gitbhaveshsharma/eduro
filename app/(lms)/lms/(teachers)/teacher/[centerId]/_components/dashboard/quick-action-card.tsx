@@ -26,7 +26,7 @@ export function QuickActionCard({
 }: QuickActionCardProps) {
     return (
         <Card
-            className="hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer border-muted/50 group"
+            className="hover:shadow-md transition-all duration-300 cursor-pointer border-muted/50 group"
             onClick={onClick}
         >
             <CardHeader className="space-y-2">

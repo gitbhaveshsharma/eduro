@@ -8,7 +8,6 @@
  */
 
 import type { AssignmentStatus, GradingStatus } from './assignment.types';
-import type { ClassStatus } from './branch-classes.types';
 
 // ============================================================
 // CORE DASHBOARD STATS TYPES
@@ -265,30 +264,39 @@ export const AT_RISK_ATTENDANCE_THRESHOLD = 75;
  * Passing score threshold (percentage)
  */
 export const PASSING_SCORE_THRESHOLD = 50;
-
 /**
- * Colors for different metrics
+ * Colors for different metrics - Updated to use CSS custom properties
  */
 export const DASHBOARD_COLORS = {
-    primary: 'hsl(var(--primary))',
-    success: '#22c55e',
-    warning: '#f59e0b',
-    danger: '#ef4444',
-    muted: 'hsl(var(--muted-foreground))',
+    primary: 'var(--color-primary)',
+    secondary: 'var(--color-secondary)',
+    highlight: 'var(--color-highlight)',
+    success: 'var(--color-success)',
+    warning: 'var(--color-warning)',
+    danger: 'var(--color-error)',
+    destructive: 'var(--color-destructive)',
+    muted: 'var(--color-muted-foreground)',
     
-    // Grading status colors
-    pending: '#f59e0b',
-    auto_graded: '#3b82f6',
-    manual_graded: '#22c55e',
-    urgent: '#ef4444',
+    // Grading status colors - using semantic variants
+    pending: 'var(--color-warning)',
+    auto_graded: 'var(--color-brand-secondary)',
+    manual_graded: 'var(--color-success)',
+    urgent: 'var(--color-error)',
     
-    // Subject colors (for charts)
-    mathematics: '#3b82f6',
+    // Subject colors (for charts) - using brand colors where appropriate
+    mathematics: 'var(--color-brand-primary)',
+    science: 'var(--color-success)',
+    history: 'var(--color-highlight)',
+    geography: 'var(--color-brand-secondary)',
+    art: '#e879f9', // Keeping distinct color
+    music: '#f43f5e', // Keeping distinct color
+    computer: '#3b82f6', // Keeping distinct color
+    
     physics: '#8b5cf6',
     chemistry: '#ec4899',
     biology: '#22c55e',
-    english: '#f59e0b',
-    default: '#6b7280',
+    english: 'var(--color-warning)',
+    default: 'var(--color-muted-foreground)',
 } as const;
 
 /**
