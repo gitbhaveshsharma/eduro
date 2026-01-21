@@ -12,7 +12,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 import { useAssignmentStore } from '@/lib/branch-system/assignment';
 import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
 import {
@@ -59,7 +58,6 @@ import type { z } from 'zod';
 import {
     showSuccessToast,
     showErrorToast,
-    showLoadingToast,
 } from '@/lib/toast';
 import { DeleteAttachmentDialog } from './delete-attachment-dialog';
 
