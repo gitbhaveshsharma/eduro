@@ -8,7 +8,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Plus, FileQuestion, Grid3X3, List } from 'lucide-react';
+import { Plus, FileQuestion, Grid3x3, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ViewMode = 'grid' | 'list';
@@ -81,7 +81,7 @@ export function QuizzesHeader({
                             onClick={() => onViewModeChange('grid')}
                             className="h-8 px-3"
                         >
-                            <Grid3X3 className="h-4 w-4" />
+                            <Grid3x3 className="h-4 w-4" />
                             <span className="sr-only">Grid view</span>
                         </Button>
                         <Button
