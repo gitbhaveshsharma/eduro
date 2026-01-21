@@ -256,7 +256,7 @@ export function QuestionsList({
                 </Card>
             ) : (
                 <div className="space-y-4">
-                    {questions
+                    {[...questions]
                         .sort((a, b) => a.question_order - b.question_order)
                         .map((question) => (
                             <QuestionCard

@@ -53,7 +53,7 @@ export default function QuizDetailPage() {
     const { centerId } = useTeacherContext();
     const user = useAuthStore((state) => state.user);
 
-    const quizId = params.quizId as string;
+    const quizId = params?.quizId as string;
 
     // Store hooks
     const selectedQuiz = useSelectedQuiz();
@@ -178,30 +178,21 @@ export default function QuizDetailPage() {
     // Question handlers
     const handleCreateQuestion = useCallback(async (data: CreateQuestionDTO) => {
         const result = await createQuestion(data);
-        if (result) {
-            // Refresh questions
-            fetchQuestions(quizId);
-        }
+        // Store already updates questions state on success, no need to refetch
         return result;
-    }, [createQuestion, fetchQuestions, quizId]);
+    }, [createQuestion]);
 
     const handleUpdateQuestion = useCallback(async (data: UpdateQuestionDTO) => {
         const result = await updateQuestion(data);
-        if (result) {
-            // Refresh questions
-            fetchQuestions(quizId);
-        }
+        // Store already updates questions state on success, no need to refetch
         return result;
-    }, [updateQuestion, fetchQuestions, quizId]);
+    }, [updateQuestion]);
 
     const handleDeleteQuestion = useCallback(async (questionId: string) => {
         const result = await deleteQuestion(questionId);
-        if (result) {
-            // Refresh questions
-            fetchQuestions(quizId);
-        }
+        // Store already updates questions state on success, no need to refetch
         return result;
-    }, [deleteQuestion, fetchQuestions, quizId]);
+    }, [deleteQuestion]);
 
     // Compute editable state
     const canEdit = !selectedQuiz?.total_attempts || selectedQuiz.total_attempts === 0;

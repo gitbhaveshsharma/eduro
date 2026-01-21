@@ -732,13 +732,15 @@ export class QuizService {
             }
 
             // Update quiz total_questions count
-            await this.supabase.rpc('increment_quiz_questions', {
-                quiz_id: validatedInput.quiz_id,
-                amount: 1,
-            }).catch(() => {
+            try {
+                await this.supabase.rpc('increment_quiz_questions', {
+                    quiz_id: validatedInput.quiz_id,
+                    amount: 1,
+                });
+            } catch (rpcError) {
                 // If RPC doesn't exist, update manually
-                this.updateQuizQuestionCount(validatedInput.quiz_id);
-            });
+                await this.updateQuizQuestionCount(validatedInput.quiz_id);
+            }
 
             return { success: true, data: data as QuizQuestion };
         } catch (error) {
