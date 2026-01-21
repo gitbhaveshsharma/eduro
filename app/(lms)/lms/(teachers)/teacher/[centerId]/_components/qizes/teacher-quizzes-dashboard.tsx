@@ -9,6 +9,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, FileQuestion } from 'lucide-react';
@@ -59,6 +60,8 @@ export function TeacherQuizzesDashboard({
     teacherId,
     userRole = 'teacher',
 }: TeacherQuizzesDashboardProps) {
+    const router = useRouter();
+
     // ============================================================
     // STORE HOOKS
     // ============================================================
@@ -277,9 +280,8 @@ export function TeacherQuizzesDashboard({
     }, [deletingQuiz, deleteQuiz, fetchQuizzes, teacherId]);
 
     const handleViewDetails = useCallback((quizId: string) => {
-        // TODO: Navigate to quiz details page or open detail sheet
-        console.log('[TeacherQuizzesDashboard] View details:', quizId);
-    }, []);
+        router.push(`/lms/teacher/${centerId}/quizzes/${quizId}`);
+    }, [router, centerId]);
 
     const handleEdit = useCallback((quiz: Quiz) => {
         setEditingQuiz(quiz);
@@ -292,9 +294,8 @@ export function TeacherQuizzesDashboard({
     }, []);
 
     const handleManageQuestions = useCallback((quiz: Quiz) => {
-        // TODO: Navigate to question management page
-        console.log('[TeacherQuizzesDashboard] Manage questions:', quiz.id);
-    }, []);
+        router.push(`/lms/teacher/${centerId}/quizzes/${quiz.id}`);
+    }, [router, centerId]);
 
     const handleClearFilters = useCallback(() => {
         setSearchQuery('');
