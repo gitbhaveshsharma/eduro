@@ -12,7 +12,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
 import { useAssignmentStore } from '@/lib/branch-system/assignment';
 import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
 import {
@@ -59,7 +58,6 @@ import type { z } from 'zod';
 import {
     showSuccessToast,
     showErrorToast,
-    showLoadingToast,
 } from '@/lib/toast';
 import { DeleteAttachmentDialog } from './delete-attachment-dialog';
 
@@ -134,12 +132,36 @@ function formatDateTimeToISO(date: Date | undefined, time?: string): string {
     return `${dateStr}T23:59:00`;
 }
 
-// Extract time from datetime string
+// Extract time from datetime string and convert to 12-hour AM/PM format
 function extractTime(dateTimeStr: string | undefined): string {
-    if (!dateTimeStr) return '23:59';
+    if (!dateTimeStr) return '11:59 PM';
     const date = new Date(dateTimeStr);
-    if (isNaN(date.getTime())) return '23:59';
-    return format(date, 'HH:mm');
+    if (isNaN(date.getTime())) return '11:59 PM';
+
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+// Convert 12-hour AM/PM format to 24-hour HH:mm format
+function convert12to24Hour(time12h: string): string {
+    const match = time12h.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+    if (!match) return '23:59';
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = match[3];
+
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
 export function AssignmentForm({
@@ -208,13 +230,13 @@ export function AssignmentForm({
     }, [mode, assignmentId]);
 
     const [dueTime, setDueTime] = useState<string>(
-        initialData?.due_date ? extractTime(initialData.due_date) : '23:59'
+        initialData?.due_date ? extractTime(initialData.due_date) : '11:59 PM'
     );
     const [publishTime, setPublishTime] = useState<string>(
-        initialData?.publish_at ? extractTime(initialData.publish_at) : '09:00'
+        initialData?.publish_at ? extractTime(initialData.publish_at) : '09:00 AM'
     );
     const [closeTime, setCloseTime] = useState<string>(
-        initialData?.close_date ? extractTime(initialData.close_date) : '23:59'
+        initialData?.close_date ? extractTime(initialData.close_date) : '11:59 PM'
     );
 
     // Default values for create mode
@@ -963,15 +985,19 @@ export function AssignmentForm({
                                             />
                                         </PopoverContent>
                                     </Popover>
-                                    <div className="w-32">
+                                    <div className="w-full">
                                         <TimePicker
                                             value={dueTime}
                                             onChange={(time) => {
                                                 setDueTime(time);
                                                 if (field.value) {
-                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
+                                                    // Convert 12-hour format to 24-hour for ISO datetime
+                                                    const time24h = convert12to24Hour(time);
+                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
                                                 }
                                             }}
+                                            label="Time"
+                                            placeholder="Select time"
                                         />
                                     </div>
                                 </div>
@@ -1016,15 +1042,19 @@ export function AssignmentForm({
                                             />
                                         </PopoverContent>
                                     </Popover>
-                                    <div className="w-32">
+                                    <div className="w-full">
                                         <TimePicker
                                             value={publishTime}
                                             onChange={(time) => {
                                                 setPublishTime(time);
                                                 if (field.value) {
-                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
+                                                    // Convert 12-hour format to 24-hour for ISO datetime
+                                                    const time24h = convert12to24Hour(time);
+                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
                                                 }
                                             }}
+                                            label="Time"
+                                            placeholder="Select time"
                                         />
                                     </div>
                                 </div>
@@ -1070,15 +1100,19 @@ export function AssignmentForm({
                                             />
                                         </PopoverContent>
                                     </Popover>
-                                    <div className="w-32">
+                                    <div className="w-full">
                                         <TimePicker
                                             value={closeTime}
                                             onChange={(time) => {
                                                 setCloseTime(time);
                                                 if (field.value) {
-                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
+                                                    // Convert 12-hour format to 24-hour for ISO datetime
+                                                    const time24h = convert12to24Hour(time);
+                                                    field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
                                                 }
                                             }}
+                                            label="Time"
+                                            placeholder="Select time"
                                         />
                                     </div>
                                 </div>

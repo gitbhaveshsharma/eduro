@@ -516,7 +516,7 @@ export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: 'dashboard',
+        href: '',
         description: 'Overview and analytics',
     },
     {
@@ -731,7 +731,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: 'dashboard',
+        href: '',
         description: 'Your learning overview',
         roles: ['S'],
     },
@@ -835,7 +835,7 @@ export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
     // },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Tasks',
         icon: FileText,
         href: '/lms/teacher/assignments',
         platforms: ['lms'],
@@ -913,7 +913,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: '/',
+        href: '',
         description: 'Teaching overview',
         roles: ['T'],
     },
@@ -935,10 +935,10 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
     },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Task',
         icon: FileText,
         href: 'assignments',
-        description: 'Create and manage assignments',
+        description: 'Create assignments and quizzes',
         roles: ['T'],
     },
     {
@@ -949,14 +949,14 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         description: 'Mark and view attendance',
         roles: ['T'],
     },
-    {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: BarChart3,
-        href: 'analytics',
-        description: 'Student performance analytics',
-        roles: ['T'],
-    },
+    // {
+    //     id: 'analytics',
+    //     label: 'Analytics',
+    //     icon: BarChart3,
+    //     href: 'analytics',
+    //     description: 'Student performance analytics',
+    //     roles: ['T'],
+    // },
 ];
 
 /**

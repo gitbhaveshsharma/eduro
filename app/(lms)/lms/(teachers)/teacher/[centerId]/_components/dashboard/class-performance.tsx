@@ -6,7 +6,9 @@ import { Progress } from '@/components/ui/progress';
 import { BookOpen, TrendingUp, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ClassAssignmentStats } from '@/lib/branch-system/types/teacher-dashboard.types';
-import { getSubjectColor } from '@/lib/branch-system/utils/teacher-dashboard.utils';
+import { getSubjectColor } from '@/lib/utils/subject-assets';
+import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
+import { mapSubjectToId } from '@/lib/branch-system/utils/branch-classes.utils';
 
 interface ClassPerformanceProps {
     classStats: ClassAssignmentStats[];
@@ -23,7 +25,7 @@ export function ClassPerformance({ classStats, onClassClick }: ClassPerformanceP
             <Card className="border-muted/50">
                 <CardHeader className="pb-3">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-primary" />
+                        <TrendingUp className="h-5 w-5 text-brand-primary" />
                         Class Performance
                     </CardTitle>
                 </CardHeader>
@@ -45,7 +47,7 @@ export function ClassPerformance({ classStats, onClassClick }: ClassPerformanceP
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-primary" />
+                        <TrendingUp className="h-5 w-5 " />
                         Class Performance
                     </CardTitle>
                     <Badge variant="secondary" className="text-xs">
@@ -77,19 +79,22 @@ interface ClassStatItemProps {
 }
 
 function ClassStatItem({ stat, onClick }: ClassStatItemProps) {
-    const subjectColor = getSubjectColor(stat.subject);
+    const subjectId = mapSubjectToId(stat.subject) as SubjectId;
+    const subjectColor = getSubjectColor(subjectId);
     const hasPending = stat.pending_grading > 0;
-    const scoreColor = stat.avg_score >= 75
-        ? 'text-green-600'
+
+    // Determine score badge variant based on percentage
+    const scoreVariant = stat.avg_score >= 75
+        ? 'success'
         : stat.avg_score >= 50
-            ? 'text-yellow-600'
-            : 'text-red-600';
+            ? 'warning'
+            : 'destructive';
 
     return (
         <div
             className={cn(
-                'p-3 rounded-lg border hover:shadow-sm cursor-pointer transition-all',
-                hasPending && 'border-yellow-200 bg-yellow-50/30'
+                'p-3 rounded-lg border hover:shadow-sm cursor-pointer transition-all hover:border-brand-primary/20',
+                hasPending && 'border-warning/30 bg-warning/5'
             )}
             onClick={onClick}
         >
@@ -99,40 +104,49 @@ function ClassStatItem({ stat, onClick }: ClassStatItemProps) {
                     <h4 className="font-medium text-sm line-clamp-1">{stat.class_name}</h4>
                     <Badge
                         variant="outline"
-                        className="text-[10px] mt-1"
-                        style={{ borderColor: subjectColor, color: subjectColor }}
+                        className={cn(
+                            'text-[10px] mt-1 border-0',
+                            subjectColor
+                        )}
                     >
                         {stat.subject}
                     </Badge>
                 </div>
                 {stat.avg_score > 0 && (
                     <div className="text-right shrink-0">
-                        <p className={cn('text-lg font-bold tabular-nums', scoreColor)}>
+                        <Badge
+                            variant={scoreVariant}
+                            className="text-xs font-bold px-2 py-1"
+                        >
                             {stat.avg_score.toFixed(0)}%
-                        </p>
-                        <p className="text-[10px] text-muted-foreground">avg score</p>
+                        </Badge>
+                        <p className="text-[10px] text-muted-foreground mt-1">avg score</p>
                     </div>
                 )}
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-4 text-xs">
+            <div className="flex items-center gap-4 text-xs mt-2">
                 <div className="flex items-center gap-1">
                     <BookOpen className="h-3 w-3 text-muted-foreground" />
-                    <span className="tabular-nums">{stat.assignment_count}</span>
-                    <span className="text-muted-foreground">assignments</span>
+                    <Badge variant="secondary" className="text-[10px] px-2 py-0">
+                        {stat.assignment_count} assignments
+                    </Badge>
                 </div>
                 <div className="flex items-center gap-1">
-                    <span className="tabular-nums">{stat.total_submissions}</span>
-                    <span className="text-muted-foreground">submissions</span>
+                    <Badge variant="outline" className="text-[10px] px-2 py-0">
+                        {stat.total_submissions} submissions
+                    </Badge>
                 </div>
             </div>
 
             {/* Pending grading indicator */}
             {hasPending && (
-                <div className="flex items-center gap-1.5 mt-2 text-xs text-yellow-700">
-                    <AlertCircle className="h-3 w-3" />
-                    <span className="font-medium">{stat.pending_grading} pending grading</span>
+                <div className="flex items-center gap-1.5 mt-2">
+                    <Badge variant="warning" className="text-[10px] gap-1">
+                        <AlertCircle className="h-2.5 w-2.5" />
+                        {stat.pending_grading} pending grading
+                    </Badge>
                 </div>
             )}
         </div>
@@ -155,19 +169,19 @@ export function AtRiskStudents({ lowAttendance, failing, onViewDetails }: AtRisk
     return (
         <Card className={cn(
             'border-muted/50',
-            hasAtRisk && 'border-orange-200 bg-orange-50/30'
+            hasAtRisk && 'border-warning/30 bg-warning/5'
         )}>
             <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg flex items-center gap-2">
                         <AlertCircle className={cn(
                             'h-5 w-5',
-                            hasAtRisk ? 'text-orange-600' : 'text-muted-foreground'
+                            hasAtRisk ? 'text-warning' : 'text-muted-foreground'
                         )} />
                         At-Risk Students
                     </CardTitle>
                     {hasAtRisk && (
-                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700">
+                        <Badge variant="warning" className="text-xs">
                             {total} student{total !== 1 ? 's' : ''}
                         </Badge>
                     )}
@@ -181,36 +195,42 @@ export function AtRiskStudents({ lowAttendance, failing, onViewDetails }: AtRisk
                 ) : (
                     <div className="grid grid-cols-2 gap-3">
                         <div className={cn(
-                            'p-3 rounded-lg text-center',
-                            lowAttendance > 0 ? 'bg-red-100' : 'bg-muted/50'
+                            'p-3 rounded-lg text-center border',
+                            lowAttendance > 0 ? 'border-destructive/30 bg-destructive/5' : 'border-muted bg-muted/20'
                         )}>
                             <p className={cn(
                                 'text-2xl font-bold tabular-nums',
-                                lowAttendance > 0 ? 'text-red-600' : 'text-muted-foreground'
+                                lowAttendance > 0 ? 'text-destructive' : 'text-muted-foreground'
                             )}>
                                 {lowAttendance}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <Badge
+                                variant={lowAttendance > 0 ? "destructive" : "outline"}
+                                className="text-[10px] mt-1"
+                            >
                                 Low Attendance
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
+                            </Badge>
+                            <p className="text-[10px] text-muted-foreground mt-1">
                                 (&lt;75%)
                             </p>
                         </div>
                         <div className={cn(
-                            'p-3 rounded-lg text-center',
-                            failing > 0 ? 'bg-orange-100' : 'bg-muted/50'
+                            'p-3 rounded-lg text-center border',
+                            failing > 0 ? 'border-warning/30 bg-warning/5' : 'border-muted bg-muted/20'
                         )}>
                             <p className={cn(
                                 'text-2xl font-bold tabular-nums',
-                                failing > 0 ? 'text-orange-600' : 'text-muted-foreground'
+                                failing > 0 ? 'text-warning' : 'text-muted-foreground'
                             )}>
                                 {failing}
                             </p>
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <Badge
+                                variant={failing > 0 ? "warning" : "outline"}
+                                className="text-[10px] mt-1"
+                            >
                                 Failing Grade
-                            </p>
-                            <p className="text-[10px] text-muted-foreground">
+                            </Badge>
+                            <p className="text-[10px] text-muted-foreground mt-1">
                                 (&lt;50%)
                             </p>
                         </div>
@@ -230,55 +250,53 @@ interface RecentActivityProps {
  * Recent activity summary card
  */
 export function RecentActivity({ recentSubmissions, weeklySubmissions }: RecentActivityProps) {
+    const percentage = weeklySubmissions > 0
+        ? Math.round((recentSubmissions / weeklySubmissions) * 100)
+        : 0;
+
     return (
         <Card className="border-muted/50">
             <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-primary" />
+                    <TrendingUp className="h-5 w-5 text-brand-primary" />
                     Recent Activity
                 </CardTitle>
                 <CardDescription>Student submission trends</CardDescription>
             </CardHeader>
             <CardContent>
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-primary/5 rounded-lg">
-                        <p className="text-3xl font-bold text-primary tabular-nums">
+                    <div className="text-center p-3 bg-brand-primary/5 rounded-lg border border-brand-primary/10">
+                        <p className="text-3xl font-bold text-brand-primary tabular-nums">
                             {recentSubmissions}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <Badge variant="secondary" className="text-[10px] mt-1">
                             Last 24 hours
-                        </p>
+                        </Badge>
                     </div>
-                    <div className="text-center p-3 bg-muted/50 rounded-lg">
+                    <div className="text-center p-3 bg-muted/20 rounded-lg border">
                         <p className="text-3xl font-bold tabular-nums">
                             {weeklySubmissions}
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <Badge variant="outline" className="text-[10px] mt-1">
                             Last 7 days
-                        </p>
+                        </Badge>
                     </div>
                 </div>
 
                 {/* Comparison bar */}
                 <div className="mt-4 space-y-2">
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Daily vs Weekly</span>
-                        <span className="tabular-nums">
-                            {weeklySubmissions > 0
-                                ? Math.round((recentSubmissions / weeklySubmissions) * 100)
-                                : 0
-                            }% of weekly
-                        </span>
+                    <div className="flex justify-between items-center">
+                        <span className="text-xs text-muted-foreground">Daily vs Weekly</span>
+                        <Badge variant="secondary" className="text-[10px]">
+                            {percentage}% of weekly
+                        </Badge>
                     </div>
                     <Progress
-                        value={weeklySubmissions > 0
-                            ? (recentSubmissions / weeklySubmissions) * 100
-                            : 0
-                        }
+                        value={percentage}
                         className="h-2"
                     />
                 </div>
             </CardContent>
         </Card>
     );
-}
+}   

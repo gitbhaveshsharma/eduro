@@ -50,11 +50,15 @@ export function BottomNavigation({
         }
 
         // Default: check if current pathname matches item href
-        if (item.href) {
-            return pathname !== null && (pathname === item.href || pathname.startsWith(item.href + '/'));
-        }
+        if (!pathname || !item.href) return false;
 
-        return false;
+        // Normalize paths by removing trailing slashes
+        const normalizedPathname = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+        const normalizedItemHref = item.href.endsWith('/') && item.href !== '/' ? item.href.slice(0, -1) : item.href;
+
+        // For exact match routes (most specific first to avoid multiple active items)
+        // Strategy: Exact match ONLY, no startsWith to prevent parent routes from staying active
+        return normalizedPathname === normalizedItemHref;
     };
 
     // Don't render if we shouldn't show bottom nav
