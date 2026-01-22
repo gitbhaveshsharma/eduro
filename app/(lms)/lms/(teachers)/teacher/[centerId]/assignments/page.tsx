@@ -77,7 +77,7 @@ export default function TeacherAssignmentsPage() {
                     <TabsTrigger
                         value="assignments"
                         className={cn(
-                            "py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200",
+                            "py-2.5 px-4 rounded-md text-sm font-medium",
                             "data-[state=active]:bg-[#1D4ED8] data-[state=active]:text-white data-[state=active]:shadow-sm",
                             "data-[state=inactive]:text-[#6B7280] data-[state=inactive]:hover:text-[#111827]",
                             "data-[state=inactive]:bg-transparent"
@@ -89,7 +89,7 @@ export default function TeacherAssignmentsPage() {
                     <TabsTrigger
                         value="quizzes"
                         className={cn(
-                            "py-2.5 px-4 rounded-md text-sm font-medium transition-all duration-200",
+                            "py-2.5 px-4 rounded-md text-sm font-medium",
                             "data-[state=active]:bg-[#1D4ED8] data-[state=active]:text-white data-[state=active]:shadow-sm",
                             "data-[state=inactive]:text-[#6B7280] data-[state=inactive]:hover:text-[#111827]",
                             "data-[state=inactive]:bg-transparent"
@@ -99,39 +99,25 @@ export default function TeacherAssignmentsPage() {
                     </TabsTrigger>
                 </TabsList>
 
-                {/* Animated content with absolute positioning */}
-                <div className="relative min-h-[400px] mt-6">
-                    {/* Assignments Tab with Animation */}
-                    <div
-                        className={cn(
-                            "absolute inset-0 transition-all duration-300 ease-in-out",
-                            activeTab === 'assignments'
-                                ? 'opacity-100 translate-x-0'
-                                : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}
-                    >
+                {/* Content */}
+                <div className="mt-6">
+                    {/* Assignments Tab */}
+                    {activeTab === 'assignments' && (
                         <TeacherAssignmentsDashboard
                             centerId={centerId}
                             teacherId={userId}
                             userRole="teacher"
                         />
-                    </div>
+                    )}
 
-                    {/* Quizzes Tab with Animation */}
-                    <div
-                        className={cn(
-                            "absolute inset-0 transition-all duration-300 ease-in-out",
-                            activeTab === 'quizzes'
-                                ? 'opacity-100 translate-x-0'
-                                : 'opacity-0 -translate-x-4 pointer-events-none'
-                        )}
-                    >
+                    {/* Quizzes Tab */}
+                    {activeTab === 'quizzes' && (
                         <TeacherQuizzesDashboard
                             centerId={centerId}
                             teacherId={userId}
                             userRole="teacher"
                         />
-                    </div>
+                    )}
                 </div>
             </Tabs>
         </div>

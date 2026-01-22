@@ -380,31 +380,17 @@ export function QuizDetailView({
                     )}
                 </TabsList>
 
-                {/* Animated content with absolute positioning */}
-                <div className="relative min-h-[400px] pt-4">
-                    {/* Questions Tab with Animation */}
-                    <div
-                        className={cn(
-                            "absolute inset-0 transition-all duration-300 ease-in-out",
-                            activeTab === 'questions'
-                                ? 'opacity-100 translate-x-0'
-                                : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}
-                    >
+                {/* Content without animation */}
+                <div className="pt-4">
+                    {/* Questions Tab */}
+                    {activeTab === 'questions' && (
                         <TabsContent value="questions" className="space-y-4">
                             {questionsListComponent}
                         </TabsContent>
-                    </div>
+                    )}
 
-                    {/* Settings Tab with Animation */}
-                    <div
-                        className={cn(
-                            "absolute inset-0 transition-all duration-300 ease-in-out",
-                            activeTab === 'settings'
-                                ? 'opacity-100 translate-x-0'
-                                : 'opacity-0 -translate-x-4 pointer-events-none'
-                        )}
-                    >
+                    {/* Settings Tab */}
+                    {activeTab === 'settings' && (
                         <TabsContent value="settings" className="space-y-4">
                             <div className="grid gap-6 md:grid-cols-2">
                                 {/* Availability */}
@@ -595,22 +581,13 @@ export function QuizDetailView({
                                 </Card>
                             )}
                         </TabsContent>
-                    </div>
+                    )}
 
-                    {/* Attempts Tab with Animation */}
-                    {attemptsListComponent && (
-                        <div
-                            className={cn(
-                                "absolute inset-0 transition-all duration-300 ease-in-out",
-                                activeTab === 'attempts'
-                                    ? 'opacity-100 translate-x-0'
-                                    : 'opacity-0 translate-x-4 pointer-events-none'
-                            )}
-                        >
-                            <TabsContent value="attempts" className="space-y-4">
-                                {attemptsListComponent}
-                            </TabsContent>
-                        </div>
+                    {/* Attempts Tab */}
+                    {attemptsListComponent && activeTab === 'attempts' && (
+                        <TabsContent value="attempts" className="space-y-4">
+                            {attemptsListComponent}
+                        </TabsContent>
                     )}
                 </div>
             </Tabs>

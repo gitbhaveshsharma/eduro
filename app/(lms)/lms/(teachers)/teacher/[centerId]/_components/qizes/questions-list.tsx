@@ -21,6 +21,7 @@ import {
     BarChart3,
     ArrowUpDown,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { QuestionCard } from './question-card';
 import { CreateQuestionDialog } from './create-question-dialog';
 import { EditQuestionDialog } from './edit-question-dialog';
@@ -86,6 +87,9 @@ export function QuestionsList({
 
     // Calculate total points
     const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+    const remainingPoints = quiz.max_score - totalPoints;
+    const isOverLimit = totalPoints > quiz.max_score;
+    const isNearLimit = remainingPoints <= quiz.max_score * 0.1 && remainingPoints > 0; // Within 10%
 
     // Handle create question
     const handleCreate = useCallback(async (data: CreateQuestionDTO) => {
@@ -223,17 +227,35 @@ export function QuestionsList({
                             <FileQuestion className="h-4 w-4 mr-1.5" />
                             {questions.length} {questions.length === 1 ? 'Question' : 'Questions'}
                         </Badge>
-                        <Badge variant="secondary" className="text-sm py-1.5 px-3">
+                        <Badge
+                            variant={isOverLimit ? "destructive" : isNearLimit ? "outline" : "secondary"}
+                            className={cn(
+                                "text-sm py-1.5 px-3",
+                                isOverLimit && "border-destructive",
+                                isNearLimit && "text-amber-600 border-amber-300"
+                            )}
+                        >
                             <Target className="h-4 w-4 mr-1.5" />
-                            {totalPoints} Total Points
+                            {totalPoints} / {quiz.max_score} Points
+                            {isOverLimit && ` (Over by ${totalPoints - quiz.max_score})`}
+                            {!isOverLimit && remainingPoints > 0 && ` (${remainingPoints} remaining)`}
                         </Badge>
-                        {/* {quiz.max_score !== totalPoints && (
-                            <Badge variant="outline" className="text-sm py-1.5 px-3 text-amber-600 border-amber-300">
-                                <AlertCircle className="h-4 w-4 mr-1.5" />
-                                Quiz max score ({quiz.max_score}) differs from total points ({totalPoints})
-                            </Badge>
-                        )} */}
                     </div>
+                    {isOverLimit && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertDescription>
+                                Total question points ({totalPoints}) exceed quiz max score ({quiz.max_score}).
+                                Please reduce question points or increase the quiz max score.
+                            </AlertDescription>
+                        </Alert>
+                    )}
+                    {isNearLimit && (
+                        <Alert className="mt-4 border-amber-300 bg-amber-50 dark:bg-amber-950/20">
+                            <AlertDescription className="text-amber-800 dark:text-amber-300">
+                                Only {remainingPoints} points remaining. Consider this when adding new questions.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </CardContent>
             </Card>
 
@@ -278,6 +300,7 @@ export function QuestionsList({
                 quizId={quiz.id}
                 quizTitle={quiz.title}
                 quizMaxScore={quiz.max_score}
+                remainingPoints={Math.max(0, remainingPoints)}
                 currentQuestionCount={questions.length}
                 onSubmit={handleCreate}
                 isSubmitting={isSubmitting}

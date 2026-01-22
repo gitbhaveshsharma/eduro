@@ -35,6 +35,7 @@ import { cn } from '@/lib/utils';
 import type { QuizQuestion, QuizOptions } from '@/lib/branch-system/types/quiz.types';
 import { QuestionType } from '@/lib/branch-system/types/quiz.types';
 import { QUESTION_TYPE_CONFIG } from '@/lib/branch-system/quiz';
+import { optionsToArray } from '@/lib/branch-system/utils/quiz.utils';
 
 export interface QuestionCardProps {
     /** Question data to display */
@@ -52,13 +53,6 @@ export interface QuestionCardProps {
     /** Additional className */
     className?: string;
 }
-
-// Convert options object to array
-const optionsToArray = (options: QuizOptions): { key: string; text: string }[] => {
-    return Object.entries(options)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, text]) => ({ key, text }));
-};
 
 export function QuestionCard({
     question,

@@ -56,6 +56,10 @@ export function EditQuestionDialog({
         return null;
     }
 
+    // For edit mode, we can use up to: remaining points + current question points
+    // This allows editing without being blocked by the current question's own points
+    const maxAllowedPoints = quizMaxScore; // In edit, use full max score as we're replacing existing points
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[95vh] flex flex-col">
@@ -71,6 +75,7 @@ export function EditQuestionDialog({
                             mode="edit"
                             quizId={quizId}
                             quizMaxScore={quizMaxScore}
+                            maxAllowedPoints={maxAllowedPoints}
                             questionOrder={question.question_order}
                             initialData={question}
                             onSubmit={handleSubmit}

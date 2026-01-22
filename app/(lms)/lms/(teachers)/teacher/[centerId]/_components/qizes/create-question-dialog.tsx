@@ -29,6 +29,8 @@ export interface CreateQuestionDialogProps {
     quizTitle: string;
     /** Quiz max score (for points validation) */
     quizMaxScore: number;
+    /** Remaining available points */
+    remainingPoints: number;
     /** Current question count (for ordering) */
     currentQuestionCount: number;
     /** Callback when question is created */
@@ -43,6 +45,7 @@ export function CreateQuestionDialog({
     quizId,
     quizTitle,
     quizMaxScore,
+    remainingPoints,
     currentQuestionCount,
     onSubmit,
     isSubmitting = false,
@@ -62,6 +65,16 @@ export function CreateQuestionDialog({
                     <DialogTitle>Add Question</DialogTitle>
                     <DialogDescription>
                         Add a new question to "{quizTitle}"
+                        {remainingPoints > 0 && remainingPoints < quizMaxScore && (
+                            <span className="block mt-1 text-amber-600 dark:text-amber-400">
+                                {remainingPoints} points remaining (Max: {quizMaxScore})
+                            </span>
+                        )}
+                        {remainingPoints === 0 && (
+                            <span className="block mt-1 text-destructive">
+                                No points remaining. Quiz is at maximum capacity.
+                            </span>
+                        )}
                     </DialogDescription>
                 </DialogHeader>
                 <ScrollArea className="flex-1 min-h-0 px-1 overflow-y-auto">
@@ -70,6 +83,8 @@ export function CreateQuestionDialog({
                             mode="create"
                             quizId={quizId}
                             quizMaxScore={quizMaxScore}
+                            maxAllowedPoints={remainingPoints > 0 ? remainingPoints : quizMaxScore}
+                            remainingPoints={remainingPoints}
                             questionOrder={currentQuestionCount + 1}
                             onSubmit={handleSubmit}
                             onCancel={handleCancel}

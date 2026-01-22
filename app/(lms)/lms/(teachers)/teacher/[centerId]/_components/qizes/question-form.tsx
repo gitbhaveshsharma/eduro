@@ -79,6 +79,10 @@ export interface QuestionFormProps {
     quizId: string;
     /** Quiz max score (for points validation) */
     quizMaxScore: number;
+    /** Maximum allowed points for this question */
+    maxAllowedPoints: number;
+    /** Remaining available points (for create mode) */
+    remainingPoints?: number;
     /** Current question order (for create mode) */
     questionOrder: number;
     /** Initial values (for edit mode) */
@@ -97,6 +101,8 @@ export function QuestionForm({
     mode,
     quizId,
     quizMaxScore,
+    maxAllowedPoints,
+    remainingPoints,
     questionOrder,
     initialData,
     onSubmit,
@@ -140,7 +146,7 @@ export function QuestionForm({
     };
 
     const form = useForm<QuestionFormValues>({
-        resolver: zodResolver(createQuestionFormSchema(quizMaxScore)),
+        resolver: zodResolver(createQuestionFormSchema(maxAllowedPoints)),
         defaultValues: getDefaultValues(),
     });
 
@@ -151,6 +157,15 @@ export function QuestionForm({
 
     const questionType = form.watch('question_type');
     const selectedAnswers = form.watch('correct_answers');
+    // Live points tracking
+    const enteredPoints = Number(form.watch('points') ?? 0);
+    const effectiveRemaining = (mode === 'create')
+        ? ((remainingPoints ?? maxAllowedPoints) - enteredPoints)
+        : (quizMaxScore - enteredPoints);
+    const exceedsAllowed = effectiveRemaining < 0;
+    const disableSubmit = isSubmitting || (
+        mode === 'create' && ((remainingPoints ?? maxAllowedPoints) <= 0 || exceedsAllowed)
+    ) || (mode === 'edit' && exceedsAllowed);
 
     // Reset correct answers when question type changes
     useEffect(() => {
@@ -319,15 +334,36 @@ export function QuestionForm({
                                     <Input
                                         type="number"
                                         min={0.1}
-                                        max={quizMaxScore}
+                                        max={maxAllowedPoints}
                                         step="any"
                                         {...field}
                                         onChange={(e) => field.onChange(parseFloat(e.target.value) || 1)}
                                     />
                                 </FormControl>
                                 <FormDescription>
-                                    Max {quizMaxScore} points (quiz total)
+                                    {mode === 'create'
+                                        ? `Max ${maxAllowedPoints} points available`
+                                        : `Max ${quizMaxScore} points (quiz total)`
+                                    }
                                 </FormDescription>
+                                {/* Live remaining after this question */}
+                                <div className="mt-1 text-sm">
+                                    {mode === 'create' ? (
+                                        remainingPoints === 0 ? (
+                                            <span className="text-destructive">No points remaining.</span>
+                                        ) : exceedsAllowed ? (
+                                            <span className="text-destructive">Over by {Math.abs(effectiveRemaining)} points</span>
+                                        ) : (
+                                            <span className="text-muted-foreground">{effectiveRemaining} points remaining after this question</span>
+                                        )
+                                    ) : (
+                                        exceedsAllowed ? (
+                                            <span className="text-destructive">Exceeds quiz max by {Math.abs(effectiveRemaining)} points</span>
+                                        ) : (
+                                            <span className="text-muted-foreground">{effectiveRemaining} points remaining (quiz)</span>
+                                        )
+                                    )}
+                                </div>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -343,14 +379,14 @@ export function QuestionForm({
                                     <Input
                                         type="number"
                                         min={0}
-                                        max={quizMaxScore}
+                                        max={maxAllowedPoints}
                                         step="any"
                                         {...field}
                                         onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                                     />
                                 </FormControl>
                                 <FormDescription>
-                                    Points deducted for wrong answer (max {quizMaxScore})
+                                    Points deducted for wrong answer
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>
@@ -519,7 +555,7 @@ export function QuestionForm({
                     </Button>
                     <Button
                         type="submit"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || (mode === 'create' && remainingPoints === 0)}
                     >
                         {isSubmitting ? (
                             <>
@@ -529,7 +565,10 @@ export function QuestionForm({
                         ) : (
                             <>
                                 <Save className="h-4 w-4 mr-1.5" />
-                                {mode === 'create' ? 'Create Question' : 'Save Changes'}
+                                {mode === 'create'
+                                    ? (remainingPoints === 0 ? 'No Points Available' : 'Create Question')
+                                    : 'Save Changes'
+                                }
                             </>
                         )}
                     </Button>
