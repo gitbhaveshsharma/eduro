@@ -96,12 +96,36 @@ function formatDateTimeToISO(date: Date | undefined, time?: string): string {
     return `${dateStr}T23:59:00`;
 }
 
-// Extract time from datetime string
+// Extract time from datetime string and convert to 12-hour AM/PM format
 function extractTime(dateTimeStr: string | undefined): string {
-    if (!dateTimeStr) return '23:59';
+    if (!dateTimeStr) return '11:59 PM';
     const date = new Date(dateTimeStr);
-    if (isNaN(date.getTime())) return '23:59';
-    return format(date, 'HH:mm');
+    if (isNaN(date.getTime())) return '11:59 PM';
+
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+    return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
+}
+
+// Convert 12-hour AM/PM format to 24-hour HH:mm format
+function convert12to24Hour(time12h: string): string {
+    const match = time12h.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+    if (!match) return '23:59';
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = match[3];
+
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
 export function QuizForm({
@@ -115,13 +139,17 @@ export function QuizForm({
     isSubmitting = false,
     className,
 }: QuizFormProps) {
-    // State for time values
-    const [availableFromTime, setAvailableFromTime] = useState<string>(
-        initialData?.available_from ? extractTime(initialData.available_from) : '09:00'
-    );
-    const [availableToTime, setAvailableToTime] = useState<string>(
-        initialData?.available_to ? extractTime(initialData.available_to) : '23:59'
-    );
+    // State for time values (12-hour AM/PM format)
+    const [availableFromTime, setAvailableFromTime] = useState<string>(() => {
+        const time = initialData?.available_from ? extractTime(initialData.available_from) : '09:00 AM';
+        console.log('[QuizForm] Initial availableFromTime:', time, 'from', initialData?.available_from);
+        return time;
+    });
+    const [availableToTime, setAvailableToTime] = useState<string>(() => {
+        const time = initialData?.available_to ? extractTime(initialData.available_to) : '11:59 PM';
+        console.log('[QuizForm] Initial availableToTime:', time, 'from', initialData?.available_to);
+        return time;
+    });
 
     // Default values for create mode
     const getDefaultValues = (): Partial<QuizFormValues> => {
@@ -131,6 +159,7 @@ export function QuizForm({
 
         if (mode === 'edit' && initialData) {
             return {
+                id: initialData.id, // Add id for edit mode validation
                 class_id: initialData.class_id,
                 teacher_id: initialData.teacher_id,
                 branch_id: initialData.branch_id,
@@ -185,6 +214,28 @@ export function QuizForm({
         defaultValues: getDefaultValues(),
     });
 
+    // Reset form when initialData changes in edit mode
+    useEffect(() => {
+        if (mode === 'edit' && initialData) {
+            console.log('[QuizForm] Resetting form with initialData:', {
+                id: initialData.id,
+                title: initialData.title,
+                available_from: initialData.available_from,
+                available_to: initialData.available_to,
+            });
+            const defaults = getDefaultValues();
+            console.log('[QuizForm] Default values:', defaults);
+            form.reset(defaults);
+
+            // Update time states to match the reset data
+            const fromTime = initialData.available_from ? extractTime(initialData.available_from) : '09:00 AM';
+            const toTime = initialData.available_to ? extractTime(initialData.available_to) : '11:59 PM';
+            console.log('[QuizForm] Updating time states:', { fromTime, toTime });
+            setAvailableFromTime(fromTime);
+            setAvailableToTime(toTime);
+        }
+    }, [initialData, mode, form]);
+
     // Update hidden fields when props change
     useEffect(() => {
         if (mode === 'create') {
@@ -202,14 +253,23 @@ export function QuizForm({
         }
     }, [allowMultipleAttempts, form]);
 
+    // Debug: Log when isSubmitting changes
+    useEffect(() => {
+        console.log('[QuizForm] isSubmitting prop changed:', isSubmitting);
+    }, [isSubmitting]);
+
     const handleSubmit = async (values: QuizFormValues) => {
-        if (mode === 'edit' && initialData) {
-            const updateData: UpdateQuizDTO = {
-                id: initialData.id,
-                ...values,
-            };
-            await onSubmit(updateData);
+        console.log('[QuizForm] handleSubmit called with mode:', mode);
+        console.log('[QuizForm] Form values:', values);
+        console.log('[QuizForm] Form errors:', form.formState.errors);
+        console.log('[QuizForm] Form isValid:', form.formState.isValid);
+
+        if (mode === 'edit') {
+            console.log('[QuizForm] Update DTO:', values);
+            console.log('[QuizForm] Calling onSubmit with update data...');
+            await onSubmit(values as UpdateQuizDTO);
         } else {
+            console.log('[QuizForm] Creating new quiz...');
             await onSubmit(values as CreateQuizDTO);
         }
     };
@@ -223,6 +283,17 @@ export function QuizForm({
                 {/* Basic Information */}
                 <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Basic Information</h3>
+
+                    {/* Hidden ID field for edit mode */}
+                    {mode === 'edit' && (
+                        <FormField
+                            control={form.control}
+                            name="id"
+                            render={({ field }) => (
+                                <input type="hidden" {...field} />
+                            )}
+                        />
+                    )}
 
                     <FormField
                         control={form.control}
@@ -358,15 +429,19 @@ export function QuizForm({
                                                 />
                                             </PopoverContent>
                                         </Popover>
-                                        <div className="w-32">
+                                        <div className="w-full">
                                             <TimePicker
                                                 value={availableFromTime}
                                                 onChange={(time) => {
                                                     setAvailableFromTime(time);
                                                     if (field.value) {
-                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
+                                                        // Convert 12-hour format to 24-hour for ISO datetime
+                                                        const time24h = convert12to24Hour(time);
+                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
                                                     }
                                                 }}
+                                                label="Time"
+                                                placeholder="Select time"
                                             />
                                         </div>
                                     </div>
@@ -411,15 +486,19 @@ export function QuizForm({
                                                 />
                                             </PopoverContent>
                                         </Popover>
-                                        <div className="w-32">
+                                        <div className="w-full">
                                             <TimePicker
                                                 value={availableToTime}
                                                 onChange={(time) => {
                                                     setAvailableToTime(time);
                                                     if (field.value) {
-                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
+                                                        // Convert 12-hour format to 24-hour for ISO datetime
+                                                        const time24h = convert12to24Hour(time);
+                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
                                                     }
                                                 }}
+                                                label="Time"
+                                                placeholder="Select time"
                                             />
                                         </div>
                                     </div>
@@ -777,7 +856,20 @@ export function QuizForm({
                         <X className="h-4 w-4 mr-1.5" />
                         Cancel
                     </Button>
-                    <Button type="submit" disabled={isSubmitting}>
+                    <Button
+                        type="submit"
+                        disabled={isSubmitting}
+                        onClick={() => {
+                            console.log('[QuizForm] Submit button clicked');
+                            console.log('[QuizForm] isSubmitting:', isSubmitting);
+                            console.log('[QuizForm] Form state:', {
+                                isDirty: form.formState.isDirty,
+                                isValid: form.formState.isValid,
+                                isSubmitting: form.formState.isSubmitting,
+                                errors: form.formState.errors
+                            });
+                        }}
+                    >
                         {isSubmitting ? (
                             <>
                                 <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

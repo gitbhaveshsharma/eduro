@@ -212,11 +212,14 @@ export function TeacherQuizzesDashboard({
     }, [createQuiz, fetchQuizzes, teacherId]);
 
     const handleUpdate = useCallback(async (data: UpdateQuizDTO) => {
+        console.log('[TeacherQuizzesDashboard] handleUpdate called with data:', data);
         const toastId = showLoadingToast('Saving changes...');
         setIsSubmitting(true);
 
         try {
+            console.log('[TeacherQuizzesDashboard] Calling updateQuiz...');
             const result = await updateQuiz(data);
+            console.log('[TeacherQuizzesDashboard] updateQuiz result:', result);
 
             if (result) {
                 showSuccessToast('Quiz updated successfully', { id: toastId });

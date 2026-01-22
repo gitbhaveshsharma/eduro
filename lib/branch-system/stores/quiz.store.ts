@@ -416,16 +416,19 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                 },
 
                 updateQuiz: async (input: UpdateQuizDTO) => {
+                    console.log('[QuizStore] updateQuiz called with input:', input);
                     set((state) => {
                         state.loading.saving = true;
                         state.error.message = null;
                     });
 
                     const result = await quizService.updateQuiz(input);
+                    console.log('[QuizStore] updateQuiz result:', result);
 
                     set((state) => {
                         state.loading.saving = false;
                         if (result.success && result.data) {
+                            console.log('[QuizStore] Update successful, updating state');
                             const index = state.quizzes.findIndex(q => q.id === input.id);
                             if (index !== -1) {
                                 state.quizzes[index] = result.data;
@@ -435,6 +438,7 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                             }
                             state.cache.quizById.delete(input.id);
                         } else {
+                            console.error('[QuizStore] Update failed:', result.error, result.validation_errors);
                             state.error = {
                                 message: result.error ?? 'Failed to update quiz',
                                 timestamp: Date.now(),

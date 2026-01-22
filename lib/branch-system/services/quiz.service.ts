@@ -360,8 +360,10 @@ export class QuizService {
         input: UpdateQuizDTO
     ): Promise<QuizOperationResult<Quiz>> {
         try {
+            console.log('[QuizService] updateQuiz called with input:', input);
             const validationResult = updateQuizSchema.safeParse(input);
             if (!validationResult.success) {
+                console.error('[QuizService] Validation failed:', validationResult.error.errors);
                 return {
                     success: false,
                     validation_errors: validationResult.error.errors.map(err => ({
@@ -371,9 +373,11 @@ export class QuizService {
                 };
             }
 
+            console.log('[QuizService] Validation passed');
             const validatedInput = validationResult.data;
             const { id, ...updateData } = validatedInput;
 
+            console.log('[QuizService] Fetching existing quiz:', id);
             const { data: existing, error: fetchError } = await this.supabase
                 .from('quizzes')
                 .select('total_attempts')
@@ -381,9 +385,11 @@ export class QuizService {
                 .single();
 
             if (fetchError || !existing) {
+                console.error('[QuizService] Quiz not found:', fetchError);
                 return { success: false, error: 'Quiz not found' };
             }
 
+            console.log('[QuizService] Updating quiz with data:', updateData);
             const { data, error } = await this.supabase
                 .from('quizzes')
                 .update({
@@ -399,9 +405,11 @@ export class QuizService {
                 .single();
 
             if (error) {
+                console.error('[QuizService] Database update error:', error);
                 return { success: false, error: `Database error: ${error.message}` };
             }
 
+            console.log('[QuizService] Quiz updated successfully, fetching teacher profile');
             const { data: teacherProfile } = await this.supabase
                 .from('profiles')
                 .select('full_name, avatar_url')
@@ -413,6 +421,7 @@ export class QuizService {
                 teacher_profile: teacherProfile,
             });
 
+            console.log('[QuizService] Returning updated quiz:', quiz.id, quiz.title);
             return { success: true, data: quiz };
         } catch (error) {
             return {
