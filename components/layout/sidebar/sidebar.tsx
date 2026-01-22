@@ -70,7 +70,15 @@ export function Sidebar({
     if (!config.enabled) return null;
 
     const isItemActive = (item: SidebarItem) => {
-        return pathname === item.href || pathname?.startsWith(item.href + '/');
+        if (!pathname || !item.href) return false;
+
+        // Normalize paths by removing trailing slashes
+        const normalizedPathname = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+        const normalizedItemHref = item.href.endsWith('/') && item.href !== '/' ? item.href.slice(0, -1) : item.href;
+
+        // Use EXACT matching only to prevent parent routes from staying active
+        // This ensures only ONE sidebar item is active at a time
+        return normalizedPathname === normalizedItemHref;
     };
 
     return (
