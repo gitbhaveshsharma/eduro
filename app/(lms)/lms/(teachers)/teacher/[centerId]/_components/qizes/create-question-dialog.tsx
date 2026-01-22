@@ -27,6 +27,8 @@ export interface CreateQuestionDialogProps {
     quizId: string;
     /** Quiz title for display */
     quizTitle: string;
+    /** Quiz max score (for points validation) */
+    quizMaxScore: number;
     /** Current question count (for ordering) */
     currentQuestionCount: number;
     /** Callback when question is created */
@@ -40,6 +42,7 @@ export function CreateQuestionDialog({
     onOpenChange,
     quizId,
     quizTitle,
+    quizMaxScore,
     currentQuestionCount,
     onSubmit,
     isSubmitting = false,
@@ -66,6 +69,7 @@ export function CreateQuestionDialog({
                         <QuestionForm
                             mode="create"
                             quizId={quizId}
+                            quizMaxScore={quizMaxScore}
                             questionOrder={currentQuestionCount + 1}
                             onSubmit={handleSubmit}
                             onCancel={handleCancel}

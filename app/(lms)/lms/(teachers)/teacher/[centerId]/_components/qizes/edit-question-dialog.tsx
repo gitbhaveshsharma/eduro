@@ -25,6 +25,8 @@ export interface EditQuestionDialogProps {
     onOpenChange: (open: boolean) => void;
     /** Quiz ID */
     quizId: string;
+    /** Quiz max score (for points validation) */
+    quizMaxScore: number;
     /** Question data to edit */
     question: QuizQuestion | null;
     /** Callback when question is updated */
@@ -37,6 +39,7 @@ export function EditQuestionDialog({
     open,
     onOpenChange,
     quizId,
+    quizMaxScore,
     question,
     onSubmit,
     isSubmitting = false,
@@ -67,6 +70,7 @@ export function EditQuestionDialog({
                         <QuestionForm
                             mode="edit"
                             quizId={quizId}
+                            quizMaxScore={quizMaxScore}
                             questionOrder={question.question_order}
                             initialData={question}
                             onSubmit={handleSubmit}

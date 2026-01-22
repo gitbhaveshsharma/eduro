@@ -11,7 +11,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { TeacherQuizzesDashboard } from '../_components/qizes';
 
 export default function TeacherQuizzesPage() {
-    const { coachingCenter, centerId } = useTeacherContext();
+    const { centerId } = useTeacherContext();
     const user = useAuthStore((state) => state.user);
 
     if (!user?.id || !centerId) {

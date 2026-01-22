@@ -751,6 +751,32 @@ export function optionsToArray(options: QuizOptions): { key: string; text: strin
 }
 
 /**
+ * Convert options array to object
+ * Converts array format [{key, text}] to object format {key: text}
+ * Used for form submissions
+ * 
+ * @param options - Array of option items
+ * @returns Options object
+ */
+export function optionsToObject(options: Array<{ key: string; text: string }>): QuizOptions {
+    return options.reduce((acc, opt) => {
+        acc[opt.key] = opt.text;
+        return acc;
+    }, {} as QuizOptions);
+}
+
+/**
+ * Generate option key from index
+ * Generates alphabetic keys: A, B, C, D, ..., Z, AA, AB, etc.
+ * 
+ * @param index - Zero-based index
+ * @returns Option key (A, B, C, etc.)
+ */
+export function generateOptionKey(index: number): string {
+    return String.fromCharCode(65 + index); // 65 is ASCII for 'A'
+}
+
+/**
  * Validates question structure
  */
 export function validateQuestionStructure(

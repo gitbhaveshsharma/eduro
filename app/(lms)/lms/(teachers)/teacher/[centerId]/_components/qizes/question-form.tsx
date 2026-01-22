@@ -55,6 +55,14 @@ import type {
 } from '@/lib/branch-system/types/quiz.types';
 import { QuestionType } from '@/lib/branch-system/types/quiz.types';
 import { QUESTION_TYPE_CONFIG } from '@/lib/branch-system/quiz';
+import {
+    createQuestionFormSchema,
+} from '@/lib/branch-system/validations/quiz.validation';
+import {
+    optionsToArray,
+    optionsToObject,
+    generateOptionKey,
+} from '@/lib/branch-system/utils/quiz.utils';
 
 // Option type for managing options in form
 interface OptionItem {
@@ -62,30 +70,15 @@ interface OptionItem {
     text: string;
 }
 
-// Form schema for questions
-const questionFormSchema = z.object({
-    question_text: z.string()
-        .min(1, 'Question text is required')
-        .max(2000, 'Question text must be at most 2000 characters'),
-    question_type: z.nativeEnum(QuestionType),
-    options: z.array(z.object({
-        key: z.string().min(1, 'Option key required'),
-        text: z.string().min(1, 'Option text required').max(1000, 'Option text too long'),
-    })).min(2, 'At least 2 options required').max(10, 'Maximum 10 options allowed'),
-    correct_answers: z.array(z.string()).min(1, 'At least one correct answer required'),
-    points: z.number().positive('Points must be positive').max(1000).default(1),
-    negative_points: z.number().min(0, 'Cannot be negative').max(1000).default(0),
-    explanation: z.string().max(2000).optional().nullable(),
-    topic: z.string().max(100).optional().nullable(),
-});
-
-type QuestionFormValues = z.infer<typeof questionFormSchema>;
+type QuestionFormValues = z.infer<ReturnType<typeof createQuestionFormSchema>>;
 
 export interface QuestionFormProps {
     /** Mode: create or edit */
     mode: 'create' | 'edit';
     /** Quiz ID (required for create mode) */
     quizId: string;
+    /** Quiz max score (for points validation) */
+    quizMaxScore: number;
     /** Current question order (for create mode) */
     questionOrder: number;
     /** Initial values (for edit mode) */
@@ -100,29 +93,10 @@ export interface QuestionFormProps {
     className?: string;
 }
 
-// Generate option keys: A, B, C, D, ...
-const generateOptionKey = (index: number): string => {
-    return String.fromCharCode(65 + index); // 65 is ASCII for 'A'
-};
-
-// Convert options object to array
-const optionsToArray = (options: QuizOptions): OptionItem[] => {
-    return Object.entries(options)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, text]) => ({ key, text }));
-};
-
-// Convert options array to object
-const optionsToObject = (options: OptionItem[]): QuizOptions => {
-    return options.reduce((acc, opt) => {
-        acc[opt.key] = opt.text;
-        return acc;
-    }, {} as QuizOptions);
-};
-
 export function QuestionForm({
     mode,
     quizId,
+    quizMaxScore,
     questionOrder,
     initialData,
     onSubmit,
@@ -166,7 +140,7 @@ export function QuestionForm({
     };
 
     const form = useForm<QuestionFormValues>({
-        resolver: zodResolver(questionFormSchema),
+        resolver: zodResolver(createQuestionFormSchema(quizMaxScore)),
         defaultValues: getDefaultValues(),
     });
 
@@ -345,12 +319,15 @@ export function QuestionForm({
                                     <Input
                                         type="number"
                                         min={0.1}
-                                        max={1000}
-                                        step={0.5}
+                                        max={quizMaxScore}
+                                        step="any"
                                         {...field}
                                         onChange={(e) => field.onChange(parseFloat(e.target.value) || 1)}
                                     />
                                 </FormControl>
+                                <FormDescription>
+                                    Max {quizMaxScore} points (quiz total)
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -366,14 +343,14 @@ export function QuestionForm({
                                     <Input
                                         type="number"
                                         min={0}
-                                        max={1000}
-                                        step={0.5}
+                                        max={quizMaxScore}
+                                        step="any"
                                         {...field}
                                         onChange={(e) => field.onChange(parseFloat(e.target.value) || 0)}
                                     />
                                 </FormControl>
                                 <FormDescription>
-                                    Points deducted for wrong answer
+                                    Points deducted for wrong answer (max {quizMaxScore})
                                 </FormDescription>
                                 <FormMessage />
                             </FormItem>

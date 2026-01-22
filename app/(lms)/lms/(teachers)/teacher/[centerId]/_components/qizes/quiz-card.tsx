@@ -42,7 +42,9 @@ import {
     getQuizAvailabilityStatus,
     formatTimeMinutes,
     formatScore,
-    STUDENT_QUIZ_STATUS_CONFIG,
+    calculatePercentage,
+    isPassing,
+    getScoreColor,
 } from '@/lib/branch-system/quiz';
 
 export interface QuizCardProps {
@@ -79,12 +81,25 @@ export function QuizCard({
     const canEdit = !quiz.total_attempts || quiz.total_attempts === 0;
     const canDelete = !quiz.total_attempts || quiz.total_attempts === 0;
 
-    // Get status badge info
+    // Calculate passing score percentage using utility
+    const passingPercentage = quiz.passing_score !== null
+        ? calculatePercentage(quiz.passing_score, quiz.max_score)
+        : null;
+
+    // Format passing score using utility
+    const formatPassingScore = () => {
+        if (quiz.passing_score !== null) {
+            return `${quiz.passing_score}/${quiz.max_score} (${Math.round(passingPercentage!)}%)`;
+        }
+        return `${quiz.passing_score}/${quiz.max_score}`;
+    };
+
+    // Get status badge info using utility pattern
     const getStatusBadge = () => {
         if (!quiz.is_active) {
             return {
                 label: 'Inactive',
-                variant: 'secondary' as const,
+                variant: 'warning' as const,
                 icon: Pause,
             };
         }
@@ -93,19 +108,19 @@ export function QuizCard({
             case 'upcoming':
                 return {
                     label: 'Upcoming',
-                    variant: 'outline' as const,
+                    variant: 'default' as const,
                     icon: Clock,
                 };
             case 'active':
                 return {
                     label: 'Active',
-                    variant: 'default' as const,
+                    variant: 'success' as const,
                     icon: Play,
                 };
             case 'ended':
                 return {
                     label: 'Ended',
-                    variant: 'secondary' as const,
+                    variant: 'destructive' as const,
                     icon: XCircle,
                 };
             default:
@@ -120,9 +135,36 @@ export function QuizCard({
     const statusBadge = getStatusBadge();
     const StatusIcon = statusBadge.icon;
 
-    // Calculate score display
+    // Calculate score display using utilities
     const hasAttempts = quiz.total_attempts && quiz.total_attempts > 0;
     const avgScore = quiz.average_score !== null ? quiz.average_score : null;
+    const avgScorePercentage = avgScore !== null
+        ? calculatePercentage(avgScore, quiz.max_score)
+        : null;
+
+    // Format average score with proper utility
+    const formatAverageScore = () => {
+        if (avgScore !== null && hasAttempts) {
+            return formatScore(avgScore, quiz.max_score, false);
+        }
+        return null;
+    };
+
+    // Get badge variant for average score if applicable
+    const getAverageScoreBadgeVariant = () => {
+        if (avgScorePercentage !== null) {
+            const color = getScoreColor(avgScorePercentage);
+            if (color === 'success') return 'default';
+            if (color === 'warning') return 'outline';
+            if (color === 'destructive') return 'destructive';
+        }
+        return 'secondary';
+    };
+
+    // Check if average score is passing
+    const isAveragePassing = avgScore !== null && quiz.passing_score !== null
+        ? isPassing(avgScore, quiz.passing_score)
+        : null;
 
     return (
         <Card className="group hover:shadow-md transition-all duration-200 border-border/60">
@@ -173,16 +215,26 @@ export function QuizCard({
                             <div className="flex items-center gap-1.5">
                                 <Award className="h-3.5 w-3.5 text-amber-500" />
                                 <span className="text-muted-foreground">
-                                    Pass: {quiz.passing_score}/{quiz.max_score}
+                                    Pass: {formatPassingScore()}
                                 </span>
                             </div>
                         )}
                         {avgScore !== null && hasAttempts && (
                             <div className="flex items-center gap-1.5">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                                <span className="text-muted-foreground">
-                                    Avg: {formatScore(avgScore, quiz.max_score, false)}
-                                </span>
+                                <Badge
+                                    variant={getAverageScoreBadgeVariant()}
+                                    className="h-5 px-1.5"
+                                >
+                                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                                    <span>
+                                        Avg: {formatAverageScore()}
+                                        {isAveragePassing !== null && (
+                                            <span className="ml-1">
+                                                ({isAveragePassing ? 'Pass' : 'Fail'})
+                                            </span>
+                                        )}
+                                    </span>
+                                </Badge>
                             </div>
                         )}
                     </div>
@@ -192,17 +244,25 @@ export function QuizCard({
                 <div className="space-y-1 text-xs text-muted-foreground border-t pt-2">
                     <div className="flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" />
-                        <span>
+                        <span title={formatDateTime(quiz.available_from, 'long')}>
                             Available: {formatDateTime(quiz.available_from, 'short')}
                         </span>
                     </div>
                     <div className="flex items-center gap-1.5">
                         <Calendar className="h-3 w-3" />
-                        <span>
+                        <span title={formatDateTime(quiz.available_to, 'long')}>
                             Until: {formatDateTime(quiz.available_to, 'short')}
                         </span>
                     </div>
                 </div>
+
+                {/* Additional information based on user role */}
+                {userRole === 'student' && availabilityStatus.timeRemaining && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span>{availabilityStatus.timeRemaining}</span>
+                    </div>
+                )}
             </CardContent>
 
             <CardFooter className="pt-0 flex items-center justify-between gap-2">

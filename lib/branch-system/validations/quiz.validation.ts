@@ -306,6 +306,42 @@ export const updateQuestionSchema = z.object({
 });
 
 /**
+ * Question form option item schema (for form array)
+ */
+export const questionFormOptionSchema = z.object({
+    key: z.string().min(1, 'Option key required'),
+    text: z.string().min(1, 'Option text required').max(1000, 'Option text too long'),
+});
+
+/**
+ * Create question form schema factory
+ * Dynamic schema based on quiz max score for proper validation
+ * 
+ * @param quizMaxScore - Maximum score for the quiz
+ * @returns Zod schema for question form
+ */
+export const createQuestionFormSchema = (quizMaxScore: number) => z.object({
+    question_text: z.string()
+        .min(1, 'Question text is required')
+        .max(2000, 'Question text must be at most 2000 characters'),
+    question_type: z.nativeEnum(QuestionType),
+    options: z.array(questionFormOptionSchema)
+        .min(2, 'At least 2 options required')
+        .max(10, 'Maximum 10 options allowed'),
+    correct_answers: z.array(z.string()).min(1, 'At least one correct answer required'),
+    points: z.number()
+        .positive('Points must be positive')
+        .max(quizMaxScore, `Maximum points per question is ${quizMaxScore} (quiz max score)`)
+        .default(1),
+    negative_points: z.number()
+        .min(0, 'Cannot be negative')
+        .max(quizMaxScore, `Maximum negative points is ${quizMaxScore}`)
+        .default(0),
+    explanation: z.string().max(2000).optional().nullable(),
+    topic: z.string().max(100).optional().nullable(),
+});
+
+/**
  * Bulk create questions schema
  */
 export const bulkCreateQuestionsSchema = z.object({

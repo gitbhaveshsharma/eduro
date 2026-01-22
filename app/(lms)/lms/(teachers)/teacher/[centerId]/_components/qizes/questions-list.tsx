@@ -227,12 +227,12 @@ export function QuestionsList({
                             <Target className="h-4 w-4 mr-1.5" />
                             {totalPoints} Total Points
                         </Badge>
-                        {quiz.max_score !== totalPoints && (
+                        {/* {quiz.max_score !== totalPoints && (
                             <Badge variant="outline" className="text-sm py-1.5 px-3 text-amber-600 border-amber-300">
                                 <AlertCircle className="h-4 w-4 mr-1.5" />
                                 Quiz max score ({quiz.max_score}) differs from total points ({totalPoints})
                             </Badge>
-                        )}
+                        )} */}
                     </div>
                 </CardContent>
             </Card>
@@ -277,6 +277,7 @@ export function QuestionsList({
                 onOpenChange={setIsCreateDialogOpen}
                 quizId={quiz.id}
                 quizTitle={quiz.title}
+                quizMaxScore={quiz.max_score}
                 currentQuestionCount={questions.length}
                 onSubmit={handleCreate}
                 isSubmitting={isSubmitting}
@@ -290,6 +291,7 @@ export function QuestionsList({
                     if (!open) setSelectedQuestion(null);
                 }}
                 quizId={quiz.id}
+                quizMaxScore={quiz.max_score}
                 question={selectedQuestion}
                 onSubmit={handleEditSubmit}
                 isSubmitting={isSubmitting}
