@@ -132,7 +132,6 @@ export function StudentClassesDashboard({ centerId }: StudentClassesDashboardPro
     if (fetchError) {
         return (
             <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{fetchError}</AlertDescription>
             </Alert>
         );
@@ -179,7 +178,6 @@ export function StudentClassesDashboard({ centerId }: StudentClassesDashboardPro
             {/* No Results */}
             {filteredClasses.length === 0 && classes.length > 0 && (
                 <Alert>
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         No classes match your search criteria. Try adjusting your filters.
                     </AlertDescription>

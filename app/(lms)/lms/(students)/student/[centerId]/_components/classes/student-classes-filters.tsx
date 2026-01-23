@@ -205,9 +205,9 @@ export function StudentClassesFilters({
             {/* Desktop Filters */}
             <Card className="hidden lg:block">
                 <CardContent>
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-col sm:flex-row gap-3">
                         {/* Search Input */}
-                        <div className="relative flex-1 max-w-sm">
+                        <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
                             <Input
                                 placeholder="Search classes..."

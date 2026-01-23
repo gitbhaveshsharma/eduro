@@ -26,7 +26,13 @@ import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes
 import {
     formatTime,
     formatClassDays,
+    getClassDisplayName,
+    mapSubjectToId
 } from '@/lib/branch-system/utils/branch-classes.utils';
+import {
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    type ClassEnrollmentStatus,
+} from '@/lib/branch-system/types/class-enrollments.types';
 import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
 
@@ -64,44 +70,42 @@ const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: stri
 };
 
 /**
- * Map subject name to SubjectId for assets lookup
+ * Get enrollment status badge info using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
-function mapSubjectToId(subject: string): string {
-    const subjectMap: Record<string, string> = {
-        'physics': 'physics',
-        'chemistry': 'chemistry',
-        'mathematics': 'mathematics',
-        'math': 'mathematics',
-        'maths': 'mathematics',
-        'biology': 'biology',
-        'english': 'english',
-        'hindi': 'hindi',
-        'science': 'science',
-        'social studies': 'social-studies',
-        'history': 'history',
-        'geography': 'geography',
-        'economics': 'economics',
-        'computer science': 'computer-science',
-        'accountancy': 'accountancy',
-        'business studies': 'business-studies',
+function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    if (!statusConfig) return 'secondary';
+
+    // Map from status config color to Badge variant
+    const colorMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+        'success': 'success',
+        'warning': 'warning',
+        'destructive': 'destructive',
+        'secondary': 'secondary',
+        'outline': 'outline',
+        'default': 'default',
     };
-    return subjectMap[subject.toLowerCase()] || 'default';
+
+    return colorMap[statusConfig.color] || 'secondary';
 }
 
 /**
- * Get enrollment status badge info
+ * Get enrollment status label using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
-function getEnrollmentStatusInfo(status: string): {
-    label: string;
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-} {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        'ENROLLED': { label: 'Enrolled', variant: 'default' },
-        'PENDING': { label: 'Pending', variant: 'secondary' },
-        'WITHDRAWN': { label: 'Withdrawn', variant: 'destructive' },
-        'COMPLETED': { label: 'Completed', variant: 'outline' },
-    };
-    return statusMap[status] || { label: status, variant: 'secondary' };
+function getEnrollmentStatusLabel(status: string): string {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    return statusConfig?.label || status;
+}
+
+/**
+ * Gets attendance color class based on percentage
+ */
+function getAttendanceColorClass(percentage: number): string {
+    if (percentage >= 90) return 'text-green-600 dark:text-green-500';
+    if (percentage >= 75) return 'text-blue-600 dark:text-blue-500';
+    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-500';
+    if (percentage > 0) return 'text-red-600 dark:text-red-500';
+    return 'text-muted-foreground';
 }
 
 export function StudentClassCard({ classData, onViewDetails }: StudentClassCardProps) {
@@ -112,13 +116,15 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
     const subjectImagePath = getSubjectImageById(subjectId);
     const subjectColor = getSubjectColor(subjectId);
 
-    const displayName = classData.class_name || classData.subject;
+    const displayName = classData.class_name || getClassDisplayName(classData as any) || classData.subject;
     const schedule = formatClassDays(classData.class_days);
     const timeRange = classData.start_time && classData.end_time
         ? `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`
         : 'Time not set';
 
-    const statusInfo = getEnrollmentStatusInfo(classData.enrollment_status);
+    const statusVariant = getEnrollmentStatusVariant(classData.enrollment_status);
+    const statusLabel = getEnrollmentStatusLabel(classData.enrollment_status);
+    const attendanceColorClass = getAttendanceColorClass(classData.attendance_percentage);
 
     const handleViewDetails = () => {
         if (onViewDetails) {
@@ -132,10 +138,10 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
             <div className="relative p-2">
                 <div className="absolute top-5 left-5 z-10 flex gap-2">
                     <Badge
-                        variant={statusInfo.variant}
+                        variant={statusVariant}
                         className="text-xs font-medium"
                     >
-                        {statusInfo.label}
+                        {statusLabel}
                     </Badge>
                 </div>
 
@@ -220,8 +226,8 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                 <div className="flex items-center gap-4 pt-2 border-t border-border">
                     <div className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm font-medium">
-                            {classData.attendance_percentage}%
+                        <span className={`text-sm font-medium ${attendanceColorClass}`}>
+                            {classData.attendance_percentage.toFixed(1)}%
                         </span>
                         <span className="text-xs text-muted-foreground">attendance</span>
                     </div>

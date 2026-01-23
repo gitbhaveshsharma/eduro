@@ -25,13 +25,20 @@ import {
     Clock,
     Eye,
     BookOpen,
-    TrendingUp
+    TrendingUp,
+    GraduationCap
 } from 'lucide-react';
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
 import {
     formatTime,
     formatClassDays,
+    getClassDisplayName,
+    mapSubjectToId
 } from '@/lib/branch-system/utils/branch-classes.utils';
+import {
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    type ClassEnrollmentStatus,
+} from '@/lib/branch-system/types/class-enrollments.types';
 import { cn } from '@/lib/utils';
 import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
@@ -42,58 +49,60 @@ interface StudentClassesListViewProps {
 }
 
 /**
- * Map subject name to SubjectId for assets lookup
+ * Get enrollment status badge info using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
-function mapSubjectToId(subject: string): string {
-    const subjectMap: Record<string, string> = {
-        'physics': 'physics',
-        'chemistry': 'chemistry',
-        'mathematics': 'mathematics',
-        'math': 'mathematics',
-        'maths': 'mathematics',
-        'biology': 'biology',
-        'english': 'english',
-        'hindi': 'hindi',
-        'science': 'science',
-        'social studies': 'social-studies',
-        'history': 'history',
-        'geography': 'geography',
-        'economics': 'economics',
-        'computer science': 'computer-science',
-        'accountancy': 'accountancy',
-        'business studies': 'business-studies',
+function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    if (!statusConfig) return 'secondary';
+
+    // Map from status config color to Badge variant
+    const colorMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+        'success': 'success',
+        'warning': 'warning',
+        'destructive': 'destructive',
+        'secondary': 'secondary',
+        'outline': 'outline',
+        'default': 'default',
     };
-    return subjectMap[subject.toLowerCase()] || 'default';
+
+    return colorMap[statusConfig.color] || 'secondary';
 }
 
 /**
- * Get enrollment status badge info
+ * Get enrollment status label using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
-function getEnrollmentStatusInfo(status: string): {
-    label: string;
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-} {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-        'ENROLLED': { label: 'Enrolled', variant: 'default' },
-        'PENDING': { label: 'Pending', variant: 'secondary' },
-        'WITHDRAWN': { label: 'Withdrawn', variant: 'destructive' },
-        'COMPLETED': { label: 'Completed', variant: 'outline' },
-    };
-    return statusMap[status] || { label: status, variant: 'secondary' };
+function getEnrollmentStatusLabel(status: string): string {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    return statusConfig?.label || status;
+}
+
+/**
+ * Gets attendance color class based on percentage
+ */
+function getAttendanceColorClass(percentage: number): string {
+    if (percentage >= 90) return 'text-green-600 dark:text-green-500';
+    if (percentage >= 75) return 'text-blue-600 dark:text-blue-500';
+    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-500';
+    if (percentage > 0) return 'text-red-600 dark:text-red-500';
+    return 'text-muted-foreground';
 }
 
 function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassData; onViewDetails: (id: string) => void }) {
     const [imageLoaded, setImageLoaded] = useState(false);
 
-    const displayName = classItem.class_name || classItem.subject;
+    const subjectId = mapSubjectToId(classItem.subject) as SubjectId;
+    const subjectColor = getSubjectColor(subjectId);
+    const subjectImagePath = getSubjectImageById(subjectId);
+
+    const displayName = classItem.class_name || getClassDisplayName(classItem as any) || classItem.subject;
     const schedule = formatClassDays(classItem.class_days);
     const timeRange = classItem.start_time && classItem.end_time
         ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
         : 'Time not set';
-    const statusInfo = getEnrollmentStatusInfo(classItem.enrollment_status);
-    const subjectId = mapSubjectToId(classItem.subject);
-    const subjectColor = getSubjectColor(subjectId as SubjectId);
-    const subjectImagePath = getSubjectImageById(subjectId as SubjectId);
+
+    const statusVariant = getEnrollmentStatusVariant(classItem.enrollment_status);
+    const statusLabel = getEnrollmentStatusLabel(classItem.enrollment_status);
+    const attendanceColorClass = getAttendanceColorClass(classItem.attendance_percentage);
 
     return (
         <Item
@@ -130,15 +139,21 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
 
             {/* Content */}
             <ItemContent>
-                <ItemTitle className="flex items-center gap-2">
+                <ItemTitle className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary">
                         {displayName}
                     </span>
                     <Badge
-                        variant={statusInfo.variant}
-                        className="text-xs font-medium hidden sm:inline-flex"
+                        variant={statusVariant}
+                        className="text-xs font-medium"
                     >
-                        {statusInfo.label}
+                        {statusLabel}
+                    </Badge>
+                    <Badge
+                        variant="outline"
+                        className={cn('text-xs font-medium px-2 py-0.5 border-0 hidden sm:inline-flex', subjectColor)}
+                    >
+                        {classItem.subject}
                     </Badge>
                 </ItemTitle>
                 <ItemDescription>
@@ -152,9 +167,19 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                             {timeRange}
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <TrendingUp className="h-3.5 w-3.5 flex-shrink-0" />
-                            {classItem.attendance_percentage}% attendance
+                            <TrendingUp className={cn('h-3.5 w-3.5 flex-shrink-0', attendanceColorClass)} />
+                            <span className={cn('font-medium', attendanceColorClass)}>
+                                {classItem.attendance_percentage.toFixed(1)}%
+                            </span>
+                            <span>attendance</span>
                         </span>
+                        {classItem.current_grade && (
+                            <span className="flex items-center gap-1.5">
+                                <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span className="font-medium">{classItem.current_grade}</span>
+                                <span>grade</span>
+                            </span>
+                        )}
                     </div>
                 </ItemDescription>
             </ItemContent>
@@ -165,7 +190,7 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                     variant="ghost"
                     size="sm"
                     onClick={() => onViewDetails(classItem.class_id)}
-                    className="gap-1.5 h-8 px-2 sm:px-3"
+                    className="gap-1.5 h-8 px-2 sm:px-3 hover:bg-primary/10"
                 >
                     <Eye className="h-4 w-4" />
                     <span className="hidden sm:inline">View</span>
@@ -176,6 +201,18 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
 }
 
 export function StudentClassesListView({ classes, onViewDetails }: StudentClassesListViewProps) {
+    if (!classes || classes.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+                <BookOpen className="h-16 w-16 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold mb-2">No Classes Found</h3>
+                <p className="text-sm text-muted-foreground max-w-sm">
+                    You are not enrolled in any classes yet.
+                </p>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-2">
             {classes.map((classItem, index) => (
