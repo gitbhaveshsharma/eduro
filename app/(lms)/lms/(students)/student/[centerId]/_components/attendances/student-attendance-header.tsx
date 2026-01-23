@@ -145,7 +145,7 @@ export function StudentAttendanceHeader({
 
             {/* Stats Summary */}
             <div className="flex flex-wrap gap-3">
-                <Badge variant="outline" className="gap-1.5 py-1.5 px-3">
+                <Badge variant="default" className="gap-1.5 py-1.5 px-3">
                     <CalendarDays className="h-3.5 w-3.5" />
                     <span>{totalRecords} Days</span>
                 </Badge>
