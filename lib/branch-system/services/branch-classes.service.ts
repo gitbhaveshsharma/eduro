@@ -1061,6 +1061,110 @@ export class BranchClassesService {
             };
         }
     }
+
+    /**
+    * Gets student enrollments filtered by coaching center
+    * Uses student_enrollment_details materialized view for optimal performance
+    * @param studentId - Student UUID
+    * @param coachingCenterId - Coaching Center UUID
+    * @returns Operation result with enrollments array
+    */
+    async getStudentEnrollmentsByCenter(
+        studentId: string,
+        coachingCenterId: string
+    ): Promise<BranchClassOperationResult<UpcomingClassData[]>> {
+        try {
+            console.log('🔵 [getStudentEnrollmentsByCenter] Fetching enrollments:', {
+                studentId,
+                coachingCenterId
+            });
+
+            // Query materialized view - selects only required columns
+            const { data, error } = await this.supabase
+                .from('student_enrollment_details')
+                .select(`
+                enrollment_id,
+                enrollment_status,
+                attendance_percentage,
+                current_grade,
+                preferred_batch,
+                class_id,
+                class_name,
+                subject,
+                grade_level,
+                batch_name,
+                class_start_date,
+                class_end_date,
+                class_start_time,
+                class_end_time,
+                class_days,
+                teacher_id,
+                branch_id
+            `)
+                .eq('student_id', studentId)
+                .eq('coaching_center_id', coachingCenterId)
+                .eq('enrollment_status', 'ENROLLED')
+                .eq('class_status', 'ACTIVE')
+                .gte('class_end_date', new Date().toISOString().split('T')[0])
+                .order('class_start_date', { ascending: true });
+
+            if (error) {
+                console.error('❌ [getStudentEnrollmentsByCenter] Database error:', error);
+                return {
+                    success: false,
+                    error: error.message || 'Failed to fetch student enrollments',
+                };
+            }
+
+            if (!data || data.length === 0) {
+                console.log('✅ [getStudentEnrollmentsByCenter] No enrollments found');
+                return {
+                    success: true,
+                    data: [],
+                };
+            }
+
+            // Transform to UpcomingClassData interface
+            const transformedData: UpcomingClassData[] = data.map((row: any) => ({
+                enrollment_id: row.enrollment_id,
+                enrollment_status: row.enrollment_status as 'ENROLLED' | 'PENDING' | 'WITHDRAWN' | 'COMPLETED',
+                attendance_percentage: row.attendance_percentage || 0,
+                current_grade: row.current_grade,
+                preferred_batch: row.preferred_batch,
+                class_id: row.class_id,
+                class_name: row.class_name,
+                subject: row.subject,
+                description: null,
+                grade_level: row.grade_level,
+                batch_name: row.batch_name,
+                start_date: row.class_start_date,
+                end_date: row.class_end_date,
+                class_days: row.class_days,
+                start_time: row.class_start_time,
+                end_time: row.class_end_time,
+                teacher_id: row.teacher_id,
+                branch_id: row.branch_id,
+            }));
+
+            console.log('✅ [getStudentEnrollmentsByCenter] Enrollments fetched:', {
+                count: transformedData.length,
+                studentId,
+                coachingCenterId
+            });
+
+            return {
+                success: true,
+                data: transformedData,
+            };
+        } catch (error) {
+            console.error('❌ [getStudentEnrollmentsByCenter] Unexpected error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
 }
 
 // Export singleton instance

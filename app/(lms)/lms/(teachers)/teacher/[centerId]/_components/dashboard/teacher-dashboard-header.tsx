@@ -72,7 +72,7 @@ export function DashboardHeader({
                         </div>
                     </div>
 
-                    <p className="max-w-md text-sm md:text-base text-text-secondary leading-relaxed">
+                    <p className="max-w-xl text-sm md:text-base text-muted-foreground leading-relaxed">
                         Manage your classes, track student progress, and organize your teaching schedule from one central dashboard.
                     </p>
                 </div>

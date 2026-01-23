@@ -64,6 +64,12 @@ interface BranchClassesState {
         timestamp: number;
     }>;
 
+    // NEW: Cache enrollments by student ID and center ID
+    enrollmentsByCenter: Record<string, {
+        data: UpcomingClassData[];
+        timestamp: number;
+    }>;
+
     // Track inflight requests to prevent duplicate calls
     inflightRequests: Record<string, Promise<void> | undefined>;
 
@@ -138,6 +144,10 @@ interface BranchClassesState {
     fetchUpcomingClasses: (studentId: string, forceRefresh?: boolean) => Promise<void>;
     getUpcomingClasses: (studentId: string) => UpcomingClassData[] | null;
 
+    // NEW: Fetch student enrollments filtered by coaching center
+    fetchEnrollmentsByCenter: (studentId: string, centerId: string, forceRefresh?: boolean) => Promise<void>;
+    getEnrollmentsByCenter: (studentId: string, centerId: string) => UpcomingClassData[] | null;
+
     // Create, Update, Delete operations
     createClass: (input: CreateBranchClassInput) => Promise<boolean>;
     updateClass: (classId: string, input: UpdateBranchClassInput) => Promise<boolean>;
@@ -204,6 +214,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
             classesByCoachingCenter: {},
             searchCache: {},
             upcomingClassesCache: {},
+            enrollmentsByCenter: {},
             inflightRequests: {},
             currentSearchResults: null,
             currentSearchKey: null,
@@ -616,6 +627,103 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 if (age >= CACHE_TTL) {
                     console.log('⚠️ [getUpcomingClasses] Cache expired:', {
                         studentId,
+                        age: Math.round(age / 1000) + 's',
+                    });
+                    return null;
+                }
+
+                return cache.data;
+            },
+
+            // ============================================================
+            // ENROLLMENTS BY CENTER OPERATIONS
+            // ============================================================
+
+            fetchEnrollmentsByCenter: async (studentId: string, centerId: string, forceRefresh = false) => {
+                const state = get();
+                const cacheKey = `${studentId}_${centerId}`;
+
+                // Check cache first with TTL
+                if (!forceRefresh && state.enrollmentsByCenter[cacheKey]) {
+                    const cache = state.enrollmentsByCenter[cacheKey];
+                    const age = Date.now() - cache.timestamp;
+
+                    if (age < CACHE_TTL) {
+                        console.log('✅ [fetchEnrollmentsByCenter] Using cached data:', {
+                            studentId,
+                            centerId,
+                            age: Math.round(age / 1000) + 's',
+                        });
+                        return;
+                    }
+                }
+
+                // Check for inflight request
+                const requestKey = `enrollments_${cacheKey}`;
+                if (state.inflightRequests[requestKey]) {
+                    console.log('🔄 [fetchEnrollmentsByCenter] Request already in progress:', { studentId, centerId });
+                    return state.inflightRequests[requestKey];
+                }
+
+                set((draft) => {
+                    draft.loading.upcomingClasses = true;
+                    draft.errors.upcomingClasses = null;
+                });
+
+                const requestPromise = (async () => {
+                    try {
+                        const result = await branchClassesService.getStudentEnrollmentsByCenter(studentId, centerId);
+
+                        if (result.success && result.data) {
+                            set((draft) => {
+                                // Cache the enrollments with timestamp
+                                draft.enrollmentsByCenter[cacheKey] = {
+                                    data: result.data!,
+                                    timestamp: Date.now(),
+                                };
+
+                                draft.loading.upcomingClasses = false;
+                                delete draft.inflightRequests[requestKey];
+                            });
+                        } else {
+                            set((draft) => {
+                                draft.errors.upcomingClasses = result.error || 'Failed to fetch enrollments';
+                                draft.loading.upcomingClasses = false;
+                                delete draft.inflightRequests[requestKey];
+                            });
+                        }
+                    } catch (error) {
+                        set((draft) => {
+                            draft.errors.upcomingClasses = error instanceof Error ? error.message : 'Unknown error';
+                            draft.loading.upcomingClasses = false;
+                            delete draft.inflightRequests[requestKey];
+                        });
+                    }
+                })();
+
+                // Store the inflight request
+                set((draft) => {
+                    draft.inflightRequests[requestKey] = requestPromise;
+                });
+
+                return requestPromise;
+            },
+
+            getEnrollmentsByCenter: (studentId: string, centerId: string) => {
+                const state = get();
+                const cacheKey = `${studentId}_${centerId}`;
+                const cache = state.enrollmentsByCenter[cacheKey];
+
+                if (!cache) {
+                    return null;
+                }
+
+                // Check if cache is still valid
+                const age = Date.now() - cache.timestamp;
+                if (age >= CACHE_TTL) {
+                    console.log('⚠️ [getEnrollmentsByCenter] Cache expired:', {
+                        studentId,
+                        centerId,
                         age: Math.round(age / 1000) + 's',
                     });
                     return null;
@@ -1039,4 +1147,12 @@ export const useUpcomingClasses = (studentId: string | null) => {
     return useBranchClassesStore((state) =>
         studentId ? state.upcomingClassesCache[studentId]?.data || null : null
     );
+};
+
+export const useEnrollmentsByCenter = (studentId: string | null, centerId: string | null) => {
+    return useBranchClassesStore((state) => {
+        if (!studentId || !centerId) return null;
+        const cacheKey = `${studentId}_${centerId}`;
+        return state.enrollmentsByCenter[cacheKey]?.data || null;
+    });
 };
