@@ -1,13 +1,12 @@
 /**
  * Student Classes List View Component
- * 
- * List view for student enrolled classes
+ * List view for student enrolled classes using attendance utilities
  * Uses Item component for consistent styling
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -26,7 +25,8 @@ import {
     Eye,
     BookOpen,
     TrendingUp,
-    GraduationCap
+    GraduationCap,
+    AlertCircle
 } from 'lucide-react';
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
 import {
@@ -39,6 +39,11 @@ import {
     CLASS_ENROLLMENT_STATUS_OPTIONS,
     type ClassEnrollmentStatus,
 } from '@/lib/branch-system/types/class-enrollments.types';
+import {
+    getAttendancePerformanceLevel,
+    getAttendancePerformanceColor,
+    needsAttendanceAttention,
+} from '@/lib/branch-system/utils/student-attendance.utils';
 import { cn } from '@/lib/utils';
 import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
@@ -49,13 +54,12 @@ interface StudentClassesListViewProps {
 }
 
 /**
- * Get enrollment status badge info using CLASS_ENROLLMENT_STATUS_OPTIONS
+ * Get enrollment status badge variant using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
 function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' {
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
     if (!statusConfig) return 'secondary';
 
-    // Map from status config color to Badge variant
     const colorMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
         'success': 'success',
         'warning': 'warning',
@@ -68,23 +72,43 @@ function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | '
     return colorMap[statusConfig.color] || 'secondary';
 }
 
-/**
- * Get enrollment status label using CLASS_ENROLLMENT_STATUS_OPTIONS
- */
 function getEnrollmentStatusLabel(status: string): string {
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
     return statusConfig?.label || status;
 }
 
 /**
- * Gets attendance color class based on percentage
+ * Gets attendance performance badge variant based on percentage
+ */
+function getAttendancePerformanceVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, 'success' | 'default' | 'warning' | 'secondary' | 'destructive'> = {
+        'green': 'success',
+        'blue': 'default',
+        'orange': 'warning',
+        'yellow': 'secondary',
+        'red': 'destructive',
+    };
+
+    return colorMap[color] || 'secondary';
+}
+
+/**
+ * Gets attendance color class based on performance color from attendance utils
  */
 function getAttendanceColorClass(percentage: number): string {
-    if (percentage >= 90) return 'text-green-600 dark:text-green-500';
-    if (percentage >= 75) return 'text-blue-600 dark:text-blue-500';
-    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-500';
-    if (percentage > 0) return 'text-red-600 dark:text-red-500';
-    return 'text-muted-foreground';
+    const color = getAttendancePerformanceColor(percentage);
+
+    const classes: Record<string, string> = {
+        'green': 'text-green-600 dark:text-green-500',
+        'blue': 'text-blue-600 dark:text-blue-500',
+        'orange': 'text-orange-600 dark:text-orange-500',
+        'yellow': 'text-yellow-600 dark:text-yellow-500',
+        'red': 'text-red-600 dark:text-red-500',
+    };
+
+    return classes[color] || 'text-muted-foreground';
 }
 
 function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassData; onViewDetails: (id: string) => void }) {
@@ -102,14 +126,34 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
 
     const statusVariant = getEnrollmentStatusVariant(classItem.enrollment_status);
     const statusLabel = getEnrollmentStatusLabel(classItem.enrollment_status);
-    const attendanceColorClass = getAttendanceColorClass(classItem.attendance_percentage);
+
+    // Memoize attendance performance calculations using standard attendance utils
+    const attendanceMetrics = useMemo(() => {
+        const percentage = classItem.attendance_percentage || 0;
+        const performanceLevel = getAttendancePerformanceLevel(percentage);
+        const performanceVariant = getAttendancePerformanceVariant(percentage);
+        const colorClass = getAttendanceColorClass(percentage);
+        // needsAttendanceAttention checks: percentage < 60% (NEEDS_IMPROVEMENT) OR consecutiveAbsences >= 3
+        // Example: 89% attendance = false (Good), 55% attendance = true (needs attention)
+        const needsAttention = needsAttendanceAttention(percentage, 0);
+
+        return {
+            percentage,
+            performanceLevel,
+            performanceVariant,
+            colorClass,
+            needsAttention,
+        };
+    }, [classItem.attendance_percentage]);
 
     return (
         <Item
             variant="default"
             className={cn(
                 'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
-                'items-stretch gap-6 px-5 py-4'
+                'items-stretch gap-6 px-5 py-4',
+                // Red border/background for low attendance (< 60% threshold)
+                attendanceMetrics.needsAttention && 'border-l-4 border-destructive/30 bg-destructive/5'
             )}
         >
             {/* Subject Image */}
@@ -127,8 +171,6 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                         onLoad={() => setImageLoaded(true)}
                         onError={() => setImageLoaded(true)}
                     />
-
-                    {/* Fallback Icon */}
                     {!imageLoaded && (
                         <div className="absolute inset-0 flex items-center justify-center bg-muted">
                             <BookOpen className="h-5 w-5 text-muted-foreground/50" />
@@ -139,23 +181,47 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
 
             {/* Content */}
             <ItemContent>
-                <ItemTitle className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary">
+                {/* ✅ FIXED: Single row layout - works on ALL screen sizes */}
+                <ItemTitle className="flex flex-wrap items-center gap-2">
+                    {/* Class name - always visible */}
+                    <span className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary flex-1 min-w-0">
                         {displayName}
                     </span>
-                    <Badge
-                        variant={statusVariant}
-                        className="text-xs font-medium"
-                    >
-                        {statusLabel}
-                    </Badge>
-                    <Badge
-                        variant="outline"
-                        className={cn('text-xs font-medium px-2 py-0.5 border-0 hidden sm:inline-flex', subjectColor)}
-                    >
-                        {classItem.subject}
-                    </Badge>
+
+                    {/* Badges container - flex wrap, same row */}
+                    <div className="flex items-center gap-1 flex-wrap -m-0.5">
+                        {/* Enrollment Status - always visible */}
+                        <Badge
+                            variant={statusVariant}
+                            className="text-xs font-medium h-5 px-1.5"
+                        >
+                            {statusLabel}
+                        </Badge>
+
+                        {/* Low Attendance Badge - Only shows if attendance < 60% (NEEDS_IMPROVEMENT threshold) */}
+                        {attendanceMetrics.needsAttention && (
+                            <Badge
+                                variant="destructive"
+                                className="text-xs font-medium gap-1 h-5 px-1.5"
+                            >
+                                <AlertCircle className="h-3 w-3" />
+                                Low
+                            </Badge>
+                        )}
+
+                        {/* Subject badge - hidden on very small screens */}
+                        <Badge
+                            variant="outline"
+                            className={cn(
+                                'text-xs font-medium px-2 py-0.5 border-0 h-5',
+                                'max-sm:hidden' // Hidden only on extra small screens
+                            )}
+                        >
+                            {classItem.subject}
+                        </Badge>
+                    </div>
                 </ItemTitle>
+
                 <ItemDescription>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1.5 truncate">
@@ -167,17 +233,17 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                             {timeRange}
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <TrendingUp className={cn('h-3.5 w-3.5 flex-shrink-0', attendanceColorClass)} />
-                            <span className={cn('font-medium', attendanceColorClass)}>
-                                {classItem.attendance_percentage.toFixed(1)}%
+                            <TrendingUp className={cn('h-3.5 w-3.5 flex-shrink-0')} />
+                            <span className={cn('font-medium')}>
+                                {attendanceMetrics.percentage.toFixed(1)}%
                             </span>
-                            <span>attendance</span>
+                            <span className="hidden sm:inline">attendance</span>
                         </span>
                         {classItem.current_grade && (
                             <span className="flex items-center gap-1.5">
                                 <GraduationCap className="h-3.5 w-3.5 flex-shrink-0" />
                                 <span className="font-medium">{classItem.current_grade}</span>
-                                <span>grade</span>
+                                <span className="hidden sm:inline">grade</span>
                             </span>
                         )}
                     </div>

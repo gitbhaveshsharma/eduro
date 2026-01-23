@@ -1125,26 +1125,40 @@ export class BranchClassesService {
             }
 
             // Transform to UpcomingClassData interface
-            const transformedData: UpcomingClassData[] = data.map((row: any) => ({
-                enrollment_id: row.enrollment_id,
-                enrollment_status: row.enrollment_status as 'ENROLLED' | 'PENDING' | 'WITHDRAWN' | 'COMPLETED',
-                attendance_percentage: row.attendance_percentage || 0,
-                current_grade: row.current_grade,
-                preferred_batch: row.preferred_batch,
-                class_id: row.class_id,
-                class_name: row.class_name,
-                subject: row.subject,
-                description: null,
-                grade_level: row.grade_level,
-                batch_name: row.batch_name,
-                start_date: row.class_start_date,
-                end_date: row.class_end_date,
-                class_days: row.class_days,
-                start_time: row.class_start_time,
-                end_time: row.class_end_time,
-                teacher_id: row.teacher_id,
-                branch_id: row.branch_id,
-            }));
+            const transformedData: UpcomingClassData[] = data.map((row: any) => {
+                // Convert decimal to percentage if needed (database stores as decimal 0-1, we need 0-100)
+                const rawAttendance = row.attendance_percentage || 0;
+                const attendance_percentage = rawAttendance < 1 && rawAttendance > 0
+                    ? rawAttendance * 100
+                    : rawAttendance;
+
+                console.log('🔍 [getStudentEnrollmentsByCenter] Attendance conversion:', {
+                    raw: rawAttendance,
+                    converted: attendance_percentage,
+                    classId: row.class_id
+                });
+
+                return {
+                    enrollment_id: row.enrollment_id,
+                    enrollment_status: row.enrollment_status as 'ENROLLED' | 'PENDING' | 'WITHDRAWN' | 'COMPLETED',
+                    attendance_percentage,
+                    current_grade: row.current_grade,
+                    preferred_batch: row.preferred_batch,
+                    class_id: row.class_id,
+                    class_name: row.class_name,
+                    subject: row.subject,
+                    description: null,
+                    grade_level: row.grade_level,
+                    batch_name: row.batch_name,
+                    start_date: row.class_start_date,
+                    end_date: row.class_end_date,
+                    class_days: row.class_days,
+                    start_time: row.class_start_time,
+                    end_time: row.class_end_time,
+                    teacher_id: row.teacher_id,
+                    branch_id: row.branch_id,
+                };
+            });
 
             console.log('✅ [getStudentEnrollmentsByCenter] Enrollments fetched:', {
                 count: transformedData.length,

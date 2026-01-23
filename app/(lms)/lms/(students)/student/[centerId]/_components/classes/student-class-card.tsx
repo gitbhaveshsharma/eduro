@@ -6,11 +6,12 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import {
     Clock,
@@ -19,7 +20,8 @@ import {
     BookOpen,
     Eye,
     TrendingUp,
-    GraduationCap
+    GraduationCap,
+    AlertCircle
 } from 'lucide-react';
 
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
@@ -33,6 +35,12 @@ import {
     CLASS_ENROLLMENT_STATUS_OPTIONS,
     type ClassEnrollmentStatus,
 } from '@/lib/branch-system/types/class-enrollments.types';
+import {
+    getAttendancePerformanceLevel,
+    getAttendancePerformanceColor,
+    ATTENDANCE_THRESHOLDS,
+    needsAttendanceAttention,
+} from '@/lib/branch-system/utils/student-attendance.utils';
 import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
 
@@ -70,13 +78,12 @@ const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: stri
 };
 
 /**
- * Get enrollment status badge info using CLASS_ENROLLMENT_STATUS_OPTIONS
+ * Get enrollment status badge variant using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
 function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' {
     const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
     if (!statusConfig) return 'secondary';
 
-    // Map from status config color to Badge variant
     const colorMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
         'success': 'success',
         'warning': 'warning',
@@ -98,14 +105,39 @@ function getEnrollmentStatusLabel(status: string): string {
 }
 
 /**
- * Gets attendance color class based on percentage
+ * Gets attendance performance badge variant based on percentage
+ * Uses attendance thresholds from student-attendance.utils
+ */
+function getAttendancePerformanceVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, 'success' | 'default' | 'warning' | 'secondary' | 'destructive'> = {
+        'green': 'success',
+        'blue': 'default',
+        'orange': 'warning',
+        'yellow': 'secondary',
+        'red': 'destructive',
+    };
+
+    return colorMap[color] || 'secondary';
+}
+
+/**
+ * Gets attendance color class based on performance color
  */
 function getAttendanceColorClass(percentage: number): string {
-    if (percentage >= 90) return 'text-green-600 dark:text-green-500';
-    if (percentage >= 75) return 'text-blue-600 dark:text-blue-500';
-    if (percentage >= 60) return 'text-yellow-600 dark:text-yellow-500';
-    if (percentage > 0) return 'text-red-600 dark:text-red-500';
-    return 'text-muted-foreground';
+    const color = getAttendancePerformanceColor(percentage);
+
+    const classes: Record<string, string> = {
+        'green': 'text-green-600 dark:text-green-500',
+        'blue': 'text-blue-600 dark:text-blue-500',
+        'orange': 'text-orange-600 dark:text-orange-500',
+        'yellow': 'text-yellow-600 dark:text-yellow-500',
+        'red': 'text-red-600 dark:text-red-500',
+        'default': 'text-muted-foreground',
+    };
+
+    return classes[color] || classes['default'];
 }
 
 export function StudentClassCard({ classData, onViewDetails }: StudentClassCardProps) {
@@ -124,7 +156,26 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
 
     const statusVariant = getEnrollmentStatusVariant(classData.enrollment_status);
     const statusLabel = getEnrollmentStatusLabel(classData.enrollment_status);
-    const attendanceColorClass = getAttendanceColorClass(classData.attendance_percentage);
+
+    // Memoize attendance performance calculations
+    const attendanceMetrics = useMemo(() => {
+        const percentage = classData.attendance_percentage || 0;
+        const performanceLevel = getAttendancePerformanceLevel(percentage);
+        const performanceColor = getAttendancePerformanceColor(percentage);
+        const performanceVariant = getAttendancePerformanceVariant(percentage);
+        const colorClass = getAttendanceColorClass(percentage);
+        // needsAttendanceAttention checks: percentage < 60% OR consecutiveAbsences >= 3
+        const needsAttention = needsAttendanceAttention(percentage, 0);
+
+        return {
+            percentage,
+            performanceLevel,
+            performanceColor,
+            performanceVariant,
+            colorClass,
+            needsAttention,
+        };
+    }, [classData.attendance_percentage]);
 
     const handleViewDetails = () => {
         if (onViewDetails) {
@@ -143,6 +194,16 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                     >
                         {statusLabel}
                     </Badge>
+                    {/* Only shows if attendance < 60% (NEEDS_IMPROVEMENT threshold) */}
+                    {attendanceMetrics.needsAttention && (
+                        <Badge
+                            variant="destructive"
+                            className="text-xs font-medium gap-1"
+                        >
+                            <AlertCircle className="h-3 w-3" />
+                            Low
+                        </Badge>
+                    )}
                 </div>
 
                 {/* Subject Image with Gradient Background */}
@@ -222,20 +283,37 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                     </div>
                 </div>
 
-                {/* Attendance & Grade Stats */}
-                <div className="flex items-center gap-4 pt-2 border-t border-border">
-                    <div className="flex items-center gap-2">
-                        <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                        <span className={`text-sm font-medium ${attendanceColorClass}`}>
-                            {classData.attendance_percentage.toFixed(1)}%
-                        </span>
-                        <span className="text-xs text-muted-foreground">attendance</span>
-                    </div>
-                    {classData.current_grade && (
+                {/* Attendance Performance Section */}
+                <div className="space-y-2 pt-2 border-t border-border">
+                    {/* Attendance Stats */}
+                    <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
+                            <TrendingUp className={cn('h-4 w-4')} />
+                            <span className={cn('text-sm font-medium')}>
+                                {attendanceMetrics.percentage.toFixed(1)}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">attendance</span>
+                        </div>
+                        <Badge
+                            variant={attendanceMetrics.performanceVariant}
+                            className="text-xs"
+                        >
+                            {attendanceMetrics.performanceLevel}
+                        </Badge>
+                    </div>
+
+                    {/* Attendance Progress Bar */}
+                    <Progress
+                        value={attendanceMetrics.percentage}
+                        className="h-2"
+                    />
+
+                    {/* Current Grade */}
+                    {classData.current_grade && (
+                        <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm font-medium">{classData.current_grade}</span>
-                            <span className="text-xs text-muted-foreground">grade</span>
+                            <span className="font-medium">{classData.current_grade}</span>
+                            <span className="text-xs text-muted-foreground">current grade</span>
                         </div>
                     )}
                 </div>

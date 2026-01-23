@@ -1,19 +1,11 @@
 /**
  * Student Class Detail Page
- * 
- * Detailed view of a specific enrolled class for students
- * Route: /lms/student/[centerId]/classes/[classId]
- * 
- * Features:
- * - READ-ONLY view of class details
- * - Shows enrollment status and attendance
- * - Class schedule and timings
- * - Mobile-friendly layout
+ * Updated with Attendance Summary Modal
  */
 
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,6 +27,7 @@ import {
     GraduationCap,
     Clock,
     BookOpen,
+    BarChart3, // Added for attendance summary
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth-guard';
@@ -56,22 +49,61 @@ import {
     mapSubjectToId,
 } from '@/lib/branch-system/utils/branch-classes.utils';
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
+import {
+    CLASS_ENROLLMENT_STATUS_OPTIONS,
+    type ClassEnrollmentStatus,
+} from '@/lib/branch-system/types/class-enrollments.types';
+
+// Import attendance utilities and modal
+import { StudentSummaryModal } from '../../../../../(teachers)/teacher/[centerId]/_components/attendances'; // Adjust path as needed
+import {
+    getAttendancePerformanceColor,
+    getAttendancePerformanceLevel,
+    ATTENDANCE_THRESHOLDS,
+} from '@/lib/branch-system/utils/student-attendance.utils';
 
 /**
- * Get enrollment status badge info
+ * Get enrollment status badge variant using CLASS_ENROLLMENT_STATUS_OPTIONS
  */
-function getEnrollmentStatusInfo(status: string): {
-    label: string;
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-    color: 'green' | 'yellow' | 'red' | 'gray';
-} {
-    const statusMap: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; color: 'green' | 'yellow' | 'red' | 'gray' }> = {
-        'ENROLLED': { label: 'Enrolled', variant: 'default', color: 'green' },
-        'PENDING': { label: 'Pending', variant: 'secondary', color: 'yellow' },
-        'WITHDRAWN': { label: 'Withdrawn', variant: 'destructive', color: 'red' },
-        'COMPLETED': { label: 'Completed', variant: 'outline', color: 'gray' },
+function getEnrollmentStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning' {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    if (!statusConfig) return 'secondary';
+
+    const colorMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
+        'success': 'success',
+        'warning': 'warning',
+        'destructive': 'destructive',
+        'secondary': 'secondary',
+        'outline': 'outline',
+        'default': 'default',
     };
-    return statusMap[status] || { label: status, variant: 'secondary', color: 'gray' };
+
+    return colorMap[statusConfig.color] || 'secondary';
+}
+
+/**
+ * Get enrollment status label using CLASS_ENROLLMENT_STATUS_OPTIONS
+ */
+function getEnrollmentStatusLabel(status: string): string {
+    const statusConfig = CLASS_ENROLLMENT_STATUS_OPTIONS[status as ClassEnrollmentStatus];
+    return statusConfig?.label || status;
+}
+
+/**
+ * Gets attendance performance badge variant based on percentage
+ */
+function getAttendancePerformanceVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, 'success' | 'default' | 'warning' | 'secondary' | 'destructive'> = {
+        'green': 'success',
+        'blue': 'default',
+        'orange': 'warning',
+        'yellow': 'secondary',
+        'red': 'destructive',
+    };
+
+    return colorMap[color] || 'secondary';
 }
 
 /**
@@ -83,11 +115,32 @@ function getAttendanceVariant(percentage: number): 'primary' | 'warning' | 'erro
     return 'error';
 }
 
+/**
+ * Gets attendance color class based on performance color
+ */
+function getAttendanceColorClass(percentage: number): string {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const classes: Record<string, string> = {
+        'green': 'text-green-600 dark:text-green-500',
+        'blue': 'text-blue-600 dark:text-blue-500',
+        'orange': 'text-orange-600 dark:text-orange-500',
+        'yellow': 'text-yellow-600 dark:text-yellow-500',
+        'red': 'text-red-600 dark:text-red-500',
+        'default': 'text-muted-foreground',
+    };
+
+    return classes[color] || classes['default'];
+}
+
 export default function StudentClassDetailPage() {
     const params = useParams();
     const router = useRouter();
     const { centerId } = useStudentContext();
-    const { userId } = useAuth();
+    const { userId, user } = useAuth();
+
+    // State for attendance summary modal
+    const [showAttendanceSummary, setShowAttendanceSummary] = useState(false);
 
     const classId = params?.classId as string;
 
@@ -114,9 +167,30 @@ export default function StudentClassDetailPage() {
         return enrolledClasses.find((c: any) => c.class_id === classId) || null;
     }, [enrolledClasses, classId]);
 
+    // Pre-calculate attendance metrics (must be before conditional returns)
+    const attendancePercentage = enrollmentData?.attendance_percentage || 0;
+    const attendancePerformance = useMemo(() => {
+        return {
+            level: getAttendancePerformanceLevel(attendancePercentage),
+            color: getAttendancePerformanceColor(attendancePercentage),
+            needsAttention: attendancePercentage < ATTENDANCE_THRESHOLDS.SATISFACTORY,
+            colorClass: getAttendanceColorClass(attendancePercentage),
+        };
+    }, [attendancePercentage]);
+
     // Handle back navigation
     const handleBack = () => {
         router.push(`/lms/student/${centerId}/classes`);
+    };
+
+    // Handle view attendance summary
+    const handleViewAttendanceSummary = () => {
+        setShowAttendanceSummary(true);
+    };
+
+    // Handle navigate to detailed attendance
+    const handleViewDetailedAttendance = () => {
+        router.push(`/lms/student/${centerId}/attendance?class=${classId}`);
     };
 
     // Loading state
@@ -175,8 +249,8 @@ export default function StudentClassDetailPage() {
 
     // Enrollment specific data
     const enrollmentStatus = enrollmentData?.enrollment_status || 'ENROLLED';
-    const statusInfo = getEnrollmentStatusInfo(enrollmentStatus);
-    const attendancePercentage = enrollmentData?.attendance_percentage || 0;
+    const statusVariant = getEnrollmentStatusVariant(enrollmentStatus);
+    const statusLabel = getEnrollmentStatusLabel(enrollmentStatus);
     const currentGrade = enrollmentData?.current_grade;
     const preferredBatch = enrollmentData?.preferred_batch;
 
@@ -205,9 +279,17 @@ export default function StudentClassDetailPage() {
                             <Badge variant="secondary" className={cn('text-sm', subjectColor)}>
                                 {subject}
                             </Badge>
-                            <Badge variant={statusInfo.variant}>
-                                {statusInfo.label}
+                            <Badge variant={statusVariant}>
+                                {statusLabel}
                             </Badge>
+                            {/* {attendancePercentage > 0 && (
+                                <Badge
+                                    variant={attendancePerformance.needsAttention ? "destructive" : "success"}
+                                    className={cn('text-sm', attendancePerformance.needsAttention ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' : '')}
+                                >
+                                    {attendancePercentage.toFixed(1)}% Attendance
+                                </Badge>
+                            )} */}
                         </div>
                     </div>
                 </div>
@@ -230,8 +312,8 @@ export default function StudentClassDetailPage() {
                         <div className="space-y-3">
                             <div className="flex justify-between items-center py-2 border-b border-muted">
                                 <span className="text-sm text-muted-foreground">Enrollment Status</span>
-                                <Badge variant={statusInfo.variant}>
-                                    {statusInfo.label}
+                                <Badge variant={statusVariant}>
+                                    {statusLabel}
                                 </Badge>
                             </div>
                             {currentGrade && (
@@ -248,35 +330,47 @@ export default function StudentClassDetailPage() {
                                 />
                             )}
                             <Separator />
-                            <InfoRow
-                                label="Attendance"
-                                value={`${attendancePercentage}%`}
-                                valueClassName={cn(
-                                    'font-semibold',
-                                    attendancePercentage >= 75 ? 'text-green-600' :
-                                        attendancePercentage >= 50 ? 'text-yellow-600' :
-                                            'text-red-600'
+                            <div className="space-y-2">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-sm text-muted-foreground">Attendance</span>
+                                    <div className="flex items-center gap-2">
+                                        <TrendingUp className={cn('h-4 w-4')} />
+                                        <span className={cn('text-sm font-medium')}>
+                                            {attendancePercentage.toFixed(1)}%
+                                        </span>
+                                        <Badge
+                                            variant={getAttendancePerformanceVariant(attendancePercentage)}
+                                            className="text-xs"
+                                        >
+                                            {attendancePerformance.level}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                <Progress
+                                    value={attendancePercentage}
+                                    variant={getAttendanceVariant(attendancePercentage)}
+                                    className="h-2"
+                                />
+                                {attendancePercentage < ATTENDANCE_THRESHOLDS.SATISFACTORY && (
+                                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <AlertCircle className="h-3 w-3" />
+                                        Maintain {ATTENDANCE_THRESHOLDS.SATISFACTORY}% attendance to be eligible for exams
+                                    </p>
                                 )}
-                            />
+                            </div>
                         </div>
 
-                        {/* Attendance Progress Bar */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>Attendance Progress</span>
-                                <span>{attendancePercentage}%</span>
-                            </div>
-                            <Progress
-                                value={attendancePercentage}
-                                variant={getAttendanceVariant(attendancePercentage)}
-                                className="h-2"
-                            />
-                            {attendancePercentage < 75 && (
-                                <p className="text-xs text-muted-foreground">
-                                    <AlertCircle className="h-3 w-3 inline mr-1" />
-                                    Maintain 75% attendance to be eligible for exams
-                                </p>
-                            )}
+                        {/* Attendance Actions */}
+                        <div className="pt-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={handleViewAttendanceSummary}
+                            >
+                                <BarChart3 className="h-4 w-4 mr-2" />
+                                View Attendance Summary
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -404,10 +498,10 @@ export default function StudentClassDetailPage() {
                     <div className="flex flex-wrap gap-3">
                         <Button
                             variant="default"
-                            onClick={() => router.push(`/lms/student/${centerId}/attendance?class=${classId}`)}
+                            onClick={handleViewDetailedAttendance}
                         >
                             <Calendar className="h-4 w-4 mr-2" />
-                            View Attendance
+                            View Detailed Attendance
                         </Button>
                         <Button
                             variant="outline"
@@ -416,9 +510,29 @@ export default function StudentClassDetailPage() {
                             <FileText className="h-4 w-4 mr-2" />
                             View Assignments
                         </Button>
+                        <Button
+                            variant="outline"
+                            onClick={handleViewAttendanceSummary}
+                            className="ml-auto"
+                        >
+                            <BarChart3 className="h-4 w-4 mr-2" />
+                            Attendance Summary
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Attendance Summary Modal */}
+            {userId && user && (
+                <StudentSummaryModal
+                    open={showAttendanceSummary}
+                    onOpenChange={setShowAttendanceSummary}
+                    studentId={userId}
+                    studentName={(user as any).full_name || user.email || 'Student'}
+                    studentAvatar={(user as any).avatar_url}
+                    classId={classId}
+                />
+            )}
         </div>
     );
 }
