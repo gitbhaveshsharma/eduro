@@ -1,3 +1,8 @@
+/**
+ * Student Classes Header Component
+ * Header with title, count, and view mode toggle
+ */
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -5,23 +10,23 @@ import { Grid3x3, List } from 'lucide-react';
 
 type ViewMode = 'grid' | 'list';
 
-interface ClassesHeaderProps {
+interface StudentClassesHeaderProps {
     totalClasses: number;
     viewMode: ViewMode;
     onViewModeChange: (mode: ViewMode) => void;
 }
 
-export function ClassesHeader({
+export function StudentClassesHeader({
     totalClasses,
     viewMode,
     onViewModeChange
-}: ClassesHeaderProps) {
+}: StudentClassesHeaderProps) {
     return (
         <div className="flex items-center justify-between">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
                 <p className="text-muted-foreground mt-1">
-                    {totalClasses} {totalClasses === 1 ? 'class' : 'classes'} assigned
+                    {totalClasses} {totalClasses === 1 ? 'class' : 'classes'} enrolled
                 </p>
             </div>
 

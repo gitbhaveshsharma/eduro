@@ -745,10 +745,10 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
     },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Tasks',
         icon: FileText,
         href: 'assignments',
-        description: 'View and submit assignments',
+        description: 'View your assignments and quizzes',
         roles: ['S'],
     },
     {

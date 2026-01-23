@@ -1,3 +1,13 @@
+/**
+ * Student Classes Dashboard Component
+ * 
+ * Main dashboard for students to view their enrolled classes
+ * Features:
+ * - Grid/List view modes
+ * - Search and filter functionality
+ * - Uses upcoming classes from store
+ */
+
 'use client';
 
 import { useEffect, useState, useMemo } from 'react';
@@ -8,34 +18,52 @@ import { AlertCircle, BookOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth-guard';
 
 import {
-    useClassesByTeacher,
+    useBranchClassesStore,
+    useEnrollmentsByCenter,
     useClassesLoading,
     useClassesErrors,
-    useBranchClassesStore,
 } from '@/lib/branch-system/stores/branch-classes.store';
-import { filterClassesBySearch } from '@/lib/branch-system/utils/branch-classes.utils';
-import type { BranchClass } from '@/lib/branch-system/types/branch-classes.types';
+import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
 
-import { ClassesHeader } from '../classes/classes-header';
-import { ClassesFilters } from '../classes/classes-filters';
-import { ClassesListView } from '../classes/classes-list-view';
-import { TeacherClassCard } from '../classes/teacher-class-card';
+import { StudentClassesHeader } from '../classes/student-classes-header';
+import { StudentClassesFilters } from '../classes/student-classes-filters';
+import { StudentClassesListView } from '../classes/student-classes-list-view';
+import { StudentClassCard } from '../classes/student-class-card';
 
 type ViewMode = 'grid' | 'list';
 
-interface TeacherClassesDashboardProps {
+interface StudentClassesDashboardProps {
     centerId: string;
 }
 
-export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardProps) {
+/**
+ * Filter classes by search query
+ */
+function filterClassesBySearch(
+    classes: UpcomingClassData[],
+    query: string
+): UpcomingClassData[] {
+    if (!query.trim()) return classes;
+
+    const lowerQuery = query.toLowerCase().trim();
+    return classes.filter((cls) =>
+        cls.class_name?.toLowerCase().includes(lowerQuery) ||
+        cls.subject?.toLowerCase().includes(lowerQuery) ||
+        cls.description?.toLowerCase().includes(lowerQuery) ||
+        cls.grade_level?.toLowerCase().includes(lowerQuery) ||
+        cls.batch_name?.toLowerCase().includes(lowerQuery)
+    );
+}
+
+export function StudentClassesDashboard({ centerId }: StudentClassesDashboardProps) {
     const router = useRouter();
     const { userId } = useAuth();
 
     // Store hooks
-    const { fetchClassesByTeacher } = useBranchClassesStore();
-    const classes = useClassesByTeacher(userId || null);
-    const { fetchClasses } = useClassesLoading();
-    const { fetchClasses: fetchError } = useClassesErrors();
+    const { fetchEnrollmentsByCenter } = useBranchClassesStore();
+    const classes = useEnrollmentsByCenter(userId || null, centerId || null);
+    const { upcomingClasses: isLoading } = useClassesLoading();
+    const { upcomingClasses: fetchError } = useClassesErrors();
 
     // Local state
     const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -45,27 +73,30 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
 
     // Fetch classes on mount
     useEffect(() => {
-        if (userId) {
-            fetchClassesByTeacher(userId);
+        if (userId && centerId) {
+            fetchEnrollmentsByCenter(userId, centerId);
         }
-    }, [userId, fetchClassesByTeacher]);
+    }, [userId, centerId, fetchEnrollmentsByCenter]);
 
     // Get unique subjects for filter
     const uniqueSubjects = useMemo(() => {
+        if (!classes) return [];
         const subjects = new Set(classes.map(c => c.subject));
         return Array.from(subjects).sort();
     }, [classes]);
 
     // Filter classes based on search and filters
     const filteredClasses = useMemo(() => {
+        if (!classes) return [];
+
         let filtered = classes;
 
         if (searchQuery.trim()) {
-            filtered = filterClassesBySearch(filtered as any, searchQuery) as BranchClass[];
+            filtered = filterClassesBySearch(filtered, searchQuery);
         }
 
         if (statusFilter !== 'all') {
-            filtered = filtered.filter(c => c.status === statusFilter);
+            filtered = filtered.filter(c => c.enrollment_status === statusFilter);
         }
 
         if (subjectFilter !== 'all') {
@@ -77,11 +108,11 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
 
     // Handle view class details
     const handleViewDetails = (classId: string) => {
-        router.push(`/lms/teacher/${centerId}/classes/${classId}`);
+        router.push(`/lms/student/${centerId}/classes/${classId}`);
     };
 
     // Loading state
-    if (fetchClasses) {
+    if (isLoading) {
         return (
             <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -101,24 +132,23 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
     if (fetchError) {
         return (
             <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{fetchError}</AlertDescription>
             </Alert>
         );
     }
 
     // Empty state
-    if (classes.length === 0) {
+    if (!classes || classes.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center ">
+            <div className="flex flex-col items-center justify-center py-16">
                 <div className="rounded-full bg-muted p-6">
                     <BookOpen className="h-12 w-12 text-muted-foreground" />
                 </div>
-                <div className="text-center space-y-2">
-                    <h3 className="text-lg font-semibold">No Classes Assigned</h3>
+                <div className="text-center space-y-2 mt-4">
+                    <h3 className="text-lg font-semibold">No Classes Enrolled</h3>
                     <p className="text-sm text-muted-foreground max-w-md">
-                        You don&apos;t have any classes assigned yet. Please contact your
-                        coaching center administrator to get assigned to classes.
+                        You haven&apos;t enrolled in any classes yet. Please contact your
+                        coaching center to enroll in classes.
                     </p>
                 </div>
             </div>
@@ -128,14 +158,14 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
     return (
         <div className="space-y-6">
             {/* Header */}
-            <ClassesHeader
+            <StudentClassesHeader
                 totalClasses={filteredClasses.length}
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
             />
 
             {/* Filters */}
-            <ClassesFilters
+            <StudentClassesFilters
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}
                 statusFilter={statusFilter}
@@ -158,8 +188,8 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
             {viewMode === 'grid' && filteredClasses.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {filteredClasses.map((classItem) => (
-                        <TeacherClassCard
-                            key={classItem.id}
+                        <StudentClassCard
+                            key={classItem.enrollment_id}
                             classData={classItem}
                             onViewDetails={handleViewDetails}
                         />
@@ -169,7 +199,7 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
 
             {/* List View */}
             {viewMode === 'list' && filteredClasses.length > 0 && (
-                <ClassesListView
+                <StudentClassesListView
                     classes={filteredClasses}
                     onViewDetails={handleViewDetails}
                 />
