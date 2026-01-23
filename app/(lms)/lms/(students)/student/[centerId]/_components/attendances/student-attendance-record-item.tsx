@@ -7,14 +7,16 @@
 
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
     Item,
     ItemContent,
     ItemMedia,
     ItemTitle,
     ItemDescription,
+    ItemActions,
 } from '@/components/ui/item';
 import {
     CheckCircle2,
@@ -23,6 +25,7 @@ import {
     FileText,
     CalendarDays,
     BookOpen,
+    Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format, parseISO, isToday, isYesterday } from 'date-fns';
@@ -40,6 +43,7 @@ type BadgeVariant = NonNullable<VariantProps<typeof badgeVariants>['variant']>;
 interface StudentAttendanceRecordItemProps {
     record: StudentAttendance;
     showClassName?: boolean;
+    onViewDetails?: (recordId: string) => void;
 }
 
 /**
@@ -62,11 +66,11 @@ function getStatusBadgeVariant(status: AttendanceStatus): BadgeVariant {
  */
 function getStatusIcon(status: AttendanceStatus) {
     const icons: Record<AttendanceStatus, React.ReactNode> = {
-        [AttendanceStatus.PRESENT]: <CheckCircle2 className="h-3.5 w-3.5" />,
-        [AttendanceStatus.ABSENT]: <XCircle className="h-3.5 w-3.5" />,
-        [AttendanceStatus.LATE]: <Clock className="h-3.5 w-3.5" />,
-        [AttendanceStatus.EXCUSED]: <FileText className="h-3.5 w-3.5" />,
-        [AttendanceStatus.HOLIDAY]: <FileText className="h-3.5 w-3.5" />,
+        [AttendanceStatus.PRESENT]: <CheckCircle2 className="h-5 w-5" />,
+        [AttendanceStatus.ABSENT]: <XCircle className="h-5 w-5" />,
+        [AttendanceStatus.LATE]: <Clock className="h-5 w-5" />,
+        [AttendanceStatus.EXCUSED]: <FileText className="h-5 w-5" />,
+        [AttendanceStatus.HOLIDAY]: <CalendarDays className="h-5 w-5" />,
     };
 
     return icons[status];
@@ -107,14 +111,35 @@ function getStatusBackgroundColor(status: AttendanceStatus): string {
     return colors[status] || 'bg-muted text-muted-foreground';
 }
 
+/**
+ * Get item background color based on attendance status
+ * Subtle backgrounds for warning states (absent, late)
+ */
+function getItemBackgroundColor(status: AttendanceStatus): string {
+    const backgrounds: Record<AttendanceStatus, string> = {
+        [AttendanceStatus.PRESENT]: '', // No background for present
+        // Using error/destructive red for absent
+        [AttendanceStatus.ABSENT]: 'bg-error/15 dark:bg-error/10 border-error/20 dark:border-error/30',
+        // Using warning amber for late
+        [AttendanceStatus.LATE]: 'bg-warning/15 dark:bg-warning/10 border-warning/20 dark:border-warning/30',
+        // Using brand-secondary (sky blue) for excused
+        [AttendanceStatus.EXCUSED]: 'bg-brand-secondary/15 dark:bg-brand-secondary/10 border-brand-secondary/20 dark:border-brand-secondary/30',
+        [AttendanceStatus.HOLIDAY]: '', // No background for holiday
+
+    };
+
+    return backgrounds[status] || '';
+}
+
 export function StudentAttendanceRecordItem({
     record,
     showClassName = false,
+    onViewDetails,
 }: StudentAttendanceRecordItemProps) {
     const status = record.attendance_status;
-    const statusConfig = ATTENDANCE_STATUS_CONFIG[status];
     const badgeVariant = getStatusBadgeVariant(status);
     const statusBgColor = getStatusBackgroundColor(status);
+    const itemBgColor = getItemBackgroundColor(status);
 
     // Format times
     const timeDisplay = useMemo(() => {
@@ -127,82 +152,95 @@ export function StudentAttendanceRecordItem({
             parts.push(`Out: ${record.check_out_time}`);
         }
 
-        return parts.length > 0 ? parts.join(' • ') : null;
+        return parts.length > 0 ? parts.join(' • ') : 'No check-in time';
     }, [record.check_in_time, record.check_out_time]);
 
     return (
         <Item
             variant="default"
             className={cn(
-                'group/item hover:bg-secondary/15 hover:text-primary transition-all duration-200',
-                'items-center gap-4 px-4 py-3'
+                'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
+                'items-stretch gap-6 px-5 py-4',
+                itemBgColor, // Apply conditional background color
+                itemBgColor && 'border' // Add border when background is applied
             )}
         >
             {/* Status Icon */}
             <ItemMedia variant="icon">
                 <div className={cn(
-                    'flex items-center justify-center w-10 h-10 rounded-full',
+                    'relative w-16 h-11 rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center',
                     statusBgColor
                 )}>
                     {getStatusIcon(status)}
                 </div>
             </ItemMedia>
 
-            {/* Main Content */}
-            <ItemContent className="min-w-0 flex-1">
-                <ItemTitle className="flex items-center gap-2 font-medium text-sm">
-                    <CalendarDays className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span>{formatDisplayDate(record.attendance_date)}</span>
-                </ItemTitle>
-                <ItemDescription className="flex flex-wrap items-center gap-2 text-xs">
-                    {/* Status Badge */}
-                    <Badge variant={badgeVariant} className="gap-1 text-xs h-5">
-                        {getStatusIcon(status)}
-                        <span>{formatAttendanceStatus(status, false)}</span>
+            {/* Content */}
+            <ItemContent>
+                <ItemTitle className="flex items-center gap-2">
+                    <span className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary">
+                        {formatDisplayDate(record.attendance_date)}
+                    </span>
+                    <Badge
+                        variant={badgeVariant}
+                        className="text-xs font-medium sm:inline-flex"
+                    >
+                        {formatAttendanceStatus(status, false)}
                     </Badge>
+                </ItemTitle>
 
-                    {/* Time Info */}
-                    {timeDisplay && (
-                        <span className="text-muted-foreground">
-                            • {timeDisplay}
+                <ItemDescription>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1.5">
+                            <Clock className="h-3.5 w-3.5 flex-shrink-0" />
+                            {timeDisplay}
                         </span>
+
+                        {/* Late Minutes */}
+                        {record.late_by_minutes > 0 && (
+                            <span className="flex items-center gap-1.5 text-orange-600 dark:text-orange-400 font-medium">
+                                • {record.late_by_minutes}m late
+                            </span>
+                        )}
+
+                        {/* Class Name (optional) */}
+                        {showClassName && record.class && (
+                            <span className="flex items-center gap-1.5 truncate">
+                                <BookOpen className="h-3.5 w-3.5 flex-shrink-0" />
+                                <span className="truncate">{record.class.class_name || record.class.subject}</span>
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Teacher Remarks or Excuse Reason */}
+                    {record.teacher_remarks && (
+                        <p className="text-xs text-muted-foreground mt-1 italic line-clamp-1">
+                            &quot;{record.teacher_remarks}&quot;
+                        </p>
                     )}
 
-                    {/* Late Minutes */}
-                    {record.late_by_minutes > 0 && (
-                        <span className="text-orange-600">
-                            • {record.late_by_minutes}m late
-                        </span>
-                    )}
-
-                    {/* Class Name (optional) */}
-                    {showClassName && record.class && (
-                        <span className="text-muted-foreground flex items-center gap-1">
-                            <BookOpen className="h-3 w-3" />
-                            {record.class.class_name || record.class.subject}
-                        </span>
+                    {status === AttendanceStatus.EXCUSED && record.excuse_reason && (
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 line-clamp-1">
+                            Reason: {record.excuse_reason}
+                        </p>
                     )}
                 </ItemDescription>
-
-                {/* Teacher Remarks (if any) */}
-                {record.teacher_remarks && (
-                    <p className="text-xs text-muted-foreground mt-1 italic line-clamp-1">
-                        &quot;{record.teacher_remarks}&quot;
-                    </p>
-                )}
-
-                {/* Excuse Reason (if excused) */}
-                {status === AttendanceStatus.EXCUSED && record.excuse_reason && (
-                    <p className="text-xs text-blue-600 mt-1">
-                        Reason: {record.excuse_reason}
-                    </p>
-                )}
             </ItemContent>
 
-            {/* Right Side - Full Date */}
-            <div className="text-right text-xs text-muted-foreground hidden sm:block">
-                {format(parseISO(record.attendance_date), 'yyyy')}
-            </div>
+            {/* Actions */}
+            {onViewDetails && (
+                <ItemActions>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onViewDetails(record.id)}
+                        className="gap-1.5 h-8 px-2 sm:px-3"
+                    >
+                        <Eye className="h-4 w-4" />
+                        <span className="hidden sm:inline">View</span>
+                    </Button>
+                </ItemActions>
+            )}
         </Item>
     );
 }
