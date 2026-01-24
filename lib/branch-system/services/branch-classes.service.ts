@@ -1074,10 +1074,10 @@ export class BranchClassesService {
         coachingCenterId: string
     ): Promise<BranchClassOperationResult<UpcomingClassData[]>> {
         try {
-            console.log('🔵 [getStudentEnrollmentsByCenter] Fetching enrollments:', {
-                studentId,
-                coachingCenterId
-            });
+            // console.log('🔵 [getStudentEnrollmentsByCenter] Fetching enrollments:', {
+            //     studentId,
+            //     coachingCenterId
+            // });
 
             // Query materialized view - selects only required columns
             const { data, error } = await this.supabase
@@ -1109,7 +1109,7 @@ export class BranchClassesService {
                 .order('class_start_date', { ascending: true });
 
             if (error) {
-                console.error('❌ [getStudentEnrollmentsByCenter] Database error:', error);
+                // console.error('❌ [getStudentEnrollmentsByCenter] Database error:', error);
                 return {
                     success: false,
                     error: error.message || 'Failed to fetch student enrollments',
@@ -1117,7 +1117,7 @@ export class BranchClassesService {
             }
 
             if (!data || data.length === 0) {
-                console.log('✅ [getStudentEnrollmentsByCenter] No enrollments found');
+                // console.log('✅ [getStudentEnrollmentsByCenter] No enrollments found');
                 return {
                     success: true,
                     data: [],
@@ -1160,11 +1160,11 @@ export class BranchClassesService {
                 };
             });
 
-            console.log('✅ [getStudentEnrollmentsByCenter] Enrollments fetched:', {
-                count: transformedData.length,
-                studentId,
-                coachingCenterId
-            });
+            // console.log('✅ [getStudentEnrollmentsByCenter] Enrollments fetched:', {
+            //     count: transformedData.length,
+            //     studentId,
+            //     coachingCenterId
+            // });
 
             return {
                 success: true,

@@ -649,11 +649,11 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                     const age = Date.now() - cache.timestamp;
 
                     if (age < CACHE_TTL) {
-                        console.log('✅ [fetchEnrollmentsByCenter] Using cached data:', {
-                            studentId,
-                            centerId,
-                            age: Math.round(age / 1000) + 's',
-                        });
+                        // console.log('✅ [fetchEnrollmentsByCenter] Using cached data:', {
+                        //     studentId,
+                        //     centerId,
+                        //     age: Math.round(age / 1000) + 's',
+                        // });
                         return;
                     }
                 }
@@ -661,7 +661,7 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 // Check for inflight request
                 const requestKey = `enrollments_${cacheKey}`;
                 if (state.inflightRequests[requestKey]) {
-                    console.log('🔄 [fetchEnrollmentsByCenter] Request already in progress:', { studentId, centerId });
+                    // console.log('🔄 [fetchEnrollmentsByCenter] Request already in progress:', { studentId, centerId });
                     return state.inflightRequests[requestKey];
                 }
 

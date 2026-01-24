@@ -75,7 +75,6 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         fetchStudentData,
         clearFilters,
     } = useFeeReceiptsStore();
-    console.log('receipts Render:', receipts);
 
     // Single fetch effect - only runs when centerId or userId changes
     useEffect(() => {
@@ -107,7 +106,6 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         };
 
         fetchData();
-        console.log('Fetching data for center:', fetchData());
 
         // Cleanup when centerId changes
         return () => {

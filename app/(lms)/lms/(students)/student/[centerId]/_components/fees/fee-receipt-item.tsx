@@ -104,6 +104,24 @@ function getReceiptIconColor(status: ReceiptStatus, isReceiptOverdue: boolean) {
     return colors[status];
 }
 
+/**
+ * Get item background color based on receipt status and overdue status
+ */
+function getItemBackgroundColor(status: ReceiptStatus, isReceiptOverdue: boolean): string {
+    if (isReceiptOverdue) {
+        // Overdue gets highest priority with error red background
+        return 'bg-error/15 dark:bg-error/10 border-error/20 dark:border-error/30';
+    }
+
+    const backgrounds: Record<ReceiptStatus, string> = {
+        [ReceiptStatus.PAID]: '', // No background for paid (success state)
+        [ReceiptStatus.PENDING]: 'bg-warning/15 dark:bg-warning/10 border-warning/20 dark:border-warning/30',
+        [ReceiptStatus.CANCELLED]: 'bg-muted/20 dark:bg-muted/15 border-muted/30 dark:border-muted/40',
+        [ReceiptStatus.REFUNDED]: 'bg-brand-secondary/15 dark:bg-brand-secondary/10 border-brand-secondary/20 dark:border-brand-secondary/30',
+    };
+    return backgrounds[status];
+}
+
 export function FeeReceiptItem({
     receipt,
     onViewDetails,
@@ -117,6 +135,9 @@ export function FeeReceiptItem({
     const statusConfig = RECEIPT_STATUS_OPTIONS[receipt.receipt_status];
     const badgeVariant = getStatusBadgeVariant(receipt.receipt_status);
 
+    // Get dynamic background color
+    const itemBackgroundColor = getItemBackgroundColor(receipt.receipt_status, receiptIsOverdue);
+
     // Format period display
     const periodDisplay = receipt.fee_month && receipt.fee_year
         ? formatMonthYear(receipt.fee_month, receipt.fee_year)
@@ -127,9 +148,9 @@ export function FeeReceiptItem({
             <Item
                 variant="default"
                 className={cn(
-                    'group/item hover:shadow-sm transition-all duration-200',
-                    'items-center gap-4 px-4 py-3 cursor-pointer',
-                    receiptIsOverdue && 'border-red-200 dark:border-red-900/30'
+                    'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
+                    'items-center gap-6 px-5 py-4 cursor-pointer',
+                    itemBackgroundColor // Apply dynamic background
                 )}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
@@ -149,7 +170,7 @@ export function FeeReceiptItem({
 
                 {/* Receipt Info */}
                 <ItemContent className="min-w-0 flex-1">
-                    <ItemTitle className="flex items-center gap-2 truncate font-medium text-sm">
+                    <ItemTitle className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary">
                         <span className="truncate">{receipt.receipt_number}</span>
                         {receipt.class?.class_name && (
                             <span className="text-xs text-muted-foreground font-normal hidden sm:inline">
@@ -220,7 +241,7 @@ export function FeeReceiptItem({
                             Balance: {formatCurrency(receipt.balance_amount)}
                         </span>
                     ) : (
-                        <span className="text-xs text-green-600 dark:text-green-400">
+                        <span className="text-xs text-green-600 dark:green-400">
                             Fully paid
                         </span>
                     )}

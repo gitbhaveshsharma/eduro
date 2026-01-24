@@ -117,7 +117,7 @@ export function FeeReceiptList({
     }
 
     return (
-        <ItemGroup className="divide-y divide-border rounded-xl border bg-card overflow-hidden">
+        <ItemGroup className="space-y-1 divide-y  overflow-hidden">
             {receipts.map((receipt, index) => (
                 <div key={receipt.id}>
                     <FeeReceiptItem
