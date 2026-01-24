@@ -617,8 +617,8 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
 export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'dashboard',
-        label: 'Home',
-        icon: Home,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
         href: '/lms/student',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -643,23 +643,23 @@ export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
         roles: ['S'],
     },
     {
-        id: 'calendar',
-        label: 'Schedule',
-        icon: Calendar,
-        href: '/lms/student/calendar',
+        id: 'attendance',
+        label: 'Attendance',
+        icon: Users,
+        href: '/lms/student/attendance',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
         roles: ['S'],
     },
     {
-        id: 'feed',
-        label: 'Feed',
-        icon: Plus,
-        href: '/feed',
+        id: 'fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: '/lms/student/fees',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
         roles: ['S'],
-    },
+    }
 ];
 
 /**
