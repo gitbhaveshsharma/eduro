@@ -164,12 +164,12 @@ export function FeeDownloadModal({
             pdf.setFont('helvetica', 'normal');
             pdf.text('Fee Receipt Summary', pageWidth / 2, 24, { align: 'center' });
 
-            // Branch name (if not empty or strange)
-            const branchName = firstReceipt.branch?.name || '';
-            if (branchName && branchName.trim().length > 0) {
-                pdf.setFontSize(9);
-                pdf.text(branchName, pageWidth / 2, 31, { align: 'center' });
-            }
+            // // Branch name (if not empty or strange)
+            // const branchName = firstReceipt.branch?.name || '';
+            // if (branchName && branchName.trim().length > 0) {
+            //     pdf.setFontSize(9);
+            //     pdf.text(branchName, pageWidth / 2, 31, { align: 'center' });
+            // }
 
             // Verified badge
             // if (coachingCenter?.is_verified) {
