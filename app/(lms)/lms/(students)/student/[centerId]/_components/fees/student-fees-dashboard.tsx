@@ -14,7 +14,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth-guard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Receipt, RefreshCw, Download } from 'lucide-react';
@@ -55,10 +55,14 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [isDownloadModalOpen, setIsDownloadModalOpen] = useState(false);
     const [showNoReceipts, setShowNoReceipts] = useState(false);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
 
-    // Track if we're ready to show data for this specific center
-    // This prevents flashing of data from other centers
-    const [isDataReady, setIsDataReady] = useState(false);
+    // Track the center we're currently displaying to prevent stale data
+    const activeCenterId = useRef<string>(centerId);
+
+    // Prevent duplicate API calls
+    const fetchInProgress = useRef(false);
+    const lastFetchedCenter = useRef<string | null>(null);
 
     // Store state
     const {
@@ -68,46 +72,54 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         isFetchingSummary,
         error,
         currentCoachingCenterId,
-        fetchCoachingCenterReceipts,
-        fetchStudentSummary,
-        setFilters,
+        fetchStudentData,
         clearFilters,
     } = useFeeReceiptsStore();
+    console.log('receipts Render:', receipts);
 
-    // Reset data ready state when centerId changes (MUST be before fetch effect)
-    useEffect(() => {
-        setIsDataReady(false);
-        setShowNoReceipts(false);
-    }, [centerId]);
-
-    // Fetch receipts and summary for this student filtered by coaching center
+    // Single fetch effect - only runs when centerId or userId changes
     useEffect(() => {
         if (!userId || !centerId) return;
 
-        // Set filters for this student
-        setFilters({
-            student_id: userId,
-        });
+        // Skip if already fetching or already fetched for this center
+        if (fetchInProgress.current || lastFetchedCenter.current === centerId) {
+            return;
+        }
 
-        // Fetch both receipts and summary for this coaching center
+        // Update active center reference
+        activeCenterId.current = centerId;
+        setIsInitialLoad(true);
+        setShowNoReceipts(false);
+
+        // Fetch data - OPTIMIZED: Single API call gets both receipts and summary
         const fetchData = async () => {
-            await fetchCoachingCenterReceipts(centerId);
-            await fetchStudentSummary(userId, centerId);
+            fetchInProgress.current = true;
+
+            try {
+                await fetchStudentData(userId, centerId);
+                lastFetchedCenter.current = centerId;
+            } catch (err) {
+                console.error('[StudentFeesDashboard] Fetch error:', err);
+            } finally {
+                fetchInProgress.current = false;
+                setIsInitialLoad(false);
+            }
         };
 
         fetchData();
-    }, [userId, centerId, setFilters, fetchCoachingCenterReceipts, fetchStudentSummary]);
+        console.log('Fetching data for center:', fetchData());
 
-    // Mark data as ready when store has updated for current center
-    useEffect(() => {
-        if (currentCoachingCenterId === centerId && !isLoading) {
-            setIsDataReady(true);
-        }
-    }, [currentCoachingCenterId, centerId, isLoading]);
+        // Cleanup when centerId changes
+        return () => {
+            if (activeCenterId.current !== centerId) {
+                lastFetchedCenter.current = null;
+            }
+        };
+    }, [userId, centerId]); // Remove store methods from dependencies
 
-    // Wait before showing "no receipts" message (only when data is ready)
+    // Show "no receipts" message after data loads
     useEffect(() => {
-        if (isDataReady && !isLoading && receipts.length === 0) {
+        if (!isInitialLoad && !isLoading && receipts.length === 0 && currentCoachingCenterId === centerId) {
             const timer = setTimeout(() => {
                 setShowNoReceipts(true);
             }, 100);
@@ -115,37 +127,31 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         } else {
             setShowNoReceipts(false);
         }
-    }, [isDataReady, isLoading, receipts.length]);
+    }, [isInitialLoad, isLoading, receipts.length, currentCoachingCenterId, centerId]);
 
     // Clean up on unmount
     useEffect(() => {
         return () => {
             clearFilters();
+            lastFetchedCenter.current = null;
         };
-    }, [clearFilters]);
+    }, []);
 
-    // Filter receipts by selected status and coaching center
-    // IMPORTANT: Only return data when we're sure it's for the current center
-    const filteredReceipts = useMemo(() => {
-        // Safety check: Don't show receipts if:
-        // 1. Data isn't ready for current center
-        // 2. Store's center doesn't match component's center
-        // 3. Still loading
-        if (!isDataReady || currentCoachingCenterId !== centerId || isLoading) {
+    // Only show receipts that belong to the current center
+    const centerReceipts = useMemo(() => {
+        // Don't show any data if:
+        // 1. Still on initial load
+        // 2. Center doesn't match
+        // 3. Store's center doesn't match component's center
+        if (isInitialLoad || activeCenterId.current !== centerId || currentCoachingCenterId !== centerId) {
             return [];
         }
 
-        // First, filter by coaching center (using branch from receipt)
-        // Since students can be enrolled in multiple centers, we need to filter
-        // receipts that belong to branches of the current coaching center
-        const centerReceipts = receipts.filter(receipt => {
-            // The receipt should have the branch info
-            // We'll match by checking if the receipt's coaching_center matches
-            // For now, we rely on the API filtering - but this is an extra safety check
-            return true; // API should already filter by student_id
-        });
+        return receipts;
+    }, [receipts, centerId, currentCoachingCenterId, isInitialLoad]);
 
-        // Then filter by selected status
+    // Filter receipts by selected status
+    const filteredReceipts = useMemo(() => {
         if (selectedStatus === 'ALL') {
             return centerReceipts;
         }
@@ -155,15 +161,17 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         }
 
         return centerReceipts.filter(receipt => receipt.receipt_status === selectedStatus);
-    }, [receipts, selectedStatus, isDataReady, currentCoachingCenterId, centerId]);
+    }, [centerReceipts, selectedStatus]);
 
-    // Calculate overdue count for filter badge (only when data is ready)
+    // Calculate overdue count for filter badge
     const overdueCount = useMemo(() => {
-        if (!isDataReady || currentCoachingCenterId !== centerId) {
+        if (isInitialLoad || currentCoachingCenterId !== centerId) {
             return 0;
         }
-        return receipts.filter(receipt => isOverdue(receipt.due_date, receipt.receipt_status)).length;
-    }, [receipts, isDataReady, currentCoachingCenterId, centerId]);
+        return centerReceipts.filter(receipt =>
+            isOverdue(receipt.due_date, receipt.receipt_status)
+        ).length;
+    }, [centerReceipts, isInitialLoad, currentCoachingCenterId, centerId]);
 
     // Handler: Change status filter
     const handleStatusChange = useCallback((status: ReceiptStatus | 'ALL' | 'OVERDUE') => {
@@ -183,17 +191,23 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
     }, []);
 
     // Handler: Refresh data
-    const handleRefresh = useCallback(() => {
-        if (userId && centerId) {
-            fetchCoachingCenterReceipts(centerId);
-            fetchStudentSummary(userId, centerId);
-        }
-    }, [userId, centerId, fetchCoachingCenterReceipts, fetchStudentSummary]);
+    const handleRefresh = useCallback(async () => {
+        if (!userId || !centerId || fetchInProgress.current) return;
 
-    // Loading skeleton state - show when:
-    // 1. Initial loading with no data
-    // 2. Data isn't ready for current center (prevents flash of stale data)
-    const showLoadingSkeleton = !isDataReady || (isLoading && receipts.length === 0);
+        fetchInProgress.current = true;
+
+        try {
+            await fetchStudentData(userId, centerId);
+            lastFetchedCenter.current = centerId;
+        } catch (err) {
+            console.error('[StudentFeesDashboard] Refresh error:', err);
+        } finally {
+            fetchInProgress.current = false;
+        }
+    }, [userId, centerId, fetchStudentData]);
+
+    // Show loading skeleton only on initial load or when center changes
+    const showLoadingSkeleton = isInitialLoad || (isLoading && centerReceipts.length === 0);
 
     if (showLoadingSkeleton) {
         return (
@@ -228,14 +242,19 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
     }
 
     // Error state
-    if (error && receipts.length === 0) {
+    if (error && centerReceipts.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-16">
                 <Alert variant="destructive" className="max-w-md mb-4">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
-                <Button variant="outline" onClick={handleRefresh} className="gap-2">
+                <Button
+                    variant="outline"
+                    onClick={handleRefresh}
+                    className="gap-2"
+                    disabled={fetchInProgress.current}
+                >
                     <RefreshCw className="h-4 w-4" />
                     Try Again
                 </Button>
@@ -243,8 +262,8 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         );
     }
 
-    // No receipts state (after loading)
-    if (showNoReceipts && receipts.length === 0) {
+    // No receipts state
+    if (showNoReceipts && centerReceipts.length === 0) {
         return (
             <div className="space-y-6">
                 {/* Header */}
@@ -296,11 +315,10 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
                         variant="outline"
                         size="sm"
                         onClick={handleRefresh}
-                        loading={isLoading}
-                        loadingText="Refreshing..."
+                        disabled={fetchInProgress.current || isLoading}
                         className="gap-2"
                     >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
                 </div>
@@ -332,7 +350,7 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
             <FeeReceiptList
                 receipts={filteredReceipts}
                 onViewDetails={handleViewDetails}
-                isLoading={isLoading && receipts.length === 0}
+                isLoading={false}
                 error={error}
                 onRefresh={handleRefresh}
             />
