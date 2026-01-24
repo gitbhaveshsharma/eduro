@@ -92,7 +92,6 @@ export function Sidebar({
                         "lg:hidden" // Hide overlay on desktop
                     )}
                     onClick={() => collapsible && onOpenChange(false)}
-                    aria-hidden="true"
                     // Forward wheel events to allow scrolling the underlying page
                     onWheel={(e) => {
                         // Prevent the overlay from swallowing the wheel; scroll the window instead
@@ -141,7 +140,7 @@ export function Sidebar({
                     marginTop: '64px', // Account for header height
                 }}
                 aria-label={`${position} sidebar`}
-                aria-hidden={!open}
+                inert={!open ? "" : undefined}
             >
                 {/* Sidebar header - Only show on mobile/tablet */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">

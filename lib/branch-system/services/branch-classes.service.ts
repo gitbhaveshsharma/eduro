@@ -1132,11 +1132,11 @@ export class BranchClassesService {
                     ? rawAttendance * 100
                     : rawAttendance;
 
-                console.log('🔍 [getStudentEnrollmentsByCenter] Attendance conversion:', {
-                    raw: rawAttendance,
-                    converted: attendance_percentage,
-                    classId: row.class_id
-                });
+                // console.log('🔍 [getStudentEnrollmentsByCenter] Attendance conversion:', {
+                //     raw: rawAttendance,
+                //     converted: attendance_percentage,
+                //     classId: row.class_id
+                // });
 
                 return {
                     enrollment_id: row.enrollment_id,

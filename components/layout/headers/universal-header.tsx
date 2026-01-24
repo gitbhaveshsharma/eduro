@@ -288,13 +288,16 @@ export function UniversalHeader({
                             <div className="flex items-center gap-3 min-w-0 flex-1">
                                 {/* Logo */}
                                 {effectiveBranding.logoUrl ? (
-                                    <div className="relative h-9 w-9 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
+                                    <div className="relative h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden bg-gray-100">
                                         <Image
-                                            src={effectiveBranding.logoUrl}
-                                            alt={effectiveBranding.name}
-                                            fill
-                                            className="object-cover"
-                                        />
+  src={effectiveBranding.logoUrl}
+  alt={effectiveBranding.name}
+  fill
+  sizes="(max-width: 768px) 72px, 56px"
+  className="object-cover"
+  quality={100}
+/>
+
                                     </div>
                                 ) : (
                                     <div className="h-9 w-9 flex-shrink-0 rounded-lg bg-primary/10 flex items-center justify-center">

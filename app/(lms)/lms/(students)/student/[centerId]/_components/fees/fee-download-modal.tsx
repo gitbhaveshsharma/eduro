@@ -27,11 +27,10 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Download, AlertCircle, FileText } from 'lucide-react';
+import { Download, FileText } from 'lucide-react';
 import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import { useFeeReceiptsStore } from '@/lib/branch-system/stores/fee-receipts.store';
-import { formatCurrency, formatDate, formatReceiptStatus } from '@/lib/branch-system/utils/fee-receipts.utils';
-import type { FeeReceipt } from '@/lib/branch-system/types/fee-receipts.types';
+import { formatDate, formatReceiptStatus } from '@/lib/branch-system/utils/fee-receipts.utils';
 import { CoachingAPI } from '@/lib/coaching';
 import type { CoachingCenter } from '@/lib/schema/coaching.types';
 import jsPDF from 'jspdf';
