@@ -751,14 +751,14 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         description: 'View your assignments and quizzes',
         roles: ['S'],
     },
-    {
-        id: 'calendar',
-        label: 'Schedule',
-        icon: Calendar,
-        href: 'calendar',
-        description: 'Class schedule and events',
-        roles: ['S'],
-    },
+    // {
+    //     id: 'calendar',
+    //     label: 'Schedule',
+    //     icon: Calendar,
+    //     href: 'calendar',
+    //     description: 'Class schedule and events',
+    //     roles: ['S'],
+    // },
     {
         id: 'attendance',
         label: 'Attendance',

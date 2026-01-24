@@ -158,14 +158,14 @@ export function ConditionalLayout({
                             onSidebarToggle={() => setSidebarOpen(!sidebarOpen)}
                             items={customHeaderItems} // Pass custom header items if provided
                             onNavigationClick={(item) => {
-                                console.log('Navigation item clicked:', item);
+                                // console.log('Navigation item clicked:', item);
                             }}
                         />
                     ) : (
                         <ConditionalHeader
                             config={config}
                             onNavigationClick={(item) => {
-                                console.log('Navigation item clicked:', item);
+                                // console.log('Navigation item clicked:', item);
                             }}
                         />
                     )}
@@ -177,21 +177,21 @@ export function ConditionalLayout({
                 // Show sidebar only if devices array is not specified, or current device is in the array
                 !config.sidebar.devices || config.sidebar.devices.includes(config.device)
             ) && (
-                <Sidebar
-                    open={sidebarOpen}
-                    onOpenChange={setSidebarOpen}
-                    config={config.sidebar}
-                    items={sidebarItems}
-                    title={
-                        config.page === 'settings' ? 'Settings' :
-                            config.page === 'lms-branch-manager' ? 'Branch Manager' :
-                                config.page === 'lms-coach' ? 'Coaching Center' :
-                                    config.page === 'lms-student' ? 'Student Portal' :
-                                        config.page === 'lms-teacher' ? 'Teacher Portal' :
-                                            'Menu'
-                    }
-                />
-            )}
+                    <Sidebar
+                        open={sidebarOpen}
+                        onOpenChange={setSidebarOpen}
+                        config={config.sidebar}
+                        items={sidebarItems}
+                        title={
+                            config.page === 'settings' ? 'Settings' :
+                                config.page === 'lms-branch-manager' ? 'Branch Manager' :
+                                    config.page === 'lms-coach' ? 'Coaching Center' :
+                                        config.page === 'lms-student' ? 'Student Portal' :
+                                            config.page === 'lms-teacher' ? 'Teacher Portal' :
+                                                'Menu'
+                        }
+                    />
+                )}
 
             {/* Main Content Area with proper spacing */}
             <main className={cn(

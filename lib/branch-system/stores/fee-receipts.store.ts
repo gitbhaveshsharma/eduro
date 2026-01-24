@@ -168,8 +168,9 @@ export interface FeeReceiptsState {
 
     /**
      * Fetch student payment summary
+     * @param coachingCenterId - Optional coaching center ID to filter summary
      */
-    fetchStudentSummary: (studentId: string) => Promise<StudentPaymentSummary | null>;
+    fetchStudentSummary: (studentId: string, coachingCenterId?: string) => Promise<StudentPaymentSummary | null>;
 
     /**
      * Fetch branch revenue statistics
@@ -519,13 +520,13 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
 
                 fetchReceipts: async () => {
                     const { currentBranchId, currentCoachingCenterId } = get();
-                    
+
                     // Route to appropriate fetch method based on context
                     if (currentCoachingCenterId) {
                         await get().fetchCoachingCenterReceipts(currentCoachingCenterId);
                         return;
                     }
-                    
+
                     if (currentBranchId) {
                         await get().fetchBranchReceipts(currentBranchId);
                         return;
@@ -650,14 +651,14 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                     }
                 },
 
-                fetchStudentSummary: async (studentId: string) => {
+                fetchStudentSummary: async (studentId: string, coachingCenterId?: string) => {
                     set((state) => {
                         state.isFetchingSummary = true;
                         state.error = null;
                     });
 
                     try {
-                        const result = await feeReceiptsService.getStudentSummary(studentId);
+                        const result = await feeReceiptsService.getStudentSummary(studentId, coachingCenterId);
 
                         if (result.success && result.data) {
                             set((state) => {
