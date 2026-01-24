@@ -18,6 +18,7 @@ import { getSubjectImage } from '@/lib/utils/subject-assets';
 interface UpcomingClassCardProps {
     classData: UpcomingClass;
     onStart?: (classId: string) => void;
+    priority?: boolean; // Add priority for LCP optimization on first card
 }
 
 // Fallback gradient backgrounds for when images are loading/missing
@@ -56,7 +57,7 @@ const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: stri
     }
 };
 
-export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps) {
+export function UpcomingClassCard({ classData, onStart, priority = false }: UpcomingClassCardProps) {
     const [starting, setStarting] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -96,19 +97,20 @@ export function UpcomingClassCard({ classData, onStart }: UpcomingClassCardProps
                     )}
                 >
                     {/* Subject Image from public/subject folder */}
-                    <Image
-                        src={subjectImagePath}
-                        alt={`${classData.subject.name} class`}
-                        fill
-                        className={cn(
-                            "object-cover transition-opacity duration-300",
-                            imageLoaded ? "opacity-100" : "opacity-0"
-                        )}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={false}
-                        onLoad={() => setImageLoaded(true)}
-                        onError={() => setImageLoaded(true)} // Still show gradient if image fails
-                    />
+                   <Image
+  src={subjectImagePath}
+  alt={`${classData.subject.name} class`}
+  fill
+  className={cn(
+    "object-cover transition-opacity duration-300",
+    imageLoaded ? "opacity-100" : "opacity-0"
+  )}
+  sizes="(max-width: 768px) 100vw, 50vw"
+  priority={priority}
+  onLoad={() => setImageLoaded(true)}
+  onError={() => setImageLoaded(true)}
+/>
+
 
                     {/* Gradient background - visible while image loads */}
                     {!imageLoaded && (
@@ -239,11 +241,12 @@ export function UpcomingClasses({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {classes.slice(0, 2).map((classItem) => (
+                {classes.slice(0, 2).map((classItem, index) => (
                     <UpcomingClassCard
                         key={classItem.id}
                         classData={classItem}
                         onStart={onStartClass}
+                        priority={index === 0}
                     />
                 ))}
             </div>

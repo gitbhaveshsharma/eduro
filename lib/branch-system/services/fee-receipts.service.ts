@@ -26,6 +26,7 @@ import type {
     PaymentRecordingResult,
     BulkGenerationResult,
     StudentPaymentSummary,
+    StudentReceiptsWithSummary,
     BranchRevenueStats,
 } from '../types/fee-receipts.types';
 import {
@@ -121,7 +122,7 @@ class FeeReceiptsService {
             metadata: {},
             created_at: viewRow.created_at,
             updated_at: viewRow.updated_at,
-            
+
             // Nested objects from view
             student: {
                 id: viewRow.student_id,
@@ -150,9 +151,9 @@ class FeeReceiptsService {
      */
     private transformReceiptFromTable(rawReceipt: any): FeeReceipt {
         const { class_enrollments, coaching_branches, ...receipt } = rawReceipt;
-        
+
         const branchStudent = class_enrollments?.branch_students;
-        
+
         return {
             ...receipt,
             student: branchStudent ? {
@@ -373,7 +374,7 @@ class FeeReceiptsService {
             if (data.internal_notes) {
                 const existingNotes = currentReceipt.internal_notes;
                 const timestamp = new Date().toISOString();
-                updateData.internal_notes = existingNotes 
+                updateData.internal_notes = existingNotes
                     ? `${existingNotes}\n[${timestamp}] Payment recorded: ${data.internal_notes}`
                     : `[${timestamp}] Payment recorded: ${data.internal_notes}`;
             }
@@ -483,7 +484,7 @@ class FeeReceiptsService {
 
             // Prepare update data
             const updateData: any = {};
-            
+
             if (data.due_date) updateData.due_date = data.due_date;
             if (data.base_fee_amount !== undefined) updateData.base_fee_amount = data.base_fee_amount;
             if (data.late_fee_amount !== undefined) updateData.late_fee_amount = data.late_fee_amount;
@@ -497,13 +498,13 @@ class FeeReceiptsService {
             if (data.fee_period_end !== undefined) updateData.fee_period_end = data.fee_period_end;
 
             // Recalculate total if fee amounts changed
-            if (data.base_fee_amount !== undefined || data.late_fee_amount !== undefined || 
+            if (data.base_fee_amount !== undefined || data.late_fee_amount !== undefined ||
                 data.discount_amount !== undefined || data.tax_amount !== undefined) {
                 const base = data.base_fee_amount ?? currentReceipt.base_fee_amount;
                 const late = data.late_fee_amount ?? currentReceipt.late_fee_amount;
                 const discount = data.discount_amount ?? currentReceipt.discount_amount;
                 const tax = data.tax_amount ?? currentReceipt.tax_amount;
-                
+
                 updateData.total_amount = calculateTotalAmount(base, late, discount, tax);
                 updateData.balance_amount = calculateBalance(
                     updateData.total_amount,
@@ -953,17 +954,79 @@ class FeeReceiptsService {
     }
 
     /**
-     * ✅ UPDATED: Get student payment summary using view
+     * UPDATED: Get student payment summary using view
+     * Optionally filter by coaching center to get center-specific summary
      */
     public async getStudentSummary(
-        studentId: string
-    ): Promise<FeeReceiptOperationResult<StudentPaymentSummary>> {
+        studentId: string,
+        coachingCenterId?: string
+    ): Promise<FeeReceiptOperationResult<StudentReceiptsWithSummary>> {
         try {
-            // Fetch all receipts for student using view
+            // Early return if no coaching center specified
+            if (!coachingCenterId) {
+                console.warn('[FeeReceiptsService] coachingCenterId required - skipping query');
+                return {
+                    success: true,
+                    data: {
+                        receipts: [],
+                        summary: {
+                            student_id: studentId,
+                            total_receipts: 0,
+                            total_amount_due: 0,
+                            total_amount_paid: 0,
+                            total_outstanding: 0,
+                            paid_receipts: 0,
+                            pending_receipts: 0,
+                            overdue_receipts: 0,
+                            next_due_date: null,
+                        },
+                    },
+                };
+            }
+
+            // Get branch IDs for the coaching center
+            const { data: branches, error: branchError } = await this.supabase
+                .from('coaching_branches')
+                .select('id')
+                .eq('coaching_center_id', coachingCenterId);
+
+            if (branchError) {
+                console.error('[FeeReceiptsService] Get branches error:', branchError);
+                return {
+                    success: false,
+                    error: branchError.message || 'Failed to fetch branches',
+                };
+            }
+
+            if (!branches || branches.length === 0) {
+                // No branches for this coaching center
+                return {
+                    success: true,
+                    data: {
+                        receipts: [],
+                        summary: {
+                            student_id: studentId,
+                            total_receipts: 0,
+                            total_amount_due: 0,
+                            total_amount_paid: 0,
+                            total_outstanding: 0,
+                            paid_receipts: 0,
+                            pending_receipts: 0,
+                            overdue_receipts: 0,
+                            next_due_date: null,
+                        },
+                    },
+                };
+            }
+
+            const branchIds = branches.map((b: { id: string }) => b.id);
+
+            // Fetch receipts for student in these branches only
             const { data: receipts, error } = await this.supabase
                 .from('fee_receipt_details')
                 .select('*')
-                .eq('student_id', studentId);
+                .eq('student_id', studentId)
+                .in('branch_id', branchIds);
 
             if (error) {
                 console.error('[FeeReceiptsService] Get student summary error:', error);
@@ -977,26 +1040,32 @@ class FeeReceiptsService {
                 return {
                     success: true,
                     data: {
-                        student_id: studentId,
-                        total_receipts: 0,
-                        total_amount_due: 0,
-                        total_amount_paid: 0,
-                        total_outstanding: 0,
-                        paid_receipts: 0,
-                        pending_receipts: 0,
-                        overdue_receipts: 0,
-                        next_due_date: null,
+                        receipts: [],
+                        summary: {
+                            student_id: studentId,
+                            total_receipts: 0,
+                            total_amount_due: 0,
+                            total_amount_paid: 0,
+                            total_outstanding: 0,
+                            paid_receipts: 0,
+                            pending_receipts: 0,
+                            overdue_receipts: 0,
+                            next_due_date: null,
+                        },
                     },
                 };
             }
 
-            // Calculate summary
+            // Transform receipts and calculate summary
             const transformedReceipts = this.transformReceiptsFromView(receipts);
             const summary = calculateStudentSummary(transformedReceipts);
 
             return {
                 success: true,
-                data: summary,
+                data: {
+                    receipts: transformedReceipts,
+                    summary,
+                },
             };
 
         } catch (error) {
@@ -1007,6 +1076,7 @@ class FeeReceiptsService {
             };
         }
     }
+
 
     /**
      * ✅ UPDATED: Get branch revenue statistics using view

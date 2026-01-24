@@ -376,6 +376,15 @@ export interface StudentPaymentSummary {
 }
 
 /**
+ * Combined student data (receipts + summary)
+ * Returned by getStudentSummary to avoid duplicate API calls
+ */
+export interface StudentReceiptsWithSummary {
+    receipts: FeeReceipt[];
+    summary: StudentPaymentSummary;
+}
+
+/**
  * Branch revenue statistics
  */
 export interface BranchRevenueStats {

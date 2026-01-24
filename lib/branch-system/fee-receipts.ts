@@ -326,7 +326,7 @@ export const useFeeReceiptActions = () => {
         deleteReceipt: store.deleteReceipt,
         fetchReceipts: store.fetchReceipts,
         fetchReceiptById: store.fetchReceiptById,
-        fetchStudentSummary: store.fetchStudentSummary,
+        fetchStudentData: store.fetchStudentData,
         fetchBranchStats: store.fetchBranchStats,
         refresh: store.refresh,
     };
