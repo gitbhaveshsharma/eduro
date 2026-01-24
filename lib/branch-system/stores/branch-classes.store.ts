@@ -625,10 +625,10 @@ export const useBranchClassesStore = create<BranchClassesState>()(
                 // Check if cache is still valid
                 const age = Date.now() - cache.timestamp;
                 if (age >= CACHE_TTL) {
-                    console.log('⚠️ [getUpcomingClasses] Cache expired:', {
-                        studentId,
-                        age: Math.round(age / 1000) + 's',
-                    });
+                    // console.log('⚠️ [getUpcomingClasses] Cache expired:', {
+                    //     studentId,
+                    //     age: Math.round(age / 1000) + 's',
+                    // });
                     return null;
                 }
 

@@ -1020,7 +1020,7 @@ export class BranchClassesService {
         studentId: string
     ): Promise<BranchClassOperationResult<UpcomingClassData[]>> {
         try {
-            console.log('🔵 [getUpcomingClasses] Fetching upcoming classes for student:', studentId);
+            // console.log('🔵 [getUpcomingClasses] Fetching upcoming classes for student:', studentId);
 
             // Call the RPC function
             const { data, error } = await this.supabase

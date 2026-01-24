@@ -97,19 +97,20 @@ export function UpcomingClassCard({ classData, onStart, priority = false }: Upco
                     )}
                 >
                     {/* Subject Image from public/subject folder */}
-                    <Image
-                        src={subjectImagePath}
-                        alt={`${classData.subject.name} class`}
-                        fill
-                        className={cn(
-                            "object-cover transition-opacity duration-300",
-                            imageLoaded ? "opacity-100" : "opacity-0"
-                        )}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={priority}
-                        onLoad={() => setImageLoaded(true)}
-                        onError={() => setImageLoaded(true)} // Still show gradient if image fails
-                    />
+                   <Image
+  src={subjectImagePath}
+  alt={`${classData.subject.name} class`}
+  fill
+  className={cn(
+    "object-cover transition-opacity duration-300",
+    imageLoaded ? "opacity-100" : "opacity-0"
+  )}
+  sizes="(max-width: 768px) 100vw, 50vw"
+  priority={priority}
+  onLoad={() => setImageLoaded(true)}
+  onError={() => setImageLoaded(true)}
+/>
+
 
                     {/* Gradient background - visible while image loads */}
                     {!imageLoaded && (
