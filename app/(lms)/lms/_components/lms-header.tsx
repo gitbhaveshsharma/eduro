@@ -4,7 +4,7 @@ import { memo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Bell, Home } from 'lucide-react';
+import { ArrowLeft, Bell, Home, Plus } from 'lucide-react';
 import { UserAvatar } from '@/components/avatar';
 import { useCurrentProfile } from '@/lib/profile';
 
@@ -33,6 +33,9 @@ export const LMSHeader = memo(({
     const handleHome = useCallback(() => {
         router.push('/dashboard');
     }, [router]);
+    const handleFeed = useCallback(() => {
+        router.push('/feed');
+    }, [router]);
 
     const handleNotifications = useCallback(() => {
         if (onNotificationClick) {
@@ -55,12 +58,13 @@ export const LMSHeader = memo(({
                             onClick={handleBack}
                             className="h-10 w-full p-0 hover:bg-gray-100 rounded-lg"
                             aria-label="Go back"
+                            loading={typeof onBackClick === 'function' && !onBackClick}
                         >
-                            <ArrowLeft className="h-5 w-5" /> Back
+                            <ArrowLeft className="h-5 w-5" />
                         </Button>
                     </div>
 
-                    <div className="flex items-center justify-center flex-grow">
+                    <div className="flex  flex-grow">
                         <h1 className="text-lg font-semibold">Tutrsy LMS</h1>
                     </div>
 
@@ -73,7 +77,14 @@ export const LMSHeader = memo(({
                         >
                             <Home className="h-5 w-5" /> Home
                         </Button>
-
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleFeed}
+                            className="h-10 p-0 hover:bg-gray-100 rounded-lg"
+                        >
+                            <Plus className="h-5 w-5" /> Feed
+                        </Button>
                         <Button
                             variant="ghost"
                             size="sm"

@@ -2,31 +2,23 @@ import {
     Home,
     BookOpen,
     Users,
-    MessageCircle,
-    Bell,
-    User,
     Settings,
     Search,
     Plus,
     Calendar,
     FileText,
-    Award,
     BarChart3,
     Filter,
-    UserPlus,
     Heart,
     TrendingUp,
-    Menu,
-    X,
     Building2,
     UserCog,
     LayoutDashboard,
     GraduationCap,
     DollarSign,
-    ArrowLeft,
     SquareLibrary,
-    MapPin,
-    Users2
+    Users2,
+    CalendarCheck
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
@@ -543,7 +535,7 @@ export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'Track student attendance',
     },
@@ -591,7 +583,7 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'student-attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: '/lms/coach/student-attendance',
         description: 'Track attendance across branches',
     },
@@ -645,7 +637,7 @@ export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Users,
+        icon: CalendarCheck,
         href: '/lms/student/attendance',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -679,19 +671,19 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
             pages: ['lms-student']
         }
     },
-    {
-        id: 'classes',
-        label: 'Classes',
-        icon: BookOpen,
-        action: {
-            type: 'navigate',
-            href: '/lms/student/classes'
-        },
-        showOn: {
-            devices: ['tablet', 'mobile'],
-            pages: ['lms-student']
-        }
-    },
+    // {
+    //     id: 'classes',
+    //     label: 'Classes',
+    //     icon: BookOpen,
+    //     action: {
+    //         type: 'navigate',
+    //         href: '/lms/student/classes'
+    //     },
+    //     showOn: {
+    //         devices: ['tablet', 'mobile'],
+    //         pages: ['lms-student']
+    //     }
+    // },
     {
         id: 'feed',
         label: 'Feed',
@@ -714,7 +706,7 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
             href: '/lms'
         },
         showOn: {
-            devices: ['desktop'],
+            devices: ['desktop', 'tablet', 'mobile'],
             pages: ['lms-student']
         }
     }
@@ -754,7 +746,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
     // {
     //     id: 'calendar',
     //     label: 'Schedule',
-    //     icon: Calendar,
+    //     icon: CalendarCheck,
     //     href: 'calendar',
     //     description: 'Class schedule and events',
     //     roles: ['S'],
@@ -762,7 +754,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Users,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'View your attendance record',
         roles: ['S'],
@@ -818,7 +810,7 @@ export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: '/lms/teacher/attendance',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -944,7 +936,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'Mark and view attendance',
         roles: ['T'],

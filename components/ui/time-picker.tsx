@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/popover";
 
 export interface TimePickerProps {
-    value?: string; // Format: "hh:mm AM/PM"
+    value?: string; // Format: "hh:mm AM/PM" or "HH:mm" depending on outputFormat
     onChange?: (value: string) => void;
     label?: string;
     placeholder?: string;
@@ -20,6 +20,7 @@ export interface TimePickerProps {
     inputClassName?: string;
     error?: string;
     required?: boolean;
+    outputFormat?: '12h' | '24h'; // Output format: 12-hour (default) or 24-hour
 }
 
 interface TimeComponents {
@@ -63,6 +64,44 @@ const parseTime = (value?: string): TimeComponents => {
  */
 const formatTime = (components: TimeComponents): string => {
     return `${components.hours}:${components.minutes} ${components.period}`;
+};
+
+/**
+ * Convert 12-hour time to 24-hour format
+ */
+const convertTo24Hour = (components: TimeComponents): string => {
+    let hours = parseInt(components.hours, 10);
+    const minutes = components.minutes;
+    const period = components.period;
+
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+};
+
+/**
+ * Parse 24-hour time string into components
+ */
+const parse24HourTime = (time24h: string): TimeComponents => {
+    const match = time24h.match(/^(\d{1,2}):(\d{2})$/);
+    if (!match) {
+        return { hours: "12", minutes: "00", period: "AM" };
+    }
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = hours >= 12 ? "PM" : "AM";
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+
+    return {
+        hours: String(displayHours).padStart(2, "0"),
+        minutes,
+        period,
+    };
 };
 
 /**
@@ -131,20 +170,40 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             inputClassName,
             error,
             required,
+            outputFormat = '12h', // Default to 12-hour format for backward compatibility
         },
         ref
     ) => {
         const [open, setOpen] = React.useState(false);
         const [internalValue, setInternalValue] = React.useState(value || "");
-        const [components, setComponents] = React.useState<TimeComponents>(
-            parseTime(value)
-        );
+        const [components, setComponents] = React.useState<TimeComponents>(() => {
+            // Parse input value based on format
+            if (!value) return { hours: "12", minutes: "00", period: "AM" };
+
+            // Check if it's 24-hour format (HH:mm)
+            if (outputFormat === '24h' || value.match(/^\d{1,2}:\d{2}$/)) {
+                return parse24HourTime(value);
+            }
+
+            // Otherwise parse as 12-hour format
+            return parseTime(value);
+        });
         const [inputError, setInputError] = React.useState("");
 
         // Update internal state when value prop changes
         React.useEffect(() => {
             if (value !== undefined) {
-                const parsed = parseTime(value);
+                let parsed: TimeComponents;
+
+                // Parse based on input format
+                if (value.match(/^\d{1,2}:\d{2}$/)) {
+                    // 24-hour format
+                    parsed = parse24HourTime(value);
+                } else {
+                    // 12-hour format
+                    parsed = parseTime(value);
+                }
+
                 const normalized = normalizeTime(parsed);
                 setInternalValue(formatTime(normalized));
                 setComponents(normalized);
@@ -170,7 +229,10 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             setComponents(newComponents);
             const formatted = formatTime(newComponents);
             setInternalValue(formatted);
-            onChange?.(formatted);
+
+            // Output in requested format
+            const output = outputFormat === '24h' ? convertTo24Hour(newComponents) : formatted;
+            onChange?.(output);
         };
 
         const handleMinuteChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,7 +253,10 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             setComponents(newComponents);
             const formatted = formatTime(newComponents);
             setInternalValue(formatted);
-            onChange?.(formatted);
+
+            // Output in requested format
+            const output = outputFormat === '24h' ? convertTo24Hour(newComponents) : formatted;
+            onChange?.(output);
         };
 
         const handlePeriodChange = (period: "AM" | "PM") => {
@@ -200,7 +265,10 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             setComponents(newComponents);
             const formatted = formatTime(newComponents);
             setInternalValue(formatted);
-            onChange?.(formatted);
+
+            // Output in requested format
+            const output = outputFormat === '24h' ? convertTo24Hour(newComponents) : formatted;
+            onChange?.(output);
         };
 
         const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -211,7 +279,7 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
 
         const handleInputBlur = () => {
             if (!internalValue.trim()) {
-                const newComponents = { hours: "12", minutes: "00", period: "AM" };
+                const newComponents: TimeComponents = { hours: "12", minutes: "00", period: "AM" };
                 setComponents(newComponents);
                 setInputError("");
                 onChange?.("");
@@ -231,7 +299,10 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             setInputError("");
             setInternalValue(formatted);
             setComponents(normalized);
-            onChange?.(formatted);
+
+            // Output in requested format
+            const output = outputFormat === '24h' ? convertTo24Hour(normalized) : formatted;
+            onChange?.(output);
         };
 
         const handleClear = () => {
@@ -256,7 +327,10 @@ export const TimePicker = React.forwardRef<HTMLInputElement, TimePickerProps>(
             setComponents(newComponents);
             const formatted = formatTime(newComponents);
             setInternalValue(formatted);
-            onChange?.(formatted);
+
+            // Output in requested format
+            const output = outputFormat === '24h' ? convertTo24Hour(newComponents) : formatted;
+            onChange?.(output);
         };
 
         return (

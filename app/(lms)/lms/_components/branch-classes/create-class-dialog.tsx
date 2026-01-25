@@ -68,6 +68,7 @@ import { AvatarUtils } from '@/lib/utils/avatar.utils';
 
 // Convert 12-hour AM/PM format to 24-hour HH:mm format for form submission
 function convert12to24Hour(time12h: string): string {
+    if (!time12h || !time12h.trim()) return '';
     const match = time12h.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
     if (!match) return '';
 

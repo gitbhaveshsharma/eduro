@@ -1,8 +1,15 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
-import { MapPin, Star, Calendar, X, Search, Filter } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { MapPin, Star, Calendar, X, Search, SlidersHorizontal } from 'lucide-react';
+import {
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetFooter,
+    SheetDescription,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -11,7 +18,6 @@ import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
-import { CoachingFilterUtils } from '@/lib/utils/coaching.utils';
 import type { CoachingCenterFilters } from '@/lib/schema/coaching.types';
 
 interface CoachingFiltersPanelProps {
@@ -37,24 +43,14 @@ export function CoachingFiltersPanel({
     });
 
     const [subjectInput, setSubjectInput] = useState('');
-    const [isAnimating, setIsAnimating] = useState(false);
     const [isMobileDevice, setIsMobileDevice] = useState(false);
 
-    // Animation handling
-    useEffect(() => {
-        if (isOpen) {
-            setIsAnimating(true);
-            const timer = setTimeout(() => setIsAnimating(false), 300);
-            return () => clearTimeout(timer);
-        }
-    }, [isOpen]);
-
-    // Detect mobile viewport so we only auto-close the panel on mobile/tablet
+    // Detect mobile viewport
     useEffect(() => {
         const updateIsMobile = () => {
             if (typeof window === 'undefined') return;
-            // Tailwind 'lg' breakpoint is 1024px. Treat widths below that as mobile/tablet.
-            setIsMobileDevice(window.innerWidth < 1024);
+            // Mobile breakpoint at 768px
+            setIsMobileDevice(window.innerWidth < 768);
         };
 
         updateIsMobile();
@@ -85,8 +81,6 @@ export function CoachingFiltersPanel({
         }
 
         onFiltersChange(newFilters);
-        // Close panel on mobile after applying filters to avoid user confusion
-        if (onClose && isMobileDevice) onClose();
     }, [filters, locationInput, onFiltersChange]);
 
     const handleNearMe = useCallback(() => {
@@ -103,7 +97,6 @@ export function CoachingFiltersPanel({
                     longitude: position.coords.longitude,
                     radius_meters: 10000
                 });
-                if (onClose && isMobileDevice) onClose();
             },
             (error) => {
                 console.error('Error getting location:', error);
@@ -118,7 +111,6 @@ export function CoachingFiltersPanel({
             min_rating: value[0],
             max_rating: value[1]
         });
-        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleDaysAgoChange = useCallback((value: string) => {
@@ -132,7 +124,6 @@ export function CoachingFiltersPanel({
         }
 
         onFiltersChange(newFilters);
-        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleSubjectAdd = useCallback(() => {
@@ -144,7 +135,6 @@ export function CoachingFiltersPanel({
                 ...filters,
                 subjects: [...currentSubjects, subjectInput.trim()]
             });
-            if (onClose && isMobileDevice) onClose();
         }
         setSubjectInput('');
     }, [filters, subjectInput, onFiltersChange]);
@@ -155,14 +145,12 @@ export function CoachingFiltersPanel({
             ...filters,
             subjects: currentSubjects.filter(s => s !== subject)
         });
-        if (onClose && isMobileDevice) onClose();
     }, [filters, onFiltersChange]);
 
     const handleClearAll = useCallback(() => {
         setLocationInput({ city: '', state: '', district: '' });
         setSubjectInput('');
         onFiltersChange({});
-        if (onClose && isMobileDevice) onClose();
     }, [onFiltersChange]);
 
     // Active filters count for badge
@@ -176,168 +164,323 @@ export function CoachingFiltersPanel({
         return count;
     }, [filters]);
 
-    return (
-        <>
-            {/* Mobile Overlay */}
-            {isOpen && (
-                <div
-                    className={cn(
-                        // overlay should sit above the bottom nav but below the panel
-                        "fixed inset-0 bg-background/80 backdrop-blur-sm z-50 lg:hidden transition-opacity duration-300",
-                        isAnimating ? "opacity-0" : "opacity-100"
+    // Mobile sheet content
+    const renderMobileContent = () => (
+        <div className="flex flex-col h-full">
+            <SheetHeader className="text-left pb-4 border-b">
+                <SheetTitle className="flex items-center gap-2">
+                    <SlidersHorizontal className="h-5 w-5 text-primary" />
+                    Filters
+                    {activeFiltersCount > 0 && (
+                        <Badge variant="secondary" className="px-2 py-1 text-xs font-semibold">
+                            {activeFiltersCount}
+                        </Badge>
                     )}
-                    onClick={onClose}
-                />
-            )}
+                </SheetTitle>
+                <SheetDescription>
+                    Refine your coaching center search with filters below
+                </SheetDescription>
+            </SheetHeader>
 
-            {/* Filters Panel */}
-            <Card className={cn(
-                "border-2 ",
-                // Mobile: Fixed, full height, slides from left
-                // Make panel full-width on mobile (w-full) and constrain on lg screens (lg:max-w-sm).
-                "fixed lg:sticky top-0 left-0 z-60 h-screen lg:h-[85vh] w-full lg:max-w-sm",
-                // Smooth animations for mobile
-                "transform transition-transform duration-300 ease-in-out lg:transform-none",
-                "shadow-xl lg:shadow-md",
-                // Mobile slide animation - from left instead of right
-                isOpen
-                    ? "translate-x-0"
-                    : "-translate-x-full lg:translate-x-0",
-                className
-            )}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 sticky top-0 z-10 border-b ">
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2">
-                            <Filter className="h-5 w-5 text-primary" />
-                            <CardTitle className="text-xl font-bold">Filters</CardTitle>
+            {/* Scrollable Filter Content */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-6">
+                {/* Location Filter */}
+                <div className="space-y-4">
+                    <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
+                        <MapPin className="h-5 w-5 text-blue-600" />
+                        Location
+                    </Label>
+
+                    <div className="space-y-3">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="City"
+                                value={locationInput.city}
+                                onChange={(e) => setLocationInput(prev => ({ ...prev, city: e.target.value }))}
+                                onBlur={handleLocationUpdate}
+                                onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                                className="pl-9"
+                            />
                         </div>
+                        <Input
+                            placeholder="District"
+                            value={locationInput.district}
+                            onChange={(e) => setLocationInput(prev => ({ ...prev, district: e.target.value }))}
+                            onBlur={handleLocationUpdate}
+                            onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                        />
+                        <Input
+                            placeholder="State"
+                            value={locationInput.state}
+                            onChange={(e) => setLocationInput(prev => ({ ...prev, state: e.target.value }))}
+                            onBlur={handleLocationUpdate}
+                            onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                        />
+
+                        <Button
+                            variant="default"
+                            onClick={handleNearMe}
+                            className="w-full border-blue-200 hover:bg-blue-50 transition-colors"
+                        >
+                            <MapPin className="h-4 w-4 mr-2" />
+                            Search near me
+                        </Button>
+
+                        {filters.latitude && filters.longitude && (
+                            <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
+                                <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                <p className="text-xs text-blue-700">
+                                    Using your location (within {((filters.radius_meters || 10000) / 1000).toFixed(1)}km)
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                <Separator />
+
+                {/* Rating Filter */}
+                <div className="space-y-4">
+                    <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
+                        <Star className="h-5 w-5 text-yellow-500 fill-current" />
+                        Rating Range
+                    </Label>
+
+                    <div className="space-y-4 p-2">
+                        <Slider
+                            min={1}
+                            max={5}
+                            step={1}
+                            value={[filters.min_rating || 1, filters.max_rating || 5]}
+                            onValueChange={handleRatingChange}
+                            className="w-full"
+                        />
+
+                        <div className="flex items-center justify-between text-sm font-medium">
+                            <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
+                                {filters.min_rating || 1} <Star className="h-3 w-3 fill-yellow-500" />
+                            </span>
+                            <span className="text-muted-foreground mx-2">to</span>
+                            <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
+                                {filters.max_rating || 5} <Star className="h-3 w-3 fill-yellow-500" />
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <Separator />
+
+                {/* Time Filter */}
+                <div className="space-y-4">
+                    <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
+                        <Calendar className="h-5 w-5 text-purple-600" />
+                        Recently Added
+                    </Label>
+
+                    <div className="flex items-center gap-3">
+                        <div className="relative flex-1">
+                            <Input
+                                type="number"
+                                placeholder="7"
+                                value={filters.days_ago || ''}
+                                onChange={(e) => handleDaysAgoChange(e.target.value)}
+                                min="1"
+                                max="365"
+                                className="pr-16"
+                            />
+                            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
+                                days
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <Separator />
+
+                {/* Subjects Filter */}
+                <div className="space-y-4">
+                    <Label className="text-base font-semibold text-foreground">Subjects</Label>
+
+                    <div className="space-y-3">
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Add subject (e.g., Mathematics)"
+                                value={subjectInput}
+                                onChange={(e) => setSubjectInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleSubjectAdd();
+                                    }
+                                }}
+                                className="flex-1"
+                            />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={handleSubjectAdd}
+                                disabled={!subjectInput.trim()}
+                                className="shrink-0 transition-all hover:scale-105 active:scale-95"
+                            >
+                                Add
+                            </Button>
+                        </div>
+
+                        {filters.subjects && filters.subjects.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                                {filters.subjects.map((subject) => (
+                                    <Badge
+                                        key={subject}
+                                        variant="secondary"
+                                        className="gap-2 px-3 py-1.5 text-sm transition-all hover:shadow-md group hover:bg-muted"
+                                    >
+                                        {subject}
+                                        <button
+                                            type="button"
+                                            onClick={() => handleSubjectRemove(subject)}
+                                            className="hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors group-hover:scale-110"
+                                        >
+                                            <X className="h-3 w-3" />
+                                        </button>
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* Fixed Footer with Actions */}
+            <SheetFooter className="border-t pt-4 flex-shrink-0">
+                <div className="flex gap-2 w-full">
+                    <Button
+                        variant="outline"
+                        onClick={handleClearAll}
+                        className="flex-1"
+                        disabled={activeFiltersCount === 0}
+                    >
+                        Clear All
+                    </Button>
+                    <Button
+                        onClick={onClose}
+                        className="flex-1"
+                    >
+                        Apply Filters
+                    </Button>
+                </div>
+            </SheetFooter>
+        </div>
+    );
+
+    // Desktop content remains the same
+    const renderDesktopContent = () => (
+        <>
+            <SheetHeader className="border-b pb-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="h-5 w-5 text-primary" />
+                        <SheetTitle className="text-xl font-bold">Filters</SheetTitle>
                         {activeFiltersCount > 0 && (
                             <Badge variant="secondary" className="px-2 py-1 text-xs font-semibold">
                                 {activeFiltersCount}
                             </Badge>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleClearAll}
-                            className="h-9 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                            Clear all
-                        </Button>
-                        {onClose && (
+                </div>
+            </SheetHeader>
+
+            <ScrollArea className="h-full pr-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 py-4">
+                    {/* Location Filter */}
+                    <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
+                            <MapPin className="h-5 w-5 text-blue-600" />
+                            Location
+                        </Label>
+
+                        <div className="space-y-3">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                                <Input
+                                    placeholder="City"
+                                    value={locationInput.city}
+                                    onChange={(e) => setLocationInput(prev => ({ ...prev, city: e.target.value }))}
+                                    onBlur={handleLocationUpdate}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                                    className="pl-9"
+                                />
+                            </div>
+                            <Input
+                                placeholder="District"
+                                value={locationInput.district}
+                                onChange={(e) => setLocationInput(prev => ({ ...prev, district: e.target.value }))}
+                                onBlur={handleLocationUpdate}
+                                onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                            />
+                            <Input
+                                placeholder="State"
+                                value={locationInput.state}
+                                onChange={(e) => setLocationInput(prev => ({ ...prev, state: e.target.value }))}
+                                onBlur={handleLocationUpdate}
+                                onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
+                            />
+
                             <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={onClose}
-                                className="h-9 w-9 p-0 lg:hidden hover:bg-muted transition-colors"
+                                variant="default"
+                                onClick={handleNearMe}
+                                className="w-full border-blue-200 hover:bg-blue-50 transition-colors"
                             >
-                                <X className="h-5 w-5" />
+                                <MapPin className="h-4 w-4 mr-2" />
+                                Search near me
                             </Button>
-                        )}
+
+                            {filters.latitude && filters.longitude && (
+                                <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
+                                    <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
+                                    <p className="text-xs text-blue-700">
+                                        Using your location (within {((filters.radius_meters || 10000) / 1000).toFixed(1)}km)
+                                    </p>
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </CardHeader>
 
-                {/*
-                    Adjust scroll area so content isn't hidden behind fixed bottom navigation on mobile.
-                    - Subtract an estimated bottom nav height (56px) from the viewport calculation
-                    - Add extra padding at the bottom of the content to ensure last elements are visible
-                    - Include safe-area inset space for devices with notches
-                */}
-                <ScrollArea
-                    className="h-[calc(100vh-5rem-56px)] lg:h-[calc(85vh-5rem)] overflow-auto"
-                    style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
-                >
-                    <CardContent className="space-y-6 p-4 pb-28 lg:pb-6">
-                        {/* Location Filter */}
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
-                                <MapPin className="h-5 w-5 text-blue-600" />
-                                Location
-                            </Label>
+                    {/* Vertical separator for desktop */}
+                    <Separator className="hidden md:block md:h-auto md:w-px bg-border/50" orientation="vertical" />
+                    {/* Horizontal separator for mobile */}
+                    <Separator className="md:hidden bg-border/50" />
 
-                            <div className="space-y-3">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                    <Input
-                                        placeholder="City"
-                                        value={locationInput.city}
-                                        onChange={(e) => setLocationInput(prev => ({ ...prev, city: e.target.value }))}
-                                        onBlur={handleLocationUpdate}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
-                                        className="pl-9"
-                                    />
-                                </div>
-                                <Input
-                                    placeholder="District"
-                                    value={locationInput.district}
-                                    onChange={(e) => setLocationInput(prev => ({ ...prev, district: e.target.value }))}
-                                    onBlur={handleLocationUpdate}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
-                                />
-                                <Input
-                                    placeholder="State"
-                                    value={locationInput.state}
-                                    onChange={(e) => setLocationInput(prev => ({ ...prev, state: e.target.value }))}
-                                    onBlur={handleLocationUpdate}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleLocationUpdate()}
-                                />
+                    {/* Rating Filter */}
+                    <div className="space-y-4">
+                        <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
+                            <Star className="h-5 w-5 text-yellow-500 fill-current" />
+                            Rating Range
+                        </Label>
 
-                                <Button
-                                    variant="default"
-                                    onClick={handleNearMe}
-                                    className="w-full border-blue-200 hover:bg-blue-50 transition-colors"
-                                >
-                                    <MapPin className="h-4 w-4 mr-2" />
-                                    Search near me
-                                </Button>
+                        <div className="space-y-4 p-2">
+                            <Slider
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={[filters.min_rating || 1, filters.max_rating || 5]}
+                                onValueChange={handleRatingChange}
+                                className="w-full"
+                            />
 
-                                {filters.latitude && filters.longitude && (
-                                    <div className="flex items-center gap-2 p-2 rounded-lg bg-blue-50 border border-blue-200">
-                                        <MapPin className="h-4 w-4 text-blue-600 flex-shrink-0" />
-                                        <p className="text-xs text-blue-700">
-                                            Using your location (within {((filters.radius_meters || 10000) / 1000).toFixed(1)}km)
-                                        </p>
-                                    </div>
-                                )}
+                            <div className="flex items-center justify-between text-sm font-medium">
+                                <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
+                                    {filters.min_rating || 1} <Star className="h-3 w-3 fill-yellow-500" />
+                                </span>
+                                <span className="text-muted-foreground mx-2">to</span>
+                                <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
+                                    {filters.max_rating || 5} <Star className="h-3 w-3 fill-yellow-500" />
+                                </span>
                             </div>
                         </div>
 
-                        <Separator className="bg-border/50" />
-
-                        {/* Rating Filter */}
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
-                                <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                                Rating Range
-                            </Label>
-
-                            <div className="space-y-4 p-2">
-                                <Slider
-                                    min={1}
-                                    max={5}
-                                    step={1}
-                                    value={[filters.min_rating || 1, filters.max_rating || 5]}
-                                    onValueChange={handleRatingChange}
-                                    className="w-full"
-                                />
-
-                                <div className="flex items-center justify-between text-sm font-medium">
-                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
-                                        {filters.min_rating || 1} <Star className="h-3 w-3 fill-yellow-500" />
-                                    </span>
-                                    <span className="text-muted-foreground mx-2">to</span>
-                                    <span className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full border border-yellow-200 transition-colors">
-                                        {filters.max_rating || 5} <Star className="h-3 w-3 fill-yellow-500" />
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Time Filter - Hidden on mobile */}
-                        <div className="hidden lg:block space-y-4">
-                            <Separator className="bg-border/50" />
+                        {/* Time Filter - moved into Rating column on desktop */}
+                        <div className="space-y-4 pt-4 border-t md:border-t-0">
                             <Label className="text-base font-semibold flex items-center gap-2 text-foreground">
                                 <Calendar className="h-5 w-5 text-purple-600" />
                                 Recently Added
@@ -360,63 +503,102 @@ export function CoachingFiltersPanel({
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <Separator className="bg-border/50" />
+                    {/* Vertical separator for desktop */}
+                    <Separator className="hidden lg:block lg:h-auto lg:w-px bg-border/50" orientation="vertical" />
+                    {/* Horizontal separator for mobile/tablet */}
+                    <Separator className="lg:hidden bg-border/50" />
 
-                        {/* Subjects Filter */}
-                        <div className="space-y-4">
-                            <Label className="text-base font-semibold text-foreground">Subjects</Label>
+                    {/* Subjects Filter */}
+                    <div className="space-y-4 md:col-span-2 lg:col-span-1">
+                        <Label className="text-base font-semibold text-foreground">Subjects</Label>
 
-                            <div className="space-y-3">
-                                <div className="flex gap-2">
-                                    <Input
-                                        placeholder="Add subject (e.g., Mathematics)"
-                                        value={subjectInput}
-                                        onChange={(e) => setSubjectInput(e.target.value)}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                                e.preventDefault();
-                                                handleSubjectAdd();
-                                            }
-                                        }}
-                                        className="flex-1"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        onClick={handleSubjectAdd}
-                                        disabled={!subjectInput.trim()}
-                                        className="shrink-0 transition-all hover:scale-105 active:scale-95"
-                                    >
-                                        Add
-                                    </Button>
-                                </div>
-
-                                {filters.subjects && filters.subjects.length > 0 && (
-                                    <div className="flex flex-wrap gap-2">
-                                        {filters.subjects.map((subject) => (
-                                            <Badge
-                                                key={subject}
-                                                variant="secondary"
-                                                className="gap-2 px-3 py-1.5 text-sm transition-all hover:shadow-md group hover:bg-muted"
-                                            >
-                                                {subject}
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleSubjectRemove(subject)}
-                                                    className="hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors group-hover:scale-110"
-                                                >
-                                                    <X className="h-3 w-3" />
-                                                </button>
-                                            </Badge>
-                                        ))}
-                                    </div>
-                                )}
+                        <div className="space-y-3">
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Add subject (e.g., Mathematics)"
+                                    value={subjectInput}
+                                    onChange={(e) => setSubjectInput(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSubjectAdd();
+                                        }
+                                    }}
+                                    className="flex-1"
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleSubjectAdd}
+                                    disabled={!subjectInput.trim()}
+                                    className="shrink-0 transition-all hover:scale-105 active:scale-95"
+                                >
+                                    Add
+                                </Button>
                             </div>
+
+                            {filters.subjects && filters.subjects.length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                    {filters.subjects.map((subject) => (
+                                        <Badge
+                                            key={subject}
+                                            variant="secondary"
+                                            className="gap-2 px-3 py-1.5 text-sm transition-all hover:shadow-md group hover:bg-muted"
+                                        >
+                                            {subject}
+                                            <button
+                                                type="button"
+                                                onClick={() => handleSubjectRemove(subject)}
+                                                className="hover:bg-muted-foreground/20 rounded-full p-0.5 transition-colors group-hover:scale-110"
+                                            >
+                                                <X className="h-3 w-3" />
+                                            </button>
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    </CardContent>
-                </ScrollArea>
-            </Card>
+                    </div>
+                </div>
+            </ScrollArea>
+
+            {/* Footer with Clear All and Close Buttons */}
+            <SheetFooter className="border-t pt-4 flex-row gap-2">
+                <Button
+                    variant="outline"
+                    onClick={handleClearAll}
+                    className="flex-1"
+                    disabled={activeFiltersCount === 0}
+                >
+                    Clear All
+                </Button>
+                <Button
+                    onClick={onClose}
+                    className="flex-1"
+                >
+                    Apply Filters
+                </Button>
+            </SheetFooter>
         </>
+    );
+
+    return (
+        <Sheet open={isOpen} onOpenChange={(open) => !open && onClose?.()}>
+            <SheetContent
+                side={isMobileDevice ? "bottom" : "top"}
+                className={cn(
+                    // Mobile: bottom sheet with 60vh height (adjustable with rounded corners)
+                    "data-[side=bottom]:h-[60vh] data-[side=bottom]:max-h-[60vh] data-[side=bottom]:rounded-t-2xl",
+                    // Desktop/Tablet: top sheet with max height
+                    "data-[side=top]:max-h-[70vh]",
+                    "flex flex-col p-4 md:p-6",
+                    className
+                )}
+            >
+                {isMobileDevice ? renderMobileContent() : renderDesktopContent()}
+            </SheetContent>
+        </Sheet>
     );
 }

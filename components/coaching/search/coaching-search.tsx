@@ -147,12 +147,12 @@ export function CoachingSearch({
                 )}
             </div>
 
-            {/* Filters Toggle Button - Hidden on mobile and tablet */}
+            {/* Filters Toggle Button - Visible on all screen sizes */}
             <Button
                 variant={isFiltersPanelOpen ? 'default' : 'outline'}
                 size="sm"
                 onClick={toggleFiltersPanel}
-                className="h-10 px-3 gap-2 relative shrink-0 rounded-full hidden lg:flex"
+                className="h-10 px-3 gap-2 relative shrink-0 rounded-full flex"
                 aria-label={isFiltersPanelOpen ? 'Close filters' : 'Open filters'}
             >
                 <SlidersHorizontal className="h-4 w-4" />
