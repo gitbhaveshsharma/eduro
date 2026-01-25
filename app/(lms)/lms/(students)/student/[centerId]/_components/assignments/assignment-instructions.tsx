@@ -6,9 +6,11 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText } from 'lucide-react';
+import { FileText, Copy, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast';
+import { Button } from '@/components/ui/button';
 
 interface AssignmentInstructionsProps {
     instructions: string;
@@ -21,6 +23,28 @@ export function AssignmentInstructions({
     isMarkdown = true,
     defaultExpanded = true,
 }: AssignmentInstructionsProps) {
+    const [isCopied, setIsCopied] = useState(false);
+
+    // Function to handle copy to clipboard
+    const handleCopyToClipboard = async () => {
+        try {
+            showLoadingToast('Copying instructions...');
+
+            await navigator.clipboard.writeText(instructions);
+
+            setIsCopied(true);
+            showSuccessToast('Instructions copied to clipboard!');
+
+            // Reset the copy icon after 2 seconds
+            setTimeout(() => {
+                setIsCopied(false);
+            }, 2000);
+        } catch (error) {
+            console.error('Failed to copy:', error);
+            showErrorToast('Failed to copy instructions. Please try again.');
+        }
+    };
+
     // Custom components for better Markdown styling
     const markdownComponents = {
         h1: ({ children }: { children: React.ReactNode }) => (
@@ -122,18 +146,37 @@ export function AssignmentInstructions({
 
     return (
         <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2">
                     <FileText className="h-5 w-5" />
                     Instructions
                 </CardTitle>
+                <Button
+                    variant="ghost"
+                    onClick={handleCopyToClipboard}
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors duration-200"
+                    title="Copy instructions to clipboard"
+                    aria-label="Copy instructions to clipboard"
+                >
+                    {isCopied ? (
+                        <>
+                            <Check className="h-4 w-4 text-success" />
+                            <span className='text-success'>Copied!</span>
+                        </>
+                    ) : (
+                        <>
+                            <Copy className="h-4 w-4" />
+                            <span>Copy</span>
+                        </>
+                    )}
+                </Button>
             </CardHeader>
             <CardContent>
                 <Accordion
                     type="single"
                     collapsible
                     defaultValue={defaultExpanded ? 'instructions' : undefined}
-                    className="w-full"
+                    className="w-full bg-secondary/20 p-2 rounded-lg"
                 >
                     <AccordionItem value="instructions" className="border-none">
                         <AccordionTrigger className="py-2 hover:no-underline hover:text-primary transition-colors">
