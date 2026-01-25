@@ -6,11 +6,17 @@ import {
     AccordionItem,
     AccordionTrigger,
 } from '@/components/ui/accordion';
-import { FileText, Copy, Check } from 'lucide-react';
+import { FileText, Copy, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { showSuccessToast, showErrorToast, showLoadingToast } from '@/lib/toast';
+import { showSuccessToast, showErrorToast } from '@/lib/toast';
 import { Button } from '@/components/ui/button';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface AssignmentInstructionsProps {
     instructions: string;
@@ -24,11 +30,11 @@ export function AssignmentInstructions({
     defaultExpanded = true,
 }: AssignmentInstructionsProps) {
     const [isCopied, setIsCopied] = useState(false);
+    const [isAccordionExpanded, setIsAccordionExpanded] = useState(defaultExpanded);
 
     // Function to handle copy to clipboard
     const handleCopyToClipboard = async () => {
         try {
-            showLoadingToast('Copying instructions...');
 
             await navigator.clipboard.writeText(instructions);
 
@@ -144,65 +150,108 @@ export function AssignmentInstructions({
 
     const shouldRenderAsMarkdown = isMarkdown || looksLikeMarkdown(instructions);
 
+    // Determine tooltip messages based on state
+    const getAccordionTooltip = () => {
+        if (isAccordionExpanded) {
+            return 'Click to hide the assignment instructions';
+        }
+        return 'Click to view the assignment instructions';
+    };
+
+    const getAccordionText = () => {
+        if (isAccordionExpanded) {
+            return 'Click to collapse';
+        }
+        return 'Click to expand instructions';
+    };
+
+    // Handle accordion state change
+    const handleAccordionChange = (value: string) => {
+        setIsAccordionExpanded(value === 'instructions');
+    };
+
     return (
-        <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Instructions
-                </CardTitle>
-                <Button
-                    variant="ghost"
-                    onClick={handleCopyToClipboard}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors duration-200"
-                    title="Copy instructions to clipboard"
-                    aria-label="Copy instructions to clipboard"
-                >
-                    {isCopied ? (
-                        <>
-                            <Check className="h-4 w-4 text-success" />
-                            <span className='text-success'>Copied!</span>
-                        </>
-                    ) : (
-                        <>
-                            <Copy className="h-4 w-4" />
-                            <span>Copy</span>
-                        </>
-                    )}
-                </Button>
-            </CardHeader>
-            <CardContent>
-                <Accordion
-                    type="single"
-                    collapsible
-                    defaultValue={defaultExpanded ? 'instructions' : undefined}
-                    className="w-full bg-secondary/20 p-2 rounded-lg"
-                >
-                    <AccordionItem value="instructions" className="border-none">
-                        <AccordionTrigger className="py-2 hover:no-underline hover:text-primary transition-colors">
-                            <span className="text-sm font-semibold">
-                                {defaultExpanded ? 'Click to collapse' : 'Click to expand instructions'}
-                            </span>
-                        </AccordionTrigger>
-                        <AccordionContent className="pt-4 pb-2">
-                            <div className="prose prose-sm max-w-none dark:prose-invert">
-                                {shouldRenderAsMarkdown ? (
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={markdownComponents}
-                                    >
-                                        {instructions}
-                                    </ReactMarkdown>
+        <TooltipProvider>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-lg flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        Instructions
+                    </CardTitle>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                onClick={handleCopyToClipboard}
+                                className="flex items-center gap-2 px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 text-primary rounded-md transition-colors duration-200"
+                                aria-label="Copy instructions to clipboard"
+                            >
+                                {isCopied ? (
+                                    <>
+                                        <Check className="h-4 w-4 text-success" />
+                                        <span className='text-success'>Copied!</span>
+                                    </>
                                 ) : (
-                                    <p className="text-foreground whitespace-pre-wrap leading-relaxed">
-                                        {instructions}
-                                    </p>
+                                    <>
+                                        <Copy className="h-4 w-4" />
+                                        <span>Copy</span>
+                                    </>
                                 )}
-                            </div>
-                        </AccordionContent>
-                    </AccordionItem>
-                </Accordion>
-            </CardContent>
-        </Card>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{isCopied ? 'Instructions copied!' : 'Copy instructions to clipboard'}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                </CardHeader>
+                <CardContent>
+                    <Accordion
+                        type="single"
+                        collapsible
+                        defaultValue={defaultExpanded ? 'instructions' : undefined}
+                        onValueChange={handleAccordionChange}
+                        className="w-full bg-secondary/20 p-2 rounded-lg"
+                    >
+                        <AccordionItem value="instructions" className="border-none">
+                            <AccordionTrigger className="py-2 hover:no-underline hover:text-primary transition-colors group">
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-semibold">
+                                                {getAccordionText()}
+                                            </span>
+                                            {isAccordionExpanded ? (
+                                                <ChevronUp className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                            ) : (
+                                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
+                                            )}
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{getAccordionTooltip()}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </AccordionTrigger>
+                            <AccordionContent className="pt-4 pb-2">
+                                <div className="prose prose-sm max-w-none dark:prose-invert">
+                                    {shouldRenderAsMarkdown ? (
+                                        <ReactMarkdown
+                                            remarkPlugins={[remarkGfm]}
+                                            components={markdownComponents}
+                                        >
+                                            {instructions}
+                                        </ReactMarkdown>
+                                    ) : (
+                                        <p className="text-foreground whitespace-pre-wrap leading-relaxed">
+                                            {instructions}
+                                        </p>
+                                    )}
+                                </div>
+                            </AccordionContent>
+                        </AccordionItem>
+                    </Accordion>
+                </CardContent>
+            </Card>
+        </TooltipProvider>
     );
 }
