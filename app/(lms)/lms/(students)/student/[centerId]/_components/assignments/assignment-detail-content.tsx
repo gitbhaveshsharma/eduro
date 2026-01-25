@@ -1,9 +1,3 @@
-/**
- * Assignment Detail Content Component
- * 
- * Displays assignment instructions, description, and attached files
- */
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -21,6 +15,7 @@ import type { Assignment, AssignmentSubmission } from '@/lib/branch-system/types
 import { formatFileSize } from '@/lib/branch-system/assignment';
 import { fileUploadService } from '@/lib/branch-system/services/file-upload.service';
 import { showErrorToast } from '@/lib/toast';
+import { AssignmentInstructions } from './assignment-instructions';
 
 interface FileData {
     id: string;
@@ -140,22 +135,13 @@ export function AssignmentDetailContent({
                 </Card>
             )}
 
-            {/* Instructions */}
+            {/* Instructions - Using separate component */}
             {assignment.instructions && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2">
-                            <FileText className="h-5 w-5" />
-                            Instructions
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div
-                            className="prose prose-sm dark:prose-invert max-w-none"
-                            dangerouslySetInnerHTML={{ __html: assignment.instructions }}
-                        />
-                    </CardContent>
-                </Card>
+                <AssignmentInstructions
+                    instructions={assignment.instructions}
+                    isMarkdown={true}
+                    defaultExpanded={true}
+                />
             )}
 
             {/* Attached Files */}
