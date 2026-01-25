@@ -220,11 +220,7 @@ export function AssignmentInstructions({
                                             <span className="text-sm font-semibold">
                                                 {getAccordionText()}
                                             </span>
-                                            {isAccordionExpanded ? (
-                                                <ChevronUp className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                            ) : (
-                                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-data-[state=open]:rotate-180" />
-                                            )}
+
                                         </div>
                                     </TooltipTrigger>
                                     <TooltipContent>
