@@ -89,11 +89,28 @@ function parseDateTimeString(dateTimeStr: string | undefined): Date | undefined 
 // Helper to format Date to ISO string
 function formatDateTimeToISO(date: Date | undefined, time?: string): string {
     if (!date) return '';
-    const dateStr = format(date, 'yyyy-MM-dd');
-    if (time) {
-        return `${dateStr}T${time}:00`;
+
+    // Create a new date object to avoid mutating the original
+    const combined = new Date(date);
+
+    if (time && time.trim()) {
+        const parts = time.split(':');
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+
+        // Validate that we have valid numbers
+        if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            combined.setHours(hours, minutes, 0, 0);
+        } else {
+            // Invalid time, default to 23:59:00
+            combined.setHours(23, 59, 0, 0);
+        }
+    } else {
+        // Default to 23:59:00
+        combined.setHours(23, 59, 0, 0);
     }
-    return `${dateStr}T23:59:00`;
+
+    return combined.toISOString();
 }
 
 // Extract time from datetime string and convert to 12-hour AM/PM format
@@ -108,24 +125,6 @@ function extractTime(dateTimeStr: string | undefined): string {
     const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
 
     return `${String(displayHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')} ${period}`;
-}
-
-// Convert 12-hour AM/PM format to 24-hour HH:mm format
-function convert12to24Hour(time12h: string): string {
-    const match = time12h.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
-    if (!match) return '23:59';
-
-    let hours = parseInt(match[1], 10);
-    const minutes = match[2];
-    const period = match[3];
-
-    if (period === 'PM' && hours !== 12) {
-        hours += 12;
-    } else if (period === 'AM' && hours === 12) {
-        hours = 0;
-    }
-
-    return `${String(hours).padStart(2, '0')}:${minutes}`;
 }
 
 export function QuizForm({
@@ -435,11 +434,10 @@ export function QuizForm({
                                                 onChange={(time) => {
                                                     setAvailableFromTime(time);
                                                     if (field.value) {
-                                                        // Convert 12-hour format to 24-hour for ISO datetime
-                                                        const time24h = convert12to24Hour(time);
-                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
+                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
                                                     }
                                                 }}
+                                                outputFormat="24h"
                                                 label="Time"
                                                 placeholder="Select time"
                                             />
@@ -492,11 +490,10 @@ export function QuizForm({
                                                 onChange={(time) => {
                                                     setAvailableToTime(time);
                                                     if (field.value) {
-                                                        // Convert 12-hour format to 24-hour for ISO datetime
-                                                        const time24h = convert12to24Hour(time);
-                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time24h));
+                                                        field.onChange(formatDateTimeToISO(parseDateTimeString(field.value), time));
                                                     }
                                                 }}
+                                                outputFormat="24h"
                                                 label="Time"
                                                 placeholder="Select time"
                                             />
