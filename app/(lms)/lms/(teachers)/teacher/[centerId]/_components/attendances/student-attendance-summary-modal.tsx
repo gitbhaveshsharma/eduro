@@ -50,7 +50,6 @@ import {
     useAttendanceSummary,
     useAttendanceLoading,
 } from '@/lib/branch-system/student-attendance';
-import type { StudentAttendanceSummary } from '@/lib/branch-system/types/student-attendance.types';
 import {
     getAttendancePerformanceLevel,
     getAttendancePerformanceColor,
