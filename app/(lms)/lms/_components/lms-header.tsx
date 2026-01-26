@@ -81,7 +81,7 @@ export const LMSHeader = memo(({
                             variant="ghost"
                             size="sm"
                             onClick={handleFeed}
-                            className="h-10 p-0 hover:bg-gray-100 rounded-lg"
+                            className="h-10 p-0 hover:bg-gray-100 rounded-lg hidden sm:flex"
                         >
                             <Plus className="h-5 w-5" /> Feed
                         </Button>

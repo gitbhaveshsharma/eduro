@@ -872,6 +872,8 @@ export function createSubmissionForGrading(
         late_minutes: submission.late_minutes,
         grading_status: submission.grading_status,
         score: submission.score,
+        feedback: submission.feedback,
+        private_notes: submission.private_notes,
         attempt_number: submission.attempt_number,
         is_final: submission.is_final,
         submission_text: submission.submission_text,

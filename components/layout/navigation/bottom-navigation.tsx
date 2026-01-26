@@ -56,9 +56,50 @@ export function BottomNavigation({
         const normalizedPathname = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
         const normalizedItemHref = item.href.endsWith('/') && item.href !== '/' ? item.href.slice(0, -1) : item.href;
 
-        // For exact match routes (most specific first to avoid multiple active items)
-        // Strategy: Exact match ONLY, no startsWith to prevent parent routes from staying active
-        return normalizedPathname === normalizedItemHref;
+        // Special case: Map quiz routes to assignments nav item
+        // e.g., /lms/teacher/{id}/quizzes/{quizId} should activate 'assignments' item
+        if (normalizedPathname.includes('/quizzes/') && item.id === 'assignments') {
+            // Check if there's a more specific match first
+            const hasMoreSpecificMatch = filteredItems.some(otherItem => {
+                if (otherItem.id === item.id || !otherItem.href) return false;
+                const otherHref = otherItem.href.endsWith('/') && otherItem.href !== '/'
+                    ? otherItem.href.slice(0, -1)
+                    : otherItem.href;
+                return (normalizedPathname === otherHref ||
+                    normalizedPathname.startsWith(otherHref + '/')) &&
+                    otherHref.length > normalizedItemHref.length;
+            });
+            if (!hasMoreSpecificMatch) return true;
+        }
+
+        // Check if this item matches (exact or child route)
+        const isMatch = normalizedPathname === normalizedItemHref ||
+            normalizedPathname.startsWith(normalizedItemHref + '/');
+
+        if (!isMatch) return false;
+
+        // Find the most specific match (longest matching href)
+        // Only return true if this is the longest matching path
+        const longestMatch = filteredItems.reduce<NavigationItem | null>((longest, otherItem) => {
+            if (!otherItem.href) return longest;
+
+            const otherHref = otherItem.href.endsWith('/') && otherItem.href !== '/'
+                ? otherItem.href.slice(0, -1)
+                : otherItem.href;
+
+            const otherMatches = normalizedPathname === otherHref ||
+                normalizedPathname.startsWith(otherHref + '/');
+
+            if (!otherMatches) return longest;
+
+            if (!longest || otherHref.length > (longest.href?.replace(/\/$/, '') || '').length) {
+                return otherItem;
+            }
+
+            return longest;
+        }, null);
+
+        return longestMatch?.id === item.id;
     };
 
     // Don't render if we shouldn't show bottom nav

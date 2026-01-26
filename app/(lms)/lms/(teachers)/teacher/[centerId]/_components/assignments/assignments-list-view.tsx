@@ -56,6 +56,8 @@ export interface AssignmentsListViewProps {
     assignments: Assignment[];
     /** Callback when view details is clicked */
     onViewDetails: (assignmentId: string) => void;
+    /** Callback when quick preview is clicked (optional) */
+    onPreview?: (assignment: Assignment) => void;
     /** Callback when edit is clicked (optional) */
     onEdit?: (assignment: Assignment) => void;
     /** Callback when publish is clicked (optional) */
@@ -73,6 +75,7 @@ export interface AssignmentsListViewProps {
 export function AssignmentsListView({
     assignments,
     onViewDetails,
+    onPreview,
     onEdit,
     onPublish,
     onClose,
@@ -182,14 +185,25 @@ export function AssignmentsListView({
 
                             {/* Actions */}
                             <ItemActions className="flex items-center gap-1">
+                                {onPreview && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => onPreview(assignment)}
+                                        className="gap-1.5 h-8 px-2 sm:px-3"
+                                    >
+                                        <Eye className="h-4 w-4" />
+                                        <span className="hidden sm:inline">Quick View</span>
+                                    </Button>
+                                )}
                                 <Button
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     onClick={() => onViewDetails(assignment.id)}
                                     className="gap-1.5 h-8 px-2 sm:px-3"
                                 >
-                                    <Eye className="h-4 w-4" />
-                                    <span className="hidden sm:inline">View</span>
+                                    <FileText className="h-4 w-4" />
+                                    <span className="hidden sm:inline">{showTeacherActions ? 'Grade' : 'View'}</span>
                                 </Button>
 
                                 {showTeacherActions && (

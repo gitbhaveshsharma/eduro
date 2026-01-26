@@ -6,8 +6,9 @@ import * as AvatarPrimitive from '@radix-ui/react-avatar'
 import { cn } from '@/lib/utils'
 
 // ✅ Helper function to proxy external images
-function getProxiedImageUrl(url: string | undefined): string | undefined {
-    if (!url) return undefined;
+function getProxiedImageUrl(url: string | undefined | null): string | undefined {
+    // Return undefined for null, undefined, or empty strings
+    if (!url || typeof url !== 'string') return undefined;
 
     // If already a relative URL or data URL, return as-is
     if (url.startsWith('/') || url.startsWith('data:')) {
@@ -39,9 +40,9 @@ function getProxiedImageUrl(url: string | undefined): string | undefined {
 }
 
 function Avatar({
-                    className,
-                    ...props
-                }: React.ComponentProps<typeof AvatarPrimitive.Root>) {
+    className,
+    ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Root>) {
     return (
         <AvatarPrimitive.Root
             data-slot="avatar"
@@ -55,10 +56,10 @@ function Avatar({
 }
 
 function AvatarImage({
-                         className,
-                         src,
-                         ...props
-                     }: React.ComponentProps<typeof AvatarPrimitive.Image>) {
+    className,
+    src,
+    ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Image>) {
     // ✅ Automatically proxy external image URLs
     const proxiedSrc = React.useMemo(() => getProxiedImageUrl(src), [src]);
 
@@ -73,9 +74,9 @@ function AvatarImage({
 }
 
 function AvatarFallback({
-                            className,
-                            ...props
-                        }: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+    className,
+    ...props
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
     return (
         <AvatarPrimitive.Fallback
             data-slot="avatar-fallback"

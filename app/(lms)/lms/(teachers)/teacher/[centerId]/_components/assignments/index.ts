@@ -41,6 +41,13 @@ export type { DeleteAssignmentDialogProps } from './delete-assignment-dialog';
 export { AssignmentDetailDialog } from './assignment-detail-sheet';
 export type { AssignmentDetailDialogProps } from './assignment-detail-sheet';
 
+export { AssignmentDetailHeader } from './assignment-detail-header';
+export type { AssignmentDetailHeaderProps } from './assignment-detail-header';
+
+// Reuse AssignmentDetailContent from students (it's generic)
+export { AssignmentDetailContent } from '../../../../../(students)/student/[centerId]/_components/assignments/assignment-detail-content';
+export type { AssignmentDetailContentProps } from '../../../../../(students)/student/[centerId]/_components/assignments/assignment-detail-content';
+
 // Submissions and grading
 export { SubmissionsList } from './submissions-list';
 export type { SubmissionsListProps } from './submissions-list';

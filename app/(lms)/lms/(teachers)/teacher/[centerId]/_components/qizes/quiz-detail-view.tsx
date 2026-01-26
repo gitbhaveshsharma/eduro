@@ -197,73 +197,67 @@ export function QuizDetailView({
     return (
         <div className={cn('space-y-6', className)}>
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                        <Button variant="ghost" size="icon" onClick={onBack}>
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold">{quiz.title}</h1>
-                                <Badge variant={statusBadge.variant}>
-                                    <StatusIcon className="h-3 w-3 mr-1" />
-                                    {statusBadge.label}
-                                </Badge>
-                            </div>
-                            {quiz.class && (
-                                <p className="text-sm text-muted-foreground">
-                                    {quiz.class.class_name} • {quiz.class.subject}
-                                </p>
-                            )}
+            <div className="flex flex-col gap-4">
+                {/* First Row: Back button */}
+                <div>
+                    <Button variant="ghost" onClick={onBack}>
+                        <ArrowLeft className="h-4 w-4" /> Back
+                    </Button>
+                </div>
+
+                {/* Second Row: Title, status, and class info */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-3xl font-bold text-foreground truncate">{quiz.title}</h1>
+                            <Badge variant={statusBadge.variant} className="shrink-0">
+                                <StatusIcon className="h-3 w-3 mr-1" />
+                                {statusBadge.label}
+                            </Badge>
                         </div>
+                        {quiz.class && (
+                            <p className="text-sm text-muted-foreground truncate">
+                                {quiz.class.class_name} • {quiz.class.subject}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* Third Row: Action buttons (without delete) */}
+                    <div className="flex items-center gap-2 ml-0">
+                        {onToggleActive && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onToggleActive(quiz)}
+                                className="flex-1 sm:flex-none"
+                            >
+                                {quiz.is_active ? (
+                                    <>
+                                        <Pause className="h-4 w-4 mr-1.5" />
+                                        <span className="text-sm">Deactivate</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Play className="h-4 w-4 mr-1.5" />
+                                        <span className="text-sm">Activate</span>
+                                    </>
+                                )}
+                            </Button>
+                        )}
+                        {onEdit && canEdit && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEdit(quiz)}
+                                className="flex-1 sm:flex-none"
+                            >
+                                <Edit className="h-4 w-4 mr-1.5" />
+                                <span className="text-sm">Edit</span>
+                            </Button>
+                        )}
                     </div>
                 </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-2 ml-11 sm:ml-0">
-                    {onToggleActive && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onToggleActive(quiz)}
-                        >
-                            {quiz.is_active ? (
-                                <>
-                                    <Pause className="h-4 w-4 mr-1.5" />
-                                    Deactivate
-                                </>
-                            ) : (
-                                <>
-                                    <Play className="h-4 w-4 mr-1.5" />
-                                    Activate
-                                </>
-                            )}
-                        </Button>
-                    )}
-                    {onEdit && canEdit && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(quiz)}
-                        >
-                            <Edit className="h-4 w-4 mr-1.5" />
-                            Edit
-                        </Button>
-                    )}
-                    {onDelete && canDelete && (
-                        <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => onDelete(quiz)}
-                        >
-                            <Trash2 className="h-4 w-4 mr-1.5" />
-                            Delete
-                        </Button>
-                    )}
-                </div>
             </div>
-
             {/* Description */}
             {quiz.description && (
                 <Card>

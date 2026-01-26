@@ -7,13 +7,29 @@
 
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
     FileUp,
     Type,
@@ -25,6 +41,8 @@ import {
     X,
     File,
     Loader2,
+    Edit3,
+    RotateCcw,
 } from 'lucide-react';
 import type { Assignment, AssignmentSubmission } from '@/lib/branch-system/types/assignment.types';
 import { AssignmentSubmissionType, formatFileSize, getDueDateStatus, formatDateTime } from '@/lib/branch-system/assignment';
@@ -52,16 +70,50 @@ export function AssignmentSubmissionForm({
     const [submissionText, setSubmissionText] = useState(submission?.submission_text || '');
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
     const [uploadedFileId, setUploadedFileId] = useState<string | null>(submission?.submission_file_id || null);
-    const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+    const [uploadedFileName, setUploadedFileName] = useState<string | null>(submission?.submission_file?.file_name || null);
     const [isUploading, setIsUploading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSavingDraft, setIsSavingDraft] = useState(false);
+    const [showReattemptDialog, setShowReattemptDialog] = useState(false);
+    const [isReattempting, setIsReattempting] = useState(false);
 
     const dueDateStatus = assignment.due_date ? getDueDateStatus(assignment.due_date) : null;
     const isOverdue = dueDateStatus?.isOverdue || false;
     const canSubmit = !isOverdue || assignment.allow_late_submission;
     const isGraded = submission?.grading_status === 'MANUAL_GRADED' || submission?.grading_status === 'AUTO_GRADED';
     const hasSubmitted = submission?.is_final === true;
+
+    // Calculate remaining attempts
+    const currentAttempt = submission?.attempt_number || 0;
+    const remainingAttempts = assignment.max_submissions - currentAttempt;
+    const hasAttemptsLeft = remainingAttempts > 0;
+
+    // Load draft file data on mount if exists
+    useEffect(() => {
+        const loadDraftFile = async () => {
+            if (submission?.submission_file_id) {
+                // Set the file ID so the UI displays the file
+                setUploadedFileId(submission.submission_file_id);
+
+                // If submission_file object exists, use it
+                if (submission?.submission_file) {
+                    setUploadedFileName(submission.submission_file.file_name);
+                } else {
+                    // Otherwise, fetch file details from file service
+                    try {
+                        const result = await fileUploadService.getFileById(submission.submission_file_id);
+                        if (result.success && result.data) {
+                            setUploadedFileName(result.data.fileName);
+                        }
+                    } catch (error) {
+                        console.error('Error loading draft file:', error);
+                    }
+                }
+            }
+        };
+
+        loadDraftFile();
+    }, [submission?.submission_file_id, submission?.submission_file]);
 
     // Handle file selection
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,6 +248,25 @@ export function AssignmentSubmissionForm({
         }
     };
 
+    // Handle reattempt
+    const handleReattempt = () => {
+        setShowReattemptDialog(true);
+    };
+
+    const handleConfirmReattempt = async () => {
+        setIsReattempting(true);
+        setShowReattemptDialog(false);
+
+        // Reset form to allow new submission
+        setSubmissionText('');
+        setUploadedFileId(null);
+        setUploadedFileName(null);
+        setSelectedFile(null);
+
+        showSuccessToast('You can now submit a new attempt');
+        setIsReattempting(false);
+    };
+
     // If already graded, show read-only view
     if (isGraded) {
         return (
@@ -232,46 +303,114 @@ export function AssignmentSubmissionForm({
     }
 
     // If already submitted (final) but not graded
-    if (hasSubmitted) {
+    if (hasSubmitted && !isReattempting) {
         return (
-            <Card className="border-blue-200">
-                <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2 text-blue-700">
-                        <CheckCircle2 className="h-5 w-5" />
-                        Your Submission
-                    </CardTitle>
-                    <CardDescription>
-                        Submitted on {submission?.submitted_at && formatDateTime(submission.submitted_at, 'full')}
-                        {submission?.is_late && (
-                            <span className="text-amber-600 ml-2">(Late submission)</span>
-                        )}
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Alert className="mb-4">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                            Your assignment has been submitted and is waiting to be graded.
-                        </AlertDescription>
-                    </Alert>
-                    {submission?.submission_text && (
-                        <div className="p-4 rounded-lg bg-muted/50">
-                            <p className="whitespace-pre-wrap">{submission.submission_text}</p>
-                        </div>
-                    )}
-                    {submission?.submission_file && (
-                        <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 mt-3">
-                            <File className="h-8 w-8 text-muted-foreground" />
+            <>
+                <Card className="border-blue-200">
+                    <CardHeader>
+                        <div className="flex items-start justify-between">
                             <div>
-                                <p className="font-medium">{submission.submission_file.file_name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                    {formatFileSize(submission.submission_file.file_size)}
-                                </p>
+                                <CardTitle className="text-lg flex items-center gap-2 text-blue-700">
+                                    <CheckCircle2 className="h-5 w-5" />
+                                    Your Submission
+                                </CardTitle>
+                                <CardDescription>
+                                    Submitted on {submission?.submitted_at && formatDateTime(submission.submitted_at, 'full')}
+                                    {submission?.is_late && (
+                                        <span className="text-amber-600 ml-2">(Late submission)</span>
+                                    )}
+                                    <div className="mt-1">
+                                        Attempt {currentAttempt} of {assignment.max_submissions}
+                                    </div>
+                                </CardDescription>
                             </div>
+
+                            {/* Reattempt button if attempts remain */}
+                            {hasAttemptsLeft && canSubmit && (
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={handleReattempt}
+                                                className="gap-2"
+                                            >
+                                                <RotateCcw className="h-4 w-4" />
+                                                Reattempt
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>{remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
+                            )}
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                    </CardHeader>
+                    <CardContent>
+                        <Alert variant="info">
+                            <AlertDescription>
+                                Your assignment has been submitted and is waiting to be graded.
+                                {hasAttemptsLeft && canSubmit && (
+                                    <span className="block mt-1 font-medium">
+                                        You have {remainingAttempts} attempt{remainingAttempts !== 1 ? 's' : ''} remaining.
+                                    </span>
+                                )}
+                            </AlertDescription>
+                        </Alert>
+                        {submission?.submission_text && (
+                            <div className="p-4 rounded-lg bg-muted/50">
+                                <p className="text-sm text-muted-foreground mb-1">Your Response:</p>
+                                <p className="whitespace-pre-wrap">{submission.submission_text}</p>
+                            </div>
+                        )}
+                        {submission?.submission_file && (
+                            <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30 mt-3">
+                                <File className="h-8 w-8 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm text-muted-foreground mb-0.5">Uploaded File:</p>
+                                    <p className="font-medium">{submission.submission_file.file_name}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {formatFileSize(submission.submission_file.file_size)}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Reattempt Confirmation Dialog */}
+                <AlertDialog open={showReattemptDialog} onOpenChange={setShowReattemptDialog}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Reattempt Assignment?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to submit a new attempt for this assignment? This will count as attempt {currentAttempt + 1} of {assignment.max_submissions}.
+
+                                <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                                        ⚠️ Important:
+                                    </p>
+                                    <ul className="text-sm text-amber-800 dark:text-amber-200 mt-1 space-y-1 list-disc list-inside">
+                                        <li>Your previous submission will remain visible to your teacher</li>
+                                        <li>You will have {remainingAttempts - 1} attempt{remainingAttempts - 1 !== 1 ? 's' : ''} left after this</li>
+                                        {isOverdue && assignment.allow_late_submission && (
+                                            <li>Late penalty of {assignment.late_penalty_percentage}% will apply</li>
+                                        )}
+                                    </ul>
+                                </div>
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleConfirmReattempt}>
+                                Yes, Start New Attempt
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </>
         );
     }
 
@@ -306,6 +445,16 @@ export function AssignmentSubmissionForm({
 
                 {canSubmit && (
                     <>
+                        {/* Draft status banner */}
+                        {submission && !submission.is_final && (
+                            <Alert variant="warning" showIcon={false}>
+                                <AlertDescription className="flex items-center gap-2">
+                                    <Save className="h-4 w-4 text-amber-600" />
+                                    <span>You have a draft saved. Continue working or submit when ready.</span>
+                                </AlertDescription>
+                            </Alert>
+                        )}
+
                         {/* Text Submission */}
                         {assignment.submission_type === AssignmentSubmissionType.TEXT && (
                             <div className="space-y-2">
@@ -359,14 +508,21 @@ export function AssignmentSubmissionForm({
                                                     Upload
                                                 </Button>
                                             )}
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={handleFileRemove}
-                                                disabled={isUploading}
-                                            >
-                                                <X className="h-4 w-4" />
-                                            </Button>
+                                            <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={handleFileRemove}
+                                                        disabled={isUploading}
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                    <p>Remove file</p>
+                                                </TooltipContent>
+                                            </Tooltip>
                                         </div>
                                     </div>
                                 )}
@@ -403,37 +559,65 @@ export function AssignmentSubmissionForm({
 
                         <Separator />
 
-                        {/* Action Buttons */}
-                        <div className="flex flex-col sm:flex-row gap-3">
-                            <Button
-                                variant="outline"
-                                onClick={handleSaveDraft}
-                                disabled={isSavingDraft || isSubmitting}
-                                className="flex-1"
-                            >
-                                {isSavingDraft ? (
-                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                ) : (
-                                    <Save className="h-4 w-4 mr-2" />
-                                )}
-                                Save Draft
-                            </Button>
-                            <Button
-                                onClick={handleSubmit}
-                                disabled={
-                                    isSubmitting ||
-                                    isSavingDraft ||
-                                    (assignment.submission_type === AssignmentSubmissionType.FILE && !uploadedFileId) ||
-                                    (assignment.submission_type === AssignmentSubmissionType.TEXT && !submissionText.trim())
-                                }
-                                className="flex-1"
-                                loading={isSubmitting}
-                                loadingText="Submitting..."
-                            >
-                                <Send className="h-4 w-4 mr-2" />
-                                Submit Assignment
-                            </Button>
-                        </div>
+                        {/* Action Buttons with Tooltips */}
+                        <TooltipProvider>
+                            <div className="flex flex-col sm:flex-row gap-3">
+                                {/* Save Draft Button */}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            onClick={handleSaveDraft}
+                                            disabled={isSavingDraft || isSubmitting}
+                                            className="flex-1"
+                                        >
+                                            {isSavingDraft ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <Save className="h-4 w-4 mr-2" />
+                                            )}
+                                            Save Draft
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Save your work without submitting</p>
+                                        <p className="text-xs text-muted-foreground">You can continue later</p>
+                                    </TooltipContent>
+                                </Tooltip>
+
+                                {/* Submit Button */}
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            onClick={handleSubmit}
+                                            disabled={
+                                                isSubmitting ||
+                                                isSavingDraft ||
+                                                (assignment.submission_type === AssignmentSubmissionType.FILE && !uploadedFileId) ||
+                                                (assignment.submission_type === AssignmentSubmissionType.TEXT && !submissionText.trim())
+                                            }
+                                            className="flex-1"
+                                        >
+                                            {isSubmitting ? (
+                                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            ) : (
+                                                <Send className="h-4 w-4 mr-2" />
+                                            )}
+                                            {isSubmitting ? 'Submitting...' : 'Submit Assignment'}
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Submit your work for grading</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {isReattempting
+                                                ? `Attempt ${currentAttempt + 1} of ${assignment.max_submissions}`
+                                                : `${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} available`
+                                            }
+                                        </p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </div>
+                        </TooltipProvider>
 
                         {isOverdue && assignment.allow_late_submission && (
                             <p className="text-sm text-amber-600 text-center">

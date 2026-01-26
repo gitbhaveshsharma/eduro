@@ -8,97 +8,119 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 import {
+    Calendar,
+    Clock,
     TrendingUp,
     TrendingDown,
     Award,
-    Calendar,
-    Clock,
     AlertCircle,
+    CheckCircle2,
+    XCircle,
+    AlertTriangle,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
     getAttendancePerformanceLevel,
     getAttendancePerformanceColor,
 } from '@/lib/branch-system/student-attendance';
 import type { StudentAttendanceSummary } from '@/lib/branch-system/types/student-attendance.types';
-import { cn } from '@/lib/utils';
 
 interface StudentAttendanceSummaryCardProps {
     summary: StudentAttendanceSummary | null;
-    isLoading: boolean;
+    isLoading?: boolean;
     className?: string;
 }
 
 /**
- * Get badge variant based on performance
+ * Stat item component
  */
-function getPerformanceBadgeVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
-    const color = getAttendancePerformanceColor(percentage);
-    const variantMap: Record<string, 'success' | 'default' | 'warning' | 'secondary' | 'destructive'> = {
-        green: 'success',
-        blue: 'default',
-        orange: 'warning',
-        yellow: 'secondary',
-        red: 'destructive',
-    };
-    return variantMap[color] || 'secondary';
-}
-
-/**
- * Get trend indicator
- */
-function getTrendIndicator(percentage: number) {
-    if (percentage >= 90) {
-        return { icon: TrendingUp, text: 'Excellent', color: 'text-green-600' };
-    } else if (percentage >= 75) {
-        return { icon: TrendingUp, text: 'Good', color: 'text-blue-600' };
-    } else if (percentage >= 60) {
-        return { icon: AlertCircle, text: 'Needs Improvement', color: 'text-orange-600' };
-    } else {
-        return { icon: TrendingDown, text: 'Critical', color: 'text-red-600' };
-    }
-}
-
-/**
- * Mini stat component
- */
-function MiniStat({
-    icon: Icon,
-    label,
-    value,
-    color = 'default',
-}: {
-    icon: React.ElementType;
+interface StatItemProps {
+    icon: React.ReactNode;
     label: string;
     value: string | number;
-    color?: string;
-}) {
-    const colorClasses: Record<string, string> = {
-        green: 'text-green-600 dark:text-green-400',
-        blue: 'text-blue-600 dark:text-blue-400',
-        orange: 'text-orange-600 dark:text-orange-400',
-        red: 'text-red-600 dark:text-red-400',
-        default: 'text-muted-foreground',
-    };
+    subValue?: string;
+    colorClass?: string;
+    isHighlighted?: boolean;
+}
 
+function StatItem({
+    icon,
+    label,
+    value,
+    subValue,
+    colorClass = 'text-muted-foreground',
+    isHighlighted = false,
+}: StatItemProps) {
     return (
-        <div className="flex items-center gap-2">
-            <Icon className={cn('h-4 w-4', colorClasses[color])} />
-            <div>
-                <p className="text-lg font-semibold">{value}</p>
-                <p className="text-xs text-muted-foreground">{label}</p>
+        <div
+            className={cn(
+                'flex items-center gap-3 p-3 rounded-xl transition-colors',
+                isHighlighted && 'bg-primary/5'
+            )}
+        >
+            <div
+                className={cn(
+                    'flex items-center justify-center w-10 h-10 rounded-xl',
+                    colorClass.includes('green') && 'bg-green-100 dark:bg-green-900/30',
+                    colorClass.includes('yellow') && 'bg-yellow-100 dark:bg-yellow-900/30',
+                    colorClass.includes('orange') && 'bg-orange-100 dark:bg-orange-900/30',
+                    colorClass.includes('red') && 'bg-red-100 dark:bg-red-900/30',
+                    colorClass.includes('blue') && 'bg-blue-100 dark:bg-blue-900/30',
+                    !colorClass.includes('green') &&
+                    !colorClass.includes('yellow') &&
+                    !colorClass.includes('orange') &&
+                    !colorClass.includes('red') &&
+                    !colorClass.includes('blue') &&
+                    'bg-muted'
+                )}
+            >
+                <span className={cn('text-sm', colorClass)}>{icon}</span>
+            </div>
+            <div className="flex flex-col">
+                <span className="text-xs text-muted-foreground font-medium">{label}</span>
+                <span className="text-lg font-semibold text-foreground">{value}</span>
+                {subValue && (
+                    <span className="text-xs text-muted-foreground">{subValue}</span>
+                )}
             </div>
         </div>
     );
 }
 
+/**
+ * Get icon and color based on performance
+ */
+function getPerformanceConfig(percentage: number): { icon: React.ElementType; colorClass: string } {
+    if (percentage >= 90) {
+        return { icon: Award, colorClass: 'text-green-600' };
+    } else if (percentage >= 75) {
+        return { icon: TrendingUp, colorClass: 'text-blue-600' };
+    } else if (percentage >= 60) {
+        return { icon: AlertTriangle, colorClass: 'text-orange-600' };
+    } else {
+        return { icon: TrendingDown, colorClass: 'text-red-600' };
+    }
+}
+
+/**
+ * Get color class for attendance status
+ */
+function getAttendanceStatusColor(status: 'present' | 'absent' | 'late'): string {
+    switch (status) {
+        case 'present': return 'text-green-600';
+        case 'absent': return 'text-red-600';
+        case 'late': return 'text-orange-600';
+        default: return 'text-muted-foreground';
+    }
+}
+
 export function StudentAttendanceSummaryCard({
     summary,
-    isLoading,
+    isLoading = false,
     className,
 }: StudentAttendanceSummaryCardProps) {
     const [showNoData, setShowNoData] = useState(false);
@@ -115,20 +137,23 @@ export function StudentAttendanceSummaryCard({
         }
     }, [isLoading, summary]);
 
-    if (isLoading || (!showNoData && !summary)) {
+    if (isLoading) {
         return (
-            <Card className={className}>
-                <CardHeader className="pb-2">
-                    <Skeleton className="h-5 w-32" />
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Card className={cn('overflow-hidden', className)}>
+                <CardContent className="p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
                         {[...Array(4)].map((_, i) => (
-                            <div key={i} className="space-y-2">
-                                <Skeleton className="h-4 w-20" />
-                                <Skeleton className="h-6 w-16" />
+                            <div key={i} className="flex items-center gap-3 p-3">
+                                <Skeleton className="w-10 h-10 rounded-xl" />
+                                <div className="flex flex-col gap-1.5">
+                                    <Skeleton className="h-3 w-16" />
+                                    <Skeleton className="h-5 w-24" />
+                                </div>
                             </div>
                         ))}
+                    </div>
+                    <div className="mt-4 px-3">
+                        <Skeleton className="h-2 w-full rounded-full" />
                     </div>
                 </CardContent>
             </Card>
@@ -137,13 +162,9 @@ export function StudentAttendanceSummaryCard({
 
     if (showNoData || !summary) {
         return (
-            <Card className={cn('border-dashed', className)}>
-                <CardContent className="flex items-center justify-center py-8">
-                    <div className="text-center text-muted-foreground">
-                        <Calendar className="h-10 w-10 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No attendance data available</p>
-                        <p className="text-xs mt-1">Records will appear once attendance is marked</p>
-                    </div>
+            <Card className={cn('overflow-hidden', className)}>
+                <CardContent className="p-6 text-center">
+                    <p className="text-muted-foreground">No attendance data available</p>
                 </CardContent>
             </Card>
         );
@@ -151,74 +172,66 @@ export function StudentAttendanceSummaryCard({
 
     const percentage = summary.attendance_percentage;
     const performanceLevel = getAttendancePerformanceLevel(percentage);
-    const performanceBadge = getPerformanceBadgeVariant(percentage);
-    const trend = getTrendIndicator(percentage);
-    const TrendIcon = trend.icon;
+    const performanceConfig = getPerformanceConfig(percentage);
+    const PerformanceIcon = performanceConfig.icon;
 
     return (
-        <Card className={className}>
-            <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-semibold">
-                        Attendance Overview
-                    </CardTitle>
-                    <Badge variant={performanceBadge} className="gap-1">
-                        <Award className="h-3.5 w-3.5" />
-                        {performanceLevel}
-                    </Badge>
+        <Card className={cn('overflow-hidden', className)}>
+            <CardContent className="p-4">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
+                    <StatItem
+                        icon={<Calendar className="h-4 w-4" />}
+                        label="Total Days"
+                        value={summary.total_days}
+                        subValue="Days tracked"
+                        colorClass="text-blue-600"
+                    />
+                    <StatItem
+                        icon={<CheckCircle2 className="h-4 w-4" />}
+                        label="Present"
+                        value={summary.present_days}
+                        subValue={`${((summary.present_days / summary.total_days) * 100).toFixed(0)}% of total`}
+                        colorClass="text-green-600"
+                    />
+                    <StatItem
+                        icon={<XCircle className="h-4 w-4" />}
+                        label="Absent"
+                        value={summary.absent_days}
+                        subValue={`${((summary.absent_days / summary.total_days) * 100).toFixed(0)}% of total`}
+                        colorClass="text-red-600"
+                        isHighlighted={summary.absent_days > 0}
+                    />
+                    <StatItem
+                        icon={<Clock className="h-4 w-4" />}
+                        label="Late Arrivals"
+                        value={summary.late_days}
+                        subValue={
+                            summary.average_late_minutes > 0
+                                ? `Avg: ${Math.round(summary.average_late_minutes)} min`
+                                : 'No late arrivals'
+                        }
+                        colorClass="text-orange-600"
+                        isHighlighted={summary.late_days > 0}
+                    />
                 </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                {/* Main Progress */}
-                <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Overall Attendance</span>
-                        <div className="flex items-center gap-1.5">
-                            <TrendIcon className={cn('h-4 w-4', trend.color)} />
-                            <span className="font-semibold">{percentage.toFixed(1)}%</span>
-                        </div>
+
+                {/* Attendance Progress */}
+                <div className="mt-4 px-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                            <PerformanceIcon className="h-3 w-3" />
+                            Attendance Rate • {performanceLevel}
+                        </span>
+                        <span className="text-xs font-medium text-foreground">
+                            {percentage.toFixed(1)}%
+                        </span>
                     </div>
                     <Progress
                         value={percentage}
                         className="h-2"
                     />
                 </div>
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-2 border-t">
-                    <MiniStat
-                        icon={Calendar}
-                        label="Total Days"
-                        value={summary.total_days}
-                        color="default"
-                    />
-                    <MiniStat
-                        icon={TrendingUp}
-                        label="Present"
-                        value={summary.present_days}
-                        color="green"
-                    />
-                    <MiniStat
-                        icon={TrendingDown}
-                        label="Absent"
-                        value={summary.absent_days}
-                        color="red"
-                    />
-                    <MiniStat
-                        icon={Clock}
-                        label="Late Days"
-                        value={summary.late_days}
-                        color="orange"
-                    />
-                </div>
-
-                {/* Average Late Time */}
-                {summary.average_late_minutes > 0 && (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground pt-2 border-t">
-                        <Clock className="h-4 w-4" />
-                        <span>Average late by: {Math.round(summary.average_late_minutes)} minutes</span>
-                    </div>
-                )}
             </CardContent>
         </Card>
     );

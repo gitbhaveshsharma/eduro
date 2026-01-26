@@ -4,7 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, FileText, X } from 'lucide-react';
+import { FileText, X } from 'lucide-react';
 
 // Toast notifications
 import {
@@ -110,8 +110,8 @@ export function TeacherAssignmentsDashboard({
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
-    const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
-    const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+    const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+    const [previewAssignment, setPreviewAssignment] = useState<Assignment | null>(null);
 
     // Fetch data on mount
     useEffect(() => {
@@ -329,16 +329,15 @@ export function TeacherAssignmentsDashboard({
             if (success) {
                 showSuccessToast('Grade submitted successfully', { id: toastId });
                 closeGradingDialog();
-                if (selectedAssignment) {
-                    await fetchSubmissionsForGrading(selectedAssignment.id, true);
-                }
+                // Refresh assignments list to update any grade displays
+                await fetchAssignments({ teacher_id: teacherId }, true);
             } else {
                 showErrorToast('Failed to submit grade', { id: toastId });
             }
         } catch (err) {
             showErrorToast(getFriendlyErrorMessage(err instanceof Error ? err.message : 'Unknown error'), { id: toastId });
         }
-    }, [teacherId, selectedAssignment, gradeSubmission, closeGradingDialog, fetchSubmissionsForGrading]);
+    }, [teacherId, gradeSubmission, closeGradingDialog, fetchAssignments]);
 
     // View Handlers
     const handleEdit = (assignment: Assignment) => {
@@ -359,12 +358,13 @@ export function TeacherAssignmentsDashboard({
     };
 
     const handleViewDetails = (assignmentId: string) => {
-        const assignment = assignments.find(a => a.id === assignmentId);
-        if (assignment) {
-            setSelectedAssignment(assignment);
-            setIsDetailSheetOpen(true);
-            fetchSubmissionsForGrading(assignmentId);
-        }
+        // Navigate to the dedicated assignment detail page
+        router.push(`/lms/teacher/${centerId}/assignments/${assignmentId}`);
+    };
+
+    const handlePreview = (assignment: Assignment) => {
+        setPreviewAssignment(assignment);
+        setIsPreviewDialogOpen(true);
     };
 
     // ============================================================
@@ -424,11 +424,11 @@ export function TeacherAssignmentsDashboard({
                     {viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredAssignments.map((a) => (
-                                <AssignmentCard key={a.id} assignment={a} onViewDetails={handleViewDetails} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} showTeacherActions userRole={userRole} />
+                                <AssignmentCard key={a.id} assignment={a} onViewDetails={handleViewDetails} onPreview={handlePreview} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} showTeacherActions userRole={userRole} />
                             ))}
                         </div>
                     ) : (
-                        <AssignmentsListView assignments={filteredAssignments} onViewDetails={handleViewDetails} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} userRole={userRole} />
+                        <AssignmentsListView assignments={filteredAssignments} onViewDetails={handleViewDetails} onPreview={handlePreview} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} userRole={userRole} />
                     )}
                 </>
             )}
@@ -437,8 +437,8 @@ export function TeacherAssignmentsDashboard({
             <CreateAssignmentDialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen} teacherId={teacherId} branchId={teacherClasses[0]?.branch_id || ''} availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))} onSubmit={handleCreate} isSubmitting={loading.create} />
             <EditAssignmentDialog open={isEditDialogOpen} onOpenChange={(o) => { setIsEditDialogOpen(o); if (!o) setEditingAssignment(null); }} assignment={editingAssignment} teacherId={teacherId} branchId={editingAssignment?.branch_id || ''} availableClasses={teacherClasses.map(c => ({ id: c.id, name: c.class_name }))} onSubmit={handleUpdate} isSubmitting={loading.update} />
             <DeleteAssignmentDialog open={isDeleteDialogOpen} onOpenChange={(o) => !o && closeDeleteDialog()} assignment={assignmentToDelete} onConfirm={handleDeleteConfirm} isDeleting={loading.delete} />
-            <AssignmentDetailDialog open={isDetailSheetOpen} onOpenChange={(o) => { setIsDetailSheetOpen(o); if (!o) setSelectedAssignment(null); }} assignment={selectedAssignment} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} showTeacherActions userRole={userRole} />
-            <GradingDialog open={isGradingDialogOpen} onOpenChange={(o) => !o && closeGradingDialog()} submission={submissionToGrade} maxScore={selectedAssignment?.max_score || 100} graderId={teacherId} onSubmit={handleGradeSubmit} isLoading={loading.grade} />
+            <AssignmentDetailDialog open={isPreviewDialogOpen} onOpenChange={(o) => { setIsPreviewDialogOpen(o); if (!o) setPreviewAssignment(null); }} assignment={previewAssignment} onEdit={handleEdit} onDelete={handleDeleteClick} onPublish={handlePublish} onClose={handleClose} showTeacherActions userRole={userRole} />
+            <GradingDialog open={isGradingDialogOpen} onOpenChange={(o) => !o && closeGradingDialog()} submission={submissionToGrade} maxScore={currentAssignment?.max_score || 100} graderId={teacherId} onSubmit={handleGradeSubmit} isLoading={loading.grade} />
         </div>
     );
 }
