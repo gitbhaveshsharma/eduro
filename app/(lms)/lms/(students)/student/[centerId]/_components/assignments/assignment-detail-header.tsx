@@ -160,6 +160,14 @@ export function AssignmentDetailHeader({
                                     <span>by {assignment.teacher.full_name}</span>
                                 </>
                             )}
+                            {submission && (
+                                <>
+                                    <span>•</span>
+                                    <span className="font-medium">
+                                        Attempt {submission.attempt_number} of {assignment.max_submissions}
+                                    </span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -312,7 +320,7 @@ export function AssignmentDetailHeader({
 
             {/* Pending Submission Status */}
             {submission && submission.score === null && submission.is_final === true && (
-                <div className="p-5 rounded-xl border-2 border-brand-secondary/30 bg-brand-secondary/5">
+                <div className="p-5 rounded-xl border-2 border-primary/50 bg-secondary/15">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-sm text-brand-secondary font-medium">Submission Received</p>
@@ -322,8 +330,16 @@ export function AssignmentDetailHeader({
                             <p className="text-sm text-secondary mt-1">
                                 Your submission has been successfully uploaded and is pending review.
                             </p>
+                            <p className="text-sm text-secondary mt-2">
+                                Attempt {submission.attempt_number} of {assignment.max_submissions}
+                                {assignment.max_submissions - submission.attempt_number > 0 && (
+                                    <span className="ml-1 text-brand-primary font-medium">
+                                        ({assignment.max_submissions - submission.attempt_number} remaining)
+                                    </span>
+                                )}
+                            </p>
                         </div>
-                        <div className="w-12 h-12 rounded-full bg-brand-secondary/10 border border-brand-secondary/20 flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full bg-secondary/30 border border-secondary/50 flex items-center justify-center">
                             <Clock className="h-6 w-6 text-brand-secondary" />
                         </div>
                     </div>

@@ -707,7 +707,7 @@ export class AssignmentService {
       const profileIds = Array.from(
         new Set(
           submissions
-            ?.flatMap(s => [s.student_id, s.graded_by])
+            ?.flatMap((s: any) => [s.student_id, s.graded_by])
             .filter(Boolean)
         )
       );
@@ -718,13 +718,13 @@ export class AssignmentService {
         .in('id', profileIds);
 
       const profileMap = new Map(
-        profiles?.map(p => [p.id, p]) || []
+        profiles?.map((p: any) => [p.id, p]) || []
       );
 
       /* -----------------------------------------------
          5️⃣ Latest submission per assignment
       ----------------------------------------------- */
-      submissions?.forEach(s => {
+      submissions?.forEach((s: any) => {
         if (!submissionsMap.has(s.assignment_id)) {
           submissionsMap.set(s.assignment_id, {
             ...rowToSubmission(s),
@@ -818,17 +818,24 @@ export class AssignmentService {
                 return { success: false, error: 'Late submissions are not allowed' };
             }
 
-            // Check existing final submission
-            const { data: existingSubmission } = await this.supabase
+            // Check for ANY existing submission (draft or final) for this student
+            const { data: existingSubmissions } = await this.supabase
                 .from('assignment_submissions')
                 .select('id, attempt_number, is_final')
                 .eq('assignment_id', validatedInput.assignment_id)
                 .eq('student_id', validatedInput.student_id)
-                .eq('is_final', true)
-                .single();
+                .order('attempt_number', { ascending: false });
 
-            if (existingSubmission && validatedInput.is_final) {
-                if (existingSubmission.attempt_number >= assignment.max_submissions) {
+            // Find existing draft (if any)
+            const existingDraft = existingSubmissions?.find((s: any) => !s.is_final);
+            
+            // Find existing final submissions
+            const existingFinalSubmissions = existingSubmissions?.filter((s: any) => s.is_final) || [];
+            const latestFinalSubmission = existingFinalSubmissions[0];
+
+            // Check max submissions limit (only for final submissions)
+            if (validatedInput.is_final && latestFinalSubmission) {
+                if (latestFinalSubmission.attempt_number >= assignment.max_submissions) {
                     return { success: false, error: 'Maximum submissions reached' };
                 }
             }
@@ -844,29 +851,60 @@ export class AssignmentService {
                 assignment.clean_submissions_after
             );
 
-            // Determine attempt number
-            const attemptNumber = existingSubmission
-                ? existingSubmission.attempt_number + 1
-                : 1;
+            let submission;
+            let error;
 
-            // Insert submission
-            const { data: submission, error } = await this.supabase
-                .from('assignment_submissions')
-                .insert({
-                    assignment_id: validatedInput.assignment_id,
-                    student_id: validatedInput.student_id,
-                    class_id: validatedInput.class_id,
-                    submission_text: validatedInput.submission_text,
-                    submission_file_id: validatedInput.submission_file_id,
-                    is_final: validatedInput.is_final,
-                    is_late: isLate,
-                    late_minutes: lateMinutes,
-                    max_score: assignment.max_score,
-                    attempt_number: attemptNumber,
-                    auto_delete_after: autoDeleteAfter,
-                })
-                .select('*')
-                .single();
+            // If submitting as final and a draft exists, UPDATE the draft instead of creating new record
+            if (validatedInput.is_final && existingDraft) {
+                const result = await this.supabase
+                    .from('assignment_submissions')
+                    .update({
+                        submission_text: validatedInput.submission_text,
+                        submission_file_id: validatedInput.submission_file_id,
+                        is_final: true,
+                        is_late: isLate,
+                        late_minutes: lateMinutes,
+                        max_score: assignment.max_score,
+                        submitted_at: getCurrentDateTime(),
+                        updated_at: getCurrentDateTime(),
+                        auto_delete_after: autoDeleteAfter,
+                    })
+                    .eq('id', existingDraft.id)
+                    .select('*')
+                    .single();
+
+                submission = result.data;
+                error = result.error;
+            } else {
+                // Determine attempt number
+                // - If this is a new final submission after previous final submissions, increment
+                // - Otherwise, use 1 for first attempt
+                const attemptNumber = latestFinalSubmission && validatedInput.is_final
+                    ? latestFinalSubmission.attempt_number + 1
+                    : 1;
+
+                // Insert new submission
+                const result = await this.supabase
+                    .from('assignment_submissions')
+                    .insert({
+                        assignment_id: validatedInput.assignment_id,
+                        student_id: validatedInput.student_id,
+                        class_id: validatedInput.class_id,
+                        submission_text: validatedInput.submission_text,
+                        submission_file_id: validatedInput.submission_file_id,
+                        is_final: validatedInput.is_final,
+                        is_late: isLate,
+                        late_minutes: lateMinutes,
+                        max_score: assignment.max_score,
+                        attempt_number: attemptNumber,
+                        auto_delete_after: autoDeleteAfter,
+                    })
+                    .select('*')
+                    .single();
+
+                submission = result.data;
+                error = result.error;
+            }
 
             if (error) {
                 if (error.code === '23505') {
@@ -928,6 +966,23 @@ export class AssignmentService {
 
             const validatedInput = validationResult.data;
 
+            // Fetch assignment for auto_delete_after calculation
+            const { data: assignment, error: assignmentError } = await this.supabase
+                .from('assignments')
+                .select('due_date, clean_submissions_after')
+                .eq('id', validatedInput.assignment_id)
+                .single();
+
+            if (assignmentError || !assignment) {
+                return { success: false, error: 'Assignment not found' };
+            }
+
+            // Calculate auto_delete_after
+            const autoDeleteAfter = calculateCleanupDate(
+                assignment.due_date,
+                assignment.clean_submissions_after
+            );
+
             // Check for existing draft
             const { data: existingDraft } = await this.supabase
                 .from('assignment_submissions')
@@ -967,6 +1022,8 @@ export class AssignmentService {
                         submission_file_id: validatedInput.submission_file_id,
                         is_final: false,
                         is_late: false,
+                        attempt_number: 1,
+                        auto_delete_after: autoDeleteAfter,
                     })
                     .select('*')
                     .single();
