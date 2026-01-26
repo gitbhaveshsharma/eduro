@@ -52,10 +52,10 @@ export function AttendanceHeader({
     return (
         <div className={cn('space-y-4', className)}>
             {/* Title and Date */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-row items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold tracking-tight">Mark Attendance</h1>
-                    <p className="text-muted-foreground text-sm">
+                    <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Mark Attendance</h1>
+                    <p className="text-muted-foreground text-xs sm:text-sm">
                         Mark attendance for your students
                     </p>
                 </div>
@@ -102,7 +102,6 @@ export function AttendanceHeader({
                     </Button>
                 </div>
             </div>
-
             {/* Stats Row */}
             <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="default" className="gap-1.5 px-3 py-1">

@@ -853,19 +853,19 @@ export const LMS_TEACHER_HEADER_ITEMS: HeaderItem[] = [
             pages: ['lms-teacher']
         }
     },
-    {
-        id: 'classes',
-        label: 'Classes',
-        icon: BookOpen,
-        action: {
-            type: 'navigate',
-            href: '/lms/teacher/classes'
-        },
-        showOn: {
-            devices: ['desktop', 'tablet'],
-            pages: ['lms-teacher']
-        }
-    },
+    // {
+    //     id: 'classes',
+    //     label: 'Classes',
+    //     icon: BookOpen,
+    //     action: {
+    //         type: 'navigate',
+    //         href: '/lms/teacher/classes'
+    //     },
+    //     showOn: {
+    //         devices: ['desktop', 'tablet'],
+    //         pages: ['lms-teacher']
+    //     }
+    // },
     {
         id: 'feed',
         label: 'Feed',
