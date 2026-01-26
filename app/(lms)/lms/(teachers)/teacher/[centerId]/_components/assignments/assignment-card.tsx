@@ -330,7 +330,7 @@ export function AssignmentCard({
                 )}
             </CardContent>
 
-            <CardFooter className="border-t pt-3 mt-3">
+            <CardFooter className="border-t ">
                 <div className="flex items-center gap-2 w-full">
                     {/* Main Action Button */}
                     <Button

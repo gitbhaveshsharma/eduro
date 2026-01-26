@@ -169,7 +169,7 @@ export function StudentAssignmentCard({
             'group hover:shadow-md transition-all duration-200 border-border hover:border-primary/30',
 
         )}>
-            <CardHeader className="pb-3">
+            <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         {/* Status Icon */}
@@ -267,7 +267,7 @@ export function StudentAssignmentCard({
                     </div>
 
                     {/* Submission Type */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-brand-highlight/5 border border-brand-highlight/10">
+                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-highlight/5 border border-highlight/10">
                         {assignment.submission_type === AssignmentSubmissionType.FILE ? (
                             <FileUp className="h-3.5 w-3.5 text-brand-highlight" />
                         ) : (
@@ -290,7 +290,7 @@ export function StudentAssignmentCard({
                 </div>
             </CardContent>
 
-            <CardFooter className="border-t pt-3 mt-3">
+            <CardFooter className="border-t ">
                 <Button
                     variant={submission ? "outline" : "default"}
                     size="sm"
