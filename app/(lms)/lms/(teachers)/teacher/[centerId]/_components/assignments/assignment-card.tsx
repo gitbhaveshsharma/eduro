@@ -266,7 +266,7 @@ export function AssignmentCard({
                     </div>
 
                     {/* Submission Type */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-brand-highlight/5 border border-brand-highlight/10">
+                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-highlight/5 border border-highlight/10">
                         {assignment.submission_type === AssignmentSubmissionType.FILE ? (
                             <FileUp className="h-3.5 w-3.5 text-brand-highlight" />
                         ) : (

@@ -1754,7 +1754,10 @@ export class AssignmentService {
         try {
             const { data, error } = await this.supabase
                 .from('assignment_submissions')
-                .select('*')
+                .select(`
+                    *,
+                    submission_file:files!assignment_submissions_submission_file_id_fkey(*)
+                `)
                 .eq('assignment_id', assignmentId)
                 .eq('is_final', true)
                 .order('submitted_at', { ascending: true });
@@ -1772,13 +1775,26 @@ export class AssignmentService {
 
             const profileMap = new Map(profiles?.map((p: any) => [p.id, p]) || []);
 
-            const submissions = data?.map((row: any) => {
+            // Generate signed URLs for submission files
+            const submissions = await Promise.all((data || []).map(async (row: any) => {
                 const profile = profileMap.get(row.student_id);
+                
+                // If there's a submission file, generate signed URL
+                if (row.submission_file) {
+                    const { data: signedData } = await this.supabase.storage
+                        .from('assignments')
+                        .createSignedUrl(row.submission_file.file_path, 3600); // 1 hour expiry
+                    
+                    if (signedData?.signedUrl) {
+                        row.submission_file.download_url = signedData.signedUrl;
+                    }
+                }
+
                 return createSubmissionForGrading(rowToSubmission({
                     ...row,
                     student_profile: profile,
                 }));
-            }) || [];
+            }));
 
             return { success: true, data: submissions };
         } catch (error) {
