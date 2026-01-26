@@ -212,7 +212,7 @@ export function AssignmentCard({
                     {/* Status Badge */}
                     <Badge
                         variant={statusDisplay.variant}
-                        className="px-2 py-0.5 text-sm rounded-full truncate max-w-[100px]"
+                        className="px-2 py-0.5 rounded-full truncate"
                     >
                         {statusDisplay.label}
                     </Badge>

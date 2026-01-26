@@ -196,7 +196,7 @@ export function StudentAssignmentCard({
                     {/* Status Badge */}
                     <Badge
                         variant={submissionStatus.variant}
-                        className="px-2 py-0.5 text-sm rounded-full"
+                        className="px-2 py-0.5 rounded-full"
                     >
                         {submissionStatus.label}
                     </Badge>
