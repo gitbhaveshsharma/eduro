@@ -49,7 +49,7 @@ export function DashboardStatsCard({
             )}
             onClick={onClick}
         >
-            <CardHeader className="pb-2 space-y-0">
+            <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-xs sm:text-sm font-medium text-muted-foreground line-clamp-1">
                         {title}
@@ -62,7 +62,7 @@ export function DashboardStatsCard({
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent>
                 <div className="space-y-2">
                     {/* Main value */}
                     <div className="flex items-baseline gap-2">
@@ -86,7 +86,7 @@ export function DashboardStatsCard({
                         </p>
                     )}
 
-                    {/* Mini chart */}
+                    {/* Mini chart
                     {chartData && chartData.length > 0 && (
                         <div className="pt-2 border-t border-border/50">
                             <MiniBarChart
@@ -96,7 +96,7 @@ export function DashboardStatsCard({
                                 barHeight={chartOrientation === 'horizontal' ? 6 : undefined}
                             />
                         </div>
-                    )}
+                    )} */}
                 </div>
             </CardContent>
         </Card>

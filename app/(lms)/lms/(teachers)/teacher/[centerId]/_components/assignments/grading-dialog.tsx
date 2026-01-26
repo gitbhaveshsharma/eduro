@@ -142,20 +142,28 @@ export function GradingDialog({
         }
     };
 
-    // Get score color based on percentage
+    // Get score color based on percentage - Updated with brand colors
     const getScoreColor = (percentage: number) => {
-        if (percentage >= 90) return 'text-green-600';
-        if (percentage >= 70) return 'text-blue-600';
-        if (percentage >= 50) return 'text-amber-600';
-        return 'text-red-600';
+        if (percentage >= 90) return 'text-success'; // Green #10B981
+        if (percentage >= 70) return 'text-brand-secondary'; // Sky Blue #3B82F6
+        if (percentage >= 50) return 'text-warning'; // Amber #F59E0B
+        return 'text-error'; // Red #EF4444
     };
 
-    // Get slider color based on percentage
+    // Get slider color based on percentage - Updated with brand colors
     const getSliderColor = (percentage: number) => {
-        if (percentage >= 90) return 'bg-green-500';
-        if (percentage >= 70) return 'bg-blue-500';
-        if (percentage >= 50) return 'bg-amber-500';
-        return 'bg-red-500';
+        if (percentage >= 90) return 'bg-success'; // Green #10B981
+        if (percentage >= 70) return 'bg-brand-secondary'; // Sky Blue #3B82F6
+        if (percentage >= 50) return 'bg-warning'; // Amber #F59E0B
+        return 'bg-error'; // Red #EF4444
+    };
+
+    // Get slider track color class
+    const getSliderTrackClass = (percentage: number) => {
+        if (percentage >= 90) return '[&_[role=slider]]:bg-success [&>span:first-child]:bg-success/30';
+        if (percentage >= 70) return '[&_[role=slider]]:bg-brand-secondary [&>span:first-child]:bg-brand-secondary/30';
+        if (percentage >= 50) return '[&_[role=slider]]:bg-warning [&>span:first-child]:bg-warning/30';
+        return '[&_[role=slider]]:bg-error [&>span:first-child]:bg-error/30';
     };
 
     if (!submission) return null;
@@ -165,9 +173,9 @@ export function GradingDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col">
+            <DialogContent className="max-w-3xl max-h-[95vh] flex flex-col scrollbar-modern">
                 <DialogHeader className="flex-shrink-0">
-                    <DialogTitle>
+                    <DialogTitle className="text-brand-primary">
                         {isUpdate ? 'Update Grade' : 'Grade Submission'}
                     </DialogTitle>
                     <DialogDescription>
@@ -178,22 +186,22 @@ export function GradingDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 overflow-y-auto">
+                <ScrollArea className="flex-1 overflow-y-auto scrollbar-modern pr-4">
                     <TooltipProvider>
                         <div className="p-4 space-y-6">
                             {/* Student Info */}
-                            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
-                                <Avatar className="h-12 w-12">
+                            <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50 border border-border">
+                                <Avatar className="h-12 w-12 border-2 border-brand-primary/20">
                                     <AvatarImage
                                         src={submission.student_avatar || undefined}
                                         alt={submission.student_name || 'Student'}
                                     />
-                                    <AvatarFallback>
+                                    <AvatarFallback className="bg-brand-primary/10 text-brand-primary">
                                         {getInitials(submission.student_name || 'S')}
                                     </AvatarFallback>
                                 </Avatar>
                                 <div className="flex-1 min-w-0">
-                                    <p className="font-semibold truncate">
+                                    <p className="font-semibold truncate text-foreground">
                                         {submission.student_name || 'Unknown Student'}
                                     </p>
                                     {submission.student_username && (
@@ -205,7 +213,9 @@ export function GradingDialog({
                                 {submission.is_late && (
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <Badge variant="destructive">Late Submission</Badge>
+                                            <Badge variant="destructive" className="bg-error text-error-foreground">
+                                                Late Submission
+                                            </Badge>
                                         </TooltipTrigger>
                                         <TooltipContent>
                                             <p>Student submitted after the due date</p>
@@ -218,10 +228,10 @@ export function GradingDialog({
                             <div className="grid grid-cols-2 gap-4">
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                                        <div className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                            <Calendar className="h-4 w-4 " />
                                             <span className="text-muted-foreground">Submitted:</span>
-                                            <span className="font-medium">
+                                            <span className="font-medium text-foreground">
                                                 {formatDateTime(submission.submitted_at, 'short')}
                                             </span>
                                         </div>
@@ -233,10 +243,10 @@ export function GradingDialog({
 
                                 <Tooltip>
                                     <TooltipTrigger asChild>
-                                        <div className="flex items-center gap-2 text-sm">
-                                            <Clock className="h-4 w-4 text-muted-foreground" />
+                                        <div className="flex items-center gap-2 text-sm p-2 rounded-md hover:bg-muted/50 transition-colors">
+                                            <Clock className="h-4 w-4" />
                                             <span className="text-muted-foreground">Attempt:</span>
-                                            <span className="font-medium">
+                                            <span className="font-medium text-foreground">
                                                 #{submission.attempt_number}
                                             </span>
                                         </div>
@@ -254,8 +264,8 @@ export function GradingDialog({
                             {submission.submission_text && (
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between">
-                                        <h4 className="text-sm font-medium flex items-center gap-2">
-                                            <FileText className="h-4 w-4" />
+                                        <h4 className="text-sm font-medium flex items-center gap-2 text-foreground">
+                                            <FileText className="h-4 w-4 text-brand-primary" />
                                             Student&apos;s Submission
                                         </h4>
                                         <Tooltip>
@@ -270,8 +280,8 @@ export function GradingDialog({
                                             </TooltipContent>
                                         </Tooltip>
                                     </div>
-                                    <div className="p-3 rounded-lg bg-muted/50 max-h-40 overflow-y-auto">
-                                        <p className="text-sm whitespace-pre-wrap">
+                                    <div className="p-3 rounded-lg bg-muted/30 border border-border max-h-40 overflow-y-auto scrollbar-thin">
+                                        <p className="text-sm whitespace-pre-wrap text-foreground">
                                             {submission.submission_text}
                                         </p>
                                     </div>
@@ -281,15 +291,17 @@ export function GradingDialog({
                             {/* Submitted File Preview */}
                             {submission.submission_file && (
                                 <div className="space-y-2">
-                                    <h4 className="text-sm font-medium flex items-center gap-2">
+                                    <h4 className="text-sm font-medium flex items-center gap-2 text-foreground">
                                         <FileText className="h-4 w-4" />
                                         Submitted File
                                     </h4>
-                                    <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                                    <div className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-accent transition-colors">
                                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                                            <FileText className="h-8 w-8 text-primary flex-shrink-0" />
+                                            <div className="p-2 rounded-md bg-brand-primary/10">
+                                                <FileText className="h-6 w-6" />
+                                            </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="font-medium truncate">
+                                                <p className="font-medium truncate text-foreground">
                                                     {submission.submission_file.file_name}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground">
@@ -304,6 +316,7 @@ export function GradingDialog({
                                                         type="button"
                                                         variant="outline"
                                                         size="sm"
+                                                        className="border-brand-secondary text-brand-secondary hover:bg-brand-secondary hover:text-brand-secondary-foreground"
                                                         asChild
                                                     >
                                                         <a
@@ -325,7 +338,7 @@ export function GradingDialog({
                                 </div>
                             )}
 
-                            <Separator />
+                            <Separator className="bg-border" />
 
                             {/* Grading Form */}
                             <Form {...form}>
@@ -336,7 +349,7 @@ export function GradingDialog({
                                         name="score"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Score</FormLabel>
+                                                <FormLabel className="text-foreground">Score</FormLabel>
                                                 <div className="space-y-4">
                                                     {/* Score Display */}
                                                     <div className="flex items-end justify-center gap-2">
@@ -350,7 +363,7 @@ export function GradingDialog({
                                                                 field.onChange(value);
                                                             }}
                                                             className={cn(
-                                                                'w-24 text-center text-2xl font-bold h-14',
+                                                                'w-24 text-center text-2xl font-bold h-14 border-brand-primary/30 focus:border-brand-primary focus:ring-brand-primary',
                                                                 getScoreColor(scorePercentage)
                                                             )}
                                                         />
@@ -379,16 +392,17 @@ export function GradingDialog({
                                                     </div>
 
                                                     {/* Score Slider */}
-                                                    <Slider
-                                                        value={[field.value]}
-                                                        onValueChange={([value]) => field.onChange(value)}
-                                                        max={maxScore}
-                                                        step={1}
-                                                        className={cn(
-                                                            '[&>span:first-child]:h-2',
-                                                            `[&_[role=slider]]:${getSliderColor(scorePercentage)}`
-                                                        )}
-                                                    />
+                                                    <div className="px-4">
+                                                        <Slider
+                                                            value={[field.value]}
+                                                            onValueChange={([value]) => field.onChange(value)}
+                                                            max={maxScore}
+                                                            step={1}
+                                                            className={cn(
+                                                                getSliderTrackClass(scorePercentage)
+                                                            )}
+                                                        />
+                                                    </div>
 
                                                     {/* Quick Score Buttons */}
                                                     <div className="flex flex-wrap gap-2 justify-center">
@@ -402,7 +416,12 @@ export function GradingDialog({
                                                                             variant={Math.round(scorePercentage) === percent ? 'default' : 'outline'}
                                                                             size="sm"
                                                                             onClick={() => field.onChange(scoreForPercent)}
-                                                                            className="h-8"
+                                                                            className={cn(
+                                                                                'h-8 transition-all',
+                                                                                Math.round(scorePercentage) === percent
+                                                                                    ? 'bg-brand-primary text-primary-foreground hover:bg-brand-primary/90'
+                                                                                    : 'border-border hover:bg-accent hover:text-accent-foreground'
+                                                                            )}
                                                                         >
                                                                             {percent}%
                                                                         </Button>
@@ -415,7 +434,7 @@ export function GradingDialog({
                                                         })}
                                                     </div>
                                                 </div>
-                                                <FormMessage />
+                                                <FormMessage className="text-error" />
                                             </FormItem>
                                         )}
                                     />
@@ -427,7 +446,7 @@ export function GradingDialog({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <div className="flex items-center justify-between">
-                                                    <FormLabel>Feedback for Student</FormLabel>
+                                                    <FormLabel className="text-foreground">Feedback for Student</FormLabel>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-help">
@@ -443,7 +462,7 @@ export function GradingDialog({
                                                 <FormControl>
                                                     <Textarea
                                                         placeholder="Provide constructive feedback for the student..."
-                                                        className="resize-none"
+                                                        className="resize-none border-border focus:border-brand-primary focus:ring-brand-primary"
                                                         rows={4}
                                                         {...field}
                                                         value={field.value || ''}
@@ -452,7 +471,7 @@ export function GradingDialog({
                                                 <FormDescription>
                                                     This feedback will be visible to the student
                                                 </FormDescription>
-                                                <FormMessage />
+                                                <FormMessage className="text-error" />
                                             </FormItem>
                                         )}
                                     />
@@ -463,11 +482,11 @@ export function GradingDialog({
                                         name="private_notes"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Private Notes (Optional)</FormLabel>
+                                                <FormLabel className="text-foreground">Private Notes (Optional)</FormLabel>
                                                 <FormControl>
                                                     <Textarea
                                                         placeholder="Add private notes for your records..."
-                                                        className="resize-none"
+                                                        className="resize-none border-border focus:border-brand-secondary focus:ring-brand-secondary"
                                                         rows={2}
                                                         {...field}
                                                         value={field.value || ''}
@@ -476,7 +495,7 @@ export function GradingDialog({
                                                 <FormDescription>
                                                     Only visible to teachers, not the student
                                                 </FormDescription>
-                                                <FormMessage />
+                                                <FormMessage className="text-error" />
                                             </FormItem>
                                         )}
                                     />
@@ -486,7 +505,7 @@ export function GradingDialog({
                     </TooltipProvider>
                 </ScrollArea>
 
-                <DialogFooter className="flex-shrink-0 border-t pt-4">
+                <DialogFooter className="flex-shrink-0 border-t border-border pt-4">
                     <Tooltip>
                         <TooltipTrigger asChild>
                             <Button
@@ -494,6 +513,7 @@ export function GradingDialog({
                                 variant="outline"
                                 onClick={() => onOpenChange(false)}
                                 disabled={isLoading}
+                                className="border-border hover:bg-accent hover:text-accent-foreground"
                             >
                                 Cancel
                             </Button>
@@ -509,6 +529,7 @@ export function GradingDialog({
                                 type="submit"
                                 onClick={form.handleSubmit(handleSubmit)}
                                 disabled={isLoading}
+                                className="bg-brand-primary text-primary-foreground hover:bg-brand-primary/90 focus:ring-brand-primary"
                             >
                                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 {isUpdate ? 'Update Grade' : 'Submit Grade'}

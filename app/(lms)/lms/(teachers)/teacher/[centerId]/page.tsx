@@ -230,7 +230,7 @@ export default function TeacherDashboardPage() {
             </div>
 
             {/* Quick Actions - 3 columns on desktop */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <QuickActionCard
                     title="My Classes"
                     description="Manage your classes and course materials"
@@ -258,7 +258,7 @@ export default function TeacherDashboardPage() {
                     buttonVariant="secondary"
                     onClick={() => router.push(`/lms/teacher/${centerId}/assignments`)}
                 />
-            </div>
+            </div> */}
 
             {/* Center Info */}
             <CenterInfo coachingCenter={coachingCenter} />

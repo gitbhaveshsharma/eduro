@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Clock, Users, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import type { FormattedScheduleItem } from '@/lib/branch-system/types/teacher-dashboard.types';
 import { getSubjectColor } from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
@@ -55,8 +56,22 @@ export function TodaySchedule({ schedule, onClassClick }: TodayScheduleProps) {
                 <CardDescription>Your classes for today</CardDescription>
             </CardHeader>
             <CardContent>
-                {/* Horizontal scroll on mobile */}
-                <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 snap-x snap-mandatory md:grid md:grid-cols-2 lg:grid-cols-3 md:overflow-visible">
+                {/* Horizontal ScrollArea for mobile */}
+                <ScrollArea className="md:hidden">
+                    <div className="flex gap-3 pb-4">
+                        {schedule.map((item) => (
+                            <ScheduleCard
+                                key={item.class_id}
+                                item={item}
+                                onClick={() => onClassClick?.(item.class_id)}
+                            />
+                        ))}
+                    </div>
+                    <ScrollBar orientation="horizontal" />
+                </ScrollArea>
+
+                {/* Grid layout for desktop */}
+                <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-3 gap-3">
                     {schedule.map((item) => (
                         <ScheduleCard
                             key={item.class_id}
