@@ -286,6 +286,8 @@ export interface SubmissionForGrading {
     late_minutes: number | null;
     grading_status: GradingStatus;
     score: number | null;
+    feedback: string | null;
+    private_notes: string | null;
     attempt_number: number;
     is_final: boolean;
     submission_text: string | null;
@@ -491,6 +493,7 @@ export interface AssignmentFilters {
     due_date_from?: string;
     due_date_to?: string;
     search?: string; // Search by title
+    student_id?: string; // For fetching student submissions
 }
 
 /**

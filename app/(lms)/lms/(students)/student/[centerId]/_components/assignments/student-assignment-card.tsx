@@ -19,7 +19,8 @@ import {
     CheckCircle2,
     AlertCircle,
     BarChart3,
-    Circle,
+    CirclePlay,
+    NotepadTextDashed,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Assignment } from '@/lib/branch-system/types/assignment.types';
@@ -28,6 +29,8 @@ import {
     formatDateTime,
     getDueDateStatus,
     SUBMISSION_TYPE_CONFIG,
+    determineStudentStatus,
+    StudentSubmissionStatus,
 } from '@/lib/branch-system/assignment';
 
 export interface StudentAssignmentCardProps {
@@ -41,7 +44,6 @@ export interface StudentAssignmentCardProps {
 
 export function StudentAssignmentCard({
     assignment,
-    studentId,
     onViewDetails,
 }: StudentAssignmentCardProps) {
     const dueDateStatus = assignment.due_date
@@ -50,54 +52,80 @@ export function StudentAssignmentCard({
 
     const submission = assignment.student_submission;
 
-    // Determine student's submission status
+    // Determine student's submission status using standard utility
+    const studentStatus = determineStudentStatus(submission ?? null, assignment);
+
+    // Determine display configuration based on status
     const getSubmissionStatus = () => {
-        if (!submission) {
-            if (dueDateStatus?.isOverdue) {
-                return {
-                    label: 'Overdue',
-                    variant: 'destructive' as const,
-                    icon: AlertCircle,
-                    color: 'text-red-600',
-                    bgColor: 'bg-red-100 dark:bg-red-900/30',
-                };
-            }
+        // Check for overdue if not started
+        if (studentStatus === StudentSubmissionStatus.NOT_STARTED && dueDateStatus?.isOverdue) {
             return {
-                label: 'Not Started',
-                variant: 'secondary' as const,
-                icon: Circle,
-                color: 'text-muted-foreground',
-                bgColor: 'bg-secondary/30',
-            };
-        }
-
-        if (submission.grading_status === 'MANUAL_GRADED' || submission.grading_status === 'AUTO_GRADED') {
-            return {
-                label: 'Graded',
-                variant: 'success' as const,
-                icon: BarChart3,
-                color: 'text-green-600',
-                bgColor: 'bg-green-100 dark:bg-green-900/30',
-            };
-        }
-
-        if (submission.is_late) {
-            return {
-                label: 'Late Submission',
-                variant: 'warning' as const,
+                label: 'Overdue',
+                variant: 'destructive' as const,
                 icon: AlertCircle,
-                color: 'text-amber-600',
-                bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+                color: 'text-error',
+                bgColor: 'bg-error/10',
+                borderColor: 'border-error/20',
             };
         }
 
-        return {
-            label: 'Submitted',
-            variant: 'success' as const,
-            icon: CheckCircle2,
-            color: 'text-blue-600',
-            bgColor: 'bg-blue-100 dark:bg-blue-900/30',
-        };
+        // Map student status to display config
+        switch (studentStatus) {
+            case StudentSubmissionStatus.NOT_STARTED:
+                return {
+                    label: 'Not Started',
+                    variant: 'secondary' as const,
+                    icon: CirclePlay,
+                    color: 'text-muted-foreground',
+                    bgColor: 'bg-muted',
+                    borderColor: 'border-border',
+                };
+            case StudentSubmissionStatus.DRAFT_SAVED:
+                return {
+                    label: 'Draft Saved',
+                    variant: 'secondary' as const,
+                    icon: NotepadTextDashed,
+                    color: 'text-brand-secondary',
+                    bgColor: 'bg-secondary/10',
+                    borderColor: 'border-secondary/20',
+                };
+            case StudentSubmissionStatus.SUBMITTED:
+                return {
+                    label: 'Submitted',
+                    variant: 'success' as const,
+                    icon: CheckCircle2,
+                    color: 'text-brand-primary',
+                    bgColor: 'bg-primary/10',
+                    borderColor: 'border-primary/20',
+                };
+            case StudentSubmissionStatus.LATE:
+                return {
+                    label: 'Late Submission',
+                    variant: 'warning' as const,
+                    icon: AlertCircle,
+                    color: 'text-warning',
+                    bgColor: 'bg-warning/10',
+                    borderColor: 'border-warning/20',
+                };
+            case StudentSubmissionStatus.GRADED:
+                return {
+                    label: 'Graded',
+                    variant: 'success' as const,
+                    icon: BarChart3,
+                    color: 'text-success',
+                    bgColor: 'bg-success/10',
+                    borderColor: 'border-success/20',
+                };
+            default:
+                return {
+                    label: 'Not Started',
+                    variant: 'secondary' as const,
+                    icon: CirclePlay,
+                    color: 'text-muted-foreground',
+                    bgColor: 'bg-muted',
+                    borderColor: 'border-border',
+                };
+        }
     };
 
     const submissionStatus = getSubmissionStatus();
@@ -110,15 +138,27 @@ export function StudentAssignmentCard({
         const maxScore = assignment.max_score;
         const percentage = Math.round((score / maxScore) * 100);
 
-        let scoreColor = 'text-green-600';
-        if (percentage < 60) scoreColor = 'text-red-600';
-        else if (percentage < 80) scoreColor = 'text-amber-600';
+        let scoreColor = 'text-success';
+        let bgColor = 'bg-success/15';
+        let borderColor = 'border-success/20';
+
+        if (percentage < 60) {
+            scoreColor = 'text-error';
+            bgColor = 'bg-error/15';
+            borderColor = 'border-error/20';
+        } else if (percentage < 80) {
+            scoreColor = 'text-warning';
+            bgColor = 'bg-warning/15';
+            borderColor = 'border-warning/20';
+        }
 
         return {
             score,
             maxScore,
             percentage,
             scoreColor,
+            bgColor,
+            borderColor,
         };
     };
 
@@ -126,25 +166,27 @@ export function StudentAssignmentCard({
 
     return (
         <Card className={cn(
-            'group hover:shadow-md transition-all duration-200',
-            'flex flex-col h-full',
+            'group hover:shadow-md transition-all duration-200 border-border hover:border-primary/30',
+
         )}>
-            <CardHeader>
+            <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         {/* Status Icon */}
                         <div className={cn(
-                            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-                            submissionStatus.bgColor
+                            'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border',
+                            submissionStatus.bgColor,
+                            submissionStatus.borderColor,
+
                         )}>
                             <StatusIcon className={cn('h-5 w-5', submissionStatus.color)} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                            <h3 className="font-semibold text-sm truncate group-hover:text-brand-primary transition-colors">
                                 {assignment.title}
                             </h3>
                             {assignment.class?.class_name && (
-                                <p className="text-xs text-muted-foreground truncate">
+                                <p className="text-xs text-secondary truncate">
                                     {assignment.class.class_name}
                                 </p>
                             )}
@@ -154,17 +196,17 @@ export function StudentAssignmentCard({
                     {/* Status Badge */}
                     <Badge
                         variant={submissionStatus.variant}
-                        className="text-xs shrink-0"
+                        className="px-2 py-0.5 text-sm rounded-full"
                     >
                         {submissionStatus.label}
                     </Badge>
                 </div>
             </CardHeader>
 
-            <CardContent className="flex-1">
+            <CardContent className="flex-1 py-0">
                 {/* Description */}
                 {assignment.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+                    <p className="text-sm text-secondary line-clamp-2 mb-4">
                         {assignment.description}
                     </p>
                 )}
@@ -174,21 +216,24 @@ export function StudentAssignmentCard({
                     {/* Due Date */}
                     {assignment.due_date && (
                         <div className={cn(
-                            'flex items-center gap-1.5 p-2 rounded-md bg-muted/50',
-                            dueDateStatus?.isOverdue && 'bg-red-100 dark:bg-red-900/20',
-                            dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'bg-amber-100 dark:bg-amber-900/20',
+                            'flex items-center gap-1.5 p-2 rounded-md transition-colors',
+                            dueDateStatus?.isOverdue && 'bg-error/15 border border-error/20',
+                            dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'bg-warning/15 border border-warning/20',
+                            !dueDateStatus?.isOverdue && !dueDateStatus?.isDueSoon && 'bg-primary/15 border border-primary/10',
                         )}>
                             <Calendar className={cn(
                                 'h-3.5 w-3.5 flex-shrink-0',
-                                dueDateStatus?.isOverdue && 'text-red-600',
-                                dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'text-amber-600',
+                                dueDateStatus?.isOverdue && 'text-error',
+                                dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'text-warning',
+                                !dueDateStatus?.isOverdue && !dueDateStatus?.isDueSoon && 'text-brand-primary',
                             )} />
                             <div className="min-w-0">
-                                <p className="text-muted-foreground truncate">Due</p>
+                                <p className="text-secondary truncate">Due</p>
                                 <p className={cn(
                                     'font-medium truncate',
-                                    dueDateStatus?.isOverdue && 'text-red-600',
-                                    dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'text-amber-600',
+                                    dueDateStatus?.isOverdue && 'text-error',
+                                    dueDateStatus?.isDueSoon && !dueDateStatus?.isOverdue && 'text-warning',
+                                    !dueDateStatus?.isOverdue && !dueDateStatus?.isDueSoon && 'text-brand-primary',
                                 )}>
                                     {formatDateTime(assignment.due_date, 'short')}
                                 </p>
@@ -197,38 +242,46 @@ export function StudentAssignmentCard({
                     )}
 
                     {/* Score/Max Score */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50">
+                    <div className={cn(
+                        'flex items-center gap-1.5 p-2 rounded-md transition-colors',
+                        scoreDisplay
+                            ? `${scoreDisplay.bgColor} border ${scoreDisplay.borderColor}`
+                            : 'bg-primary/15 border border-primary/10'
+                    )}>
                         {scoreDisplay ? (
-                            <>
-                                <span className={cn('text-lg font-bold', scoreDisplay.scoreColor)}>
+                            <div className="flex items-center min-w-0">
+                                <span className={cn('text-lg font-bold mr-1', scoreDisplay.scoreColor)}>
                                     {scoreDisplay.score}
                                 </span>
-                                <span className="text-muted-foreground">/{scoreDisplay.maxScore} pts</span>
-                            </>
+                                <div className="text-secondary truncate">
+                                    <span>/</span>
+                                    <span>{scoreDisplay.maxScore} pts</span>
+                                </div>
+                            </div>
                         ) : (
-                            <>
-                                <span className="text-lg font-bold text-primary">{assignment.max_score}</span>
-                                <span className="text-muted-foreground">points</span>
-                            </>
+                            <div className="flex items-center min-w-0">
+                                <span className="text-lg font-bold text-brand-primary mr-1">{assignment.max_score}</span>
+                                <span className="text-secondary truncate">points</span>
+                            </div>
                         )}
                     </div>
 
                     {/* Submission Type */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50">
+                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-brand-highlight/5 border border-brand-highlight/10">
                         {assignment.submission_type === AssignmentSubmissionType.FILE ? (
-                            <FileUp className="h-3.5 w-3.5 text-muted-foreground" />
+                            <FileUp className="h-3.5 w-3.5 text-brand-highlight" />
                         ) : (
-                            <Type className="h-3.5 w-3.5 text-muted-foreground" />
+                            <Type className="h-3.5 w-3.5 text-brand-highlight" />
                         )}
-                        <span className="truncate">
+                        <span className="truncate text-primary">
                             {SUBMISSION_TYPE_CONFIG[assignment.submission_type]?.label || 'Unknown'}
                         </span>
                     </div>
 
                     {/* Late Submission Info */}
-                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50">
-                        <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span className="truncate">
+                    <div className="flex items-center gap-1.5 p-2 rounded-md bg-muted/50 border border-border">
+                        <Clock className="h-3.5 w-3.5 text-secondary" />
+                        <span className="truncate text-primary">
                             {assignment.allow_late_submission
                                 ? `Late OK (-${assignment.late_penalty_percentage}%)`
                                 : 'No late'}
@@ -237,12 +290,17 @@ export function StudentAssignmentCard({
                 </div>
             </CardContent>
 
-            <CardFooter className="border-t">
+            <CardFooter className="border-t pt-3 mt-3">
                 <Button
-                    variant="outline"
+                    variant={submission ? "outline" : "default"}
                     size="sm"
                     onClick={() => onViewDetails(assignment.id)}
-                    className="w-full gap-2"
+                    className={cn(
+                        'w-full gap-2 transition-all duration-200',
+                        submission
+                            ? 'border-brand-primary/20 hover:border-brand-primary/40 hover:bg-brand-primary/5 hover:text-brand-primary'
+                            : 'bg-brand-highlight hover:bg-brand-highlight/90 text-highlight-foreground shadow-sm hover:shadow-md'
+                    )}
                 >
                     <Eye className="h-4 w-4" />
                     {submission ? 'View Submission' : 'Start Assignment'}

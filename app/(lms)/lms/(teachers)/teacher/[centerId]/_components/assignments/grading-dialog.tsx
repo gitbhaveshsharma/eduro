@@ -96,25 +96,25 @@ export function GradingDialog({
             submission_id: submission?.id || '',
             graded_by: graderId,
             score: submission?.score || 0,
-            feedback: '',
-            private_notes: '',
+            feedback: submission?.feedback || '',
+            private_notes: submission?.private_notes || '',
         },
     });
 
-    // Reset form when submission changes
+    // Reset form when submission or dialog open state changes
     useEffect(() => {
-        if (submission) {
+        if (submission && open) {
             const initialScore = submission.score || 0;
             form.reset({
                 submission_id: submission.id,
                 graded_by: graderId,
                 score: initialScore,
-                feedback: '',
-                private_notes: '',
+                feedback: submission.feedback || '',
+                private_notes: submission.private_notes || '',
             });
             setScorePercentage(maxScore > 0 ? (initialScore / maxScore) * 100 : 0);
         }
-    }, [submission, graderId, maxScore, form]);
+    }, [submission?.id, open, graderId, maxScore]);
 
     // Watch score changes to update percentage
     const currentScore = form.watch('score');
@@ -167,7 +167,7 @@ export function GradingDialog({
                     </DialogDescription>
                 </DialogHeader>
 
-                <ScrollArea className="flex-1 min-h-0 px-1">
+                <ScrollArea className="flex-1 overflow-y-auto">
                     <div className="p-4 space-y-6">
                         {/* Student Info */}
                         <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">

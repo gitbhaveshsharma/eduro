@@ -9,6 +9,13 @@ import {
     Paperclip,
     Download,
     Eye,
+    Image,
+    FileEdit,
+    BarChart,
+    Presentation,
+    Archive,
+    ClipboardList,
+    MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Assignment, AssignmentSubmission } from '@/lib/branch-system/types/assignment.types';
@@ -105,15 +112,16 @@ export function AssignmentDetailContent({
         }
     };
 
-    // Get file icon based on mime type
+    // Get file icon component based on mime type
     const getFileIcon = (mimeType: string) => {
-        if (mimeType.startsWith('image/')) return '🖼️';
-        if (mimeType.includes('pdf')) return '📄';
-        if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
-        if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
-        if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
-        if (mimeType.includes('zip') || mimeType.includes('compressed')) return '📦';
-        return '📎';
+        const iconClass = "h-5 w-5 text-muted-foreground";
+        if (mimeType.startsWith('image/')) return <Image className={iconClass} />;
+        if (mimeType.includes('pdf')) return <FileText className={iconClass} />;
+        if (mimeType.includes('word') || mimeType.includes('document')) return <FileEdit className={iconClass} />;
+        if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return <BarChart className={iconClass} />;
+        if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return <Presentation className={iconClass} />;
+        if (mimeType.includes('zip') || mimeType.includes('compressed')) return <Archive className={iconClass} />;
+        return <Paperclip className={iconClass} />;
     };
 
     return (
@@ -171,7 +179,7 @@ export function AssignmentDetailContent({
                                     className="flex items-center justify-between p-3 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
                                 >
                                     <div className="flex items-center gap-3 min-w-0">
-                                        <span className="text-2xl">{getFileIcon(file.mimeType)}</span>
+                                        <div className="flex-shrink-0">{getFileIcon(file.mimeType)}</div>
                                         <div className="min-w-0">
                                             <p className="font-medium truncate">{file.fileName}</p>
                                             <p className="text-xs text-muted-foreground">
@@ -217,7 +225,8 @@ export function AssignmentDetailContent({
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
-                            📋 Grading Rubric
+                            <ClipboardList className="h-5 w-5" />
+                            Grading Rubric
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
@@ -259,18 +268,39 @@ export function AssignmentDetailContent({
                 </Card>
             )}
 
-            {/* Feedback (if graded) */}
-            {submission?.feedback && (
-                <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10">
-                    <CardHeader>
-                        <CardTitle className="text-lg flex items-center gap-2 text-green-700 dark:text-green-400">
-                            💬 Teacher Feedback
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <p className="whitespace-pre-wrap">{submission.feedback}</p>
-                    </CardContent>
-                </Card>
+            {/* Feedback and Private Notes in two columns */}
+            {(submission?.feedback || submission?.private_notes) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Teacher Feedback Column */}
+                    {submission?.feedback && (
+                        <Card className="border-green-200 bg-green-50/50 dark:bg-green-900/10 h-full">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2 text-green-700 dark:text-green-400">
+                                    <MessageSquare className="h-5 w-5" />
+                                    Teacher Feedback
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="whitespace-pre-wrap">{submission.feedback}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+
+                    {/* Private Notes Column */}
+                    {submission?.private_notes && (
+                        <Card className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-900/10 h-full">
+                            <CardHeader>
+                                <CardTitle className="text-lg flex items-center gap-2 text-yellow-700 dark:text-yellow-400">
+                                    <MessageSquare className="h-5 w-5" />
+                                    Private Notes
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="whitespace-pre-wrap">{submission.private_notes}</p>
+                            </CardContent>
+                        </Card>
+                    )}
+                </div>
             )}
         </div>
     );

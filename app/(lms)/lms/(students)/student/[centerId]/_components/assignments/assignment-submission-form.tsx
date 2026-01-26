@@ -249,7 +249,6 @@ export function AssignmentSubmissionForm({
                 </CardHeader>
                 <CardContent>
                     <Alert className="mb-4">
-                        <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                             Your assignment has been submitted and is waiting to be graded.
                         </AlertDescription>

@@ -118,6 +118,7 @@ function rowToAssignment(row: any): Assignment {
         } : undefined,
         instruction_file: row.instruction_file || null,
         attachments: row.attachments || [],
+        student_submission: row.student_submission || null,
     };
 }
 
@@ -604,107 +605,167 @@ export class AssignmentService {
     /**
      * Lists assignments with filtering and pagination
      */
-    async listAssignments(
-        params: AssignmentListParams = {}
-    ): Promise<AssignmentOperationResult<AssignmentListResponse>> {
-        try {
-            const validationResult = assignmentListParamsSchema.safeParse(params);
-            if (!validationResult.success) {
-                return {
-                    success: false,
-                    validation_errors: validationResult.error.errors.map(err => ({
-                        field: err.path.join('.'),
-                        message: err.message,
-                    })),
-                };
-            }
-
-            const validatedParams = validationResult.data;
-            const {
-                page = 1,
-                limit = 20,
-                sort_by = 'due_date',
-                sort_order = 'desc',
-                search,
-                due_date_from,
-                due_date_to,
-                ...filters
-            } = validatedParams;
-
-            const offset = (page - 1) * limit;
-
-            // Build query
-            let query = this.supabase
-                .from('assignments')
-                .select(`
-                    *,
-                    branch_classes:class_id(id, class_name, subject, grade_level),
-                    coaching_branches:branch_id(id, name)
-                `, { count: 'exact' });
-
-            // Apply filters
-            const queryFilters = buildAssignmentQueryFilters(filters);
-            Object.entries(queryFilters).forEach(([key, value]) => {
-                query = query.eq(key, value);
-            });
-
-            // Date range filters
-            if (due_date_from) {
-                query = query.gte('due_date', due_date_from);
-            }
-            if (due_date_to) {
-                query = query.lte('due_date', due_date_to);
-            }
-
-            // Search filter
-            if (search) {
-                query = query.ilike('title', `%${search}%`);
-            }
-
-            // Apply sorting and pagination
-            query = query
-                .order(sort_by, { ascending: sort_order === 'asc' })
-                .range(offset, offset + limit - 1);
-
-            const { data, error, count } = await query;
-
-            if (error) {
-                return { success: false, error: `Database error: ${error.message}` };
-            }
-
-            // Fetch teacher profiles
-            const teacherIds = [...new Set(data?.map((a: any) => a.teacher_id) || [])];
-            const { data: teacherProfiles } = await this.supabase
-                .from('profiles')
-                .select('id, full_name, avatar_url')
-                .in('id', teacherIds);
-
-            const teacherMap = new Map(
-                teacherProfiles?.map((p: any) => [p.id, p]) || []
-            );
-
-            const assignments = data?.map((row: any) => rowToAssignment({
-                ...row,
-                teacher_profile: teacherMap.get(row.teacher_id),
-            })) || [];
-
-            return {
-                success: true,
-                data: {
-                    data: assignments,
-                    total: count || 0,
-                    page,
-                    limit,
-                    has_more: (count || 0) > offset + limit,
-                },
-            };
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
+   async listAssignments(
+  params: AssignmentListParams = {}
+): Promise<AssignmentOperationResult<AssignmentListResponse>> {
+  try {
+    const validationResult = assignmentListParamsSchema.safeParse(params);
+    if (!validationResult.success) {
+      return {
+        success: false,
+        validation_errors: validationResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message,
+        })),
+      };
     }
+
+    const validatedParams = validationResult.data;
+    const {
+      page = 1,
+      limit = 20,
+      sort_by = 'due_date',
+      sort_order = 'desc',
+      search,
+      due_date_from,
+      due_date_to,
+      ...filters
+    } = validatedParams;
+
+    const offset = (page - 1) * limit;
+
+    /* ---------------------------------------------------
+       1️⃣ Fetch assignments
+    --------------------------------------------------- */
+    let query = this.supabase
+      .from('assignments')
+      .select(
+        `
+        *,
+        branch_classes:class_id(id, class_name, subject, grade_level),
+        coaching_branches:branch_id(id, name)
+        `,
+        { count: 'exact' }
+      );
+
+    const queryFilters = buildAssignmentQueryFilters(filters);
+    Object.entries(queryFilters).forEach(([key, value]) => {
+      query = query.eq(key, value);
+    });
+
+    if (due_date_from) query = query.gte('due_date', due_date_from);
+    if (due_date_to) query = query.lte('due_date', due_date_to);
+    if (search) query = query.ilike('title', `%${search}%`);
+
+    query = query
+      .order(sort_by, { ascending: sort_order === 'asc' })
+      .range(offset, offset + limit - 1);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      return { success: false, error: `Database error: ${error.message}` };
+    }
+
+    /* ---------------------------------------------------
+       2️⃣ Fetch teacher profiles
+    --------------------------------------------------- */
+    const teacherIds = [...new Set(data?.map((a: any) => a.teacher_id) || [])];
+
+    const { data: teacherProfiles } = await this.supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', teacherIds);
+
+    const teacherMap = new Map(
+      teacherProfiles?.map((p: any) => [p.id, p]) || []
+    );
+
+    /* ---------------------------------------------------
+       3️⃣ Fetch student submissions (NO embedded joins)
+    --------------------------------------------------- */
+    let submissionsMap = new Map<string, any>();
+
+    if (filters.student_id) {
+      const assignmentIds = data?.map((a: any) => a.id) || [];
+
+      const { data: submissions, error: submissionError } =
+        await this.supabase
+          .from('assignment_submissions')
+          .select('*')
+          .eq('student_id', filters.student_id)
+          .in('assignment_id', assignmentIds)
+          .order('attempt_number', { ascending: false });
+
+      if (submissionError) {
+        return { success: false, error: submissionError.message };
+      }
+
+      /* -----------------------------------------------
+         4️⃣ Fetch profiles for students + graders
+      ----------------------------------------------- */
+      const profileIds = Array.from(
+        new Set(
+          submissions
+            ?.flatMap(s => [s.student_id, s.graded_by])
+            .filter(Boolean)
+        )
+      );
+
+      const { data: profiles } = await this.supabase
+        .from('profiles')
+        .select('id, full_name, username, avatar_url')
+        .in('id', profileIds);
+
+      const profileMap = new Map(
+        profiles?.map(p => [p.id, p]) || []
+      );
+
+      /* -----------------------------------------------
+         5️⃣ Latest submission per assignment
+      ----------------------------------------------- */
+      submissions?.forEach(s => {
+        if (!submissionsMap.has(s.assignment_id)) {
+          submissionsMap.set(s.assignment_id, {
+            ...rowToSubmission(s),
+            student_profile: profileMap.get(s.student_id) || null,
+            grader_profile: profileMap.get(s.graded_by) || null,
+          });
+        }
+      });
+    }
+
+    /* ---------------------------------------------------
+       6️⃣ Final response mapping
+    --------------------------------------------------- */
+    const assignments =
+      data?.map((row: any) =>
+        rowToAssignment({
+          ...row,
+          teacher_profile: teacherMap.get(row.teacher_id) || null,
+          student_submission: submissionsMap.get(row.id) || null,
+        })
+      ) || [];
+
+    return {
+      success: true,
+      data: {
+        data: assignments,
+        total: count || 0,
+        page,
+        limit,
+        has_more: (count || 0) > offset + limit,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : 'Unknown error occurred',
+    };
+  }
+}
+
 
     // ============================================================
     // SUBMISSION OPERATIONS

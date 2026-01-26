@@ -81,12 +81,13 @@ export function StudentAssignmentsDashboard({
     const fetchStudentAssignments = useCallback(async (forceRefresh = false) => {
         if (enrolledClassIds.length === 0) return;
 
-        // Fetch published assignments for enrolled classes
+        // Fetch published assignments for enrolled classes with student submissions
         await fetchAssignments({
             status: AssignmentStatus.PUBLISHED,
             class_id: classFilter !== 'all' ? classFilter : undefined,
+            student_id: studentId, // Include student_id to fetch submissions
         }, forceRefresh);
-    }, [enrolledClassIds, classFilter, fetchAssignments]);
+    }, [enrolledClassIds, classFilter, studentId, fetchAssignments]);
 
     // Fetch data on mount
     useEffect(() => {

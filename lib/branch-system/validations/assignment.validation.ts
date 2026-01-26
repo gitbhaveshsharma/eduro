@@ -414,6 +414,7 @@ export const assignmentListParamsSchema = z.object({
     due_date_from: dateSchema.optional(),
     due_date_to: dateSchema.optional(),
     search: z.string().max(100).optional(),
+    student_id: uuidSchema.optional(), // For fetching student submissions
     page: z.number().int().positive().default(1),
     limit: z.number().int().positive().max(100).default(20),
     sort_by: z.enum(['due_date', 'created_at', 'title']).default('due_date'),
