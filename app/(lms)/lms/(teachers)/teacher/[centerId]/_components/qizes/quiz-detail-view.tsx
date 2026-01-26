@@ -200,7 +200,7 @@ export function QuizDetailView({
             <div className="flex flex-col gap-4">
                 {/* First Row: Back button */}
                 <div>
-                    <Button variant="ghost" size="icon" onClick={onBack}>
+                    <Button variant="ghost" onClick={onBack}>
                         <ArrowLeft className="h-4 w-4" /> Back
                     </Button>
                 </div>
