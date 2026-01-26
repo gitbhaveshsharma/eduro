@@ -201,7 +201,7 @@ export function QuizDetailView({
                 {/* First Row: Back button */}
                 <div>
                     <Button variant="ghost" size="icon" onClick={onBack}>
-                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowLeft className="h-4 w-4" /> Back
                     </Button>
                 </div>
 
