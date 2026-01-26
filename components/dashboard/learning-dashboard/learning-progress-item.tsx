@@ -37,70 +37,79 @@ function LearningProgressItem({ content, onAction }: LearningProgressItemProps) 
             variant="default"
             className={cn(
                 'group/item hover:shadow-sm transition-all duration-200 hover:-translate-y-0.5',
-                'items-stretch gap-6 px-5 py-4'
+                'flex flex-col md:flex-row items-stretch md:items-center gap-4 md:gap-6 px-5 py-4'
             )}
         >
-            {/* Left: icon + subject + title */}
-            <ItemMedia className="flex items-center gap-3 flex-shrink-0">
-                <div
-                    className={cn(
-                        'flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl shadow-sm',
-                        iconConfig.bg
-                    )}
-                >
-                    {content.icon || iconConfig.icon}
-                </div>
-            </ItemMedia>
-
-            <ItemContent className="flex min-w-0 flex-col justify-center gap-1">
-                <div className="flex items-center gap-2">
-                    <Badge
-                        variant="secondary"
+            {/* --- MOBILE APP HEADER STYLE (Icon + Title + Action Button) --- */}
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <ItemMedia className="flex-shrink-0">
+                    <div
                         className={cn(
-                            'text-[10px] px-2 py-0.5 rounded-full font-medium',
-                            content.subject.color
+                            'flex-shrink-0 w-11 h-11 rounded-xl flex items-center justify-center text-xl shadow-sm',
+                            iconConfig.bg
                         )}
                     >
-                        {content.subject.name}
-                    </Badge>
-                </div>
-                <ItemTitle className="font-medium text-sm sm:text-base truncate">
-                    {content.title}
-                </ItemTitle>
-            </ItemContent>
+                        {content.icon || iconConfig.icon}
+                    </div>
+                </ItemMedia>
 
-            {/* Middle metrics: 3 small “columns” */}
-            <div className="hidden md:flex items-center gap-8 text-xs sm:text-sm text-muted-foreground">
+                <ItemContent className="flex min-w-0 flex-col justify-center gap-1 flex-1">
+                    <div className="flex items-center gap-2">
+                        <Badge
+                            variant="secondary"
+                            className={cn(
+                                'text-[10px] px-2 py-0.5 rounded-full font-medium',
+                                content.subject.color
+                            )}
+                        >
+                            {content.subject.name}
+                        </Badge>
+                    </div>
+                    <ItemTitle className="font-medium text-sm sm:text-base truncate">
+                        {content.title}
+                    </ItemTitle>
+                </ItemContent>
+
+                {/* Mobile-only Action Button: Placed in the header for app feel */}
+                <div className="md:hidden">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onAction?.(content.id)}
+                        className={cn(
+                            'rounded-full px-4 h-8 text-[11px] font-medium border-border/50 transition-colors',
+                            isStarted && 'bg-primary/5 border-primary/30'
+                        )}
+                    >
+                        {isStarted ? 'Continue' : 'Start'}
+                    </Button>
+                </div>
+            </div>
+
+            {/* --- MOBILE APP DASHBOARD STYLE (Horizontal Stats Row) --- */}
+            <div className="flex items-center justify-between md:justify-center gap-2 md:gap-8 text-xs sm:text-sm text-muted-foreground bg-muted/30 md:bg-transparent p-3 md:p-0 rounded-lg md:rounded-none">
                 {/* Material count */}
-                <div className="text-center min-w-[80px]">
-                    <p className="uppercase tracking-wide text-[10px] mb-1">Content</p>
-                    <p className="font-medium text-foreground">
+                <div className="text-left md:text-center flex-1 md:flex-none md:min-w-[80px]">
+                    <p className="uppercase tracking-wide text-[10px] mb-1 opacity-60">Content</p>
+                    <p className="font-medium text-foreground whitespace-nowrap">
                         {content.materialCount} Material
                     </p>
                 </div>
 
                 {/* Progress circle */}
-                <div className="text-center min-w-[80px]">
-                    <p className="uppercase tracking-wide text-[10px] mb-1">Progress</p>
+                <div className="text-center flex-1 md:flex-none md:min-w-[80px]">
+                    <p className="uppercase tracking-wide text-[10px] mb-1 opacity-60">Progress</p>
                     <div className="flex items-center justify-center gap-2">
-                        <div className="w-7 h-7 relative">
-                            <svg className="w-7 h-7 -rotate-90" viewBox="0 0 36 36">
+                        <div className="w-6 h-6 md:w-7 md:h-7 relative">
+                            <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                 <circle
-                                    cx="18"
-                                    cy="18"
-                                    r="14"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
+                                    cx="18" cy="18" r="14" fill="none"
+                                    stroke="currentColor" strokeWidth="3"
                                     className="text-muted-foreground/20"
                                 />
                                 <circle
-                                    cx="18"
-                                    cy="18"
-                                    r="14"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="3"
+                                    cx="18" cy="18" r="14" fill="none"
+                                    stroke="currentColor" strokeWidth="3"
                                     strokeDasharray={`${content.progress * 0.88} 88`}
                                     className="text-primary"
                                     strokeLinecap="round"
@@ -114,33 +123,19 @@ function LearningProgressItem({ content, onAction }: LearningProgressItemProps) 
                 </div>
 
                 {/* Time remaining */}
-                <div className="text-center min-w-[80px]">
-                    <p className="uppercase tracking-wide text-[10px] mb-1">Time Remaining</p>
-                    <div className="flex items-center justify-center gap-1.5">
+                <div className="text-right md:text-center flex-1 md:flex-none md:min-w-[80px]">
+                    <p className="uppercase tracking-wide text-[10px] mb-1 opacity-60">Time</p>
+                    <div className="flex items-center justify-end md:justify-center gap-1.5">
                         <Clock className="w-3.5 h-3.5" />
-                        <span className="font-medium text-foreground">
+                        <span className="font-medium text-foreground whitespace-nowrap">
                             {content.timeRemaining}
                         </span>
                     </div>
                 </div>
             </div>
 
-            {/* Mobile compact meta (under title style, not table) */}
-            <div className="flex md:hidden flex-col justify-center gap-1 text-xs text-muted-foreground">
-                <div className="flex items-center gap-3">
-                    <span>{content.materialCount} Material</span>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                    <span>{content.progress}%</span>
-                    <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                    <span className="flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        {content.timeRemaining}
-                    </span>
-                </div>
-            </div>
-
-            {/* Right: CTA button */}
-            <ItemActions className="flex-shrink-0">
+            {/* Desktop-only Action Button */}
+            <ItemActions className="hidden md:flex flex-shrink-0">
                 <Button
                     variant="outline"
                     size="sm"
@@ -156,12 +151,6 @@ function LearningProgressItem({ content, onAction }: LearningProgressItemProps) 
             </ItemActions>
         </Item>
     );
-}
-
-interface LearningProgressItemsProps {
-    contents: LearningContent[];
-    onViewAll?: () => void;
-    onContentAction?: (contentId: string) => void;
 }
 
 export function LearningProgressItems({

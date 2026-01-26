@@ -66,6 +66,25 @@ import { ProfileAPI } from '@/lib/profile';
 import { PublicProfile } from '@/lib/schema/profile.types';
 import { AvatarUtils } from '@/lib/utils/avatar.utils';
 
+// Convert 12-hour AM/PM format to 24-hour HH:mm format for form submission
+function convert12to24Hour(time12h: string): string {
+    if (!time12h || !time12h.trim()) return '';
+    const match = time12h.trim().toUpperCase().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+    if (!match) return '';
+
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const period = match[3];
+
+    if (period === 'PM' && hours !== 12) {
+        hours += 12;
+    } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+    }
+
+    return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
 interface CreateClassDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -663,7 +682,13 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                                     <div className="w-full">
                                                         <TimePicker
                                                             value={field.value || ''}
-                                                            onChange={(val) => field.onChange(val)}
+                                                            onChange={(val) => {
+                                                                // Convert 12-hour AM/PM to 24-hour HH:mm for form submission
+                                                                const time24h = convert12to24Hour(val);
+                                                                field.onChange(time24h);
+                                                            }}
+                                                            label=""
+                                                            placeholder="Select start time"
                                                         />
                                                     </div>
                                                 </FormControl>
@@ -681,7 +706,13 @@ export function CreateClassDialog({ open, onOpenChange, branchId }: CreateClassD
                                                     <div className="w-full">
                                                         <TimePicker
                                                             value={field.value || ''}
-                                                            onChange={(val) => field.onChange(val)}
+                                                            onChange={(val) => {
+                                                                // Convert 12-hour AM/PM to 24-hour HH:mm for form submission
+                                                                const time24h = convert12to24Hour(val);
+                                                                field.onChange(time24h);
+                                                            }}
+                                                            label=""
+                                                            placeholder="Select end time"
                                                         />
                                                     </div>
                                                 </FormControl>

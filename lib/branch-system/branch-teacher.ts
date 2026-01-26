@@ -200,3 +200,83 @@ export {
     selectSort,
     selectPagination,
 } from './stores/branch-teacher.store';
+
+// ============================================================
+// TEACHER DASHBOARD
+// ============================================================
+
+// Dashboard types
+export type {
+    TeacherDashboardStats,
+    TodayScheduleItem,
+    FormattedScheduleItem,
+    GradingStats,
+    UpcomingDeadline,
+    FormattedDeadline,
+    AtRiskStudents,
+    ClassAssignmentStats,
+    RecentActivity,
+    DashboardQuickStats,
+    ChartDataItem,
+    GradingChartData,
+    ClassPerformanceData,
+    DashboardFetchParams,
+    DashboardOperationResult,
+    DashboardCacheEntry,
+    DashboardCacheConfig,
+    DashboardSection,
+} from './types/teacher-dashboard.types';
+
+export {
+    DASHBOARD_CACHE_TTL,
+    DEADLINE_URGENCY_THRESHOLDS,
+    AT_RISK_ATTENDANCE_THRESHOLD,
+    PASSING_SCORE_THRESHOLD,
+    DASHBOARD_COLORS,
+} from './types/teacher-dashboard.types';
+
+// Dashboard utilities
+export {
+    formatTime as formatScheduleTime,
+    formatTimeRange,
+    getScheduleStatus,
+    formatDate as formatDashboardDate,
+    formatDeadlineDate,
+    getDaysUntilDue,
+    formatScheduleItems,
+    formatDeadlines,
+    extractQuickStats,
+    prepareGradingChartData,
+    prepareClassPerformanceData,
+    prepareActivityChartData,
+    getSubjectColor,
+    calculatePercentage,
+    getProgressColor,
+    getUrgencyVariant,
+    sortScheduleByTime,
+    sortDeadlinesByUrgency,
+    filterClassesWithPendingGrading,
+    getScheduleSummary,
+    getGradingSummary,
+    getAtRiskSummary,
+    hasDashboardData,
+    hasPendingGrading,
+    hasAtRiskStudents,
+} from './utils/teacher-dashboard.utils';
+
+// Dashboard store
+export {
+    useTeacherDashboardStore,
+    selectDashboardStats,
+    selectQuickStats,
+    selectFormattedSchedule,
+    selectFormattedDeadlines,
+    selectDashboardLoading,
+    selectDashboardRefreshing,
+    selectDashboardError,
+    selectGradingStats,
+    selectAtRiskStudents,
+    selectAssignmentsByClass,
+    selectRecentActivity,
+    selectTodaySchedule,
+} from './stores/teacher-dashboard.store';

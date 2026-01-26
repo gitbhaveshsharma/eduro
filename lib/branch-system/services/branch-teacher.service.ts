@@ -23,6 +23,7 @@ import type {
     BranchTeacherOperationResult,
     TeacherAssignmentSummary,
 } from '../types/branch-teacher.types';
+import type { TeacherDashboardStats } from '../types/teacher-dashboard.types';
 import {
     assignTeacherSchema,
     updateTeacherSelfSchema,
@@ -1104,6 +1105,55 @@ export class BranchTeacherService {
                 data: uniqueSubjects,
             };
         } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    // ============================================================
+    // DASHBOARD STATISTICS
+    // ============================================================
+
+    /**
+     * Gets teacher dashboard statistics using RPC function
+     * Calls get_teacher_dashboard_stats_v2 from the database
+     * 
+     * @param teacherId - Teacher UUID
+     * @param branchId - Optional branch UUID to filter by
+     * @returns Operation result with dashboard statistics
+     */
+    async getTeacherDashboardStats(
+        teacherId: string,
+        branchId?: string | null
+    ): Promise<BranchTeacherOperationResult<TeacherDashboardStats>> {
+        try {
+            const { data, error } = await this.supabase.rpc(
+                'get_teacher_dashboard_stats_v2',
+                {
+                    p_teacher_id: teacherId,
+                    p_branch_id: branchId || null,
+                }
+            );
+
+            if (error) {
+                console.error('Dashboard stats RPC error:', error);
+                return {
+                    success: false,
+                    error: `Failed to fetch dashboard stats: ${error.message}`,
+                };
+            }
+
+            // The RPC returns JSON directly
+            const stats = data as TeacherDashboardStats;
+
+            return {
+                success: true,
+                data: stats,
+            };
+        } catch (error) {
+            console.error('Dashboard stats error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',

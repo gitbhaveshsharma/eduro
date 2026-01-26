@@ -27,6 +27,7 @@ import type {
     ReceiptCreationResult,
     PaymentRecordingResult,
     StudentPaymentSummary,
+    StudentReceiptsWithSummary,
     BranchRevenueStats,
 } from '../types/fee-receipts.types';
 
@@ -167,19 +168,20 @@ export interface FeeReceiptsState {
     fetchReceiptById: (receiptId: string) => Promise<FeeReceipt | null>;
 
     /**
-     * Fetch student payment summary
+     * Fetch student receipts and summary in one call (optimized)
+     * @param coachingCenterId - Coaching center ID to filter receipts and summary
      */
-    fetchStudentSummary: (studentId: string) => Promise<StudentPaymentSummary | null>;
+    fetchStudentData: (studentId: string, coachingCenterId: string) => Promise<void>;
+
+    /**
+     * Fetch receipts for all branches of a coaching center (teacher/admin view)
+     */
+    fetchCoachingCenterReceipts: (coachingCenterId: string) => Promise<void>;
 
     /**
      * Fetch branch revenue statistics
      */
     fetchBranchStats: (branchId: string) => Promise<BranchRevenueStats | null>;
-
-    /**
-     * Fetch receipts for all branches of a coaching center
-     */
-    fetchCoachingCenterReceipts: (coachingCenterId: string) => Promise<void>;
 
     /**
      * Fetch coaching center revenue statistics (all branches)
@@ -519,13 +521,50 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
 
                 fetchReceipts: async () => {
                     const { currentBranchId, currentCoachingCenterId } = get();
-                    
+
                     // Route to appropriate fetch method based on context
                     if (currentCoachingCenterId) {
-                        await get().fetchCoachingCenterReceipts(currentCoachingCenterId);
+                        // For coaching center context, use listReceiptsByCoachingCenter directly
+                        // Note: For student view with summary, use fetchStudentData instead
+                        set((state) => {
+                            state.isLoading = true;
+                            state.error = null;
+                        });
+
+                        try {
+                            const { filters, pagination, sort } = get();
+                            const params = {
+                                ...filters,
+                                page: pagination.page,
+                                limit: pagination.limit,
+                                sort_by: sort.sort_by,
+                                sort_order: sort.sort_order,
+                            };
+
+                            const result = await feeReceiptsService.listReceiptsByCoachingCenter(currentCoachingCenterId, params);
+
+                            if (result.success && result.data) {
+                                set((state) => {
+                                    state.receipts = result.data!.data;
+                                    state.pagination.total = result.data!.total;
+                                    state.pagination.has_more = result.data!.has_more;
+                                    state.isLoading = false;
+                                });
+                            } else {
+                                set((state) => {
+                                    state.error = result.error || 'Failed to fetch receipts';
+                                    state.isLoading = false;
+                                });
+                            }
+                        } catch (error) {
+                            set((state) => {
+                                state.error = error instanceof Error ? error.message : 'Unknown error';
+                                state.isLoading = false;
+                            });
+                        }
                         return;
                     }
-                    
+
                     if (currentBranchId) {
                         await get().fetchBranchReceipts(currentBranchId);
                         return;
@@ -650,74 +689,60 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                     }
                 },
 
-                fetchStudentSummary: async (studentId: string) => {
+                /**
+                 * OPTIMIZED: Fetch student receipts and summary in one call
+                 * For student view only - gets receipts + summary
+                 */
+                fetchStudentData: async (studentId: string, coachingCenterId: string) => {
                     set((state) => {
+                        state.isLoading = true;
                         state.isFetchingSummary = true;
                         state.error = null;
+                        state.currentCoachingCenterId = coachingCenterId;
+                        state.currentBranchId = null;
+                        // Clear previous data to prevent stale data display
+                        state.receipts = [];
+                        state.studentSummary = null;
+                        state.branchStats = null;
                     });
 
                     try {
-                        const result = await feeReceiptsService.getStudentSummary(studentId);
+                        const result = await feeReceiptsService.getStudentSummary(studentId, coachingCenterId);
 
                         if (result.success && result.data) {
                             set((state) => {
-                                state.studentSummary = result.data!;
+                                state.receipts = result.data!.receipts;
+                                state.studentSummary = result.data!.summary;
+                                state.pagination.total = result.data!.receipts.length;
+                                state.isLoading = false;
                                 state.isFetchingSummary = false;
                             });
-                            return result.data;
                         } else {
                             set((state) => {
-                                state.error = result.error || 'Failed to fetch student summary';
+                                state.error = result.error || 'Failed to fetch student data';
+                                state.isLoading = false;
                                 state.isFetchingSummary = false;
                             });
-                            return null;
                         }
                     } catch (error) {
                         set((state) => {
                             state.error = error instanceof Error ? error.message : 'Unknown error';
+                            state.isLoading = false;
                             state.isFetchingSummary = false;
                         });
-                        return null;
                     }
                 },
 
-                fetchBranchStats: async (branchId: string) => {
-                    set((state) => {
-                        state.isFetchingStats = true;
-                        state.error = null;
-                    });
-
-                    try {
-                        const result = await feeReceiptsService.getBranchStats(branchId);
-
-                        if (result.success && result.data) {
-                            set((state) => {
-                                state.branchStats = result.data!;
-                                state.isFetchingStats = false;
-                            });
-                            return result.data;
-                        } else {
-                            set((state) => {
-                                state.error = result.error || 'Failed to fetch branch stats';
-                                state.isFetchingStats = false;
-                            });
-                            return null;
-                        }
-                    } catch (error) {
-                        set((state) => {
-                            state.error = error instanceof Error ? error.message : 'Unknown error';
-                            state.isFetchingStats = false;
-                        });
-                        return null;
-                    }
-                },
-
+                /**
+                 * Fetch receipts for coaching center (teacher/admin view)
+                 * Only fetches receipts, no summary
+                 */
                 fetchCoachingCenterReceipts: async (coachingCenterId: string) => {
                     set((state) => {
                         state.isLoading = true;
                         state.error = null;
                         state.currentCoachingCenterId = coachingCenterId;
-                        state.currentBranchId = null; // Clear branch context
+                        state.currentBranchId = null;
                         // Clear previous data when switching context to prevent stale data display
                         state.receipts = [];
                         state.branchStats = null;
@@ -759,6 +784,39 @@ export const useFeeReceiptsStore = create<FeeReceiptsState>()(
                         });
                     }
                 },
+
+                fetchBranchStats: async (branchId: string) => {
+                    set((state) => {
+                        state.isFetchingStats = true;
+                        state.error = null;
+                    });
+
+                    try {
+                        const result = await feeReceiptsService.getBranchStats(branchId);
+
+                        if (result.success && result.data) {
+                            set((state) => {
+                                state.branchStats = result.data!;
+                                state.isFetchingStats = false;
+                            });
+                            return result.data;
+                        } else {
+                            set((state) => {
+                                state.error = result.error || 'Failed to fetch branch stats';
+                                state.isFetchingStats = false;
+                            });
+                            return null;
+                        }
+                    } catch (error) {
+                        set((state) => {
+                            state.error = error instanceof Error ? error.message : 'Unknown error';
+                            state.isFetchingStats = false;
+                        });
+                        return null;
+                    }
+                },
+
+
 
                 fetchCoachingCenterStats: async (coachingCenterId: string) => {
                     set((state) => {

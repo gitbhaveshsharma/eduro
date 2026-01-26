@@ -1,13 +1,13 @@
 'use client'
 
-import { toast, Toaster, ToastOptions } from 'react-hot-toast'
+import { toast, Toaster, ToastBar } from 'react-hot-toast'
 import { brandColors } from '@/components/theme-provider'
-import { CheckCircle, XCircle, AlertTriangle, Info } from 'lucide-react'
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react'
 
 // Custom toast configuration with brand colors
-const toastConfig: ToastOptions = {
+const toastConfig = {
     duration: 4000,
-    position: 'top-center',
+    position: 'top-center' as const,
     style: {
         borderRadius: '8px',
         fontSize: '14px',
@@ -17,7 +17,7 @@ const toastConfig: ToastOptions = {
 }
 
 // Success toast
-export const showSuccessToast = (message: string, options?: ToastOptions) => {
+export const showSuccessToast = (message: string, options?: any) => {
     return toast.success(message, {
         ...toastConfig,
         ...options,
@@ -31,7 +31,7 @@ export const showSuccessToast = (message: string, options?: ToastOptions) => {
 }
 
 // Error toast
-export const showErrorToast = (message: string, options?: ToastOptions) => {
+export const showErrorToast = (message: string, options?: any) => {
     return toast.error(message, {
         ...toastConfig,
         ...options,
@@ -45,7 +45,7 @@ export const showErrorToast = (message: string, options?: ToastOptions) => {
 }
 
 // Warning toast
-export const showWarningToast = (message: string, options?: ToastOptions) => {
+export const showWarningToast = (message: string, options?: any) => {
     return toast(message, {
         ...toastConfig,
         ...options,
@@ -59,7 +59,7 @@ export const showWarningToast = (message: string, options?: ToastOptions) => {
 }
 
 // Info toast
-export const showInfoToast = (message: string, options?: ToastOptions) => {
+export const showInfoToast = (message: string, options?: any) => {
     return toast(message, {
         ...toastConfig,
         ...options,
@@ -73,7 +73,7 @@ export const showInfoToast = (message: string, options?: ToastOptions) => {
 }
 
 // Loading toast
-export const showLoadingToast = (message: string = 'Loading...', options?: ToastOptions) => {
+export const showLoadingToast = (message: string = 'Loading...', options?: any) => {
     return toast.loading(message, {
         ...toastConfig,
         ...options,
@@ -117,7 +117,7 @@ export const authToasts = {
     unexpectedError: () => showErrorToast('Something went wrong. Please try again.'),
 }
 
-// Custom Toaster component with brand styling
+// Custom Toaster component with close button and swipe support
 export function CustomToaster() {
     return (
         <Toaster
@@ -126,55 +126,27 @@ export function CustomToaster() {
             containerStyle={{
                 top: 20,
             }}
-            toastOptions={{
-                // Global toast options
-                duration: 4000,
-                style: {
-                    borderRadius: '8px',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    maxWidth: '400px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-                },
-
-                // Success toast styling
-                success: {
-                    style: {
-                        background: brandColors.success,
-                        color: '#FFFFFF',
-                    },
-                    iconTheme: {
-                        primary: '#FFFFFF',
-                        secondary: brandColors.success,
-                    },
-                },
-
-                // Error toast styling
-                error: {
-                    style: {
-                        background: brandColors.error,
-                        color: '#FFFFFF',
-                    },
-                    iconTheme: {
-                        primary: '#FFFFFF',
-                        secondary: brandColors.error,
-                    },
-                },
-
-                // Loading toast styling
-                loading: {
-                    style: {
-                        background: brandColors.card,
-                        color: brandColors.textPrimary,
-                        border: `1px solid ${brandColors.border}`,
-                    },
-                    iconTheme: {
-                        primary: brandColors.primary,
-                        secondary: 'transparent',
-                    },
-                },
-            }}
-        />
+        >
+            {(t) => (
+                <ToastBar toast={t}>
+                    {({ icon, message }) => (
+                        <div className="flex items-center gap-2 w-full">
+                            {icon}
+                            <div className="flex-1">{message}</div>
+                            {t.type !== 'loading' && (
+                                <button
+                                    onClick={() => toast.dismiss(t.id)}
+                                    className="ml-2 p-1 rounded-full hover:bg-white/20 transition-colors focus:outline-none focus:ring-2 focus:ring-white/50"
+                                    aria-label="Close notification"
+                                >
+                                    <X size={16} className="text-current" />
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </ToastBar>
+            )}
+        </Toaster>
     )
 }
 

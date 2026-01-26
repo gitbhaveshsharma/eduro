@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import { AvatarUtils } from '@/lib/utils/avatar.utils';
 import {
     Dialog,
     DialogContent,
@@ -30,7 +31,13 @@ import {
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon, Building2, GraduationCap } from 'lucide-react';
+import {
+    Calendar as CalendarIcon,
+    Building2,
+    GraduationCap,
+    User,
+    X
+} from 'lucide-react';
 import { format } from 'date-fns';
 import {
     useMarkAttendance,
@@ -45,12 +52,14 @@ import { CoachingAPI } from '@/lib/coaching';
 import { useClassesByBranch, useBranchClassesStore } from '@/lib/branch-system/branch-classes';
 import type { CoachingBranch } from '@/lib/schema/coaching.types';
 import StudentSearch from './student-search';
+import { cn } from '@/lib/utils';
 
 interface MarkAttendanceDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     coachingCenterId?: string;
     branchId?: string;
+    preSelectedStudent?: SelectedStudent;
 }
 
 interface SelectedStudent {
@@ -73,9 +82,10 @@ export default function MarkAttendanceDialog({
     onOpenChange,
     coachingCenterId,
     branchId: propBranchId,
+    preSelectedStudent,
 }: MarkAttendanceDialogProps) {
     const [date, setDate] = useState<Date>(new Date());
-    const [selectedStudent, setSelectedStudent] = useState<SelectedStudent | null>(null);
+    const [selectedStudent, setSelectedStudent] = useState<SelectedStudent | null>(preSelectedStudent || null);
 
     // Branch and class selection state
     const [branches, setBranches] = useState<CoachingBranch[]>([]);
@@ -96,7 +106,6 @@ export default function MarkAttendanceDialog({
 
     type FormValues = MarkAttendanceDTO;
 
-    // No zodResolver — we build the final payload with dynamic IDs in onSubmit
     const form = useForm<FormValues>({
         defaultValues: {
             student_id: '',
@@ -179,17 +188,24 @@ export default function MarkAttendanceDialog({
         }
     }, [selectedStudent, form]);
 
+    // Initialize with preSelectedStudent when dialog opens
+    useEffect(() => {
+        if (open && preSelectedStudent) {
+            setSelectedStudent(preSelectedStudent);
+        }
+    }, [open, preSelectedStudent]);
+
     // Reset state when dialog closes
     useEffect(() => {
         if (!open) {
-            setSelectedStudent(null);
+            setSelectedStudent(preSelectedStudent || null);
             form.reset();
             if (!propBranchId) {
                 setSelectedBranchId('');
             }
             setSelectedClassId('');
         }
-    }, [open, propBranchId, form]);
+    }, [open, propBranchId, preSelectedStudent, form]);
 
     const onSubmit: SubmitHandler<FormValues> = async (data) => {
         if (!selectedStudent) {
@@ -240,12 +256,16 @@ export default function MarkAttendanceDialog({
         }
     };
 
-    // Get selected class info (if you need it later)
+    // Get selected class info
     const selectedClass = useMemo(() => {
         return classes.find((c) => c.id === selectedClassId);
     }, [classes, selectedClassId]);
 
-    const isLargeScreen = typeof window !== 'undefined' ? window.innerWidth >= 1024 : false;
+    // Clear selected student
+    const handleClearStudent = () => {
+        setSelectedStudent(null);
+        form.setValue('student_id', '');
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -334,24 +354,123 @@ export default function MarkAttendanceDialog({
                                 </div>
                             )}
 
-                            {/* Student Search */}
+                            {/* Student Selection */}
                             <div className="space-y-2">
                                 <FormLabel>Student *</FormLabel>
-                                <StudentSearch
-                                    coachingCenterId={coachingCenterId}
-                                    branchId={selectedBranchId || propBranchId}
-                                    classId={selectedClassId || undefined}
-                                    selectedStudent={selectedStudent}
-                                    onSelect={(student) =>
-                                        setSelectedStudent(student as SelectedStudent | null)
-                                    }
-                                    placeholder="Search by username or name..."
-                                    disabled={!selectedBranchId && !propBranchId}
-                                />
-                                {!selectedBranchId && !propBranchId && isCoachView && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Please select a branch first to search for students
-                                    </p>
+                                {selectedStudent ? (
+                                    // Selected Student Display (with avatar)
+                                    <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
+                                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                                            {selectedStudent.avatar_url ? (
+                                                <img
+                                                    src={AvatarUtils.getSafeAvatarUrl(
+                                                        selectedStudent.avatar_url,
+                                                        selectedStudent.student_name || 'S'
+                                                    )}
+                                                    alt={selectedStudent.student_name || 'Student'}
+                                                    className="w-10 h-10 rounded-full object-cover"
+                                                    onError={(e) => {
+                                                        // Fallback if image fails to load
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                                    <span className="text-sm font-medium text-primary">
+                                                        {(selectedStudent.student_name || 'S').charAt(0).toUpperCase()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">
+                                                {selectedStudent.student_name || 'Unknown Student'}
+                                            </p>
+                                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                {selectedStudent.student_username && (
+                                                    <span>@{selectedStudent.student_username}</span>
+                                                )}
+                                                {selectedStudent.class_name && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {selectedStudent.class_name}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleClearStudent}
+                                            className="shrink-0"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                ) : preSelectedStudent ? (
+                                    // Pre-selected Student Display (with avatar)
+                                    <div className="p-3 border rounded-lg bg-muted/50">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                                                {preSelectedStudent.avatar_url ? (
+                                                    <img
+                                                        src={AvatarUtils.getSafeAvatarUrl(
+                                                            preSelectedStudent.avatar_url,
+                                                            preSelectedStudent.student_name || 'S'
+                                                        )}
+                                                        alt={preSelectedStudent.student_name || 'Student'}
+                                                        className="w-10 h-10 rounded-full object-cover"
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.style.display = 'none';
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                                        <span className="text-sm font-medium text-primary">
+                                                            {(preSelectedStudent.student_name || 'S').charAt(0).toUpperCase()}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="font-medium">
+                                                    {preSelectedStudent.student_name || 'Unknown Student'}
+                                                </p>
+                                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                                    {preSelectedStudent.student_username && (
+                                                        <span>@{preSelectedStudent.student_username}</span>
+                                                    )}
+                                                    {preSelectedStudent.class_name && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {preSelectedStudent.class_name}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    // Student Search Component
+                                    <>
+                                        <StudentSearch
+                                            coachingCenterId={coachingCenterId}
+                                            branchId={selectedBranchId || propBranchId}
+                                            classId={selectedClassId || undefined}
+                                            selectedStudent={selectedStudent}
+                                            onSelect={(student) =>
+                                                setSelectedStudent(student as SelectedStudent | null)
+                                            }
+                                            placeholder="Search by username or name..."
+                                            disabled={!selectedBranchId && !propBranchId}
+                                        />
+                                        {!selectedBranchId && !propBranchId && isCoachView && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Please select a branch first to search for students
+                                            </p>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -511,8 +630,11 @@ export default function MarkAttendanceDialog({
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" disabled={!selectedStudent}>
-                                    Mark Attendance
+                                <Button
+                                    type="submit"
+                                    disabled={!selectedStudent || form.formState.isSubmitting}
+                                >
+                                    {form.formState.isSubmitting ? 'Marking...' : 'Mark Attendance'}
                                 </Button>
                             </div>
                         </form>

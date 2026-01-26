@@ -148,7 +148,6 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
             {/* No Results */}
             {filteredClasses.length === 0 && classes.length > 0 && (
                 <Alert>
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         No classes match your search criteria. Try adjusting your filters.
                     </AlertDescription>

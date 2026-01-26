@@ -664,8 +664,8 @@ export class BranchStudentsService {
                     error: `Failed to fetch students: ${error.message}`,
                 };
             }
-            console.log('🔵 [getTeacherStudents] Raw data fetched:', data);
-            console.log(`✅ [getTeacherStudents] Found ${data?.length || 0} students`);
+            // console.log('🔵 [getTeacherStudents] Raw data fetched:', data);
+            // console.log(`✅ [getTeacherStudents] Found ${data?.length || 0} students`);
 
             // Map to TeacherStudent type
             const teacherStudents = (data || []).map(row => ({
@@ -805,27 +805,27 @@ export class BranchStudentsService {
         }
     }
 
-    /**
-     * @deprecated Use classEnrollmentsService.updateClassEnrollmentByTeacher instead
-     * Legacy method - Updates student enrollment (by teacher)
-     */
-    async updateEnrollmentByTeacher(
-        enrollmentId: string,
-        input: UpdateStudentByTeacherInput
-    ): Promise<BranchStudentOperationResult<BranchStudent>> {
-        // Delegate to class enrollments service
-        const result = await classEnrollmentsService.updateClassEnrollmentByTeacher(enrollmentId, input);
+    // /**
+    //  * @deprecated Use classEnrollmentsService.updateClassEnrollmentByTeacher instead
+    //  * Legacy method - Updates student enrollment (by teacher)
+    //  */
+    // async updateEnrollmentByTeacher(
+    //     enrollmentId: string,
+    //     input: UpdateStudentByTeacherInput
+    // ): Promise<BranchStudentOperationResult<BranchStudent>> {
+    //     // Delegate to class enrollments service
+    //     const result = await classEnrollmentsService.updateClassEnrollmentByTeacher(enrollmentId, input);
 
-        if (!result.success) {
-            return {
-                success: false,
-                error: result.error,
-            };
-        }
+    //     if (!result.success) {
+    //         return {
+    //             success: false,
+    //             error: result.error,
+    //         };
+    //     }
 
-        // Return the updated enrollment from view
-        return this.getEnrollmentById(enrollmentId);
-    }
+    //     // Return the updated enrollment from view
+    //     return this.getEnrollmentById(enrollmentId);
+    // }
 
     /**
      * Updates branch student profile (by manager)
@@ -878,65 +878,65 @@ export class BranchStudentsService {
         }
     }
 
-    /**
-     * @deprecated Use updateBranchStudentByManager + classEnrollmentsService for class-specific updates
-     * Legacy method - Updates student enrollment (by manager)
-     */
-    async updateEnrollmentByManager(
-        enrollmentId: string,
-        input: any // Using any for backward compatibility
-    ): Promise<BranchStudentOperationResult<BranchStudent>> {
-        try {
-            // Separate class-specific and branch-specific fields
-            const classFields = ['enrollment_status', 'expected_completion_date', 'actual_completion_date',
-                'attendance_percentage', 'current_grade', 'performance_notes',
-                'preferred_batch', 'special_requirements'];
-            const branchFields = ['payment_status', 'total_fees_due', 'total_fees_paid',
-                'last_payment_date', 'next_payment_due', 'emergency_contact_name',
-                'emergency_contact_phone', 'parent_guardian_name', 'parent_guardian_phone',
-                'metadata'];
+    // /**
+    //  * @deprecated Use updateBranchStudentByManager + classEnrollmentsService for class-specific updates
+    //  * Legacy method - Updates student enrollment (by manager)
+    //  */
+    // async updateEnrollmentByManager(
+    //     enrollmentId: string,
+    //     input: any // Using any for backward compatibility
+    // ): Promise<BranchStudentOperationResult<BranchStudent>> {
+    //     try {
+    //         // Separate class-specific and branch-specific fields
+    //         const classFields = ['enrollment_status', 'expected_completion_date', 'actual_completion_date',
+    //             'attendance_percentage', 'current_grade', 'performance_notes',
+    //             'preferred_batch', 'special_requirements'];
+    //         const branchFields = ['payment_status', 'total_fees_due', 'total_fees_paid',
+    //             'last_payment_date', 'next_payment_due', 'emergency_contact_name',
+    //             'emergency_contact_phone', 'parent_guardian_name', 'parent_guardian_phone',
+    //             'metadata'];
 
-            const classUpdate: Record<string, any> = {};
-            const branchUpdate: Record<string, any> = {};
+    //         const classUpdate: Record<string, any> = {};
+    //         const branchUpdate: Record<string, any> = {};
 
-            Object.keys(input).forEach(key => {
-                if (classFields.includes(key)) {
-                    classUpdate[key] = input[key];
-                } else if (branchFields.includes(key)) {
-                    branchUpdate[key] = input[key];
-                }
-            });
+    //         Object.keys(input).forEach(key => {
+    //             if (classFields.includes(key)) {
+    //                 classUpdate[key] = input[key];
+    //             } else if (branchFields.includes(key)) {
+    //                 branchUpdate[key] = input[key];
+    //             }
+    //         });
 
-            // Update class enrollment if there are class-specific fields
-            if (Object.keys(classUpdate).length > 0) {
-                await classEnrollmentsService.updateClassEnrollmentByManager(enrollmentId, classUpdate);
-            }
+    //         // Update class enrollment if there are class-specific fields
+    //         if (Object.keys(classUpdate).length > 0) {
+    //             await classEnrollmentsService.updateClassEnrollmentByManager(enrollmentId, classUpdate);
+    //         }
 
-            // Update branch student if there are branch-specific fields
-            if (Object.keys(branchUpdate).length > 0) {
-                const { data: enrollment } = await this.supabase
-                    .from('class_enrollments')
-                    .select('branch_student_id')
-                    .eq('id', enrollmentId)
-                    .single();
+    //         // Update branch student if there are branch-specific fields
+    //         if (Object.keys(branchUpdate).length > 0) {
+    //             const { data: enrollment } = await this.supabase
+    //                 .from('class_enrollments')
+    //                 .select('branch_student_id')
+    //                 .eq('id', enrollmentId)
+    //                 .single();
 
-                if (enrollment?.branch_student_id) {
-                    await this.supabase
-                        .from(this.TABLE_NAME)
-                        .update(branchUpdate)
-                        .eq('id', enrollment.branch_student_id);
-                }
-            }
+    //             if (enrollment?.branch_student_id) {
+    //                 await this.supabase
+    //                     .from(this.TABLE_NAME)
+    //                     .update(branchUpdate)
+    //                     .eq('id', enrollment.branch_student_id);
+    //             }
+    //         }
 
-            // Return updated enrollment from view
-            return this.getEnrollmentById(enrollmentId);
-        } catch (error) {
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : 'Unknown error occurred',
-            };
-        }
-    }
+    //         // Return updated enrollment from view
+    //         return this.getEnrollmentById(enrollmentId);
+    //     } catch (error) {
+    //         return {
+    //             success: false,
+    //             error: error instanceof Error ? error.message : 'Unknown error occurred',
+    //         };
+    //     }
+    // }
 
     // ============================================================
     // DELETE OPERATIONS
@@ -1168,20 +1168,38 @@ export class BranchStudentsService {
             student_name: viewData.student_name || viewData.branch_student_name,
             student_email: viewData.student_email || viewData.branch_student_email,
             student_phone: viewData.student_phone || viewData.branch_student_phone,
+            // Add the missing properties
+            date_of_birth: viewData.date_of_birth || null,
+            avatar_url: viewData.avatar_url || null,
+            enrollment_status: viewData.enrollment_status || null,
+
+            // Financial tracking
             total_fees_due: viewData.total_fees_due || 0,
             total_fees_paid: viewData.total_fees_paid || 0,
             last_payment_date: viewData.last_payment_date,
             next_payment_due: viewData.next_payment_due,
             payment_status: viewData.payment_status || 'PENDING',
+
+            // Contact and emergency info
             emergency_contact_name: viewData.emergency_contact_name,
             emergency_contact_phone: viewData.emergency_contact_phone,
             parent_guardian_name: viewData.parent_guardian_name,
             parent_guardian_phone: viewData.parent_guardian_phone,
+
+            // Branch-level student notes
             student_notes: viewData.student_notes,
+
+            // Registration tracking
             registration_date: viewData.registration_date || viewData.enrollment_date,
+
+            // Metadata
             metadata: viewData.metadata,
+
+            // Timestamps
             created_at: viewData.created_at,
             updated_at: viewData.updated_at,
+
+            // Related data
             student: {
                 id: viewData.student_id,
                 full_name: viewData.student_name || '',
@@ -1195,6 +1213,17 @@ export class BranchStudentsService {
                 name: viewData.branch_name || '',
                 coaching_center_id: viewData.coaching_center_id || '',
                 address: viewData.branch_address || null,
+            },
+            class_attendence: {
+                class_id: viewData.class_id,
+                total_classes: viewData.total_classes || 0,
+                attendance_percentage: viewData.attendance_percentage || 0,
+                total_days_present: viewData.total_days_present || 0,
+                total_days_absent: viewData.total_days_absent || 0,
+                total_days_late: viewData.total_days_late || 0,
+                total_days_excused: viewData.total_days_excused || 0,
+                total_attendance_records: viewData.total_attendance_records || 0,
+                attendance_percentage_calculated: viewData.attendance_percentage_calculated || 0,
             },
             // Include class enrollment info if available
             class_enrollments: viewData.class_id ? [{

@@ -70,7 +70,15 @@ export function Sidebar({
     if (!config.enabled) return null;
 
     const isItemActive = (item: SidebarItem) => {
-        return pathname === item.href || pathname?.startsWith(item.href + '/');
+        if (!pathname || !item.href) return false;
+
+        // Normalize paths by removing trailing slashes
+        const normalizedPathname = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+        const normalizedItemHref = item.href.endsWith('/') && item.href !== '/' ? item.href.slice(0, -1) : item.href;
+
+        // Use EXACT matching only to prevent parent routes from staying active
+        // This ensures only ONE sidebar item is active at a time
+        return normalizedPathname === normalizedItemHref;
     };
 
     return (
@@ -84,7 +92,6 @@ export function Sidebar({
                         "lg:hidden" // Hide overlay on desktop
                     )}
                     onClick={() => collapsible && onOpenChange(false)}
-                    aria-hidden="true"
                     // Forward wheel events to allow scrolling the underlying page
                     onWheel={(e) => {
                         // Prevent the overlay from swallowing the wheel; scroll the window instead
@@ -133,7 +140,7 @@ export function Sidebar({
                     marginTop: '64px', // Account for header height
                 }}
                 aria-label={`${position} sidebar`}
-                aria-hidden={!open}
+                inert={!open ? "" : undefined}
             >
                 {/* Sidebar header - Only show on mobile/tablet */}
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 lg:hidden">

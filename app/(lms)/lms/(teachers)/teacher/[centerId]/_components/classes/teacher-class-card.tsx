@@ -30,10 +30,10 @@ import {
     calculateAvailableSeats,
     calculateUtilization,
     getClassDisplayName,
-    getSubjectColor,
     mapSubjectToId
 } from '@/lib/branch-system/utils/branch-classes.utils';
-import { getSubjectImageById } from '@/lib/utils/subject-assets';
+import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
+import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
 
 interface TeacherClassCardProps {
     classData: BranchClass;
@@ -71,9 +71,9 @@ const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: stri
 export function TeacherClassCard({ classData, onViewDetails }: TeacherClassCardProps) {
     const [imageLoaded, setImageLoaded] = useState(false);
 
-    const subjectId = mapSubjectToId(classData.subject);
+    const subjectId = mapSubjectToId(classData.subject) as SubjectId;
     const gradientConfig = PLACEHOLDER_GRADIENTS[subjectId] || PLACEHOLDER_GRADIENTS.default;
-    const subjectImagePath = getSubjectImageById(subjectId as any);
+    const subjectImagePath = getSubjectImageById(subjectId);
     const subjectColor = getSubjectColor(subjectId);
 
     const displayName = getClassDisplayName(classData);
@@ -152,8 +152,8 @@ export function TeacherClassCard({ classData, onViewDetails }: TeacherClassCardP
                 {/* Subject Badge & Grade/Batch in same line */}
                 <div className="flex items-center gap-2">
                     <Badge
-                        variant="secondary"
-                        className={cn('text-xs font-medium px-2 py-0.5', subjectColor)}
+                        variant="outline"
+                        className={cn('text-xs font-medium px-2 py-0.5 border-0', subjectColor)}
                     >
                         {classData.subject}
                     </Badge>

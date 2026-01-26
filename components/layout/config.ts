@@ -2,31 +2,23 @@ import {
     Home,
     BookOpen,
     Users,
-    MessageCircle,
-    Bell,
-    User,
     Settings,
     Search,
     Plus,
     Calendar,
     FileText,
-    Award,
     BarChart3,
     Filter,
-    UserPlus,
     Heart,
     TrendingUp,
-    Menu,
-    X,
     Building2,
     UserCog,
     LayoutDashboard,
     GraduationCap,
     DollarSign,
-    ArrowLeft,
     SquareLibrary,
-    MapPin,
-    Users2
+    Users2,
+    CalendarCheck
 } from "lucide-react";
 import type { NavigationItem, PlatformType, DeviceType, LayoutConfig, HeaderItem, PageType, SidebarItem } from "./types";
 
@@ -516,7 +508,7 @@ export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: 'dashboard',
+        href: '',
         description: 'Overview and analytics',
     },
     {
@@ -543,7 +535,7 @@ export const LMS_BRANCH_MANAGER_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'Track student attendance',
     },
@@ -591,7 +583,7 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
     {
         id: 'student-attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: '/lms/coach/student-attendance',
         description: 'Track attendance across branches',
     },
@@ -617,8 +609,8 @@ export const LMS_COACH_SIDEBAR_ITEMS: SidebarItem[] = [
 export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'dashboard',
-        label: 'Home',
-        icon: Home,
+        label: 'Dashboard',
+        icon: LayoutDashboard,
         href: '/lms/student',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -643,23 +635,23 @@ export const LMS_STUDENT_NAV_ITEMS: NavigationItem[] = [
         roles: ['S'],
     },
     {
-        id: 'calendar',
-        label: 'Schedule',
-        icon: Calendar,
-        href: '/lms/student/calendar',
+        id: 'attendance',
+        label: 'Attendance',
+        icon: CalendarCheck,
+        href: '/lms/student/attendance',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
         roles: ['S'],
     },
     {
-        id: 'feed',
-        label: 'Feed',
-        icon: Plus,
-        href: '/feed',
+        id: 'fees',
+        label: 'Fees',
+        icon: DollarSign,
+        href: '/lms/student/fees',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
         roles: ['S'],
-    },
+    }
 ];
 
 /**
@@ -679,19 +671,19 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
             pages: ['lms-student']
         }
     },
-    {
-        id: 'classes',
-        label: 'Classes',
-        icon: BookOpen,
-        action: {
-            type: 'navigate',
-            href: '/lms/student/classes'
-        },
-        showOn: {
-            devices: ['tablet', 'mobile'],
-            pages: ['lms-student']
-        }
-    },
+    // {
+    //     id: 'classes',
+    //     label: 'Classes',
+    //     icon: BookOpen,
+    //     action: {
+    //         type: 'navigate',
+    //         href: '/lms/student/classes'
+    //     },
+    //     showOn: {
+    //         devices: ['tablet', 'mobile'],
+    //         pages: ['lms-student']
+    //     }
+    // },
     {
         id: 'feed',
         label: 'Feed',
@@ -714,7 +706,7 @@ export const LMS_STUDENT_HEADER_ITEMS: HeaderItem[] = [
             href: '/lms'
         },
         showOn: {
-            devices: ['desktop'],
+            devices: ['desktop', 'tablet', 'mobile'],
             pages: ['lms-student']
         }
     }
@@ -731,7 +723,7 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: 'dashboard',
+        href: '',
         description: 'Your learning overview',
         roles: ['S'],
     },
@@ -745,24 +737,24 @@ export const LMS_STUDENT_SIDEBAR_ITEMS: SidebarItem[] = [
     },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Tasks',
         icon: FileText,
         href: 'assignments',
-        description: 'View and submit assignments',
+        description: 'View your assignments and quizzes',
         roles: ['S'],
     },
-    {
-        id: 'calendar',
-        label: 'Schedule',
-        icon: Calendar,
-        href: 'calendar',
-        description: 'Class schedule and events',
-        roles: ['S'],
-    },
+    // {
+    //     id: 'calendar',
+    //     label: 'Schedule',
+    //     icon: CalendarCheck,
+    //     href: 'calendar',
+    //     description: 'Class schedule and events',
+    //     roles: ['S'],
+    // },
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Users,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'View your attendance record',
         roles: ['S'],
@@ -818,7 +810,7 @@ export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: '/lms/teacher/attendance',
         platforms: ['lms'],
         devices: ['mobile', 'tablet'],
@@ -835,7 +827,7 @@ export const LMS_TEACHER_NAV_ITEMS: NavigationItem[] = [
     // },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Tasks',
         icon: FileText,
         href: '/lms/teacher/assignments',
         platforms: ['lms'],
@@ -913,7 +905,7 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
         id: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        href: '/',
+        href: '',
         description: 'Teaching overview',
         roles: ['T'],
     },
@@ -935,28 +927,28 @@ export const LMS_TEACHER_SIDEBAR_ITEMS: SidebarItem[] = [
     },
     {
         id: 'assignments',
-        label: 'Assignments',
+        label: 'Task',
         icon: FileText,
         href: 'assignments',
-        description: 'Create and manage assignments',
+        description: 'Create assignments and quizzes',
         roles: ['T'],
     },
     {
         id: 'attendance',
         label: 'Attendance',
-        icon: Calendar,
+        icon: CalendarCheck,
         href: 'attendance',
         description: 'Mark and view attendance',
         roles: ['T'],
     },
-    {
-        id: 'analytics',
-        label: 'Analytics',
-        icon: BarChart3,
-        href: 'analytics',
-        description: 'Student performance analytics',
-        roles: ['T'],
-    },
+    // {
+    //     id: 'analytics',
+    //     label: 'Analytics',
+    //     icon: BarChart3,
+    //     href: 'analytics',
+    //     description: 'Student performance analytics',
+    //     roles: ['T'],
+    // },
 ];
 
 /**

@@ -51,6 +51,9 @@ export interface BranchStudent {
     student_name: string | null;
     student_email: string | null;
     student_phone: string | null;
+    date_of_birth: string | null; // ISO date string
+    avatar_url: string | null;
+    enrollment_status: string | null; // Legacy field for backward compatibility
 
     // Financial tracking (branch-level summary)
     total_fees_due: number; // DECIMAL(10,2)
@@ -95,12 +98,12 @@ export interface PublicBranchStudent {
     registration_date: string;
     created_at: string;
     updated_at: string;
-    
+
     // Class enrollment fields (from class_enrollments)
     enrollment_status: string | null;
     attendance_percentage: number;
     class_name: string | null;
-    
+
     // Computed fields
     outstanding_balance: number;
     is_payment_overdue: boolean;
@@ -116,25 +119,25 @@ export interface TeacherStudent {
     student_id: string;
     student_name: string | null;
     avatar_url: string | null;
-    
+
     // Enrollment reference
     enrollment_id: string; // Needed to fetch full details
-    
+
     // Class information
     class_name: string | null;
     class_id: string | null;
-    
+
     // Enrollment status
     enrollment_status: string | null;
     attendance_percentage: number;
-    
+
     // Emergency contact (for safety)
     emergency_contact_name: string | null;
     emergency_contact_phone: string | null;
-    
+
     // Basic info
     date_of_birth: string | null;
-    
+
     // Metadata
     enrollment_date: string | null;
 }
@@ -185,7 +188,7 @@ export interface BranchStudentWithRelations extends BranchStudent {
         avatar_url: string | null;
         phone: string | null;
     };
-    
+
     // Branch information
     branch?: {
         id: string;
@@ -202,6 +205,17 @@ export interface BranchStudentWithRelations extends BranchStudent {
         enrollment_status: string;
         attendance_percentage: number;
     }[];
+    class_attendence?: {
+        class_id: string;
+        total_classes: number;
+        total_days_present: number;
+        total_days_absent: number;
+        total_days_late: number;
+        total_days_excused: number;
+        total_attendance_records: number;
+        attendance_percentage: number;
+        attendance_percentage_calculated: number;
+    };
 }
 
 // ============================================================
@@ -316,7 +330,7 @@ export interface BranchStudentFilters {
     registration_date_from?: string;
     registration_date_to?: string;
     search_query?: string; // Search in student name, notes
-    
+
     // Legacy filters for backward compatibility
     class_id?: string;
     enrollment_status?: string | string[];
@@ -331,18 +345,18 @@ export interface BranchStudentFilters {
  */
 export interface BranchStudentSort {
     field:
-        | 'student_name'
-        | 'registration_date'
-        | 'payment_status'
-        | 'total_fees_due'
-        | 'total_fees_paid'
-        | 'next_payment_due'
-        | 'created_at'
-        | 'updated_at'
-        // Legacy fields for backward compatibility
-        | 'enrollment_date'
-        | 'enrollment_status'
-        | 'attendance_percentage';
+    | 'student_name'
+    | 'registration_date'
+    | 'payment_status'
+    | 'total_fees_due'
+    | 'total_fees_paid'
+    | 'next_payment_due'
+    | 'created_at'
+    | 'updated_at'
+    // Legacy fields for backward compatibility
+    | 'enrollment_date'
+    | 'enrollment_status'
+    | 'attendance_percentage';
     direction: 'asc' | 'desc';
 }
 
@@ -393,7 +407,7 @@ export interface BranchStudentStats {
     total_fees_collected: number;
     total_outstanding_fees: number;
     students_by_payment_status: Record<PaymentStatus, number>;
-    
+
     // Class enrollment related stats (from class_enrollments)
     total_class_enrollments: number;
     active_class_enrollments: number;
