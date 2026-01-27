@@ -201,10 +201,31 @@ export {
 export {
     shuffleArray,
     prepareQuestionsForAttempt,
+    sanitizeQuestionsForStudent,
     shuffleOptionsObject,
     optionsToArray,
     validateQuestionStructure,
 } from './utils/quiz.utils';
+
+// Encryption Utilities (Client-Side)
+export {
+    quizCrypto,
+    encryptQuestionData,
+    decryptQuestionData,
+    prepareQuestionForInsert,
+    isQuestionEncrypted,
+    decryptQuestion,
+    decryptQuestions,
+    decryptQuestionForStudent,
+    decryptQuestionsForStudent,
+    generateEncryptionKey,
+} from './utils/quiz-crypto';
+
+export type {
+    EncryptedQuestionData,
+    DecryptedQuestionData,
+    QuestionDataToEncrypt,
+} from './utils/quiz-crypto';
 
 // Statistics Calculations
 export {

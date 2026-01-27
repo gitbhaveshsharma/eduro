@@ -70,7 +70,17 @@ import {
     buildQuizQueryFilters,
     calculateResponsePoints,
     prepareQuestionsForAttempt,
+    shuffleArray,
+    shuffleOptionsObject,
 } from '../utils/quiz.utils';
+
+import {
+    prepareQuestionForInsert,
+    decryptQuestion,
+    decryptQuestions,
+    decryptQuestionsForStudent,
+    isQuestionEncrypted,
+} from '../utils/quiz-crypto';
 
 // ============================================================
 // TYPES
@@ -571,7 +581,9 @@ export class QuizService {
                     .select('*')
                     .eq('quiz_id', quizId)
                     .order('question_order', { ascending: true });
-                questions = questionData ?? undefined;
+
+                // Decrypt questions (for teacher view - keeps correct_answers)
+                questions = questionData ? decryptQuestions(questionData as QuizQuestion[]) : undefined;
             }
 
             const quiz = rowToQuiz({
@@ -699,7 +711,10 @@ export class QuizService {
     // ============================================================
 
     /**
-     * Creates a question
+     * Creates a question with client-side encryption
+     * 
+     * Sensitive data (question_text, options, correct_answers, explanation) is encrypted
+     * before being sent to the database. The server never sees plaintext question content.
      */
     async createQuestion(
         input: CreateQuestionDTO
@@ -718,21 +733,24 @@ export class QuizService {
 
             const validatedInput = validationResult.data;
 
+            // Prepare encrypted data for database insert
+            const encryptedData = prepareQuestionForInsert({
+                quiz_id: validatedInput.quiz_id,
+                question_text: validatedInput.question_text,
+                question_type: validatedInput.question_type,
+                options: validatedInput.options,
+                correct_answers: validatedInput.correct_answers,
+                points: validatedInput.points,
+                negative_points: validatedInput.negative_points,
+                explanation: validatedInput.explanation,
+                question_order: validatedInput.question_order,
+                topic: validatedInput.topic,
+                media_file_id: validatedInput.media_file_id,
+            });
+
             const { data, error } = await this.supabase
                 .from('quiz_questions')
-                .insert({
-                    quiz_id: validatedInput.quiz_id,
-                    question_text: validatedInput.question_text,
-                    question_type: validatedInput.question_type,
-                    options: validatedInput.options,
-                    correct_answers: validatedInput.correct_answers,
-                    points: validatedInput.points,
-                    negative_points: validatedInput.negative_points,
-                    explanation: validatedInput.explanation,
-                    question_order: validatedInput.question_order,
-                    topic: validatedInput.topic,
-                    media_file_id: validatedInput.media_file_id,
-                })
+                .insert(encryptedData)
                 .select('*')
                 .single();
 
@@ -751,7 +769,9 @@ export class QuizService {
                 await this.updateQuizQuestionCount(validatedInput.quiz_id);
             }
 
-            return { success: true, data: data as QuizQuestion };
+            // Decrypt the returned data for the response
+            const decryptedQuestion = decryptQuestion(data as QuizQuestion);
+            return { success: true, data: decryptedQuestion };
         } catch (error) {
             return {
                 success: false,
@@ -761,7 +781,9 @@ export class QuizService {
     }
 
     /**
-     * Updates a question
+     * Updates a question with client-side encryption
+     * 
+     * Sensitive data is re-encrypted before being sent to the database.
      */
     async updateQuestion(
         input: UpdateQuestionDTO
@@ -779,12 +801,44 @@ export class QuizService {
             }
 
             const validatedInput = validationResult.data;
-            const { id, ...updateData } = validatedInput;
+            const { id, ...updateFields } = validatedInput;
+
+            // Get the current question data to merge with updates
+            const { data: existingQuestion, error: fetchError } = await this.supabase
+                .from('quiz_questions')
+                .select('*')
+                .eq('id', id)
+                .single();
+
+            if (fetchError || !existingQuestion) {
+                return { success: false, error: 'Question not found' };
+            }
+
+            // Decrypt existing question to get current values for fields not being updated
+            const decryptedExisting = decryptQuestion(existingQuestion as QuizQuestion);
+
+            // Prepare encrypted update data using existing values as defaults
+            const encryptedData = prepareQuestionForInsert({
+                quiz_id: existingQuestion.quiz_id,
+                question_text: updateFields.question_text ?? decryptedExisting.question_text ?? '',
+                question_type: updateFields.question_type ?? decryptedExisting.question_type ?? 'MCQ_SINGLE',
+                options: updateFields.options ?? decryptedExisting.options ?? {},
+                correct_answers: updateFields.correct_answers ?? decryptedExisting.correct_answers ?? [],
+                points: updateFields.points ?? decryptedExisting.points ?? 0,
+                negative_points: updateFields.negative_points ?? decryptedExisting.negative_points ?? 0,
+                explanation: updateFields.explanation !== undefined ? updateFields.explanation : decryptedExisting.explanation,
+                question_order: updateFields.question_order ?? decryptedExisting.question_order ?? 0,
+                topic: updateFields.topic !== undefined ? updateFields.topic : decryptedExisting.topic,
+                media_file_id: updateFields.media_file_id !== undefined ? updateFields.media_file_id : decryptedExisting.media_file_id,
+            });
+
+            // Remove quiz_id from update (shouldn't change)
+            const { quiz_id: _, ...updatePayload } = encryptedData;
 
             const { data, error } = await this.supabase
                 .from('quiz_questions')
                 .update({
-                    ...updateData,
+                    ...updatePayload,
                     updated_at: getCurrentDateTime(),
                 })
                 .eq('id', id)
@@ -795,7 +849,9 @@ export class QuizService {
                 return { success: false, error: `Database error: ${error.message}` };
             }
 
-            return { success: true, data: data as QuizQuestion };
+            // Decrypt the returned data for the response
+            const decryptedQuestion = decryptQuestion(data as QuizQuestion);
+            return { success: true, data: decryptedQuestion };
         } catch (error) {
             return {
                 success: false,
@@ -863,19 +919,23 @@ export class QuizService {
 
             const validatedInput = validationResult.data;
 
-            const questionsToInsert = validatedInput.questions.map(q => ({
-                quiz_id: validatedInput.quiz_id,
-                question_text: q.question_text,
-                question_type: q.question_type,
-                options: q.options,
-                correct_answers: q.correct_answers,
-                points: q.points,
-                negative_points: q.negative_points,
-                explanation: q.explanation,
-                question_order: q.question_order,
-                topic: q.topic,
-                media_file_id: q.media_file_id,
-            }));
+            // Encrypt each question before inserting
+            const questionsToInsert = validatedInput.questions.map(q => {
+                const encrypted = prepareQuestionForInsert({
+                    quiz_id: validatedInput.quiz_id,
+                    question_text: q.question_text,
+                    question_type: q.question_type,
+                    options: q.options,
+                    correct_answers: q.correct_answers,
+                    points: q.points,
+                    negative_points: q.negative_points,
+                    explanation: q.explanation,
+                    question_order: q.question_order,
+                    topic: q.topic,
+                    media_file_id: q.media_file_id,
+                });
+                return encrypted;
+            });
 
             const { data, error } = await this.supabase
                 .from('quiz_questions')
@@ -889,7 +949,8 @@ export class QuizService {
             // Update quiz total_questions count
             await this.updateQuizQuestionCount(validatedInput.quiz_id);
 
-            return { success: true, data: data as QuizQuestion[] };
+            // Decrypt questions for response
+            return { success: true, data: decryptQuestions(data as QuizQuestion[]) };
         } catch (error) {
             return {
                 success: false,
@@ -957,7 +1018,202 @@ export class QuizService {
                 return { success: false, error: `Database error: ${error.message}` };
             }
 
-            return { success: true, data: data as QuizQuestion[] };
+            // Decrypt questions (for teacher view - keeps correct_answers)
+            return { success: true, data: decryptQuestions(data as QuizQuestion[]) };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets a single question by index for secure one-at-a-time quiz delivery
+     * Returns only the question text and options (no correct_answers) for students
+     * 
+     * @param attemptId - The attempt ID (for validation)
+     * @param questionIndex - The 0-based index of the question
+     * @returns Single decrypted question without correct_answers
+     */
+    async getQuestionByIndex(
+        attemptId: string,
+        questionIndex: number
+    ): Promise<QuizOperationResult<{ question: QuizQuestion; totalQuestions: number; currentIndex: number }>> {
+        try {
+            // First, get the attempt to validate and get quiz_id
+            const { data: attempt, error: attemptError } = await this.supabase
+                .from('quiz_attempts')
+                .select('*, quizzes(*)')
+                .eq('id', attemptId)
+                .single();
+
+            if (attemptError || !attempt) {
+                return { success: false, error: 'Attempt not found' };
+            }
+
+            if (attempt.attempt_status !== 'IN_PROGRESS') {
+                return { success: false, error: 'Attempt is not in progress' };
+            }
+
+            const quiz = attempt.quizzes;
+
+            // Get question count
+            const { count } = await this.supabase
+                .from('quiz_questions')
+                .select('*', { count: 'exact', head: true })
+                .eq('quiz_id', quiz.id);
+
+            const totalQuestions = count ?? 0;
+
+            if (questionIndex < 0 || questionIndex >= totalQuestions) {
+                return { success: false, error: 'Invalid question index' };
+            }
+
+            // Get the single question at the specified index
+            const { data: questions, error: questionError } = await this.supabase
+                .from('quiz_questions')
+                .select('*')
+                .eq('quiz_id', quiz.id)
+                .order('question_order', { ascending: true })
+                .range(questionIndex, questionIndex);
+
+            if (questionError || !questions || questions.length === 0) {
+                return { success: false, error: 'Question not found' };
+            }
+
+            // Decrypt for student (removes correct_answers and explanation)
+            const decryptedQuestions = decryptQuestionsForStudent(questions as QuizQuestion[]);
+
+            // Apply shuffle to options if quiz setting requires it
+            let question = decryptedQuestions[0];
+            if (quiz.shuffle_options && question.options) {
+                question = {
+                    ...question,
+                    options: shuffleOptionsObject(question.options),
+                };
+            }
+
+            return {
+                success: true,
+                data: {
+                    question,
+                    totalQuestions,
+                    currentIndex: questionIndex,
+                },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets question metadata for quiz navigation (IDs only, no content)
+     * Used for secure quiz where we only send question IDs upfront
+     */
+    async getQuestionMetadata(
+        attemptId: string
+    ): Promise<QuizOperationResult<{ questionIds: string[]; totalQuestions: number }>> {
+        try {
+            // Validate attempt
+            const { data: attempt, error: attemptError } = await this.supabase
+                .from('quiz_attempts')
+                .select('quiz_id, attempt_status, quizzes(shuffle_questions)')
+                .eq('id', attemptId)
+                .single();
+
+            if (attemptError || !attempt) {
+                return { success: false, error: 'Attempt not found' };
+            }
+
+            if (attempt.attempt_status !== 'IN_PROGRESS') {
+                return { success: false, error: 'Attempt is not in progress' };
+            }
+
+            // Get question IDs only
+            const { data: questions, error } = await this.supabase
+                .from('quiz_questions')
+                .select('id, question_order')
+                .eq('quiz_id', attempt.quiz_id)
+                .order('question_order', { ascending: true });
+
+            if (error) {
+                return { success: false, error: `Database error: ${error.message}` };
+            }
+
+            let questionIds = (questions ?? []).map((q: { id: string; question_order: number }) => q.id);
+
+            // Shuffle if required
+            if (attempt.quizzes?.shuffle_questions) {
+                questionIds = shuffleArray(questionIds);
+            }
+
+            return {
+                success: true,
+                data: {
+                    questionIds,
+                    totalQuestions: questionIds.length,
+                },
+            };
+        } catch (error) {
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+    /**
+     * Gets a single question by ID for secure delivery
+     */
+    async getQuestionById(
+        attemptId: string,
+        questionId: string
+    ): Promise<QuizOperationResult<QuizQuestion>> {
+        try {
+            // Validate attempt
+            const { data: attempt, error: attemptError } = await this.supabase
+                .from('quiz_attempts')
+                .select('quiz_id, attempt_status, quizzes(shuffle_options)')
+                .eq('id', attemptId)
+                .single();
+
+            if (attemptError || !attempt) {
+                return { success: false, error: 'Attempt not found' };
+            }
+
+            if (attempt.attempt_status !== 'IN_PROGRESS') {
+                return { success: false, error: 'Attempt is not in progress' };
+            }
+
+            // Get the question
+            const { data: question, error } = await this.supabase
+                .from('quiz_questions')
+                .select('*')
+                .eq('id', questionId)
+                .eq('quiz_id', attempt.quiz_id)
+                .single();
+
+            if (error || !question) {
+                return { success: false, error: 'Question not found' };
+            }
+
+            // Decrypt for student (removes correct_answers and explanation)
+            const decryptedQuestions = decryptQuestionsForStudent([question as QuizQuestion]);
+            let decryptedQuestion = decryptedQuestions[0];
+
+            // Apply shuffle to options if quiz setting requires it
+            if (attempt.quizzes?.shuffle_options && decryptedQuestion.options) {
+                decryptedQuestion = {
+                    ...decryptedQuestion,
+                    options: shuffleOptionsObject(decryptedQuestion.options),
+                };
+            }
+
+            return { success: true, data: decryptedQuestion };
         } catch (error) {
             return {
                 success: false,
@@ -1046,8 +1302,11 @@ export class QuizService {
                     .eq('quiz_id', validatedInput.quiz_id)
                     .order('question_order', { ascending: true });
 
+                // Decrypt questions for student (removes correct_answers and explanation)
+                const decryptedQuestions = decryptQuestionsForStudent((questions ?? []) as QuizQuestion[]);
+
                 const preparedQuestions = prepareQuestionsForAttempt(
-                    (questions ?? []) as QuizQuestion[],
+                    decryptedQuestions,
                     quiz.shuffle_questions,
                     quiz.shuffle_options
                 );
@@ -1103,8 +1362,11 @@ export class QuizService {
                 .eq('quiz_id', validatedInput.quiz_id)
                 .order('question_order', { ascending: true });
 
+            // Decrypt questions for student (removes correct_answers and explanation)
+            const decryptedQuestions = decryptQuestionsForStudent((questions ?? []) as QuizQuestion[]);
+
             const preparedQuestions = prepareQuestionsForAttempt(
-                questions ?? [],
+                decryptedQuestions,
                 quiz.shuffle_questions,
                 quiz.shuffle_options
             );
@@ -1161,13 +1423,14 @@ export class QuizService {
 
             const quiz = attempt.quizzes;
 
-            // Get questions
+            // Get questions and decrypt them to access correct_answers for grading
             const { data: questions } = await this.supabase
                 .from('quiz_questions')
                 .select('*')
                 .eq('quiz_id', quiz.id);
 
-            const typedQuestions = (questions ?? []) as QuizQuestionDbRow[];
+            const decryptedQuestions = decryptQuestions((questions ?? []) as QuizQuestion[]);
+            const typedQuestions = decryptedQuestions as QuizQuestionDbRow[];
             const questionMap = new Map(typedQuestions.map((q: QuizQuestionDbRow) => [q.id, q]));
 
             // Calculate scores and insert responses
@@ -1619,7 +1882,7 @@ export class QuizService {
         quizId: string
     ): Promise<QuizOperationResult<QuestionStatistics[]>> {
         try {
-            // Get questions
+            // Get questions and decrypt them for statistics display
             const { data: questions } = await this.supabase
                 .from('quiz_questions')
                 .select('*')
@@ -1629,6 +1892,9 @@ export class QuizService {
             if (!questions || questions.length === 0) {
                 return { success: true, data: [] };
             }
+
+            // Decrypt questions (for teacher view - keeps correct_answers)
+            const decryptedQuestions = decryptQuestions(questions as QuizQuestion[]);
 
             // Get all responses for this quiz
             const { data: attempts } = await this.supabase
@@ -1643,7 +1909,7 @@ export class QuizService {
             if (attemptIds.length === 0) {
                 return {
                     success: true,
-                    data: (questions as QuizQuestionDbRow[]).map((q: QuizQuestionDbRow) => calculateQuestionStatistics(q as unknown as QuizQuestion, [])),
+                    data: (decryptedQuestions as QuizQuestionDbRow[]).map((q: QuizQuestionDbRow) => calculateQuestionStatistics(q as unknown as QuizQuestion, [])),
                 };
             }
 
@@ -1652,7 +1918,7 @@ export class QuizService {
                 .select('*')
                 .in('attempt_id', attemptIds);
 
-            const statistics = (questions as QuizQuestionDbRow[]).map((q: QuizQuestionDbRow) =>
+            const statistics = (decryptedQuestions as QuizQuestionDbRow[]).map((q: QuizQuestionDbRow) =>
                 calculateQuestionStatistics(q as unknown as QuizQuestion, (responses ?? []) as QuizResponse[])
             );
 

@@ -193,6 +193,12 @@ export interface QuizStoreActions {
     // ATTEMPT ACTIONS
     // ============================================================
     startAttempt: (input: StartAttemptDTO) => Promise<boolean>;
+    /** Start attempt with secure mode (one question at a time) */
+    startSecureAttempt: (input: StartAttemptDTO) => Promise<boolean>;
+    /** Fetch single question by ID for secure mode */
+    fetchSecureQuestion: (attemptId: string, questionId: string) => Promise<QuizQuestion | null>;
+    /** Get question metadata (IDs only) for navigation */
+    fetchQuestionMetadata: (attemptId: string) => Promise<string[] | null>;
     submitAttempt: (input: SubmitAttemptDTO) => Promise<QuizAttemptResult | null>;
     saveResponse: (input: SaveResponseDTO) => Promise<boolean>;
     abandonAttempt: (attemptId: string) => Promise<boolean>;
@@ -732,6 +738,108 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                     });
 
                     return false;
+                },
+
+                /**
+                 * Start a secure attempt (one question at a time)
+                 * Only fetches question IDs, not the full questions
+                 */
+                startSecureAttempt: async (input: StartAttemptDTO) => {
+                    set((state) => {
+                        state.loading.attempt = true;
+                        state.error.message = null;
+                    });
+
+                    // Start the attempt (but we won't use the questions from this)
+                    const result = await quizService.startAttempt(input);
+
+                    if (result.success && result.data) {
+                        const { attempt } = result.data;
+
+                        // Get quiz details
+                        const quizResult = await quizService.getQuizById(input.quiz_id);
+                        const quiz = quizResult.data;
+
+                        if (quiz) {
+                            // Get question metadata (IDs only)
+                            const metadataResult = await quizService.getQuestionMetadata(attempt.id);
+
+                            if (metadataResult.success && metadataResult.data) {
+                                const timeRemaining = quiz.time_limit_minutes
+                                    ? quiz.time_limit_minutes * 60
+                                    : null;
+
+                                set((state) => {
+                                    state.loading.attempt = false;
+                                    state.activeAttempt = {
+                                        attempt,
+                                        quiz,
+                                        questions: [], // Start empty - will fetch one at a time
+                                        responses: new Map(),
+                                        currentQuestionIndex: 0,
+                                        timeRemaining,
+                                    };
+                                    // Store question IDs in a separate place for navigation
+                                    (state as unknown as { secureQuestionIds: string[] }).secureQuestionIds = metadataResult.data!.questionIds;
+                                });
+
+                                return true;
+                            }
+                        }
+                    }
+
+                    set((state) => {
+                        state.loading.attempt = false;
+                        state.error = {
+                            message: result.error ?? 'Failed to start quiz',
+                            timestamp: Date.now(),
+                        };
+                    });
+
+                    return false;
+                },
+
+                /**
+                 * Fetch a single question by ID for secure mode
+                 */
+                fetchSecureQuestion: async (attemptId: string, questionId: string) => {
+                    const result = await quizService.getQuestionById(attemptId, questionId);
+
+                    if (result.success && result.data) {
+                        // Update the current question in activeAttempt
+                        set((state) => {
+                            if (state.activeAttempt) {
+                                // Check if question already exists
+                                const existingIndex = state.activeAttempt.questions.findIndex(
+                                    q => q.id === questionId
+                                );
+                                if (existingIndex === -1) {
+                                    // Add new question
+                                    state.activeAttempt.questions.push(result.data!);
+                                } else {
+                                    // Update existing
+                                    state.activeAttempt.questions[existingIndex] = result.data!;
+                                }
+                            }
+                        });
+
+                        return result.data;
+                    }
+
+                    return null;
+                },
+
+                /**
+                 * Get question metadata (IDs only) for navigation
+                 */
+                fetchQuestionMetadata: async (attemptId: string) => {
+                    const result = await quizService.getQuestionMetadata(attemptId);
+
+                    if (result.success && result.data) {
+                        return result.data.questionIds;
+                    }
+
+                    return null;
                 },
 
                 submitAttempt: async (input: SubmitAttemptDTO) => {
