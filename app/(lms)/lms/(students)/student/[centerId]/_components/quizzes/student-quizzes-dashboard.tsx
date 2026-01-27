@@ -111,10 +111,11 @@ export function StudentQuizzesDashboard({
         if (enrolledClassIds.length === 0) return;
 
         // Fetch active quizzes for this center's enrolled classes
+        // Note: forceRefresh doesn't affect the store's fetchQuizzes - it always fetches fresh data
         await fetchQuizzes({
             is_active: true,
             coaching_center_id: centerId,
-        }, forceRefresh);
+        });
     }, [enrolledClassIds, centerId, fetchQuizzes]);
 
     // Fetch quizzes on mount and when dependencies change
@@ -170,7 +171,7 @@ export function StudentQuizzesDashboard({
 
     // Filter quizzes for enrolled classes only
     const studentQuizzes = useMemo(() => {
-        return quizzes.filter(q => 
+        return quizzes.filter(q =>
             enrolledClassIds.includes(q.class_id) && q.is_active
         );
     }, [quizzes, enrolledClassIds]);
@@ -222,7 +223,7 @@ export function StudentQuizzesDashboard({
 
                 switch (statusFilter) {
                     case 'available':
-                        return availability.status === 'active' && 
+                        return availability.status === 'active' &&
                             (studentStatus === StudentQuizStatus.NOT_STARTED || studentStatus === StudentQuizStatus.IN_PROGRESS);
                     case 'in_progress':
                         return studentStatus === StudentQuizStatus.IN_PROGRESS;
@@ -246,7 +247,7 @@ export function StudentQuizzesDashboard({
         }
 
         // Sort by available_from (most recent first)
-        return filtered.sort((a, b) => 
+        return filtered.sort((a, b) =>
             new Date(b.available_from).getTime() - new Date(a.available_from).getTime()
         );
     }, [studentQuizzes, searchQuery, statusFilter, classFilter, attemptsByQuiz]);
@@ -285,7 +286,7 @@ export function StudentQuizzesDashboard({
         return { total, available, inProgress, completed, passed };
     }, [studentQuizzes, attemptsByQuiz]);
 
-    const friendlyErrorMessage = useMemo(() => 
+    const friendlyErrorMessage = useMemo(() =>
         error?.message ? getFriendlyErrorMessage(error.message) : null,
         [error]
     );
@@ -293,20 +294,6 @@ export function StudentQuizzesDashboard({
     // ============================================================
     // EVENT HANDLERS
     // ============================================================
-    const handleStartQuiz = (quiz: Quiz, existingAttempt?: QuizAttempt) => {
-        if (existingAttempt) {
-            // Resume existing attempt
-            router.push(`/lms/student/${centerId}/quizzes/${quiz.id}/attempt/${existingAttempt.id}`);
-        } else {
-            // Start new attempt
-            router.push(`/lms/student/${centerId}/quizzes/${quiz.id}/start`);
-        }
-    };
-
-    const handleViewResults = (quiz: Quiz, attemptId: string) => {
-        router.push(`/lms/student/${centerId}/quizzes/${quiz.id}/results/${attemptId}`);
-    };
-
     const handleViewDetails = (quizId: string) => {
         router.push(`/lms/student/${centerId}/quizzes/${quizId}`);
     };
@@ -437,13 +424,13 @@ export function StudentQuizzesDashboard({
                 </div>
             ) : (
                 <>
-                    {/* Class Filter Pills */}
+                    {/* Class Filter Pills
                     <StudentQuizClassFilter
                         classes={enrolledClassData}
                         selectedClassId={classFilter === 'all' ? null : classFilter}
                         onClassChange={handleClassFilterChange}
                         isLoading={classesLoading}
-                    />
+                    /> */}
 
                     {/* Filters */}
                     <StudentQuizzesFilters
@@ -473,8 +460,6 @@ export function StudentQuizzesDashboard({
                                     key={quiz.id}
                                     quiz={quiz}
                                     studentAttempts={attemptsByQuiz[quiz.id] || []}
-                                    onStartQuiz={handleStartQuiz}
-                                    onViewResults={handleViewResults}
                                     onViewDetails={handleViewDetails}
                                 />
                             ))}
@@ -486,8 +471,6 @@ export function StudentQuizzesDashboard({
                                     key={quiz.id}
                                     quiz={quiz}
                                     studentAttempts={attemptsByQuiz[quiz.id] || []}
-                                    onStartQuiz={handleStartQuiz}
-                                    onViewResults={handleViewResults}
                                     onViewDetails={handleViewDetails}
                                 />
                             ))}

@@ -50,10 +50,6 @@ export interface StudentQuizListItemProps {
     quiz: Quiz;
     /** Student's attempts for this quiz */
     studentAttempts?: QuizAttempt[];
-    /** Callback when start/continue quiz is clicked */
-    onStartQuiz: (quiz: Quiz, existingAttempt?: QuizAttempt) => void;
-    /** Callback when view results is clicked */
-    onViewResults: (quiz: Quiz, attemptId: string) => void;
     /** Callback when view details is clicked */
     onViewDetails: (quizId: string) => void;
 }
@@ -61,11 +57,15 @@ export interface StudentQuizListItemProps {
 export function StudentQuizListItem({
     quiz,
     studentAttempts = [],
-    onStartQuiz,
-    onViewResults,
     onViewDetails,
 }: StudentQuizListItemProps) {
+    // Check availability status
     const availabilityStatus = getQuizAvailabilityStatus(quiz.available_from, quiz.available_to);
+
+    // Determine if quiz is currently available (within time window)
+    const isCurrentlyAvailable = availabilityStatus.status === 'active';
+    const isUpcoming = availabilityStatus.status === 'upcoming';
+    const hasEnded = availabilityStatus.status === 'ended';
 
     // Get latest attempt
     const latestAttempt = studentAttempts.length > 0
@@ -73,11 +73,11 @@ export function StudentQuizListItem({
         : null;
 
     // Get best completed attempt
-    const completedAttempts = studentAttempts.filter(a => 
+    const completedAttempts = studentAttempts.filter(a =>
         a.attempt_status === 'COMPLETED' || a.attempt_status === 'TIMEOUT'
     );
     const bestAttempt = completedAttempts.length > 0
-        ? completedAttempts.reduce((best, current) => 
+        ? completedAttempts.reduce((best, current) =>
             (current.score ?? 0) > (best.score ?? 0) ? current : best
         )
         : null;
@@ -85,81 +85,81 @@ export function StudentQuizListItem({
     // Determine student quiz status
     const studentStatus = determineStudentQuizStatus(latestAttempt, quiz);
 
-    // Check if student can attempt
+    // Check if student can attempt (includes availability check)
     const attemptability = canAttemptQuiz(quiz, studentAttempts);
     const remainingAttempts = getRemainingAttempts(quiz.max_attempts, studentAttempts);
 
     // Get in-progress attempt if any
     const inProgressAttempt = studentAttempts.find(a => a.attempt_status === 'IN_PROGRESS');
 
-    // Get status display configuration
+    // Get status display configuration with brand colors
     const getStatusConfig = () => {
         switch (studentStatus) {
             case 'NOT_STARTED':
-                if (availabilityStatus.status === 'upcoming') {
+                if (isUpcoming) {
                     return {
                         label: 'Upcoming',
                         variant: 'secondary' as const,
                         icon: Clock,
-                        color: 'text-blue-600',
-                        bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+                        color: 'text-brand-secondary',
+                        bgColor: 'bg-brand-secondary/10',
                     };
                 }
-                if (availabilityStatus.status === 'ended') {
+                if (hasEnded) {
                     return {
                         label: 'Missed',
                         variant: 'destructive' as const,
                         icon: XCircle,
-                        color: 'text-red-600',
-                        bgColor: 'bg-red-100 dark:bg-red-900/30',
+                        color: 'text-destructive',
+                        bgColor: 'bg-destructive/10',
                     };
                 }
                 return {
-                    label: 'Not Started',
-                    variant: 'outline' as const,
+                    label: 'Available',
+                    variant: 'default' as const,
                     icon: Play,
-                    color: 'text-muted-foreground',
-                    bgColor: 'bg-muted',
+                    color: 'text-brand-primary',
+                    bgColor: 'bg-brand-primary/10',
                 };
             case 'IN_PROGRESS':
                 return {
                     label: 'In Progress',
                     variant: 'warning' as const,
                     icon: Clock,
-                    color: 'text-amber-600',
-                    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+                    color: 'text-warning',
+                    bgColor: 'bg-warning/10',
                 };
             case 'COMPLETED':
                 return {
                     label: 'Completed',
-                    variant: 'default' as const,
+                    variant: 'secondary' as const,
                     icon: CheckCircle2,
-                    color: 'text-blue-600',
-                    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+                    color: 'text-brand-secondary',
+                    bgColor: 'bg-brand-secondary/10',
                 };
             case 'PASSED':
                 return {
                     label: 'Passed',
                     variant: 'success' as const,
                     icon: Trophy,
-                    color: 'text-green-600',
-                    bgColor: 'bg-green-100 dark:bg-green-900/30',
+                    color: 'text-success',
+                    bgColor: 'bg-success/10',
                 };
             case 'FAILED':
                 return {
                     label: 'Failed',
                     variant: 'destructive' as const,
                     icon: XCircle,
-                    color: 'text-red-600',
-                    bgColor: 'bg-red-100 dark:bg-red-900/30',
+                    color: 'text-destructive',
+                    bgColor: 'bg-destructive/10',
                 };
             case 'TIMED_OUT':
                 return {
                     label: 'Timed Out',
                     variant: 'destructive' as const,
                     icon: Timer,
-                    color: 'text-red-600',
-                    bgColor: 'bg-red-100 dark:bg-red-900/30',
+                    color: 'text-destructive',
+                    bgColor: 'bg-destructive/10',
                 };
             default:
                 return {
@@ -181,55 +181,13 @@ export function StudentQuizListItem({
         return formatScore(bestAttempt.score, quiz.max_score, true);
     };
 
-    // Determine primary action
-    const handlePrimaryAction = () => {
-        if (inProgressAttempt) {
-            onStartQuiz(quiz, inProgressAttempt);
-        } else if (attemptability.canAttempt && remainingAttempts > 0) {
-            onStartQuiz(quiz);
-        } else if (bestAttempt) {
-            onViewResults(quiz, bestAttempt.id);
-        } else {
-            onViewDetails(quiz.id);
-        }
-    };
-
-    const getActionButton = () => {
-        if (inProgressAttempt) {
-            return (
-                <Button variant="default" size="sm" onClick={() => onStartQuiz(quiz, inProgressAttempt)} className="gap-1.5 h-8 px-3">
-                    <Play className="h-4 w-4" />
-                    <span className="hidden sm:inline">Continue</span>
-                </Button>
-            );
-        }
-
-        if (attemptability.canAttempt && remainingAttempts > 0) {
-            const isRetry = completedAttempts.length > 0;
-            return (
-                <Button variant="default" size="sm" onClick={() => onStartQuiz(quiz)} className="gap-1.5 h-8 px-3">
-                    {isRetry ? <RotateCcw className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{isRetry ? 'Retry' : 'Start'}</span>
-                </Button>
-            );
-        }
-
-        if (bestAttempt) {
-            return (
-                <Button variant="outline" size="sm" onClick={() => onViewResults(quiz, bestAttempt.id)} className="gap-1.5 h-8 px-3">
-                    <Eye className="h-4 w-4" />
-                    <span className="hidden sm:inline">Results</span>
-                </Button>
-            );
-        }
-
-        return (
-            <Button variant="ghost" size="sm" onClick={() => onViewDetails(quiz.id)} className="gap-1.5 h-8 px-3">
-                <Eye className="h-4 w-4" />
-                <span className="hidden sm:inline">View</span>
-            </Button>
-        );
-    };
+    // Action button always shows View Details - student starts quiz from details page
+    const actionButton = (
+        <Button variant="default" size="sm" onClick={() => onViewDetails(quiz.id)} className="gap-1.5 h-8 px-3">
+            <Eye className="h-4 w-4" />
+            <span className="hidden sm:inline">View Details</span>
+        </Button>
+    );
 
     const bestScoreText = getBestScoreText();
 
@@ -288,7 +246,7 @@ export function StudentQuizListItem({
                     {/* Score Display */}
                     {bestScoreText && (
                         <div className="flex items-center gap-1.5 mt-1.5 text-xs">
-                            <Award className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" />
+                            <Award className="h-3.5 w-3.5 text-brand-highlight flex-shrink-0" />
                             <span className="font-medium">Best: {bestScoreText}</span>
                             <span className="text-muted-foreground">
                                 • {remainingAttempts}/{quiz.max_attempts} attempts left
@@ -306,17 +264,7 @@ export function StudentQuizListItem({
 
             {/* Actions */}
             <ItemActions className="flex items-center gap-1">
-                {getActionButton()}
-                {bestAttempt && attemptability.canAttempt && remainingAttempts > 0 && (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => onViewResults(quiz, bestAttempt.id)}
-                    >
-                        <Eye className="h-4 w-4" />
-                    </Button>
-                )}
+                {actionButton}
             </ItemActions>
         </Item>
     );

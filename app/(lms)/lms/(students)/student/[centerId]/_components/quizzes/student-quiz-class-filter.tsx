@@ -126,7 +126,7 @@ export function StudentQuizClassFilter({
                                     isActive ? 'bg-primary/10 text-primary' : colorConfig
                                 )}
                             >
-                                <SubjectIconComponent className="h-4 w-4" />
+                                <SubjectIconComponent />
                             </span>
                             <div className="flex flex-col items-start">
                                 <span className="font-medium leading-tight">{displayName}</span>

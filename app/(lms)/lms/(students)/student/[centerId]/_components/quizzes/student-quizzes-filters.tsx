@@ -251,7 +251,7 @@ export function StudentQuizzesFilters({
 
             {/* Desktop Inline Filters */}
             <Card className="hidden lg:block">
-                <CardContent className="pt-6 pb-6">
+                <CardContent>
                     <div className="flex flex-wrap items-center gap-4">
                         {/* Search Input */}
                         <div className="relative flex-1 min-w-[200px]">
