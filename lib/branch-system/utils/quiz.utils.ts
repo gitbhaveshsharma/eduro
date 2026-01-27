@@ -724,7 +724,24 @@ export function prepareQuestionsForAttempt(
         }));
     }
 
-    return prepared;
+    // SECURITY: Strip sensitive data before sending to client
+    return sanitizeQuestionsForStudent(prepared);
+}
+
+/**
+ * Sanitizes questions for student view by removing sensitive data
+ * SECURITY: This prevents students from seeing correct answers in network tab
+ */
+export function sanitizeQuestionsForStudent(questions: QuizQuestion[]): QuizQuestion[] {
+    return questions.map(q => ({
+        ...q,
+        // Remove correct answers - students should NEVER see this during attempt
+        correct_answers: [],
+        // Remove explanation - only show after submission
+        explanation: null,
+        // Remove negative points info (optional, depends on your policy)
+        // negative_points: undefined,
+    }));
 }
 
 /**

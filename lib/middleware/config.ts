@@ -18,8 +18,8 @@ const defaultSecurityHeaders = {
   xFrameOptions: 'DENY',
   xContentTypeOptions: 'nosniff',
   referrerPolicy: 'strict-origin-when-cross-origin',
-  // ✅ FIXED: Allow geolocation for same-origin (self) - enables coaching location features
-  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
+  // ✅ FIXED: Allow geolocation and camera for same-origin (self) - enables coaching location and quiz proctoring
+  permissionsPolicy: 'camera=(self), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'require-corp',
   crossOriginOpenerPolicy: 'same-origin',
   crossOriginResourcePolicy: 'same-origin'
@@ -29,62 +29,62 @@ const defaultSecurityHeaders = {
 const developmentSecurityHeaders = {
   ...defaultSecurityHeaders,
   contentSecurityPolicy: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https: wss: ws:;",
-  // ✅ FIXED: Allow geolocation in development too
-  permissionsPolicy: 'camera=(), microphone=(), geolocation=(self), payment=()',
+  // ✅ FIXED: Allow geolocation and camera in development - enables coaching and quiz proctoring
+  permissionsPolicy: 'camera=(self), microphone=(), geolocation=(self), payment=()',
   crossOriginEmbedderPolicy: 'unsafe-none'
 }
 
 
 // Dynamic CORS configuration - whitelist of allowed origins
 const getAllowedOrigins = () => {
-    const origins = [
-        process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com',
-    ];
+  const origins = [
+    process.env.NEXT_PUBLIC_SITE_URL || 'https://yourdomain.com',
+  ];
 
-    // Add environment-specific origins
-    if (process.env.NODE_ENV === 'development') {
-        origins.push('http://localhost:3000', 'http://127.0.0.1:3000');
-    }
+  // Add environment-specific origins
+  if (process.env.NODE_ENV === 'development') {
+    origins.push('http://localhost:3000', 'http://127.0.0.1:3000');
+  }
 
-    // Add additional production origins from environment variable
-    if (process.env.ADDITIONAL_CORS_ORIGINS) {
-        origins.push(...process.env.ADDITIONAL_CORS_ORIGINS.split(',').map(o => o.trim()));
-    }
+  // Add additional production origins from environment variable
+  if (process.env.ADDITIONAL_CORS_ORIGINS) {
+    origins.push(...process.env.ADDITIONAL_CORS_ORIGINS.split(',').map(o => o.trim()));
+  }
 
-    return origins.filter(Boolean);
+  return origins.filter(Boolean);
 };
 
 // ✅ FIXED: Dynamic CORS configuration with origin validation
 const defaultCorsConfig = {
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        const allowedOrigins = getAllowedOrigins();
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    const allowedOrigins = getAllowedOrigins();
 
-        // Allow requests with no origin (same-origin, mobile apps, Postman, curl)
-        if (!origin) {
-            return callback(null, true);
-        }
+    // Allow requests with no origin (same-origin, mobile apps, Postman, curl)
+    if (!origin) {
+      return callback(null, true);
+    }
 
-        // Check if origin is in whitelist
-        if (allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            console.warn(`CORS blocked origin: ${origin}`);
-            callback(new Error('Not allowed by CORS'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-    allowedHeaders: [
-        'Content-Type',
-        'Authorization',
-        'X-Requested-With',
-        'X-API-Key',
-        'X-CSRF-Token',
-        'Accept',
-        'Origin'
-    ],
-    exposedHeaders: ['X-Rate-Limit-Remaining', 'X-Rate-Limit-Reset'],
-    credentials: true,
-    maxAge: 86400 // 24 hours
+    // Check if origin is in whitelist
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`CORS blocked origin: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'X-API-Key',
+    'X-CSRF-Token',
+    'Accept',
+    'Origin'
+  ],
+  exposedHeaders: ['X-Rate-Limit-Remaining', 'X-Rate-Limit-Reset'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
 };
 
 
@@ -291,7 +291,7 @@ const routeProtections = {
   },
   '/lms/teacher/*': {
     securityLevel: SecurityLevel.ROLE_BASED,
-    allowedRoles: [UserRole.TEACHER,UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
+    allowedRoles: [UserRole.TEACHER, UserRole.COACH, UserRole.ADMIN, UserRole.SUPER_ADMIN],
     rateLimiting: {
       requests: 150,
       window: RateLimitWindow.MINUTE
