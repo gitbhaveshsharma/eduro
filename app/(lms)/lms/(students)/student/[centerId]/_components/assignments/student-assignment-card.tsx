@@ -182,15 +182,18 @@ export function StudentAssignmentCard({
                             <StatusIcon className={cn('h-5 w-5', submissionStatus.color)} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <h3 className="font-semibold text-sm truncate group-hover:text-brand-primary transition-colors">
-                                {assignment.title}
-                            </h3>
-                            {assignment.class?.class_name && (
-                                <p className="text-xs text-secondary truncate">
-                                    {assignment.class.class_name}
-                                </p>
-                            )}
-                        </div>
+    {/* Title with responsive line clamping */}
+    <h3 className="font-semibold text-sm group-hover:text-brand-primary transition-colors line-clamp-1 md:line-clamp-2">
+        {assignment.title}
+    </h3>
+    
+    {/* Class name with responsive truncation */}
+    {assignment.class?.class_name && (
+        <p className="text-xs text-secondary truncate max-w-[120px] sm:max-w-[150px] md:max-w-none">
+            {assignment.class.class_name}
+        </p>
+    )}
+</div>
                     </div>
 
                     {/* Status Badge */}
