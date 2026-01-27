@@ -25,6 +25,7 @@ import {
     RotateCcw,
     Trophy,
 } from 'lucide-react';
+import type { ComponentType, SVGProps } from 'react';
 import { cn } from '@/lib/utils';
 import type { Quiz, QuizAttempt } from '@/lib/branch-system/types/quiz.types';
 import {
@@ -37,6 +38,8 @@ import {
     determineStudentQuizStatus,
     canAttemptQuiz,
     getRemainingAttempts,
+    STUDENT_QUIZ_STATUS_CONFIG,
+    StudentQuizStatus,
 } from '@/lib/branch-system/quiz';
 
 export interface StudentQuizCardProps {
@@ -83,100 +86,81 @@ export function StudentQuizCard({
     const attemptability = canAttemptQuiz(quiz, studentAttempts);
     const remainingAttempts = getRemainingAttempts(quiz.max_attempts, studentAttempts);
 
-    // Get in-progress attempt if any
-    const inProgressAttempt = studentAttempts.find(a => a.attempt_status === 'IN_PROGRESS');
+    // Get status configuration from utils
+    const baseStatusConfig = STUDENT_QUIZ_STATUS_CONFIG[studentStatus];
 
-    // Get status display configuration with brand colors
+    // Override status for special cases
     const getStatusConfig = () => {
-        switch (studentStatus) {
-            case 'NOT_STARTED':
-                if (isUpcoming) {
-                    return {
-                        label: 'Upcoming',
-                        variant: 'secondary' as const,
-                        icon: Clock,
-                        color: 'text-brand-secondary',
-                        bgColor: 'bg-brand-secondary/10',
-                        borderColor: 'border-brand-secondary/30',
-                    };
-                }
-                if (hasEnded) {
-                    return {
-                        label: 'Missed',
-                        variant: 'destructive' as const,
-                        icon: XCircle,
-                        color: 'text-destructive',
-                        bgColor: 'bg-destructive/10',
-                        borderColor: 'border-destructive/30',
-                    };
-                }
+        if (studentStatus === StudentQuizStatus.NOT_STARTED) {
+            if (isUpcoming) {
                 return {
-                    label: 'Available',
-                    variant: 'default' as const,
-                    icon: Play,
-                    color: 'text-brand-primary',
-                    bgColor: 'bg-brand-primary/10',
-                    borderColor: 'border-brand-primary/30',
-                };
-            case 'IN_PROGRESS':
-                return {
-                    label: 'In Progress',
-                    variant: 'warning' as const,
+                    ...baseStatusConfig,
+                    label: 'Upcoming',
                     icon: Clock,
-                    color: 'text-warning',
-                    bgColor: 'bg-warning/10',
-                    borderColor: 'border-warning/30',
-                };
-            case 'COMPLETED':
-                return {
-                    label: 'Completed',
-                    variant: 'secondary' as const,
-                    icon: CheckCircle2,
                     color: 'text-brand-secondary',
                     bgColor: 'bg-brand-secondary/10',
                     borderColor: 'border-brand-secondary/30',
                 };
-            case 'PASSED':
+            }
+            if (hasEnded) {
                 return {
-                    label: 'Passed',
-                    variant: 'success' as const,
-                    icon: Trophy,
-                    color: 'text-success',
-                    bgColor: 'bg-success/10',
-                    borderColor: 'border-success/30',
-                };
-            case 'FAILED':
-                return {
-                    label: 'Failed',
-                    variant: 'destructive' as const,
+                    ...baseStatusConfig,
+                    label: 'Missed',
                     icon: XCircle,
                     color: 'text-destructive',
                     bgColor: 'bg-destructive/10',
                     borderColor: 'border-destructive/30',
                 };
-            case 'TIMED_OUT':
-                return {
-                    label: 'Timed Out',
-                    variant: 'destructive' as const,
-                    icon: Timer,
-                    color: 'text-destructive',
-                    bgColor: 'bg-destructive/10',
-                    borderColor: 'border-destructive/30',
-                };
-            default:
-                return {
-                    label: 'Unknown',
-                    variant: 'outline' as const,
-                    icon: FileQuestion,
-                    color: 'text-muted-foreground',
-                    bgColor: 'bg-muted',
-                    borderColor: 'border-border',
-                };
+            }
+            return {
+                ...baseStatusConfig,
+                label: 'Available',
+                icon: Play,
+                color: 'text-brand-primary',
+                bgColor: 'bg-primary/10',
+                borderColor: 'border-primary/30',
+            };
         }
+
+        // For other statuses, use the utility config with proper color mapping
+        let color = 'text-muted-foreground';
+        let bgColor = 'bg-muted';
+        let borderColor = 'border-border';
+
+        switch (studentStatus) {
+            case StudentQuizStatus.IN_PROGRESS:
+                color = 'text-warning';
+                bgColor = 'bg-warning/10';
+                borderColor = 'border-warning/30';
+                break;
+            case StudentQuizStatus.PASSED:
+                color = 'text-success';
+                bgColor = 'bg-success/10';
+                borderColor = 'border-success/30';
+                break;
+            case StudentQuizStatus.FAILED:
+            case StudentQuizStatus.TIMED_OUT:
+                color = 'text-destructive';
+                bgColor = 'bg-destructive/10';
+                borderColor = 'border-destructive/30';
+                break;
+            case StudentQuizStatus.COMPLETED:
+                color = 'text-brand-secondary';
+                bgColor = 'bg-brand-secondary/10';
+                borderColor = 'border-brand-secondary/30';
+                break;
+        }
+
+        return {
+            ...baseStatusConfig,
+            color,
+            bgColor,
+            borderColor,
+        };
     };
 
     const statusConfig = getStatusConfig();
-    const StatusIcon = statusConfig.icon;
+    const StatusIcon = statusConfig.icon as ComponentType<SVGProps<SVGSVGElement>>;
 
     // Calculate score display for best attempt
     const getScoreDisplay = () => {

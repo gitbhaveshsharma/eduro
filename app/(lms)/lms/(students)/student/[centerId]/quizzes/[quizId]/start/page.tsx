@@ -97,11 +97,7 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
         if (!userId || !quizId) return;
 
         try {
-            const quizData = await fetchQuizById(quizId, true);
-            if (quizData) {
-                setQuiz(quizData);
-            }
-
+            await fetchQuizById(quizId, true);
             await fetchStudentAttempts(quizId, userId);
             setIsInitialized(true);
         } catch (err) {
@@ -112,6 +108,13 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
     useEffect(() => {
         loadQuizData();
     }, [loadQuizData]);
+
+    // Update quiz from store
+    useEffect(() => {
+        if (selectedQuiz) {
+            setQuiz(selectedQuiz);
+        }
+    }, [selectedQuiz]);
 
     // Update attempts from store
     useEffect(() => {
@@ -132,7 +135,7 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
     }, [isInitialized, attempts, centerId, quizId, router]);
 
     // Calculate availability and attemptability
-    const availabilityStatus = quiz ? getQuizAvailabilityStatus(quiz.available_from, quiz.available_until) : null;
+    const availabilityStatus = quiz ? getQuizAvailabilityStatus(quiz.available_from, quiz.available_to) : null;
     const attemptability = quiz ? canAttemptQuiz(quiz, attempts) : { canAttempt: false, reason: 'Loading...' };
     const remainingAttempts = quiz ? getRemainingAttempts(quiz.max_attempts, attempts) : 0;
 
@@ -145,8 +148,8 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
     const handleStartQuiz = async () => {
         if (!quiz || !userId || !attemptability.canAttempt || !isCurrentlyAvailable) {
             if (!isCurrentlyAvailable) {
-                if (isUpcoming) {
-                    showWarningToast(`Quiz will be available on ${formatDateTime(quiz?.available_from, 'full')}`);
+                if (isUpcoming && quiz) {
+                    showWarningToast(`Quiz will be available on ${formatDateTime(quiz.available_from, 'full')}`);
                 } else if (hasEnded) {
                     showErrorToast('This quiz is no longer available');
                 }
@@ -241,7 +244,7 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
                             <AlertCircle className="h-4 w-4" />
                             <AlertDescription>
                                 <strong>Quiz has ended.</strong> This quiz was available until{' '}
-                                <span className="font-semibold">{formatDateTime(quiz.available_until, 'full')}</span>.
+                                <span className="font-semibold">{formatDateTime(quiz.available_to, 'full')}</span>.
                             </AlertDescription>
                         </>
                     )}
@@ -303,7 +306,7 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
                         </div>
                         <div className="flex items-center gap-2 text-sm">
                             <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>Closes: <strong>{formatDateTime(quiz.available_until, 'full')}</strong></span>
+                            <span>Closes: <strong>{formatDateTime(quiz.available_to, 'full')}</strong></span>
                         </div>
                         {availabilityStatus?.timeRemaining && isCurrentlyAvailable && (
                             <div className="flex items-center gap-2 text-sm">
@@ -349,7 +352,7 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
                                 <span>You have <strong>{remainingAttempts}</strong> attempt(s) remaining.</span>
                             </li>
                         )}
-                        {quiz.show_answers_after_submission && (
+                        {quiz.show_correct_answers && (
                             <li className="flex items-start gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
                                 <span>Correct answers will be shown after submission.</span>

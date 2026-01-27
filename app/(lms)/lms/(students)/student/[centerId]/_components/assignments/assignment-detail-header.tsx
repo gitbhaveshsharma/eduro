@@ -211,18 +211,18 @@ export function AssignmentDetailHeader({
                 )}
 
                 {/* Max Score */}
-                <div className="p-4 rounded-xl border border-brand-secondary/20 bg-card hover:border-brand-secondary/40 hover:shadow-sm transition-all">
+                <div className="p-4 rounded-xl border bg-card  hover:shadow-sm transition-all">
                     <div className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-brand-secondary" />
                         <span className="text-xs text-secondary">Max Score</span>
                     </div>
-                    <p className="font-semibold mt-1.5 text-brand-primary">
+                    <p className="font-semibold mt-1.5 ">
                         {assignment.max_score} points
                     </p>
                 </div>
 
                 {/* Submission Type */}
-                <div className="p-4 rounded-xl border border-brand-highlight/20 bg-card hover:border-brand-highlight/40 hover:shadow-sm transition-all">
+                <div className="p-4 rounded-xl border bg-card  hover:shadow-sm transition-all">
                     <div className="flex items-center gap-2">
                         {assignment.submission_type === AssignmentSubmissionType.FILE ? (
                             <FileUp className="h-4 w-4 text-brand-highlight" />
@@ -231,15 +231,15 @@ export function AssignmentDetailHeader({
                         )}
                         <span className="text-xs text-secondary">Type</span>
                     </div>
-                    <p className="font-semibold mt-1.5 text-brand-highlight">
+                    <p className="font-semibold mt-1.5 ">
                         {SUBMISSION_TYPE_CONFIG[assignment.submission_type]?.label}
                     </p>
                 </div>
 
                 {/* Late Policy */}
-                <div className="p-4 rounded-xl border border-border bg-card hover:border-brand-primary/30 hover:shadow-sm transition-all">
+                <div className="p-4 rounded-xl border border-border bg-card  hover:shadow-sm transition-all">
                     <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-secondary" />
+                        <Clock className="h-4 w-4 text-brand-secondary" />
                         <span className="text-xs text-secondary">Late Policy</span>
                     </div>
                     <p className="font-semibold mt-1.5 text-primary">
