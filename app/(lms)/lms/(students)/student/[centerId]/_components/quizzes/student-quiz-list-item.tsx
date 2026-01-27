@@ -183,7 +183,7 @@ export function StudentQuizListItem({
 
     // Action button always shows View Details - student starts quiz from details page
     const actionButton = (
-        <Button variant="default" size="sm" onClick={() => onViewDetails(quiz.id)} className="gap-1.5 h-8 px-3">
+        <Button variant="ghost" size="sm" onClick={() => onViewDetails(quiz.id)} className="gap-1.5 h-8 px-3">
             <Eye className="h-4 w-4" />
             <span className="hidden sm:inline">View Details</span>
         </Button>

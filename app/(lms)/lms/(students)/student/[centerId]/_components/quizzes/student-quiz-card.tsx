@@ -24,8 +24,9 @@ import {
     AlertCircle,
     RotateCcw,
     Trophy,
+    Circle,
 } from 'lucide-react';
-import type { ComponentType, SVGProps } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Quiz, QuizAttempt } from '@/lib/branch-system/types/quiz.types';
 import {
@@ -50,6 +51,17 @@ export interface StudentQuizCardProps {
     /** Callback when view details is clicked */
     onViewDetails: (quizId: string) => void;
 }
+
+// Icon mapping for status config strings to actual components
+const ICON_MAP: Record<string, LucideIcon> = {
+    'Circle': Circle,
+    'Clock': Clock,
+    'CheckCircle': CheckCircle2,
+    'Trophy': Trophy,
+    'XCircle': XCircle,
+    'Timer': Timer,
+    'Play': Play,
+};
 
 export function StudentQuizCard({
     quiz,
@@ -96,7 +108,7 @@ export function StudentQuizCard({
                 return {
                     ...baseStatusConfig,
                     label: 'Upcoming',
-                    icon: Clock,
+                    icon: 'Clock' as const,
                     color: 'text-brand-secondary',
                     bgColor: 'bg-brand-secondary/10',
                     borderColor: 'border-brand-secondary/30',
@@ -106,7 +118,7 @@ export function StudentQuizCard({
                 return {
                     ...baseStatusConfig,
                     label: 'Missed',
-                    icon: XCircle,
+                    icon: 'XCircle' as const,
                     color: 'text-destructive',
                     bgColor: 'bg-destructive/10',
                     borderColor: 'border-destructive/30',
@@ -115,7 +127,7 @@ export function StudentQuizCard({
             return {
                 ...baseStatusConfig,
                 label: 'Available',
-                icon: Play,
+                icon: 'Play' as const,
                 color: 'text-brand-primary',
                 bgColor: 'bg-primary/10',
                 borderColor: 'border-primary/30',
@@ -160,7 +172,9 @@ export function StudentQuizCard({
     };
 
     const statusConfig = getStatusConfig();
-    const StatusIcon = statusConfig.icon as ComponentType<SVGProps<SVGSVGElement>>;
+    // Resolve icon from string name to actual component
+    const iconName = typeof statusConfig.icon === 'string' ? statusConfig.icon : 'Circle';
+    const StatusIcon = ICON_MAP[iconName] || Circle;
 
     // Calculate score display for best attempt
     const getScoreDisplay = () => {

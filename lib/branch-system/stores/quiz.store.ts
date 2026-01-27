@@ -197,7 +197,9 @@ export interface QuizStoreActions {
     saveResponse: (input: SaveResponseDTO) => Promise<boolean>;
     abandonAttempt: (attemptId: string) => Promise<boolean>;
     fetchStudentAttempts: (quizId: string, studentId: string) => Promise<void>;
+    fetchStudentAttemptsForQuizzes: (quizIds: string[], studentId: string) => Promise<void>;
     fetchAttemptDetails: (attemptId: string) => Promise<void>;
+    getAttemptsByQuizId: (quizId: string, studentId: string) => QuizAttempt[];
     setCurrentQuestion: (index: number) => void;
     updateTimeRemaining: (seconds: number | null) => void;
     recordResponse: (questionId: string, selectedAnswers: string[]) => void;
@@ -785,6 +787,16 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                 },
 
                 fetchStudentAttempts: async (quizId: string, studentId: string) => {
+                    // Check cache first
+                    const cacheKey = `${quizId}-${studentId}`;
+                    const cached = get().cache.attemptsByQuiz.get(cacheKey);
+                    if (cached && get().isCacheValid(cacheKey, 30000)) { // 30 second cache
+                        set((state) => {
+                            state.studentAttempts = cached.data;
+                        });
+                        return;
+                    }
+
                     set((state) => {
                         state.loading.attempts = true;
                     });
@@ -795,8 +807,57 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                         state.loading.attempts = false;
                         if (result.success && result.data) {
                             state.studentAttempts = result.data;
+                            // Cache the result with quiz-student key
+                            state.cache.attemptsByQuiz.set(cacheKey, {
+                                data: result.data,
+                                timestamp: Date.now(),
+                            });
                         }
                     });
+                },
+
+                fetchStudentAttemptsForQuizzes: async (quizIds: string[], studentId: string) => {
+                    if (quizIds.length === 0) return;
+
+                    // Filter out quizzes that are already cached and valid
+                    const quizzesToFetch = quizIds.filter(quizId => {
+                        const cacheKey = `${quizId}-${studentId}`;
+                        const cached = get().cache.attemptsByQuiz.get(cacheKey);
+                        return !cached || !get().isCacheValid(cacheKey, 30000);
+                    });
+
+                    if (quizzesToFetch.length === 0) return;
+
+                    set((state) => {
+                        state.loading.attempts = true;
+                    });
+
+                    // Fetch attempts for all quizzes in parallel
+                    const results = await Promise.allSettled(
+                        quizzesToFetch.map(quizId =>
+                            quizService.getStudentAttempts(quizId, studentId)
+                        )
+                    );
+
+                    set((state) => {
+                        state.loading.attempts = false;
+                        results.forEach((result, index) => {
+                            if (result.status === 'fulfilled' && result.value.success && result.value.data) {
+                                const quizId = quizzesToFetch[index];
+                                const cacheKey = `${quizId}-${studentId}`;
+                                state.cache.attemptsByQuiz.set(cacheKey, {
+                                    data: result.value.data,
+                                    timestamp: Date.now(),
+                                });
+                            }
+                        });
+                    });
+                },
+
+                getAttemptsByQuizId: (quizId: string, studentId: string) => {
+                    const cacheKey = `${quizId}-${studentId}`;
+                    const cached = get().cache.attemptsByQuiz.get(cacheKey);
+                    return cached?.data || [];
                 },
 
                 fetchAttemptDetails: async (attemptId: string) => {

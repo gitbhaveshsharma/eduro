@@ -110,39 +110,40 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
     const timerRef = useRef<NodeJS.Timeout | null>(null);
 
     // Initialize attempt
-    const initializeAttempt = useCallback(async () => {
+    useEffect(() => {
         if (!userId || !quizId || isInitialized) return;
 
-        try {
-            // Fetch quiz with questions
-            await fetchQuizById(quizId, true);
+        const initializeAttempt = async () => {
+            try {
+                // Fetch quiz with questions
+                await fetchQuizById(quizId, true);
 
-            // Check for existing in-progress attempt
-            await fetchStudentAttempts(quizId, userId);
+                // Check for existing in-progress attempt
+                await fetchStudentAttempts(quizId, userId);
 
-            // Start new attempt (or resume existing)
-            const result = await startAttempt({
-                quiz_id: quizId,
-                student_id: userId,
-                class_id: '', // Will be set from quiz data
-            });
+                // Start new attempt (or resume existing)
+                const result = await startAttempt({
+                    quiz_id: quizId,
+                    student_id: userId,
+                    class_id: '', // Will be set from quiz data
+                });
 
-            if (result) {
-                setIsInitialized(true);
-            } else {
-                showErrorToast('Failed to start quiz');
+                if (result) {
+                    setIsInitialized(true);
+                } else {
+                    showErrorToast('Failed to start quiz');
+                    router.back();
+                }
+            } catch (err) {
+                console.error('Error initializing attempt:', err);
+                showErrorToast('Failed to load quiz');
                 router.back();
             }
-        } catch (err) {
-            console.error('Error initializing attempt:', err);
-            showErrorToast('Failed to load quiz');
-            router.back();
-        }
-    }, [userId, quizId, isInitialized, fetchQuizById, fetchStudentAttempts, startAttempt, router]);
+        };
 
-    useEffect(() => {
         initializeAttempt();
-    }, [initializeAttempt]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run once on mount
 
     // Update local state from active attempt
     useEffect(() => {
@@ -165,6 +166,9 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
     useEffect(() => {
         if (!attempt?.quiz?.time_limit_minutes || !attempt.started_at) return;
 
+        let hasShownWarning = false;
+        let hasShownCritical = false;
+
         const updateTimer = () => {
             const timeInfo = calculateRemainingTime(
                 attempt.started_at,
@@ -174,13 +178,18 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
 
             setTimeRemaining(timeInfo.remainingSeconds);
 
-            if (timeInfo.isExpired) {
+            if (timeInfo.isExpired && !isSubmitting) {
                 // Auto-submit
                 handleAutoSubmit();
-            } else if (timeInfo.isWarning && !showTimeWarning) {
+                if (timerRef.current) {
+                    clearInterval(timerRef.current);
+                }
+            } else if (timeInfo.isWarning && !hasShownWarning) {
+                hasShownWarning = true;
                 setShowTimeWarning(true);
                 showWarningToast('5 minutes remaining!');
-            } else if (timeInfo.isCritical) {
+            } else if (timeInfo.isCritical && !hasShownCritical) {
+                hasShownCritical = true;
                 showWarningToast('1 minute remaining!');
             }
         };
@@ -193,7 +202,8 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                 clearInterval(timerRef.current);
             }
         };
-    }, [attempt?.started_at, attempt?.quiz?.time_limit_minutes, showTimeWarning]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [attempt?.started_at, attempt?.quiz?.time_limit_minutes]);
 
     // Handle response change
     const handleResponseChange = (questionId: string, answer: string, isMultiple: boolean) => {
@@ -300,8 +310,8 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
 
     // Current question
     const currentQuestion = questions[currentQuestionIndex];
-    const progress = questions.length > 0 
-        ? ((currentQuestionIndex + 1) / questions.length) * 100 
+    const progress = questions.length > 0
+        ? ((currentQuestionIndex + 1) / questions.length) * 100
         : 0;
 
     // Count answered questions
@@ -336,6 +346,23 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                 <Button variant="outline" onClick={() => router.back()}>
                     <ArrowLeft className="h-4 w-4 mr-2" />
                     Go Back
+                </Button>
+            </div>
+        );
+    }
+
+    // No questions found
+    if (isInitialized && questions.length === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+                <FileQuestion className="h-16 w-16 text-muted-foreground mb-2" />
+                <h2 className="text-2xl font-semibold">No Questions Found</h2>
+                <p className="text-muted-foreground text-center max-w-md">
+                    This quiz doesn&apos;t have any questions yet. Please contact your instructor.
+                </p>
+                <Button variant="outline" onClick={() => router.push(`/lms/student/${centerId}/quizzes`)}>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Back to Quizzes
                 </Button>
             </div>
         );

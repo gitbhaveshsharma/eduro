@@ -155,8 +155,8 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
         if (!quiz || !userId) return;
 
         if (inProgressAttempt) {
-            // Resume existing attempt
-            router.push(`/lms/student/${centerId}/quizzes/${quizId}/attempt/${inProgressAttempt.id}`);
+            // Resume existing attempt - the attempt page will load it from store
+            router.push(`/lms/student/${centerId}/quizzes/${quizId}/attempt`);
             return;
         }
 
@@ -170,7 +170,7 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
 
             if (result) {
                 showSuccessToast('Quiz started! Good luck!');
-                // Navigate to attempt page - result should contain attempt ID
+                // Navigate to attempt page - it will load the active attempt from store
                 router.push(`/lms/student/${centerId}/quizzes/${quizId}/attempt`);
             } else {
                 showErrorToast('Failed to start quiz');

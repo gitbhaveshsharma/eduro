@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -75,8 +75,8 @@ export function StudentQuizzesDashboard({
 
     const {
         fetchQuizzes,
-        fetchStudentAttempts,
-        studentAttempts,
+        fetchStudentAttemptsForQuizzes,
+        getAttemptsByQuizId,
         clearError,
     } = useQuizStore();
 
@@ -92,7 +92,6 @@ export function StudentQuizzesDashboard({
     const [statusFilter, setStatusFilter] = useState<StudentQuizStatusFilter>('all');
     const [classFilter, setClassFilter] = useState<string>('all');
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [attemptsByQuiz, setAttemptsByQuiz] = useState<Record<string, QuizAttempt[]>>({});
 
     // ============================================================
     // DATA FETCHING
@@ -122,29 +121,17 @@ export function StudentQuizzesDashboard({
         fetchStudentQuizzes();
     }, [fetchStudentQuizzes]);
 
-    // Fetch student attempts for each quiz
+    // Fetch student attempts for all quizzes using store batch method
     useEffect(() => {
-        const fetchAllAttempts = async () => {
-            const studentQuizzes = quizzes.filter(q => enrolledClassIds.includes(q.class_id));
-            const attemptsMap: Record<string, QuizAttempt[]> = {};
+        if (!studentId || quizzes.length === 0) return;
 
-            for (const quiz of studentQuizzes) {
-                try {
-                    await fetchStudentAttempts(quiz.id, studentId);
-                    attemptsMap[quiz.id] = studentAttempts;
-                } catch (err) {
-                    console.error(`Failed to fetch attempts for quiz ${quiz.id}:`, err);
-                    attemptsMap[quiz.id] = [];
-                }
-            }
+        const studentQuizzes = quizzes.filter(q => enrolledClassIds.includes(q.class_id));
+        const quizIds = studentQuizzes.map(q => q.id);
 
-            setAttemptsByQuiz(attemptsMap);
-        };
-
-        if (quizzes.length > 0 && studentId) {
-            fetchAllAttempts();
+        if (quizIds.length > 0) {
+            fetchStudentAttemptsForQuizzes(quizIds, studentId);
         }
-    }, [quizzes, studentId, enrolledClassIds, fetchStudentAttempts, studentAttempts]);
+    }, [quizzes.length, studentId, enrolledClassIds.length, fetchStudentAttemptsForQuizzes]);
 
     // Handle refresh
     const handleRefresh = async () => {
@@ -213,7 +200,7 @@ export function StudentQuizzesDashboard({
         // Status filter
         if (statusFilter !== 'all') {
             filtered = filtered.filter(q => {
-                const attempts = attemptsByQuiz[q.id] || [];
+                const attempts = getAttemptsByQuizId(q.id, studentId);
                 const latestAttempt = attempts.length > 0
                     ? attempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
                     : null;
@@ -249,7 +236,7 @@ export function StudentQuizzesDashboard({
         return filtered.sort((a, b) =>
             new Date(b.available_from).getTime() - new Date(a.available_from).getTime()
         );
-    }, [studentQuizzes, searchQuery, statusFilter, classFilter, attemptsByQuiz]);
+    }, [studentQuizzes, searchQuery, statusFilter, classFilter, getAttemptsByQuizId, studentId]);
 
     // Calculate stats
     const stats = useMemo(() => {
@@ -261,7 +248,7 @@ export function StudentQuizzesDashboard({
 
         studentQuizzes.forEach(quiz => {
             total++;
-            const attempts = attemptsByQuiz[quiz.id] || [];
+            const attempts = getAttemptsByQuizId(quiz.id, studentId);
             const latestAttempt = attempts.length > 0
                 ? attempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
                 : null;
@@ -283,7 +270,7 @@ export function StudentQuizzesDashboard({
         });
 
         return { total, available, inProgress, completed, passed };
-    }, [studentQuizzes, attemptsByQuiz]);
+    }, [studentQuizzes, getAttemptsByQuizId, studentId]);
 
     const friendlyErrorMessage = useMemo(() =>
         error?.message ? getFriendlyErrorMessage(error.message) : null,
@@ -452,7 +439,7 @@ export function StudentQuizzesDashboard({
                                 <StudentQuizCard
                                     key={quiz.id}
                                     quiz={quiz}
-                                    studentAttempts={attemptsByQuiz[quiz.id] || []}
+                                    studentAttempts={getAttemptsByQuizId(quiz.id, studentId)}
                                     onViewDetails={handleViewDetails}
                                 />
                             ))}
@@ -463,7 +450,7 @@ export function StudentQuizzesDashboard({
                                 <StudentQuizListItem
                                     key={quiz.id}
                                     quiz={quiz}
-                                    studentAttempts={attemptsByQuiz[quiz.id] || []}
+                                    studentAttempts={getAttemptsByQuizId(quiz.id, studentId)}
                                     onViewDetails={handleViewDetails}
                                 />
                             ))}
