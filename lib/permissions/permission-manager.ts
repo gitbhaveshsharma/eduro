@@ -384,18 +384,44 @@ export class BrowserPermissionManager {
      * Request camera permission
      */
     private async requestCamera(options?: MediaStreamOptions): Promise<PermissionState> {
+        console.log('📷 [CAMERA] requestCamera starting...');
+
         try {
+            // Go DIRECTLY to getUserMedia to trigger native browser prompt
+            console.log('📷 [CAMERA] Calling navigator.mediaDevices.getUserMedia DIRECTLY...');
+
             const constraints = options || { video: true };
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+            console.log('✅ [CAMERA] getUserMedia SUCCESS - User allowed!');
 
             // Stop all tracks immediately - we just needed permission
             stream.getTracks().forEach(track => track.stop());
 
             return PermissionState.GRANTED;
         } catch (error) {
-            if (error instanceof DOMException && error.name === 'NotAllowedError') {
-                return PermissionState.DENIED;
+            console.error('❌ [CAMERA] getUserMedia ERROR:', error);
+
+            if (error instanceof DOMException) {
+                // Check if error is due to Permissions-Policy blocking
+                if (error.message && error.message.toLowerCase().includes('permissions policy')) {
+                    console.error('🚨 [CAMERA] BLOCKED BY PERMISSIONS-POLICY HEADER!');
+                    console.error('🔧 [CAMERA] Fix: Update lib/middleware/config.ts');
+                    console.error('    Change: permissionsPolicy: "camera=()"');
+                    console.error('    To:     permissionsPolicy: "camera=(self)"');
+                    throw new Error(
+                        'Camera blocked by Permissions-Policy header. ' +
+                        'Update lib/middleware/config.ts to allow camera=(self)'
+                    );
+                }
+
+                if (error.name === 'NotAllowedError') {
+                    console.log('📷 [CAMERA] User denied permission');
+                    return PermissionState.DENIED;
+                }
             }
+
+            console.error('📷 [CAMERA] Unexpected error:', error);
             return PermissionState.ERROR;
         }
     }

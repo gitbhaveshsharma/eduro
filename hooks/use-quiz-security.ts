@@ -16,6 +16,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { showWarningToast, showErrorToast } from '@/lib/toast';
+import { BrowserPermissionManager } from '@/lib/permissions/permission-manager';
+import { BrowserPermissionType, PermissionState } from '@/lib/permissions/types';
 
 // ============================================================
 // TYPES
@@ -146,7 +148,43 @@ export function useQuizSecurity(
     // ============================================================
 
     const startWebcam = useCallback(async (): Promise<boolean> => {
+        console.log('🎥 [QUIZ SECURITY] Starting webcam...');
+
         try {
+            // Step 1: Use Permission Manager to request camera permission
+            const permissionManager = BrowserPermissionManager.getInstance();
+            console.log('🎥 [QUIZ SECURITY] Requesting camera permission via Permission Manager...');
+
+            const permissionResult = await permissionManager.requestPermission(
+                BrowserPermissionType.CAMERA,
+                {
+                    video: {
+                        width: { ideal: 320 },
+                        height: { ideal: 240 },
+                        facingMode: 'user'
+                    }
+                }
+            );
+
+            console.log('🎥 [QUIZ SECURITY] Permission result:', permissionResult);
+
+            // Step 2: Check if permission was granted
+            if (permissionResult.state !== PermissionState.GRANTED) {
+                console.error('❌ [QUIZ SECURITY] Camera permission denied or error:', permissionResult);
+
+                if (permissionResult.state === PermissionState.DENIED) {
+                    showErrorToast('Camera access denied. Please enable camera in browser settings to continue.');
+                } else if (permissionResult.error) {
+                    showErrorToast(`Camera error: ${permissionResult.error}`);
+                } else {
+                    showErrorToast('Failed to access webcam. Please enable camera access.');
+                }
+
+                return false;
+            }
+
+            // Step 3: Now get the actual stream (permission already granted)
+            console.log('🎥 [QUIZ SECURITY] Permission granted! Getting media stream...');
             const stream = await navigator.mediaDevices.getUserMedia({
                 video: {
                     width: { ideal: 320 },
@@ -156,6 +194,8 @@ export function useQuizSecurity(
                 audio: false
             });
 
+            console.log('✅ [QUIZ SECURITY] Webcam stream obtained successfully!');
+
             setState(s => ({
                 ...s,
                 isWebcamActive: true,
@@ -164,8 +204,25 @@ export function useQuizSecurity(
 
             return true;
         } catch (error) {
-            console.error('Failed to access webcam:', error);
-            showErrorToast('Failed to access webcam. Please enable camera access.');
+            console.error('❌ [QUIZ SECURITY] Failed to access webcam:', error);
+
+            // Provide more specific error messages
+            if (error instanceof DOMException) {
+                if (error.name === 'NotAllowedError') {
+                    showErrorToast('Camera access denied. Please click "Allow" when prompted, or enable camera in browser settings.');
+                } else if (error.name === 'NotFoundError') {
+                    showErrorToast('No camera found on your device.');
+                } else if (error.name === 'NotReadableError') {
+                    showErrorToast('Camera is already in use by another application.');
+                } else if (error.message && error.message.includes('permissions policy')) {
+                    showErrorToast('Camera blocked by security policy. Please contact support.');
+                } else {
+                    showErrorToast(`Camera error: ${error.message}`);
+                }
+            } else {
+                showErrorToast('Failed to access webcam. Please enable camera access.');
+            }
+
             return false;
         }
     }, []);

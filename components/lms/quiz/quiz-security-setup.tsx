@@ -131,7 +131,7 @@ export function QuizSecuritySetup({
     };
 
     return (
-        <div className="fixed inset-0 bg-background z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
             <Card className="w-full max-w-2xl">
                 <CardHeader className="text-center">
                     <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
