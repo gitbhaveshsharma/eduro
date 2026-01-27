@@ -50,7 +50,6 @@ import {
 import { StudentQuizzesFilters, type StudentQuizStatusFilter } from './student-quizzes-filters';
 import { StudentQuizCard } from './student-quiz-card';
 import { StudentQuizListItem } from './student-quiz-list-item';
-import { StudentQuizClassFilter } from './student-quiz-class-filter';
 
 type ViewMode = 'grid' | 'list';
 
@@ -424,13 +423,7 @@ export function StudentQuizzesDashboard({
                 </div>
             ) : (
                 <>
-                    {/* Class Filter Pills
-                    <StudentQuizClassFilter
-                        classes={enrolledClassData}
-                        selectedClassId={classFilter === 'all' ? null : classFilter}
-                        onClassChange={handleClassFilterChange}
-                        isLoading={classesLoading}
-                    /> */}
+
 
                     {/* Filters */}
                     <StudentQuizzesFilters

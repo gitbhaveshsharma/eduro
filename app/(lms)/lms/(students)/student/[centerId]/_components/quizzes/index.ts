@@ -9,4 +9,3 @@ export { StudentQuizzesDashboard } from './student-quizzes-dashboard';
 export { StudentQuizzesFilters, type StudentQuizStatusFilter } from './student-quizzes-filters';
 export { StudentQuizCard } from './student-quiz-card';
 export { StudentQuizListItem } from './student-quiz-list-item';
-export { StudentQuizClassFilter } from './student-quiz-class-filter';
