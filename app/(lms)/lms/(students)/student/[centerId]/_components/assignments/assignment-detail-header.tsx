@@ -104,8 +104,8 @@ export function AssignmentDetailHeader({
             variant: 'success' as const,
             icon: CheckCircle2,
             color: 'text-brand-primary',
-            bgColor: 'bg-brand-primary/20',
-            borderColor: 'border-brand-primary/50',
+            bgColor: 'bg-primary/20',
+            borderColor: 'border-primary/50',
         };
     };
 
@@ -231,7 +231,7 @@ export function AssignmentDetailHeader({
                         )}
                         <span className="text-xs text-secondary">Type</span>
                     </div>
-                    <p className="font-semibold mt-1.5 ">
+                    <p className="font-semibold mt-1.5 text-brand-highlight">
                         {SUBMISSION_TYPE_CONFIG[assignment.submission_type]?.label}
                     </p>
                 </div>

@@ -252,7 +252,6 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
                 variant="ghost"
                 size="sm"
                 onClick={() => router.back()}
-                className="gap-2 -ml-2 hover:bg-brand-secondary/10 hover:text-brand-primary transition-colors"
             >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Quizzes
@@ -261,7 +260,7 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
             {/* Title and Status */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border bg-brand-primary/10 border-brand-primary/30">
+                    <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border bg-primary/10 border-primary/30">
                         <FileQuestion className="h-6 w-6 text-brand-primary" />
                     </div>
                     <div>
