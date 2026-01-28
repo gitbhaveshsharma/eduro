@@ -1248,6 +1248,17 @@ export class QuizService {
         input: StartAttemptDTO
     ): Promise<QuizOperationResult<{ attempt: QuizAttempt; questions: QuizQuestion[] }>> {
         try {
+            console.log('🔐 [QUIZ SERVICE] startAttempt called with:', {
+                quiz_id: input.quiz_id,
+                student_id: input.student_id,
+                has_ip: !!input.ip_address,
+                has_ua: !!input.user_agent,
+                has_session: !!input.session_id,
+                ip_address: input.ip_address,
+                user_agent: input.user_agent?.substring(0, 50) + '...',
+                session_id: input.session_id,
+            });
+            
             const validationResult = startAttemptSchema.safeParse(input);
             if (!validationResult.success) {
                 return {
@@ -1331,19 +1342,34 @@ export class QuizService {
             // Create new attempt
             const attemptNumber = completedAttempts.length + 1;
 
+            const insertData = {
+                quiz_id: validatedInput.quiz_id,
+                student_id: validatedInput.student_id,
+                class_id: validatedInput.class_id,
+                attempt_number: attemptNumber,
+                attempt_status: 'IN_PROGRESS',
+                started_at: getCurrentDateTime(),
+                max_score: quiz.max_score,
+                ip_address: validatedInput.ip_address || null,
+                user_agent: validatedInput.user_agent || null,
+                session_id: validatedInput.session_id || null,
+            };
+            
+            console.log('💾 [QUIZ SERVICE] Inserting attempt with data:', insertData);
+
             const { data: attempt, error: attemptError } = await this.supabase
                 .from('quiz_attempts')
-                .insert({
-                    quiz_id: validatedInput.quiz_id,
-                    student_id: validatedInput.student_id,
-                    class_id: validatedInput.class_id,
-                    attempt_number: attemptNumber,
-                    attempt_status: 'IN_PROGRESS',
-                    started_at: getCurrentDateTime(),
-                    max_score: quiz.max_score,
-                })
+                .insert(insertData)
                 .select('*')
                 .single();
+            
+            console.log('✅ [QUIZ SERVICE] Insert result:', {
+                success: !attemptError,
+                attempt_id: attempt?.id,
+                ip_in_db: attempt?.ip_address,
+                ua_in_db: attempt?.user_agent,
+                session_in_db: attempt?.session_id,
+            });
 
             if (attemptError) {
                 return { success: false, error: `Failed to create attempt: ${attemptError.message}` };
@@ -1558,7 +1584,6 @@ export class QuizService {
                     .update({
                         selected_answers: validatedInput.selected_answers,
                         time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
-                        updated_at: new Date().toISOString(),
                     })
                     .eq('id', existing.id)
                     .select('*')

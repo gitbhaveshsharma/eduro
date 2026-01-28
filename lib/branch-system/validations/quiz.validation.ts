@@ -388,6 +388,9 @@ export const startAttemptSchema = z.object({
     quiz_id: uuidSchema,
     student_id: uuidSchema,
     class_id: uuidSchema,
+    ip_address: z.string().max(45).optional(),
+    user_agent: z.string().max(500).optional(),
+    session_id: z.string().max(100).optional(),
 });
 
 /**

@@ -143,6 +143,9 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         };
     }, []);
 
+    // Security hook must be defined before callbacks that use it
+    const securityRef = useRef<ReturnType<typeof useQuizSecurity> | null>(null);
+
     // Security hook - define callbacks first
     const handleAutoSubmit = useCallback(async () => {
         const currentAttempt = attemptRef.current;
@@ -161,6 +164,12 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
             });
 
             if (result) {
+                // Clean up security resources
+                if (securityRef.current) {
+                    securityRef.current.cleanup();
+                    securityRef.current.exitFullscreen();
+                }
+
                 showWarningToast('Quiz submitted automatically.');
                 clearActiveAttempt();
                 router.push(`/lms/student/${centerId}/quizzes/${quizId}/results/${currentAttempt.id}`);
@@ -179,6 +188,7 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
             requireWebcam: quiz?.require_webcam ?? false,
             detectTabSwitch: true,
             maxTabSwitches: MAX_TAB_SWITCHES,
+            maxFullscreenExits: MAX_TAB_SWITCHES,
             preventCopyPaste: true,
             preventRightClick: true,
             detectDevTools: true,
@@ -186,6 +196,11 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         },
         isInitialized && !showSecuritySetup
     );
+
+    // Update security ref
+    useEffect(() => {
+        securityRef.current = security;
+    }, [security]);
 
     // Initialize quiz data (not attempt yet)
     useEffect(() => {
@@ -244,12 +259,41 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
             // Check for existing in-progress attempt
             await fetchStudentAttempts(quizId, userId);
 
-            // Start new attempt (or resume existing)
-            const result = await startAttempt({
+            // Capture security context
+            console.log('📊 [QUIZ START] Capturing security context...');
+
+            const ipAddress = await fetch('/api/get-client-ip')
+                .then(res => res.json())
+                .then(data => {
+                    console.log('✅ [QUIZ START] IP fetched:', data.ip);
+                    return data.ip;
+                })
+                .catch(err => {
+                    console.error('❌ [QUIZ START] Failed to fetch IP:', err);
+                    return null;
+                });
+
+            const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : null;
+            console.log('✅ [QUIZ START] User Agent:', userAgent?.substring(0, 50) + '...');
+
+            const sessionId = typeof window !== 'undefined'
+                ? `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                : null;
+            console.log('✅ [QUIZ START] Session ID:', sessionId);
+
+            const attemptData = {
                 quiz_id: quizId,
                 student_id: userId,
                 class_id: quiz.class_id,
-            });
+                ip_address: ipAddress || undefined,
+                user_agent: userAgent || undefined,
+                session_id: sessionId || undefined,
+            };
+
+            console.log('📤 [QUIZ START] Sending attempt data:', attemptData);
+
+            // Start new attempt (or resume existing) with security context
+            const result = await startAttempt(attemptData);
 
             if (result) {
                 // Get the active attempt from store
@@ -390,8 +434,13 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
 
             if (result) {
                 showSuccessToast('Quiz submitted successfully!');
-                security.stopWebcam();
-                security.exitFullscreen();
+
+                // Clean up security resources
+                if (securityRef.current) {
+                    securityRef.current.cleanup();
+                    securityRef.current.exitFullscreen();
+                }
+
                 clearActiveAttempt();
                 router.push(`/lms/student/${centerId}/quizzes/${quizId}/results/${attempt.id}`);
             } else {
@@ -557,6 +606,8 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                         <QuizSecurityStatus
                             violationCount={security.tabSwitchCount}
                             maxViolations={MAX_TAB_SWITCHES}
+                            fullscreenExitCount={security.fullscreenExitCount}
+                            maxFullscreenExits={MAX_TAB_SWITCHES}
                             isInViolation={security.isInViolation}
                             isFullscreen={security.isFullscreen}
                             isWebcamActive={security.isWebcamActive}

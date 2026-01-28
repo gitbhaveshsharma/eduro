@@ -20,6 +20,46 @@ import { BrowserPermissionManager } from '@/lib/permissions/permission-manager';
 import { BrowserPermissionType, PermissionState } from '@/lib/permissions/types';
 
 // ============================================================
+// EXPERIMENTAL API TYPE DECLARATIONS
+// ============================================================
+
+// Extend Window interface for experimental Screen Details API
+declare global {
+    interface Window {
+        getScreenDetails?: () => Promise<{
+            screens: ScreenDetailed[];
+            currentScreen: ScreenDetailed;
+        }>;
+    }
+    
+    interface Screen {
+        isExtended?: boolean;
+    }
+}
+
+interface ScreenDetailed {
+    availHeight: number;
+    availLeft: number;
+    availTop: number;
+    availWidth: number;
+    colorDepth: number;
+    devicePixelRatio: number;
+    height: number;
+    isExtended: boolean;
+    isInternal: boolean;
+    isPrimary: boolean;
+    label: string;
+    left: number;
+    orientation: {
+        type: string;
+        angle: number;
+    };
+    pixelDepth: number;
+    top: number;
+    width: number;
+}
+
+// ============================================================
 // TYPES
 // ============================================================
 
@@ -32,6 +72,8 @@ export interface QuizSecurityConfig {
     detectTabSwitch: boolean;
     /** Number of allowed tab switches before auto-submit */
     maxTabSwitches: number;
+    /** Number of allowed fullscreen exits before auto-submit */
+    maxFullscreenExits: number;
     /** Prevent copy/paste */
     preventCopyPaste: boolean;
     /** Prevent right-click */
@@ -53,16 +95,20 @@ export interface SecurityState {
     webcamStream: MediaStream | null;
     /** Number of tab switch violations */
     tabSwitchCount: number;
+    /** Number of fullscreen exit violations */
+    fullscreenExitCount: number;
     /** Is security check passed */
     isSecurityCheckPassed: boolean;
     /** Array of violations */
     violations: SecurityViolation[];
     /** Is currently in violation state */
     isInViolation: boolean;
+    /** Number of displays detected */
+    displayCount: number;
 }
 
 export interface SecurityViolation {
-    type: 'tab_switch' | 'fullscreen_exit' | 'copy_paste' | 'right_click' | 'dev_tools';
+    type: 'tab_switch' | 'fullscreen_exit' | 'copy_paste' | 'right_click' | 'dev_tools' | 'display_change';
     timestamp: Date;
     details?: string;
 }
@@ -76,6 +122,7 @@ const DEFAULT_CONFIG: QuizSecurityConfig = {
     requireWebcam: false,
     detectTabSwitch: true,
     maxTabSwitches: 3,
+    maxFullscreenExits: 3,
     preventCopyPaste: true,
     preventRightClick: true,
     detectDevTools: false,
@@ -98,13 +145,21 @@ export function useQuizSecurity(
         isWebcamActive: false,
         webcamStream: null,
         tabSwitchCount: 0,
+        fullscreenExitCount: 0,
         isSecurityCheckPassed: false,
         violations: [],
         isInViolation: false,
+        displayCount: (typeof window !== 'undefined' && window.screen?.isExtended) ? 2 : 1,
     });
 
     const violationCountRef = useRef(0);
     const isInitializedRef = useRef(false);
+    const isFullscreenRef = useRef(false);
+
+    // Update ref when state changes
+    useEffect(() => {
+        isFullscreenRef.current = state.isFullscreen;
+    }, [state.isFullscreen]);
 
     // ============================================================
     // FULLSCREEN MANAGEMENT
@@ -121,6 +176,7 @@ export function useQuizSecurity(
                 await (elem as unknown as { msRequestFullscreen: () => Promise<void> }).msRequestFullscreen();
             }
             setState(s => ({ ...s, isFullscreen: true }));
+            isFullscreenRef.current = true;
             return true;
         } catch (error) {
             console.error('Failed to enter fullscreen:', error);
@@ -138,6 +194,7 @@ export function useQuizSecurity(
                 await (document as unknown as { msExitFullscreen: () => Promise<void> }).msExitFullscreen();
             }
             setState(s => ({ ...s, isFullscreen: false }));
+            isFullscreenRef.current = false;
         } catch (error) {
             console.error('Failed to exit fullscreen:', error);
         }
@@ -248,29 +305,58 @@ export function useQuizSecurity(
         violationCountRef.current += 1;
         const count = violationCountRef.current;
 
-        setState(s => ({
-            ...s,
-            violations: [...s.violations, { type, timestamp: new Date(), details }],
-            tabSwitchCount: type === 'tab_switch' ? s.tabSwitchCount + 1 : s.tabSwitchCount,
-            isInViolation: true,
-        }));
+        setState(s => {
+            const newTabSwitchCount = type === 'tab_switch' ? s.tabSwitchCount + 1 : s.tabSwitchCount;
+            const newFullscreenExitCount = type === 'fullscreen_exit' ? s.fullscreenExitCount + 1 : s.fullscreenExitCount;
+            
+            return {
+                ...s,
+                violations: [...s.violations, { type, timestamp: new Date(), details }],
+                tabSwitchCount: newTabSwitchCount,
+                fullscreenExitCount: newFullscreenExitCount,
+                isInViolation: true,
+            };
+        });
 
         // Callback for logging
         mergedConfig.onViolation?.(type, count);
 
-        // Check if limit exceeded
-        if (type === 'tab_switch' && count >= mergedConfig.maxTabSwitches) {
-            showErrorToast(`Warning limit exceeded (${count} violations). Your quiz will be submitted.`);
+        // Get current counts from state
+        const currentState = state;
+        const tabCount = type === 'tab_switch' ? currentState.tabSwitchCount + 1 : currentState.tabSwitchCount;
+        const fullscreenCount = type === 'fullscreen_exit' ? currentState.fullscreenExitCount + 1 : currentState.fullscreenExitCount;
+
+        // Check if limit exceeded for tab switches
+        if (type === 'tab_switch') {
+            if (tabCount >= mergedConfig.maxTabSwitches) {
+                showErrorToast(`Tab switch limit exceeded (${tabCount} violations). Your quiz will be submitted.`);
+                mergedConfig.onViolationLimit();
+            } else {
+                showWarningToast(`Warning: Tab switch detected (${tabCount}/${mergedConfig.maxTabSwitches}). Quiz may be auto-submitted.`);
+            }
+        }
+
+        // Check if limit exceeded for fullscreen exits
+        if (type === 'fullscreen_exit') {
+            if (fullscreenCount >= mergedConfig.maxFullscreenExits) {
+                showErrorToast(`Fullscreen exit limit exceeded (${fullscreenCount} violations). Your quiz will be submitted.`);
+                mergedConfig.onViolationLimit();
+            } else {
+                showWarningToast(`Warning: Fullscreen exited (${fullscreenCount}/${mergedConfig.maxFullscreenExits}). Press F to re-enter fullscreen.`);
+            }
+        }
+
+        // Display change warning
+        if (type === 'display_change') {
+            showErrorToast('Display configuration changed! This is not allowed during the quiz. Your quiz will be submitted.');
             mergedConfig.onViolationLimit();
-        } else if (type === 'tab_switch') {
-            showWarningToast(`Warning: Tab switch detected (${count}/${mergedConfig.maxTabSwitches}). Quiz may be auto-submitted.`);
         }
 
         // Clear violation state after a moment
         setTimeout(() => {
             setState(s => ({ ...s, isInViolation: false }));
         }, 3000);
-    }, [mergedConfig]);
+    }, [mergedConfig, state]);
 
     // ============================================================
     // SECURITY INITIALIZATION
@@ -317,6 +403,7 @@ export function useQuizSecurity(
         const handleFullscreenChange = () => {
             const isFullscreen = !!document.fullscreenElement;
             setState(s => ({ ...s, isFullscreen }));
+            isFullscreenRef.current = isFullscreen;
 
             if (!isFullscreen && isInitializedRef.current && mergedConfig.requireFullscreen) {
                 addViolation('fullscreen_exit', 'Exited fullscreen mode');
@@ -370,6 +457,16 @@ export function useQuizSecurity(
 
         // Keyboard shortcuts handler
         const handleKeyDown = (e: KeyboardEvent) => {
+            // F key to re-enter fullscreen if not in fullscreen
+            if (e.key === 'f' || e.key === 'F') {
+                if (!isFullscreenRef.current && mergedConfig.requireFullscreen && isInitializedRef.current) {
+                    e.preventDefault();
+                    console.log('🔄 [SECURITY] F key pressed - re-entering fullscreen');
+                    enterFullscreen();
+                    return;
+                }
+            }
+
             // Prevent common shortcuts
             if (mergedConfig.preventCopyPaste) {
                 // Ctrl+C, Ctrl+V, Ctrl+X
@@ -396,6 +493,42 @@ export function useQuizSecurity(
             }
         };
 
+        // Display change detection
+        const checkDisplayChange = async () => {
+            try {
+                if (typeof window !== 'undefined' && 'getScreenDetails' in window && window.getScreenDetails) {
+                    const screenDetails = await window.getScreenDetails();
+                    const newDisplayCount = screenDetails?.screens?.length || 1;
+                    if (state.displayCount !== newDisplayCount && isInitializedRef.current) {
+                        addViolation('display_change', `Display count changed from ${state.displayCount} to ${newDisplayCount}`);
+                    }
+                } else if (typeof window !== 'undefined' && window.screen?.isExtended !== undefined) {
+                    // Fallback: check screen properties
+                    const extendedCheck = window.screen.isExtended;
+                    const currentIsExtended = state.displayCount > 1;
+                    if (currentIsExtended !== extendedCheck && isInitializedRef.current) {
+                        addViolation('display_change', 'Display configuration changed');
+                    }
+                }
+            } catch (err) {
+                // Silent fail - not all browsers support this
+            }
+        };
+
+        // Fullscreen reminder interval (every 10 seconds)
+        let fullscreenReminderInterval: NodeJS.Timeout | null = null;
+        if (mergedConfig.requireFullscreen) {
+            fullscreenReminderInterval = setInterval(() => {
+                if (!isFullscreenRef.current && isInitializedRef.current) {
+                    console.log('⚠️ [SECURITY] Fullscreen reminder - not in fullscreen');
+                    showWarningToast('Please return to fullscreen mode. Press F to continue.');
+                }
+            }, 10000);
+        }
+
+        // Display change check interval (every 2 seconds)
+        const displayCheckInterval = setInterval(checkDisplayChange, 2000);
+
         // Add event listeners
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
@@ -407,6 +540,8 @@ export function useQuizSecurity(
         document.addEventListener('keydown', handleKeyDown);
 
         return () => {
+            if (fullscreenReminderInterval) clearInterval(fullscreenReminderInterval);
+            clearInterval(displayCheckInterval);
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
             document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -435,6 +570,7 @@ export function useQuizSecurity(
         exitFullscreen,
         startWebcam,
         stopWebcam,
+        cleanup: stopWebcam,
         violationCount: violationCountRef.current,
     };
 }
