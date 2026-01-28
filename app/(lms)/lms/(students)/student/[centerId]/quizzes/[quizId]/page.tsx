@@ -118,7 +118,7 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
         : null;
 
     const latestAttempt = localAttempts.length > 0
-        ? localAttempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
+        ? [...localAttempts].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
         : null;
 
     const completedAttempts = localAttempts.filter(a =>

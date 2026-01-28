@@ -127,11 +127,21 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const initializationAttemptedRef = useRef(false);
     const attemptRef = useRef<QuizAttempt | null>(null);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Keep ref in sync with state
     useEffect(() => {
         attemptRef.current = attempt;
     }, [attempt]);
+
+    // Cleanup save timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Security hook - define callbacks first
     const handleAutoSubmit = useCallback(async () => {
@@ -339,15 +349,23 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                 newResponses = { ...prev, [questionId]: [answer] };
             }
 
-            // Auto-save response
+            // Auto-save response (debounced to prevent rapid requests)
             if (attempt) {
-                saveResponse({
-                    attempt_id: attempt.id,
-                    question_id: questionId,
-                    selected_answers: newResponses[questionId],
-                }).catch(err => {
-                    console.error('Failed to auto-save response:', err);
-                });
+                // Clear previous timeout
+                if (saveTimeoutRef.current) {
+                    clearTimeout(saveTimeoutRef.current);
+                }
+
+                // Save after 500ms of no changes
+                saveTimeoutRef.current = setTimeout(() => {
+                    saveResponse({
+                        attempt_id: attempt.id,
+                        question_id: questionId,
+                        selected_answers: newResponses[questionId],
+                    }).catch(err => {
+                        console.error('Failed to auto-save response:', err);
+                    });
+                }, 500);
             }
 
             return newResponses;

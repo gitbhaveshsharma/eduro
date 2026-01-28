@@ -1460,11 +1460,14 @@ export class QuizService {
                 };
             }).filter((r): r is NonNullable<typeof r> => r !== null);
 
-            // Insert responses
+            // Upsert responses (update if exists from auto-save, insert if new)
             if (responsesToInsert.length > 0) {
                 const { error: responseError } = await this.supabase
                     .from('quiz_responses')
-                    .insert(responsesToInsert);
+                    .upsert(responsesToInsert, {
+                        onConflict: 'attempt_id,question_id',
+                        ignoreDuplicates: false, // Update existing records
+                    });
 
                 if (responseError) {
                     return { success: false, error: `Failed to save responses: ${responseError.message}` };
@@ -1521,6 +1524,7 @@ export class QuizService {
 
     /**
      * Saves a response during quiz (auto-save)
+     * Checks if response exists first to avoid 409 Conflict
      */
     async saveResponse(
         input: SaveResponseDTO
@@ -1545,45 +1549,58 @@ export class QuizService {
                 .select('id')
                 .eq('attempt_id', validatedInput.attempt_id)
                 .eq('question_id', validatedInput.question_id)
-                .single();
+                .maybeSingle();
 
             if (existing) {
                 // Update existing response
-                const { data, error } = await this.supabase
+                const { data: updateData, error: updateError } = await this.supabase
                     .from('quiz_responses')
                     .update({
                         selected_answers: validatedInput.selected_answers,
                         time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
+                        updated_at: new Date().toISOString(),
                     })
                     .eq('id', existing.id)
                     .select('*')
                     .single();
 
-                if (error) {
-                    return { success: false, error: `Failed to update response: ${error.message}` };
+                if (updateError) {
+                    console.error('[QuizService] Update failed:', updateError);
+                    return {
+                        success: false,
+                        error: `Failed to update response: ${updateError.message}`
+                    };
                 }
 
-                return { success: true, data: data as QuizResponse };
+                return { success: true, data: updateData as QuizResponse };
+            } else {
+                // Insert new response
+                const { data: insertData, error: insertError } = await this.supabase
+                    .from('quiz_responses')
+                    .insert({
+                        attempt_id: validatedInput.attempt_id,
+                        question_id: validatedInput.question_id,
+                        selected_answers: validatedInput.selected_answers,
+                        time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
+                        is_correct: false,
+                        points_earned: 0,
+                        points_deducted: 0,
+                    })
+                    .select('*')
+                    .single();
+
+                if (insertError) {
+                    console.error('[QuizService] Insert failed:', insertError);
+                    return {
+                        success: false,
+                        error: `Failed to save response: ${insertError.message}`
+                    };
+                }
+
+                return { success: true, data: insertData as QuizResponse };
             }
-
-            // Insert new response (without grading - will be graded on submit)
-            const { data, error } = await this.supabase
-                .from('quiz_responses')
-                .insert({
-                    attempt_id: validatedInput.attempt_id,
-                    question_id: validatedInput.question_id,
-                    selected_answers: validatedInput.selected_answers,
-                    time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
-                })
-                .select('*')
-                .single();
-
-            if (error) {
-                return { success: false, error: `Failed to save response: ${error.message}` };
-            }
-
-            return { success: true, data: data as QuizResponse };
         } catch (error) {
+            console.error('[QuizService] saveResponse exception:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown error occurred',
@@ -1683,14 +1700,36 @@ export class QuizService {
                 .single();
 
             if (attemptError || !attempt) {
+                console.error('[QuizService] Attempt fetch error:', attemptError);
                 return { success: false, error: 'Attempt not found' };
             }
 
-            // Get responses
-            const { data: responses } = await this.supabase
-                .from('quiz_responses')
-                .select('*')
-                .eq('attempt_id', attemptId);
+            console.log('[QuizService] Attempt found:', {
+                attemptId: attempt.id,
+                studentId: attempt.student_id,
+                quizId: attempt.quiz_id
+            });
+
+            // Get responses - Use JOIN with quiz_attempts to ensure RLS works correctly
+            // Direct query on quiz_responses may be blocked by RLS if student_id check is missing
+            const { data: attemptWithResponses, error: responsesError } = await this.supabase
+                .from('quiz_attempts')
+                .select(`
+                    id,
+                    quiz_responses:quiz_responses(*)
+                `)
+                .eq('id', attemptId)
+                .single();
+
+            const responses = attemptWithResponses?.quiz_responses || [];
+
+            console.log('[QuizService] Responses query result:', {
+                attemptId,
+                responsesCount: responses?.length || 0,
+                responses,
+                error: responsesError,
+                method: 'JOIN via quiz_attempts'
+            });
 
             // Get student profile
             const { data: studentProfile } = await this.supabase
@@ -1703,6 +1742,11 @@ export class QuizService {
                 ...attempt,
                 student_profile: studentProfile,
                 quiz_responses: responses,
+            });
+
+            console.log('[QuizService] Final result:', {
+                hasResponses: !!result.responses,
+                responsesCount: result.responses?.length || 0
             });
 
             return { success: true, data: result };

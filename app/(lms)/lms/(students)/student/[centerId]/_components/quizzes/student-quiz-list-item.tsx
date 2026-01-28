@@ -69,7 +69,7 @@ export function StudentQuizListItem({
 
     // Get latest attempt
     const latestAttempt = studentAttempts.length > 0
-        ? studentAttempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
+        ? [...studentAttempts].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
         : null;
 
     // Get best completed attempt
