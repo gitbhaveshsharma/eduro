@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
@@ -49,11 +49,30 @@ interface StudentCoachingLayoutProps {
 
 export default function StudentCoachingLayout({ children, params }: StudentCoachingLayoutProps) {
     const router = useRouter();
+    const pathname = usePathname();
     const { centerId } = params;
 
     const [coachingCenter, setCoachingCenter] = useState<CoachingCenter | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    /**
+     * Check if current page should hide all layout elements
+     * Returns true for pages like quiz attempt where we need fullscreen
+     */
+    const shouldHideLayout = () => {
+        if (!pathname) return false;
+
+        // Hide layout on quiz attempt page
+        if (pathname.includes('/quizzes/') && pathname.endsWith('/attempt')) {
+            return true;
+        }
+
+        // Add more pages here as needed
+        // Example: if (pathname.includes('/exam/')) return true;
+
+        return false;
+    };
 
     /**
      * Fetch coaching center details
@@ -89,6 +108,23 @@ export default function StudentCoachingLayout({ children, params }: StudentCoach
     useEffect(() => {
         fetchCoachingCenter();
     }, [fetchCoachingCenter]);
+
+    // If layout should be hidden (e.g., quiz attempt page), render only children
+    if (shouldHideLayout()) {
+        return (
+            <StudentContext.Provider
+                value={{
+                    coachingCenter,
+                    isLoading,
+                    error,
+                    refetch: fetchCoachingCenter,
+                    centerId,
+                }}
+            >
+                {children}
+            </StudentContext.Provider>
+        );
+    }
 
     // Loading state - removed sidebar skeleton
     if (isLoading) {
@@ -158,10 +194,10 @@ export default function StudentCoachingLayout({ children, params }: StudentCoach
 
     // Get sidebar items with dynamic hrefs for this coaching center
     const sidebarItems: SidebarItem[] = LayoutUtils.getStudentSidebarItems(centerId);
-    
+
     // Get navigation items with dynamic hrefs for bottom nav (filtered by device)
     const navigationItems = LayoutUtils.getStudentNavigationItems(centerId, deviceType);
-    
+
     // Get header items with dynamic hrefs (filtered by device)
     const headerItems = LayoutUtils.getStudentHeaderItems(centerId, deviceType);
 
@@ -189,7 +225,7 @@ export default function StudentCoachingLayout({ children, params }: StudentCoach
                         width: '280px',
                         collapsible: true,
                         overlay: true,
-                        devices: ['desktop', 'tablet'], 
+                        devices: ['desktop', 'tablet'],
                     },
                 }}
                 sidebarItems={sidebarItems}
