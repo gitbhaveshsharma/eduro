@@ -42,6 +42,7 @@ import {
     useQuizStore,
     useQuizLoading,
     useQuizError,
+    useSelectedQuiz,
 } from '@/lib/branch-system/stores/quiz.store';
 import type { QuizAttempt, QuizQuestion } from '@/lib/branch-system/types/quiz.types';
 import {
@@ -49,7 +50,6 @@ import {
     calculatePercentage,
     formatDateTime,
     optionsToArray,
-    canAttemptQuiz,
 } from '@/lib/branch-system/quiz';
 
 interface QuizResultsPageProps {
@@ -74,7 +74,8 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     // Store hooks
     const loading = useQuizLoading();
     const error = useQuizError();
-    const { fetchQuizById, clearError, fetchStudentAttempts } = useQuizStore();
+    const selectedQuiz = useSelectedQuiz();
+    const { fetchQuizById, clearError, fetchAttemptDetails } = useQuizStore();
 
     // Local state
     const [attempt, setAttempt] = useState<QuizAttempt | null>(null);
@@ -86,34 +87,61 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     const loadResults = useCallback(async () => {
         try {
             setIsLoading(true);
+            clearError();
 
-            // Fetch quiz with questions
-            const quiz = await fetchQuizById(quizId, true);
+            // Fetch the specific attempt details with responses
+            // This is RLS-protected, so only the student's own attempts can be accessed
+            const attemptData = await fetchAttemptDetails(attemptId);
 
-            if (!quiz) {
-                throw new Error('Quiz not found');
-            }
-
-            // Find the specific attempt
-            const attempts = quiz.studentAttempts || [];
-            const foundAttempt = attempts.find((a: QuizAttempt) => a.id === attemptId);
-
-            if (!foundAttempt) {
+            if (!attemptData) {
+                console.error('Attempt not found or access denied:', attemptId);
                 throw new Error('Attempt not found');
             }
 
-            setAttempt(foundAttempt);
+            console.log('Attempt data received:', {
+                id: attemptData.id,
+                hasResponses: !!attemptData.responses,
+                responsesCount: attemptData.responses?.length || 0,
+                responses: attemptData.responses
+            });
 
-            // Build question results (if quiz allows showing answers)
-            if (quiz.questions && quiz.show_answers_after_submission) {
+            // Fetch the quiz to get questions (updates store state)
+            await fetchQuizById(quizId, true);
+
+            // Get the quiz from store after fetching
+            const quiz = useQuizStore.getState().selectedQuiz;
+
+            if (!quiz) {
+                console.error('Quiz not found:', quizId);
+                throw new Error('Quiz not found');
+            }
+
+            // Create a new attempt object with quiz data (don't mutate the original)
+            const attemptWithQuiz: QuizAttempt = {
+                ...attemptData,
+                quiz: {
+                    id: quiz.id,
+                    title: quiz.title,
+                    time_limit_minutes: quiz.time_limit_minutes,
+                    max_score: quiz.max_score,
+                    passing_score: quiz.passing_score,
+                    show_correct_answers: quiz.show_correct_answers ?? false,
+                    show_score_immediately: quiz.show_score_immediately ?? false,
+                }
+            };
+
+            setAttempt(attemptWithQuiz);
+
+            // Build question results (if quiz allows showing answers AND we have responses)
+            if (quiz.questions && quiz.show_correct_answers && attemptData.responses && attemptData.responses.length > 0) {
                 const results: QuestionResult[] = quiz.questions.map((question: QuizQuestion) => {
-                    const response = foundAttempt.responses?.find(
+                    const response = attemptData.responses?.find(
                         (r: { question_id: string }) => r.question_id === question.id
                     );
                     const selectedAnswers = response?.selected_answers || [];
                     const correctAnswers = question.correct_answers || [];
-                    
-                    const isCorrect = 
+
+                    const isCorrect =
                         selectedAnswers.length === correctAnswers.length &&
                         selectedAnswers.every((a: string) => correctAnswers.includes(a));
 
@@ -125,13 +153,22 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 });
 
                 setQuestionResults(results);
+            } else {
+                console.warn('Cannot show question results:', {
+                    hasQuestions: !!quiz.questions,
+                    questionsCount: quiz.questions?.length || 0,
+                    showCorrectAnswers: quiz.show_correct_answers,
+                    hasResponses: !!attemptData.responses,
+                    responsesCount: attemptData.responses?.length || 0
+                });
             }
         } catch (err) {
             console.error('Error loading results:', err);
+            // Error is handled by the store and displayed below
         } finally {
             setIsLoading(false);
         }
-    }, [quizId, attemptId, fetchQuizById]);
+    }, [quizId, attemptId, fetchQuizById, fetchAttemptDetails, clearError]);
 
     useEffect(() => {
         loadResults();
@@ -151,21 +188,14 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     };
 
     // Calculate stats
-    const scorePercentage = attempt?.score !== undefined && attempt?.total_points
-        ? calculatePercentage(attempt.score, attempt.total_points)
+    const scorePercentage = attempt?.score !== undefined && attempt?.score !== null && attempt?.max_score
+        ? calculatePercentage(attempt.score, attempt.max_score)
         : 0;
     const passed = attempt?.passed ?? false;
     const correctCount = questionResults.filter(r => r.isCorrect).length;
 
-    // Check if retry is allowed
-    const canRetry = attempt?.quiz ? canAttemptQuiz(
-        attempt.quiz.status || 'draft',
-        attempt.quiz.available_from,
-        attempt.quiz.available_until,
-        attempt.quiz.attempts_allowed,
-        attempt.quiz.studentAttempts?.length || 0,
-        attempt.quiz.is_published
-    ) : false;
+    // Check if retry is allowed - simplified since we don't have full quiz data
+    const canRetry = false; // Would need full quiz data to determine this
 
     // Loading state
     if (contextLoading || isLoading) {
@@ -179,23 +209,32 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     }
 
     // Error state
-    if (error?.message || !attempt) {
+    if (error?.message || (!isLoading && !attempt)) {
+        const errorMessage = error?.message || 'Results not found or access denied';
+
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{error?.message || 'Results not found'}</AlertDescription>
+                    <AlertDescription>
+                        {errorMessage}
+                    </AlertDescription>
                 </Alert>
-                <Button variant="outline" onClick={() => router.back()}>
-                    <ArrowLeft className="h-4 w-4 mr-2" />
-                    Go Back
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => router.back()}>
+                        <ArrowLeft className="h-4 w-4 mr-2" />
+                        Go Back
+                    </Button>
+                    <Button onClick={() => loadResults()}>
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        Retry
+                    </Button>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-6 max-w-3xl mx-auto pb-8">
+        <div className="space-y-6 pb-8">
             {/* Header */}
             <div className="flex items-center gap-4">
                 <Button variant="ghost" size="icon" onClick={() => router.back()}>
@@ -203,7 +242,7 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 </Button>
                 <div>
                     <h1 className="text-2xl font-bold">Quiz Results</h1>
-                    <p className="text-muted-foreground">{attempt.quiz?.title}</p>
+                    <p className="text-muted-foreground">{attempt?.quiz?.title || 'Loading...'}</p>
                 </div>
             </div>
 
@@ -229,7 +268,7 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                         {/* Score */}
                         <div>
                             <p className="text-5xl font-bold">
-                                {formatScore(attempt.score ?? 0, attempt.total_points ?? 0)}
+                                {attempt ? formatScore(attempt.score ?? 0, attempt.max_score ?? 0) : '0/0'}
                             </p>
                             <p className="text-lg text-muted-foreground mt-1">
                                 {scorePercentage.toFixed(0)}%
@@ -245,7 +284,7 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                         </Badge>
 
                         {/* Passing Score Info */}
-                        {attempt.quiz?.passing_score && (
+                        {attempt?.quiz?.passing_score && (
                             <p className="text-sm text-muted-foreground">
                                 Passing score: {attempt.quiz.passing_score}%
                             </p>
@@ -275,7 +314,7 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 <Card>
                     <CardContent className="p-4 text-center">
                         <Target className="h-6 w-6 mx-auto text-blue-600 mb-2" />
-                        <p className="text-2xl font-bold">{attempt.score ?? 0}</p>
+                        <p className="text-2xl font-bold">{attempt?.score ?? 0}</p>
                         <p className="text-xs text-muted-foreground">Points Earned</p>
                     </CardContent>
                 </Card>
@@ -284,10 +323,10 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                     <CardContent className="p-4 text-center">
                         <Clock className="h-6 w-6 mx-auto text-amber-600 mb-2" />
                         <p className="text-2xl font-bold">
-                            {attempt.started_at && attempt.submitted_at
+                            {attempt?.started_at && attempt?.submitted_at
                                 ? Math.round(
                                     (new Date(attempt.submitted_at).getTime() -
-                                     new Date(attempt.started_at).getTime()) / 60000
+                                        new Date(attempt.started_at).getTime()) / 60000
                                 )
                                 : '-'}
                         </p>
@@ -304,23 +343,23 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 <CardContent className="space-y-2 text-sm">
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Started</span>
-                        <span>{formatDateTime(attempt.started_at)}</span>
+                        <span>{attempt?.started_at ? formatDateTime(attempt.started_at) : '-'}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Submitted</span>
-                        <span>{formatDateTime(attempt.submitted_at)}</span>
+                        <span>{attempt?.submitted_at ? formatDateTime(attempt.submitted_at) : '-'}</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Attempt #</span>
-                        <span>{attempt.attempt_number || 1}</span>
+                        <span>{attempt?.attempt_number || 1}</span>
                     </div>
                 </CardContent>
             </Card>
 
             {/* Question Review */}
-            {questionResults.length > 0 && (
+            {questionResults.length > 0 ? (
                 <Card>
                     <CardHeader>
                         <CardTitle>Question Review</CardTitle>
@@ -420,6 +459,17 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                                 </CollapsibleContent>
                             </Collapsible>
                         ))}
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card>
+                    <CardContent className="p-6 text-center">
+                        <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                        <h3 className="text-lg font-semibold mb-2">Question Details Unavailable</h3>
+                        <p className="text-sm text-muted-foreground">
+                            The detailed question breakdown is not available for this attempt.
+                            Your score and results have been recorded.
+                        </p>
                     </CardContent>
                 </Card>
             )}

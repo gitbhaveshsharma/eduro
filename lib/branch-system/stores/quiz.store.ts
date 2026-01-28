@@ -204,7 +204,7 @@ export interface QuizStoreActions {
     abandonAttempt: (attemptId: string) => Promise<boolean>;
     fetchStudentAttempts: (quizId: string, studentId: string) => Promise<void>;
     fetchStudentAttemptsForQuizzes: (quizIds: string[], studentId: string) => Promise<void>;
-    fetchAttemptDetails: (attemptId: string) => Promise<void>;
+    fetchAttemptDetails: (attemptId: string) => Promise<QuizAttempt | null>;
     getAttemptsByQuizId: (quizId: string, studentId: string) => QuizAttempt[];
     setCurrentQuestion: (index: number) => void;
     updateTimeRemaining: (seconds: number | null) => void;
@@ -875,6 +875,14 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                                 state.activeAttempt.responses.set(input.question_id, result.data!);
                             }
                         });
+                    } else if (result.error) {
+                        console.error('[QuizStore] saveResponse failed:', result.error);
+                        set((state) => {
+                            state.error = {
+                                message: result.error || 'Failed to save response',
+                                timestamp: Date.now(),
+                            };
+                        });
                     }
 
                     return result.success;
@@ -980,10 +988,16 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                         if (result.success && result.data) {
                             const index = state.attempts.findIndex(a => a.id === attemptId);
                             if (index !== -1) {
+                                // Update existing attempt
                                 state.attempts[index] = result.data;
+                            } else {
+                                // Add new attempt if not found
+                                state.attempts.push(result.data);
                             }
                         }
                     });
+
+                    return result.success && result.data ? result.data : null;
                 },
 
                 setCurrentQuestion: (index: number) => {

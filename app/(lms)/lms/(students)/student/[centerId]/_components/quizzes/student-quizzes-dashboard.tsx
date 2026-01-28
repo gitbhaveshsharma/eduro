@@ -202,7 +202,7 @@ export function StudentQuizzesDashboard({
             filtered = filtered.filter(q => {
                 const attempts = getAttemptsByQuizId(q.id, studentId);
                 const latestAttempt = attempts.length > 0
-                    ? attempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
+                    ? [...attempts].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
                     : null;
                 const studentStatus = determineStudentQuizStatus(latestAttempt, q);
                 const availability = getQuizAvailabilityStatus(q.available_from, q.available_to);
@@ -250,7 +250,7 @@ export function StudentQuizzesDashboard({
             total++;
             const attempts = getAttemptsByQuizId(quiz.id, studentId);
             const latestAttempt = attempts.length > 0
-                ? attempts.sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
+                ? [...attempts].sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime())[0]
                 : null;
             const studentStatus = determineStudentQuizStatus(latestAttempt, quiz);
             const availability = getQuizAvailabilityStatus(quiz.available_from, quiz.available_to);
