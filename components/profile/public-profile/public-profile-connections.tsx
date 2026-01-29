@@ -3,14 +3,14 @@
 /**
  * Public Profile Connections Component
  * 
- * Displays follower/following statistics and connection info
- * for a user on their public profile page.
+ * Displays connection statistics for a user on their public profile page.
+ * LinkedIn-style connections: only shows mutual connections (no follower/following)
  */
 
 import { memo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Users, UserPlus, UserCheck } from 'lucide-react';
+import { Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFollowStore, useFollowStats, useStatsLoading } from '@/lib/follow';
 import type { PublicProfile } from '@/lib/schema/profile.types';
@@ -46,22 +46,17 @@ export const PublicProfileConnections = memo(function PublicProfileConnections({
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-3 gap-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="text-center">
-                                <Skeleton className="h-8 w-16 mx-auto mb-2" />
-                                <Skeleton className="h-4 w-20 mx-auto" />
-                            </div>
-                        ))}
+                    <div className="text-center">
+                        <Skeleton className="h-12 w-24 mx-auto mb-2" />
+                        <Skeleton className="h-4 w-32 mx-auto" />
                     </div>
                 </CardContent>
             </Card>
         );
     }
 
-    const followers = stats?.followers ?? 0;
-    const following = stats?.following ?? 0;
-    const mutualFollows = stats?.mutual_follows ?? 0;
+    // Only show mutual connections (LinkedIn-style)
+    const mutualConnections = stats?.mutual_follows ?? 0;
 
     return (
         <Card className={cn('', className)}>
@@ -72,45 +67,20 @@ export const PublicProfileConnections = memo(function PublicProfileConnections({
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="grid grid-cols-3 gap-4">
-                    {/* Followers */}
-                    <div className="text-center p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-default">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                            <UserPlus className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold text-foreground">
-                                {formatCount(followers)}
-                            </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Followers
-                        </p>
+                {/* Single Stat - Mutual Connections Only */}
+                <div className="text-center p-6 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 hover:from-primary/15 hover:to-primary/10 transition-colors cursor-default">
+                    <div className="flex items-center justify-center gap-2 mb-2">
+                        <Users className="h-6 w-6 text-primary" />
+                        <span className="text-4xl font-bold text-foreground">
+                            {formatCount(mutualConnections)}
+                        </span>
                     </div>
-
-                    {/* Following */}
-                    <div className="text-center p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-default">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                            <Users className="h-4 w-4 text-primary" />
-                            <span className="text-2xl font-bold text-foreground">
-                                {formatCount(following)}
-                            </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Following
-                        </p>
-                    </div>
-
-                    {/* Mutual Connections */}
-                    <div className="text-center p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-default">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                            <UserCheck className="h-4 w-4 text-green-600" />
-                            <span className="text-2xl font-bold text-foreground">
-                                {formatCount(mutualFollows)}
-                            </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                            Mutual
-                        </p>
-                    </div>
+                    <p className="text-sm text-muted-foreground font-medium">
+                        Mutual Connections
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                        People connected with each other
+                    </p>
                 </div>
             </CardContent>
         </Card>

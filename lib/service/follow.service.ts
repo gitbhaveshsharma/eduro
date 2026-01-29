@@ -59,7 +59,7 @@ export class FollowService {
   static async followUser(request: FollowUserRequest): Promise<FollowOperationResult<FollowRelationship>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -75,7 +75,7 @@ export class FollowService {
         .select('id, follow_status')
         .eq('follower_id', user.id)
         .eq('following_id', request.following_id)
-        .single();
+        .maybeSingle();
 
       if (existing) {
         if (existing.follow_status === 'active') {
@@ -103,7 +103,7 @@ export class FollowService {
         .select('id')
         .eq('blocker_id', request.following_id)
         .eq('blocked_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (isBlocked) {
         return { data: null, error: { message: 'Cannot follow this user' } };
@@ -131,7 +131,7 @@ export class FollowService {
   static async unfollowUser(request: UnfollowUserRequest): Promise<FollowOperationResult<boolean>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -156,7 +156,7 @@ export class FollowService {
   static async updateFollowRelationship(request: UpdateFollowRequest): Promise<FollowOperationResult<FollowRelationship>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -192,7 +192,7 @@ export class FollowService {
   ): Promise<FollowOperationResult<FollowSearchResult>> {
     try {
       const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
-      
+
       if (!targetUserId) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -201,7 +201,7 @@ export class FollowService {
         .from('user_followers')
         .select(`
           *,
-          follower_profile:profiles!user_followers_follower_id_fkey(
+          follower_profile:profiles!user_followers_follower_id_fkey1(
             id,
             username,
             full_name,
@@ -284,9 +284,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -303,7 +303,7 @@ export class FollowService {
   ): Promise<FollowOperationResult<FollowSearchResult>> {
     try {
       const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
-      
+
       if (!targetUserId) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -312,7 +312,7 @@ export class FollowService {
         .from('user_followers')
         .select(`
           *,
-          following_profile:profiles!user_followers_following_id_fkey(
+          following_profile:profiles!user_followers_following_id_fkey1(
             id,
             username,
             full_name,
@@ -390,9 +390,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -407,7 +407,7 @@ export class FollowService {
   static async sendFollowRequest(request: SendFollowRequestData): Promise<FollowOperationResult<FollowRequest>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -423,7 +423,7 @@ export class FollowService {
         .select('id')
         .eq('follower_id', user.id)
         .eq('following_id', request.target_id)
-        .single();
+        .maybeSingle();
 
       if (existingFollow) {
         return { data: null, error: { message: 'Already following this user' } };
@@ -435,7 +435,7 @@ export class FollowService {
         .select('id, status')
         .eq('requester_id', user.id)
         .eq('target_id', request.target_id)
-        .single();
+        .maybeSingle();
 
       if (existingRequest) {
         if (existingRequest.status === 'pending') {
@@ -469,7 +469,7 @@ export class FollowService {
   static async respondToFollowRequest(request: RespondToFollowRequestData): Promise<FollowOperationResult<FollowRequest>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -524,17 +524,16 @@ export class FollowService {
   static async cancelFollowRequest(targetId: string): Promise<FollowOperationResult<boolean>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
 
+      // Delete the request instead of marking as cancelled
+      // This ensures it won't show up in future queries
       const { error } = await supabase
         .from('follow_requests')
-        .update({
-          status: 'cancelled',
-          updated_at: new Date().toISOString()
-        })
+        .delete()
         .eq('requester_id', user.id)
         .eq('target_id', targetId)
         .eq('status', 'pending');
@@ -558,7 +557,7 @@ export class FollowService {
   ): Promise<FollowOperationResult<FollowRequestSearchResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -567,7 +566,7 @@ export class FollowService {
         .from('follow_requests')
         .select(`
           *,
-          requester_profile:profiles!follow_requests_requester_id_fkey(
+          requester_profile:profiles!follow_requests_requester_id_fkey1(
             id,
             username,
             full_name,
@@ -598,6 +597,9 @@ export class FollowService {
             requester_profile.full_name.ilike.%${filters.search_query}%
           `);
         }
+      } else {
+        // Default: only show pending requests if no status filter provided
+        query = query.eq('status', 'pending');
       }
 
       // Apply sorting
@@ -635,9 +637,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -653,7 +655,7 @@ export class FollowService {
   ): Promise<FollowOperationResult<FollowRequestSearchResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -662,7 +664,7 @@ export class FollowService {
         .from('follow_requests')
         .select(`
           *,
-          target_profile:profiles!follow_requests_target_id_fkey(
+          target_profile:profiles!follow_requests_target_id_fkey1(
             id,
             username,
             full_name,
@@ -693,6 +695,9 @@ export class FollowService {
             target_profile.full_name.ilike.%${filters.search_query}%
           `);
         }
+      } else {
+        // Default: only show pending requests if no status filter provided
+        query = query.eq('status', 'pending');
       }
 
       // Apply sorting
@@ -730,9 +735,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -747,7 +752,7 @@ export class FollowService {
   static async blockUser(request: BlockUserRequest): Promise<FollowOperationResult<BlockedUser>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -763,7 +768,7 @@ export class FollowService {
         .select('id')
         .eq('blocker_id', user.id)
         .eq('blocked_id', request.blocked_id)
-        .single();
+        .maybeSingle();
 
       if (existingBlock) {
         return { data: null, error: { message: 'User is already blocked' } };
@@ -807,7 +812,7 @@ export class FollowService {
   static async unblockUser(request: UnblockUserRequest): Promise<FollowOperationResult<boolean>> {
     return await SupabaseRequestWrapper.profileRequest(async () => {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { data: null, error: { message: 'User not authenticated' } };
       }
@@ -836,7 +841,7 @@ export class FollowService {
   ): Promise<FollowOperationResult<BlockedUserSearchResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -893,9 +898,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -910,7 +915,7 @@ export class FollowService {
   static async getFollowStatus(targetUserId: string): Promise<FollowOperationResult<FollowStatusCheck>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -946,8 +951,8 @@ export class FollowService {
           .eq('follower_id', user.id)
           .eq('following_id', targetUserId)
           .eq('follow_status', 'active')
-          .single(),
-        
+          .maybeSingle(),
+
         // Check if target follows current user
         supabase
           .from('user_followers')
@@ -955,24 +960,24 @@ export class FollowService {
           .eq('follower_id', targetUserId)
           .eq('following_id', user.id)
           .eq('follow_status', 'active')
-          .single(),
-        
+          .maybeSingle(),
+
         // Check if current user is blocked by target
         supabase
           .from('blocked_users')
           .select('id')
           .eq('blocker_id', targetUserId)
           .eq('blocked_id', user.id)
-          .single(),
-        
+          .maybeSingle(),
+
         // Check if current user blocked target
         supabase
           .from('blocked_users')
           .select('id')
           .eq('blocker_id', user.id)
           .eq('blocked_id', targetUserId)
-          .single(),
-        
+          .maybeSingle(),
+
         // Check for pending request sent by current user
         supabase
           .from('follow_requests')
@@ -980,8 +985,8 @@ export class FollowService {
           .eq('requester_id', user.id)
           .eq('target_id', targetUserId)
           .eq('status', 'pending')
-          .single(),
-        
+          .maybeSingle(),
+
         // Check for pending request received by current user
         supabase
           .from('follow_requests')
@@ -989,7 +994,7 @@ export class FollowService {
           .eq('requester_id', targetUserId)
           .eq('target_id', user.id)
           .eq('status', 'pending')
-          .single()
+          .maybeSingle()
       ]);
 
       const result: FollowStatusCheck = {
@@ -1006,9 +1011,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1019,7 +1024,7 @@ export class FollowService {
   static async getFollowStats(userId?: string): Promise<FollowOperationResult<FollowStats>> {
     try {
       const targetUserId = userId || (await supabase.auth.getUser()).data.user?.id;
-      
+
       if (!targetUserId) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -1037,31 +1042,31 @@ export class FollowService {
           .select('*', { count: 'exact', head: true })
           .eq('following_id', targetUserId)
           .eq('follow_status', 'active'),
-        
+
         supabase
           .from('user_followers')
           .select('*', { count: 'exact', head: true })
           .eq('follower_id', targetUserId)
           .eq('follow_status', 'active'),
-        
+
         supabase
           .from('user_followers')
           .select('*', { count: 'exact', head: true })
           .eq('follower_id', targetUserId)
           .eq('is_mutual', true),
-        
+
         supabase
           .from('user_followers')
           .select('*', { count: 'exact', head: true })
           .eq('follower_id', targetUserId)
           .eq('follow_status', 'active'),
-        
+
         supabase
           .from('follow_requests')
           .select('*', { count: 'exact', head: true })
           .eq('target_id', targetUserId)
           .eq('status', 'pending'),
-        
+
         supabase
           .from('blocked_users')
           .select('*', { count: 'exact', head: true })
@@ -1080,9 +1085,9 @@ export class FollowService {
 
       return { success: true, data: stats };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1097,7 +1102,7 @@ export class FollowService {
   static async bulkFollowUsers(request: BulkFollowRequest): Promise<FollowOperationResult<BulkFollowResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -1125,9 +1130,9 @@ export class FollowService {
             failed.push({ user_id: userId, error: followResult.error || 'Unknown error' });
           }
         } catch (error) {
-          failed.push({ 
-            user_id: userId, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+          failed.push({
+            user_id: userId,
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
         }
       }
@@ -1140,9 +1145,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1153,7 +1158,7 @@ export class FollowService {
   static async bulkUnfollowUsers(request: BulkUnfollowRequest): Promise<FollowOperationResult<BulkFollowResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -1172,9 +1177,9 @@ export class FollowService {
             failed.push({ user_id: userId, error: unfollowResult.error || 'Unknown error' });
           }
         } catch (error) {
-          failed.push({ 
-            user_id: userId, 
-            error: error instanceof Error ? error.message : 'Unknown error' 
+          failed.push({
+            user_id: userId,
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
         }
       }
@@ -1187,9 +1192,9 @@ export class FollowService {
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }
@@ -1204,7 +1209,7 @@ export class FollowService {
   static async getFollowSuggestions(limit: number = 10): Promise<FollowOperationResult<FollowSuggestionsResult>> {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         return { success: false, error: 'User not authenticated' };
       }
@@ -1267,17 +1272,37 @@ export class FollowService {
         }
       }
 
+      // Map the raw suggestions data to FollowSuggestion interface
+      const mappedSuggestions: FollowSuggestion[] = (suggestions || []).map((item: any) => ({
+        user: {
+          id: item.id || item.user_id,
+          username: item.username,
+          full_name: item.full_name,
+          avatar_url: item.avatar_url,
+          role: item.role,
+          is_verified: item.is_verified || false,
+          is_online: item.is_online || false,
+          follower_count: item.follower_count || 0,
+          following_count: item.following_count || 0,
+          created_at: item.created_at,
+          bio: item.bio || null,
+        },
+        reason: item.reason || item.suggestion_reason || 'popular',
+        connection_count: item.connection_count || item.mutual_count || 0,
+        similarity_score: item.similarity_score || 0,
+      }));
+
       const result: FollowSuggestionsResult = {
-        suggestions: suggestions || [],
-        total_count: suggestions?.length || 0,
+        suggestions: mappedSuggestions,
+        total_count: mappedSuggestions.length,
         refresh_available_at: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes from now
       };
 
       return { success: true, data: result };
     } catch (error) {
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

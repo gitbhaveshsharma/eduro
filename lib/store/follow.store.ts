@@ -7,6 +7,7 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 import { FollowService } from '../service/follow.service';
 import type {
   FollowRelationship,
@@ -50,19 +51,19 @@ interface FollowState {
   receivedRequests: FollowRequestWithProfile[];
   sentRequests: FollowRequestWithProfile[];
   blockedUsers: BlockedUserWithProfile[];
-  
+
   // Statistics
   stats: FollowStats | null;
-  
+
   // Suggestions and recommendations
   suggestions: FollowSuggestionsResult | null;
-  
+
   // Search results
   followerSearchResults: FollowSearchResult | null;
   followingSearchResults: FollowSearchResult | null;
   requestSearchResults: FollowRequestSearchResult | null;
   blockedSearchResults: BlockedUserSearchResult | null;
-  
+
   // Loading states
   followersLoading: boolean;
   followingLoading: boolean;
@@ -70,14 +71,14 @@ interface FollowState {
   blockedLoading: boolean;
   statsLoading: boolean;
   suggestionsLoading: boolean;
-  
+
   // Operation states
   followLoading: Record<string, boolean>; // userId -> loading state
   unfollowLoading: Record<string, boolean>;
   blockLoading: Record<string, boolean>;
   unblockLoading: Record<string, boolean>;
   requestLoading: Record<string, boolean>;
-  
+
   // Error states
   followersError: string | null;
   followingError: string | null;
@@ -85,11 +86,11 @@ interface FollowState {
   blockedError: string | null;
   statsError: string | null;
   suggestionsError: string | null;
-  
+
   // Cache for follow status checks
   followStatusCache: Record<string, FollowStatusCheck>;
   followStatusCacheTimestamps: Record<string, number>;
-  
+
   // Last update timestamps
   lastFollowersUpdate: number | null;
   lastFollowingUpdate: number | null;
@@ -97,7 +98,7 @@ interface FollowState {
   lastBlockedUpdate: number | null;
   lastStatsUpdate: number | null;
   lastSuggestionsUpdate: number | null;
-  
+
   // Pagination state
   followersPagination: { page: number; hasMore: boolean };
   followingPagination: { page: number; hasMore: boolean };
@@ -111,16 +112,16 @@ interface FollowActions {
   followUser: (request: FollowUserRequest) => Promise<boolean>;
   unfollowUser: (request: UnfollowUserRequest) => Promise<boolean>;
   updateFollowRelationship: (request: UpdateFollowRequest) => Promise<boolean>;
-  
+
   // Follow request actions
   sendFollowRequest: (request: SendFollowRequestData) => Promise<boolean>;
   respondToFollowRequest: (request: RespondToFollowRequestData) => Promise<boolean>;
   cancelFollowRequest: (targetId: string) => Promise<boolean>;
-  
+
   // Blocking actions
   blockUser: (request: BlockUserRequest) => Promise<boolean>;
   unblockUser: (request: UnblockUserRequest) => Promise<boolean>;
-  
+
   // Data loading actions
   loadFollowers: (userId?: string, filters?: FollowFilters, sort?: FollowSort, page?: number, refresh?: boolean) => Promise<void>;
   loadFollowing: (userId?: string, filters?: FollowFilters, sort?: FollowSort, page?: number, refresh?: boolean) => Promise<void>;
@@ -129,20 +130,20 @@ interface FollowActions {
   loadBlockedUsers: (filters?: BlockedUserFilters, page?: number, refresh?: boolean) => Promise<void>;
   loadStats: (userId?: string, refresh?: boolean) => Promise<void>;
   loadSuggestions: (limit?: number, refresh?: boolean) => Promise<void>;
-  
+
   // Status and utility actions
   getFollowStatus: (targetUserId: string, useCache?: boolean) => Promise<FollowStatusCheck | null>;
   refreshFollowStatus: (targetUserId: string) => Promise<FollowStatusCheck | null>;
-  
+
   // Bulk operations
   bulkFollowUsers: (request: BulkFollowRequest) => Promise<BulkFollowResult | null>;
   bulkUnfollowUsers: (request: BulkUnfollowRequest) => Promise<BulkFollowResult | null>;
-  
+
   // Cache management
   clearFollowStatusCache: () => void;
   clearAllCache: () => void;
   invalidateCache: (types?: Array<'followers' | 'following' | 'requests' | 'blocked' | 'stats' | 'suggestions'>) => void;
-  
+
   // Reset actions
   resetFollowData: () => void;
   resetErrors: () => void;
@@ -169,13 +170,13 @@ const initialState: FollowState = {
   blockedUsers: [],
   stats: null,
   suggestions: null,
-  
+
   // Search results
   followerSearchResults: null,
   followingSearchResults: null,
   requestSearchResults: null,
   blockedSearchResults: null,
-  
+
   // Loading states
   followersLoading: false,
   followingLoading: false,
@@ -183,14 +184,14 @@ const initialState: FollowState = {
   blockedLoading: false,
   statsLoading: false,
   suggestionsLoading: false,
-  
+
   // Operation states
   followLoading: {},
   unfollowLoading: {},
   blockLoading: {},
   unblockLoading: {},
   requestLoading: {},
-  
+
   // Error states
   followersError: null,
   followingError: null,
@@ -198,11 +199,11 @@ const initialState: FollowState = {
   blockedError: null,
   statsError: null,
   suggestionsError: null,
-  
+
   // Cache
   followStatusCache: {},
   followStatusCacheTimestamps: {},
-  
+
   // Timestamps
   lastFollowersUpdate: null,
   lastFollowingUpdate: null,
@@ -210,7 +211,7 @@ const initialState: FollowState = {
   lastBlockedUpdate: null,
   lastStatsUpdate: null,
   lastSuggestionsUpdate: null,
-  
+
   // Pagination
   followersPagination: { page: 1, hasMore: true },
   followingPagination: { page: 1, hasMore: true },
@@ -229,7 +230,7 @@ export const useFollowStore = create<FollowStore>()(
 
       followUser: async (request: FollowUserRequest): Promise<boolean> => {
         const { followLoading } = get();
-        
+
         if (followLoading[request.following_id]) {
           return false;
         }
@@ -263,7 +264,7 @@ export const useFollowStore = create<FollowStore>()(
           if (result.success && result.data) {
             // Replace optimistic update with real data
             set(state => ({
-              following: state.following.map(f => 
+              following: state.following.map(f =>
                 f.id === optimisticFollow.id ? result.data! : f
               ),
               followLoading: { ...state.followLoading, [request.following_id]: false }
@@ -271,7 +272,7 @@ export const useFollowStore = create<FollowStore>()(
 
             // Invalidate related cache
             get().clearFollowStatusCache();
-            
+
             return true;
           } else {
             // Revert optimistic update
@@ -279,7 +280,7 @@ export const useFollowStore = create<FollowStore>()(
               following: state.following.filter(f => f.id !== optimisticFollow.id),
               followLoading: { ...state.followLoading, [request.following_id]: false }
             }));
-            
+
             return false;
           }
         } catch (error) {
@@ -288,14 +289,14 @@ export const useFollowStore = create<FollowStore>()(
             following: state.following.filter(f => f.id.startsWith('temp-')),
             followLoading: { ...state.followLoading, [request.following_id]: false }
           }));
-          
+
           return false;
         }
       },
 
       unfollowUser: async (request: UnfollowUserRequest): Promise<boolean> => {
         const { unfollowLoading } = get();
-        
+
         if (unfollowLoading[request.following_id]) {
           return false;
         }
@@ -308,7 +309,7 @@ export const useFollowStore = create<FollowStore>()(
         try {
           // Store original state for potential revert
           const originalFollowing = get().following;
-          
+
           // Optimistic update - remove from following list
           set(state => ({
             following: state.following.filter(f => f.following_id !== request.following_id)
@@ -323,7 +324,7 @@ export const useFollowStore = create<FollowStore>()(
 
             // Invalidate related cache
             get().clearFollowStatusCache();
-            
+
             return true;
           } else {
             // Revert optimistic update
@@ -331,7 +332,7 @@ export const useFollowStore = create<FollowStore>()(
               following: originalFollowing,
               unfollowLoading: { ...state.unfollowLoading, [request.following_id]: false }
             }));
-            
+
             return false;
           }
         } catch (error) {
@@ -341,7 +342,7 @@ export const useFollowStore = create<FollowStore>()(
             following: originalFollowing,
             unfollowLoading: { ...state.unfollowLoading, [request.following_id]: false }
           }));
-          
+
           return false;
         }
       },
@@ -353,8 +354,8 @@ export const useFollowStore = create<FollowStore>()(
           if (result.success && result.data) {
             // Update in following list
             set(state => ({
-              following: state.following.map(f => 
-                f.following_id === request.following_id 
+              following: state.following.map(f =>
+                f.following_id === request.following_id
                   ? { ...f, ...result.data }
                   : f
               )
@@ -362,10 +363,10 @@ export const useFollowStore = create<FollowStore>()(
 
             // Invalidate cache
             get().clearFollowStatusCache();
-            
+
             return true;
           }
-          
+
           return false;
         } catch (error) {
           return false;
@@ -378,7 +379,7 @@ export const useFollowStore = create<FollowStore>()(
 
       sendFollowRequest: async (request: SendFollowRequestData): Promise<boolean> => {
         const { requestLoading } = get();
-        
+
         if (requestLoading[request.target_id]) {
           return false;
         }
@@ -396,20 +397,20 @@ export const useFollowStore = create<FollowStore>()(
               sentRequests: [result.data!, ...state.sentRequests],
               requestLoading: { ...state.requestLoading, [request.target_id]: false }
             }));
-            
+
             return true;
           } else {
             set(state => ({
               requestLoading: { ...state.requestLoading, [request.target_id]: false }
             }));
-            
+
             return false;
           }
         } catch (error) {
           set(state => ({
             requestLoading: { ...state.requestLoading, [request.target_id]: false }
           }));
-          
+
           return false;
         }
       },
@@ -428,10 +429,10 @@ export const useFollowStore = create<FollowStore>()(
             if (request.status === 'accepted') {
               get().loadFollowers(undefined, undefined, undefined, 1, true);
             }
-            
+
             return true;
           }
-          
+
           return false;
         } catch (error) {
           return false;
@@ -447,10 +448,10 @@ export const useFollowStore = create<FollowStore>()(
             set(state => ({
               sentRequests: state.sentRequests.filter(r => r.target_id !== targetId)
             }));
-            
+
             return true;
           }
-          
+
           return false;
         } catch (error) {
           return false;
@@ -463,7 +464,7 @@ export const useFollowStore = create<FollowStore>()(
 
       blockUser: async (request: BlockUserRequest): Promise<boolean> => {
         const { blockLoading } = get();
-        
+
         if (blockLoading[request.blocked_id]) {
           return false;
         }
@@ -486,27 +487,27 @@ export const useFollowStore = create<FollowStore>()(
 
             // Invalidate cache
             get().clearFollowStatusCache();
-            
+
             return true;
           } else {
             set(state => ({
               blockLoading: { ...state.blockLoading, [request.blocked_id]: false }
             }));
-            
+
             return false;
           }
         } catch (error) {
           set(state => ({
             blockLoading: { ...state.blockLoading, [request.blocked_id]: false }
           }));
-          
+
           return false;
         }
       },
 
       unblockUser: async (request: UnblockUserRequest): Promise<boolean> => {
         const { unblockLoading } = get();
-        
+
         if (unblockLoading[request.blocked_id]) {
           return false;
         }
@@ -526,20 +527,20 @@ export const useFollowStore = create<FollowStore>()(
 
             // Invalidate cache
             get().clearFollowStatusCache();
-            
+
             return true;
           } else {
             set(state => ({
               unblockLoading: { ...state.unblockLoading, [request.blocked_id]: false }
             }));
-            
+
             return false;
           }
         } catch (error) {
           set(state => ({
             unblockLoading: { ...state.unblockLoading, [request.blocked_id]: false }
           }));
-          
+
           return false;
         }
       },
@@ -558,8 +559,8 @@ export const useFollowStore = create<FollowStore>()(
         const { followersLoading, lastFollowersUpdate } = get();
 
         // Check if we need to refresh
-        const shouldRefresh = refresh || 
-          !lastFollowersUpdate || 
+        const shouldRefresh = refresh ||
+          !lastFollowersUpdate ||
           (Date.now() - lastFollowersUpdate > CACHE_TTL.FOLLOW_LISTS);
 
         if (followersLoading || (!shouldRefresh && page === 1)) {
@@ -575,9 +576,9 @@ export const useFollowStore = create<FollowStore>()(
             set(state => ({
               followers: page === 1 ? result.data!.follows : [...state.followers, ...result.data!.follows],
               followerSearchResults: result.data!,
-              followersPagination: { 
-                page: result.data!.page, 
-                hasMore: result.data!.has_more 
+              followersPagination: {
+                page: result.data!.page,
+                hasMore: result.data!.has_more
               },
               followersLoading: false,
               lastFollowersUpdate: Date.now()
@@ -605,8 +606,8 @@ export const useFollowStore = create<FollowStore>()(
       ): Promise<void> => {
         const { followingLoading, lastFollowingUpdate } = get();
 
-        const shouldRefresh = refresh || 
-          !lastFollowingUpdate || 
+        const shouldRefresh = refresh ||
+          !lastFollowingUpdate ||
           (Date.now() - lastFollowingUpdate > CACHE_TTL.FOLLOW_LISTS);
 
         if (followingLoading || (!shouldRefresh && page === 1)) {
@@ -622,9 +623,9 @@ export const useFollowStore = create<FollowStore>()(
             set(state => ({
               following: page === 1 ? result.data!.follows : [...state.following, ...result.data!.follows],
               followingSearchResults: result.data!,
-              followingPagination: { 
-                page: result.data!.page, 
-                hasMore: result.data!.has_more 
+              followingPagination: {
+                page: result.data!.page,
+                hasMore: result.data!.has_more
               },
               followingLoading: false,
               lastFollowingUpdate: Date.now()
@@ -651,8 +652,8 @@ export const useFollowStore = create<FollowStore>()(
       ): Promise<void> => {
         const { requestsLoading, lastRequestsUpdate } = get();
 
-        const shouldRefresh = refresh || 
-          !lastRequestsUpdate || 
+        const shouldRefresh = refresh ||
+          !lastRequestsUpdate ||
           (Date.now() - lastRequestsUpdate > CACHE_TTL.FOLLOW_LISTS);
 
         if (requestsLoading || (!shouldRefresh && page === 1)) {
@@ -668,9 +669,9 @@ export const useFollowStore = create<FollowStore>()(
             set(state => ({
               receivedRequests: page === 1 ? result.data!.requests : [...state.receivedRequests, ...result.data!.requests],
               requestSearchResults: result.data!,
-              requestsPagination: { 
-                page: result.data!.page, 
-                hasMore: result.data!.has_more 
+              requestsPagination: {
+                page: result.data!.page,
+                hasMore: result.data!.has_more
               },
               requestsLoading: false,
               lastRequestsUpdate: Date.now()
@@ -732,8 +733,8 @@ export const useFollowStore = create<FollowStore>()(
       ): Promise<void> => {
         const { blockedLoading, lastBlockedUpdate } = get();
 
-        const shouldRefresh = refresh || 
-          !lastBlockedUpdate || 
+        const shouldRefresh = refresh ||
+          !lastBlockedUpdate ||
           (Date.now() - lastBlockedUpdate > CACHE_TTL.FOLLOW_LISTS);
 
         if (blockedLoading || (!shouldRefresh && page === 1)) {
@@ -749,9 +750,9 @@ export const useFollowStore = create<FollowStore>()(
             set(state => ({
               blockedUsers: page === 1 ? result.data!.blocked_users : [...state.blockedUsers, ...result.data!.blocked_users],
               blockedSearchResults: result.data!,
-              blockedPagination: { 
-                page: result.data!.page, 
-                hasMore: result.data!.has_more 
+              blockedPagination: {
+                page: result.data!.page,
+                hasMore: result.data!.has_more
               },
               blockedLoading: false,
               lastBlockedUpdate: Date.now()
@@ -773,8 +774,8 @@ export const useFollowStore = create<FollowStore>()(
       loadStats: async (userId?: string, refresh: boolean = false): Promise<void> => {
         const { statsLoading, lastStatsUpdate } = get();
 
-        const shouldRefresh = refresh || 
-          !lastStatsUpdate || 
+        const shouldRefresh = refresh ||
+          !lastStatsUpdate ||
           (Date.now() - lastStatsUpdate > CACHE_TTL.STATS);
 
         if (statsLoading || !shouldRefresh) {
@@ -809,8 +810,8 @@ export const useFollowStore = create<FollowStore>()(
       loadSuggestions: async (limit: number = 10, refresh: boolean = false): Promise<void> => {
         const { suggestionsLoading, lastSuggestionsUpdate } = get();
 
-        const shouldRefresh = refresh || 
-          !lastSuggestionsUpdate || 
+        const shouldRefresh = refresh ||
+          !lastSuggestionsUpdate ||
           (Date.now() - lastSuggestionsUpdate > CACHE_TTL.SUGGESTIONS);
 
         if (suggestionsLoading || !shouldRefresh) {
@@ -875,7 +876,7 @@ export const useFollowStore = create<FollowStore>()(
 
             return result.data;
           }
-          
+
           return null;
         } catch (error) {
           return null;
@@ -898,10 +899,10 @@ export const useFollowStore = create<FollowStore>()(
             // Refresh following list to show new follows
             get().loadFollowing(undefined, undefined, undefined, 1, true);
             get().clearFollowStatusCache();
-            
+
             return result.data;
           }
-          
+
           return null;
         } catch (error) {
           return null;
@@ -916,10 +917,10 @@ export const useFollowStore = create<FollowStore>()(
             // Refresh following list to show removed follows
             get().loadFollowing(undefined, undefined, undefined, 1, true);
             get().clearFollowStatusCache();
-            
+
             return result.data;
           }
-          
+
           return null;
         } catch (error) {
           return null;
@@ -957,7 +958,7 @@ export const useFollowStore = create<FollowStore>()(
         }
 
         const updates: Partial<FollowState> = {};
-        
+
         if (types.includes('followers')) updates.lastFollowersUpdate = null;
         if (types.includes('following')) updates.lastFollowingUpdate = null;
         if (types.includes('requests')) updates.lastRequestsUpdate = null;
@@ -990,7 +991,7 @@ export const useFollowStore = create<FollowStore>()(
           requestsPagination: { page: 1, hasMore: true },
           blockedPagination: { page: 1, hasMore: true },
         });
-        
+
         get().clearAllCache();
       },
 
@@ -1068,36 +1069,42 @@ export const useRequestsPagination = () => useFollowStore(state => state.request
 export const useBlockedPagination = () => useFollowStore(state => state.blockedPagination);
 
 // Cache selectors
-export const useFollowStatusFromCache = (userId: string) => 
+export const useFollowStatusFromCache = (userId: string) =>
   useFollowStore(state => state.followStatusCache[userId]);
 
 // Derived data selectors
-export const useFollowCounts = () => 
-  useFollowStore(state => ({
-    followers: state.followers.length,
-    following: state.following.length,
-    pendingRequests: state.receivedRequests.filter(r => r.status === 'pending').length,
-    blockedUsers: state.blockedUsers.length
-  }));
+export const useFollowCounts = () =>
+  useFollowStore(
+    useShallow(state => ({
+      followers: state.followers.length,
+      following: state.following.length,
+      pendingRequests: state.receivedRequests.filter(r => r.status === 'pending').length,
+      blockedUsers: state.blockedUsers.length
+    }))
+  );
 
-export const useMutualFollows = () => 
-  useFollowStore(state => state.following.filter(f => f.is_mutual));
+export const useMutualFollows = () =>
+  useFollowStore(
+    useShallow(state => state.following.filter(f => f.is_mutual))
+  );
 
-export const usePendingRequests = () => 
-  useFollowStore(state => state.receivedRequests.filter(r => r.status === 'pending'));
+export const usePendingRequests = () =>
+  useFollowStore(
+    useShallow(state => state.receivedRequests.filter(r => r.status === 'pending'))
+  );
 
 // Helper hooks
-export const useIsFollowing = (userId: string) => 
+export const useIsFollowing = (userId: string) =>
   useFollowStore(state => state.following.some(f => f.following_id === userId && f.follow_status === 'active'));
 
-export const useIsFollowedBy = (userId: string) => 
+export const useIsFollowedBy = (userId: string) =>
   useFollowStore(state => state.followers.some(f => f.follower_id === userId && f.follow_status === 'active'));
 
-export const useIsBlocked = (userId: string) => 
+export const useIsBlocked = (userId: string) =>
   useFollowStore(state => state.blockedUsers.some(b => b.blocked_id === userId));
 
-export const useHasPendingRequest = (userId: string) => 
+export const useHasPendingRequest = (userId: string) =>
   useFollowStore(state => state.sentRequests.some(r => r.target_id === userId && r.status === 'pending'));
 
-export const useHasReceivedRequest = (userId: string) => 
+export const useHasReceivedRequest = (userId: string) =>
   useFollowStore(state => state.receivedRequests.some(r => r.requester_id === userId && r.status === 'pending'));

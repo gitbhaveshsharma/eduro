@@ -4,6 +4,7 @@ import { memo } from "react";
 import { FeedHeader } from "@/components/layout/headers/feed-header";
 import { LMSHeader } from "./lms-header";
 import { NetworkHeader } from "./network-header";
+import { ConnectionsHeader } from "./connections-header";
 import type { HeaderProps } from "../types";
 import { useCurrentProfile } from '@/lib/profile';
 
@@ -24,6 +25,18 @@ function ConditionalHeaderComponent({
     if (config.headerType === 'network' || config.page === 'network') {
         return (
             <NetworkHeader
+                className={className}
+                config={config}
+                onNavigationClick={onNavigationClick}
+                showAvatar={true}
+            />
+        );
+    }
+
+    // If headerType or page explicitly requests the connections header
+    if (config.headerType === 'connections' || config.page === 'connections') {
+        return (
+            <ConnectionsHeader
                 className={className}
                 config={config}
                 onNavigationClick={onNavigationClick}

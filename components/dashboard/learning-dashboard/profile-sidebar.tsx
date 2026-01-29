@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +23,7 @@ import dynamic from 'next/dynamic';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { ProgressActivity } from './progress-activity';
 import { CalendarActivity } from './calendar-activity';
+import { useFollowStore, useFollowStats } from '@/lib/follow';
 
 // Lazy-load DashboardHeaderAvatar
 const ProfileSidebarAvatarManager = dynamic(
@@ -77,6 +78,20 @@ export function ProfileSidebar({
     const displayName = profile?.full_name || 'User';
     const roleInfo = profile ? getRoleDisplay(profile.role || 'S') : null;
     const publicProfileUrl = profile?.username ? getProfileUrl(profile.username) : null;
+
+    // Get connection stats from follow store
+    const followStats = useFollowStats();
+    const loadStats = useFollowStore(state => state.loadStats);
+
+    // Load connection stats on mount
+    useEffect(() => {
+        if (profile?.id) {
+            loadStats(profile.id, false);
+        }
+    }, [profile?.id, loadStats]);
+
+    // Use mutual_follows for connections count (LinkedIn-style)
+    const connectionsCount = followStats?.mutual_follows ?? 0;
 
     // State for student view switching
     const [studentView, setStudentView] = useState<'progress' | 'calendar'>('progress');
@@ -231,13 +246,15 @@ export function ProfileSidebar({
 
                     {/* Stats Row */}
                     <div className="grid grid-cols-3 gap-2 mb-6">
-                        <div className="bg-secondary/20 rounded-xl p-4 dark:bg-secondary/30">
-                            <StatItem
-                                icon={<Users className="w-4 h-4 text-red-500" />}
-                                value={stats.connections}
-                                label="Connections"
-                            />
-                        </div>
+                        <Link href="/connections" className="block">
+                            <div className="bg-secondary/20 rounded-xl p-4 dark:bg-secondary/30 hover:bg-secondary/30 dark:hover:bg-secondary/40 transition-colors cursor-pointer">
+                                <StatItem
+                                    icon={<Users className="w-4 h-4 text-red-500" />}
+                                    value={connectionsCount}
+                                    label="Connections"
+                                />
+                            </div>
+                        </Link>
                         <div className="bg-secondary/20 rounded-xl p-4 dark:bg-secondary/30">
                             <StatItem
                                 icon={<Award className="w-4 h-4 text-amber-500" />}

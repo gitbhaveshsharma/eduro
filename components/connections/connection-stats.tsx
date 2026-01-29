@@ -3,39 +3,102 @@
 /**
  * Connection Stats Component
  * 
- * Displays connection statistics (connections, connected, mutual).
- * Can be used in profile pages or connection overview.
+ * Displays connection statistics (mutual connections, sent requests, received requests).
+ * LinkedIn-style connection system - no follower/following concept.
  */
 
-import { Users, UserPlus, Heart } from 'lucide-react';
+import { Users, Send, Inbox } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { FollowDisplayUtils } from '@/lib/follow';
 import type { FollowStats } from '@/lib/follow';
 import { cn } from '@/lib/utils';
 
 interface ConnectionStatsProps {
     stats: FollowStats | null;
+    receivedRequestsCount?: number;
+    sentRequestsCount?: number;
     isLoading?: boolean;
     className?: string;
-    onStatClick?: (stat: 'followers' | 'following' | 'mutual') => void;
+    onStatClick?: (stat: 'connections' | 'received' | 'sent') => void;
+}
+
+/**
+ * Stat item component
+ */
+interface StatItemProps {
+    icon: React.ReactNode;
+    label: string;
+    value: string | number;
+    subValue?: string;
+    colorClass?: string;
+    isHighlighted?: boolean;
+    onClick?: () => void;
+}
+
+function StatItem({
+    icon,
+    label,
+    value,
+    subValue,
+    colorClass = 'text-muted-foreground',
+    isHighlighted = false,
+    onClick,
+}: StatItemProps) {
+    return (
+        <div
+            onClick={onClick}
+            className={cn(
+                'flex items-center gap-2 sm:gap-3 p-2 sm:p-3 rounded-xl transition-colors',
+                isHighlighted && 'bg-primary/5',
+                onClick && 'cursor-pointer hover:bg-accent'
+            )}
+        >
+            <div
+                className={cn(
+                    'flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex-shrink-0',
+                    colorClass.includes('blue') && 'bg-blue-100 dark:bg-blue-900/30',
+                    colorClass.includes('green') && 'bg-green-100 dark:bg-green-900/30',
+                    colorClass.includes('purple') && 'bg-purple-100 dark:bg-purple-900/30',
+                    !colorClass.includes('blue') &&
+                    !colorClass.includes('green') &&
+                    !colorClass.includes('purple') &&
+                    'bg-muted'
+                )}
+            >
+                <span className={cn('text-sm', colorClass)}>{icon}</span>
+            </div>
+            <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-xs text-muted-foreground font-medium truncate">{label}</span>
+                <span className="text-base sm:text-lg font-semibold text-foreground">{value}</span>
+                {subValue && (
+                    <span className="text-xs text-muted-foreground truncate hidden sm:block">{subValue}</span>
+                )}
+            </div>
+        </div>
+    );
 }
 
 export function ConnectionStats({
     stats,
+    receivedRequestsCount = 0,
+    sentRequestsCount = 0,
     isLoading = false,
     className,
     onStatClick,
 }: ConnectionStatsProps) {
     if (isLoading) {
         return (
-            <Card className={cn('', className)}>
-                <CardContent className="p-6">
-                    <div className="grid grid-cols-3 gap-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="text-center space-y-2">
-                                <div className="h-8 w-8 mx-auto bg-muted animate-pulse rounded-full" />
-                                <div className="h-4 w-12 mx-auto bg-muted animate-pulse rounded" />
-                                <div className="h-3 w-16 mx-auto bg-muted animate-pulse rounded" />
+            <Card className={cn('overflow-hidden', className)}>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                        {[...Array(3)].map((_, i) => (
+                            <div key={i} className="flex items-center gap-3 p-3">
+                                <Skeleton className="w-10 h-10 rounded-xl" />
+                                <div className="flex flex-col gap-1.5">
+                                    <Skeleton className="h-3 w-16" />
+                                    <Skeleton className="h-5 w-12" />
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -45,59 +108,47 @@ export function ConnectionStats({
     }
 
     if (!stats) {
-        return null;
+        return (
+            <Card className={cn('overflow-hidden', className)}>
+                <CardContent className="text-center">
+                    <p className="text-muted-foreground">No connection stats available</p>
+                </CardContent>
+            </Card>
+        );
     }
 
-    const statItems = [
-        {
-            key: 'followers' as const,
-            label: 'Connections',
-            value: stats.followers,
-            icon: Users,
-            color: 'text-blue-500',
-            description: 'People connected to you',
-        },
-        {
-            key: 'following' as const,
-            label: 'Connected',
-            value: stats.following,
-            icon: UserPlus,
-            color: 'text-green-500',
-            description: 'People you\'re connected with',
-        },
-        {
-            key: 'mutual' as const,
-            label: 'Mutual',
-            value: stats.mutual_follows,
-            icon: Heart,
-            color: 'text-pink-500',
-            description: 'Mutual connections',
-        },
-    ];
+    // Calculate mutual connections (users where both are connected)
+    const mutualConnections = stats.mutual_follows || 0;
 
     return (
-        <Card className={cn('', className)}>
-            <CardContent className="p-6">
-                <div className="grid grid-cols-3 gap-4">
-                    {statItems.map((item) => (
-                        <button
-                            key={item.key}
-                            onClick={() => onStatClick?.(item.key)}
-                            className="text-center space-y-2 hover:bg-accent rounded-lg p-3 transition-colors cursor-pointer group"
-                        >
-                            <div className={cn('flex justify-center', item.color)}>
-                                <item.icon className="h-6 w-6 group-hover:scale-110 transition-transform" />
-                            </div>
-                            <div>
-                                <p className="text-2xl font-bold">
-                                    {FollowDisplayUtils.formatFollowCount(item.value)}
-                                </p>
-                                <p className="text-xs text-muted-foreground font-medium">
-                                    {item.label}
-                                </p>
-                            </div>
-                        </button>
-                    ))}
+        <Card className={cn('overflow-hidden', className)}>
+            <CardContent>
+                {/* Stats Grid - Responsive */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <StatItem
+                        icon={<Users className="h-4 w-4" />}
+                        label="Connections"
+                        value={FollowDisplayUtils.formatFollowCount(mutualConnections)}
+                        subValue="mutual connections"
+                        colorClass="text-blue-600"
+                        onClick={() => onStatClick?.('connections')}
+                    />
+                    <StatItem
+                        icon={<Inbox className="h-4 w-4" />}
+                        label="Received"
+                        value={receivedRequestsCount}
+                        subValue="requests received"
+                        colorClass="text-green-600"
+                        onClick={() => onStatClick?.('received')}
+                    />
+                    <StatItem
+                        icon={<Send className="h-4 w-4" />}
+                        label="Sent"
+                        value={sentRequestsCount}
+                        subValue="requests sent"
+                        colorClass="text-purple-600"
+                        onClick={() => onStatClick?.('sent')}
+                    />
                 </div>
             </CardContent>
         </Card>

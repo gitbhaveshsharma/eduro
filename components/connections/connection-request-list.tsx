@@ -7,10 +7,14 @@
  * Handles empty states and loading states.
  */
 
-import { useEffect } from 'react';
-import { Inbox, Send, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import {
+    Inbox, Send, Loader2,
+    RefreshCw
+} from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { ItemGroup, ItemSeparator } from '@/components/ui/item';
 import { ConnectionRequestCard } from './connection-request-card';
 import {
     useReceivedRequests,
@@ -30,20 +34,29 @@ export function ConnectionRequestList({
     defaultTab = 'received',
     className,
 }: ConnectionRequestListProps) {
-    const { loadReceivedRequests, loadSentRequests } = useFollowStore();
     const receivedRequests = useReceivedRequests();
     const sentRequests = useSentRequests();
     const isLoading = useRequestsLoading();
     const pendingRequests = usePendingRequests();
 
+    // Controlled tab state that updates when defaultTab changes
+    const [activeTab, setActiveTab] = useState(defaultTab);
+
+    // Update active tab when defaultTab prop changes
     useEffect(() => {
-        loadReceivedRequests(undefined, undefined, 1, false);
-        loadSentRequests(undefined, undefined, 1, false);
+        setActiveTab(defaultTab);
+    }, [defaultTab]);
+
+    useEffect(() => {
+        const store = useFollowStore.getState();
+        store.loadReceivedRequests(undefined, undefined, 1, false);
+        store.loadSentRequests(undefined, undefined, 1, false);
     }, []);
 
     const handleRefresh = () => {
-        loadReceivedRequests(undefined, undefined, 1, true);
-        loadSentRequests(undefined, undefined, 1, true);
+        const store = useFollowStore.getState();
+        store.loadReceivedRequests(undefined, undefined, 1, true);
+        store.loadSentRequests(undefined, undefined, 1, true);
     };
 
     const pendingReceivedRequests = receivedRequests.filter(r => r.status === 'pending');
@@ -51,10 +64,10 @@ export function ConnectionRequestList({
 
     return (
         <div className={cn('', className)}>
-            <Tabs defaultValue={defaultTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'received' | 'sent')} className="w-full">
                 <div className="flex items-center justify-between mb-4">
                     <TabsList className="grid w-full max-w-md grid-cols-2">
-                        <TabsTrigger value="received" className="relative">
+                        <TabsTrigger value="received" className="flex items-center gap-2">
                             Received
                             {pendingReceivedRequests.length > 0 && (
                                 <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
@@ -62,10 +75,10 @@ export function ConnectionRequestList({
                                 </span>
                             )}
                         </TabsTrigger>
-                        <TabsTrigger value="sent">
+                        <TabsTrigger value="sent" className="flex items-center gap-2">
                             Sent
                             {pendingSentRequests.length > 0 && (
-                                <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
+                                <span className="ml-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
                                     {pendingSentRequests.length}
                                 </span>
                             )}
@@ -76,7 +89,12 @@ export function ConnectionRequestList({
                         {isLoading ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
-                            'Refresh'
+                            <>
+                                {/* Show only icon on mobile */}
+                                <RefreshCw className="h-4 w-4 md:hidden" />
+                                {/* Show text on desktop/tablet */}
+                                <span className="hidden md:inline">Refresh</span>
+                            </>
                         )}
                     </Button>
                 </div>
@@ -97,20 +115,22 @@ export function ConnectionRequestList({
                         </div>
                     ) : (
                         <>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mb-3">
                                 {pendingReceivedRequests.length}{' '}
                                 {pendingReceivedRequests.length === 1 ? 'request' : 'requests'} pending
                             </p>
-                            <div className="space-y-3">
-                                {pendingReceivedRequests.map((request) => (
-                                    <ConnectionRequestCard
-                                        key={request.id}
-                                        request={request}
-                                        type="received"
-                                        onRequestHandled={handleRefresh}
-                                    />
+                            <ItemGroup className="space-y-1 divide-y overflow-hidden">
+                                {pendingReceivedRequests.map((request, index) => (
+                                    <div key={request.id}>
+                                        <ConnectionRequestCard
+                                            request={request}
+                                            type="received"
+                                            onRequestHandled={handleRefresh}
+                                        />
+                                        {index < pendingReceivedRequests.length - 1 && <ItemSeparator />}
+                                    </div>
                                 ))}
-                            </div>
+                            </ItemGroup>
                         </>
                     )}
                 </TabsContent>
@@ -131,20 +151,22 @@ export function ConnectionRequestList({
                         </div>
                     ) : (
                         <>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-muted-foreground mb-3">
                                 {pendingSentRequests.length}{' '}
                                 {pendingSentRequests.length === 1 ? 'request' : 'requests'} pending
                             </p>
-                            <div className="space-y-3">
-                                {pendingSentRequests.map((request) => (
-                                    <ConnectionRequestCard
-                                        key={request.id}
-                                        request={request}
-                                        type="sent"
-                                        onRequestHandled={handleRefresh}
-                                    />
+                            <ItemGroup className="space-y-1 divide-y overflow-hidden">
+                                {pendingSentRequests.map((request, index) => (
+                                    <div key={request.id}>
+                                        <ConnectionRequestCard
+                                            request={request}
+                                            type="sent"
+                                            onRequestHandled={handleRefresh}
+                                        />
+                                        {index < pendingSentRequests.length - 1 && <ItemSeparator />}
+                                    </div>
                                 ))}
-                            </div>
+                            </ItemGroup>
                         </>
                     )}
                 </TabsContent>

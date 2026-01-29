@@ -18,6 +18,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { ItemGroup, ItemSeparator } from '@/components/ui/item';
 import { ConnectionCard } from './connection-card';
 import {
     useFollowers,
@@ -52,7 +53,6 @@ export function ConnectionList({
     showMutualBadge = true,
     className,
 }: ConnectionListProps) {
-    const { loadFollowers, loadFollowing } = useFollowStore();
     const followers = useFollowers();
     const following = useFollowing();
     const followersLoading = useFollowersLoading();
@@ -68,12 +68,13 @@ export function ConnectionList({
 
     // Load data on mount
     useEffect(() => {
+        const store = useFollowStore.getState();
         if (isConnections) {
-            loadFollowers(userId, undefined, undefined, 1, false);
+            store.loadFollowers(userId, undefined, undefined, 1, false);
         } else {
-            loadFollowing(userId, undefined, undefined, 1, false);
+            store.loadFollowing(userId, undefined, undefined, 1, false);
         }
-    }, [type, userId]);
+    }, [type, userId, isConnections]);
 
     // Filter and sort data
     const filteredData = FollowFilterUtils.filterFollowers(data, {
@@ -88,10 +89,11 @@ export function ConnectionList({
     );
 
     const handleRefresh = () => {
+        const store = useFollowStore.getState();
         if (isConnections) {
-            loadFollowers(userId, undefined, undefined, 1, true);
+            store.loadFollowers(userId, undefined, undefined, 1, true);
         } else {
-            loadFollowing(userId, undefined, undefined, 1, true);
+            store.loadFollowing(userId, undefined, undefined, 1, true);
         }
     };
 
@@ -186,8 +188,8 @@ export function ConnectionList({
             </div>
 
             {/* Connection List */}
-            <div className="space-y-3">
-                {sortedData.map((connection) => {
+            <ItemGroup className="space-y-1 divide-y overflow-hidden">
+                {sortedData.map((connection, index) => {
                     const profile = isConnections
                         ? connection.follower_profile
                         : connection.following_profile;
@@ -195,17 +197,19 @@ export function ConnectionList({
                     if (!profile) return null;
 
                     return (
-                        <ConnectionCard
-                            key={connection.id}
-                            user={profile}
-                            currentUser={currentUser}
-                            showStats
-                            showMutualBadge={showMutualBadge}
-                            isMutual={connection.is_mutual}
-                        />
+                        <div key={connection.id}>
+                            <ConnectionCard
+                                user={profile}
+                                currentUser={currentUser}
+                                showStats
+                                showMutualBadge={showMutualBadge}
+                                isMutual={connection.is_mutual}
+                            />
+                            {index < sortedData.length - 1 && <ItemSeparator />}
+                        </div>
                     );
                 })}
-            </div>
+            </ItemGroup>
 
             {/* Load More */}
             {isLoading && data.length > 0 && (
