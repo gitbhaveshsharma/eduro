@@ -50,7 +50,7 @@ export function ConnectionCard({
                     <UserAvatar
                         profile={user}
                         size="md"
-                        showOnlineStatus
+
                         className="cursor-pointer hover:opacity-80 transition-opacity"
                     />
                 </Link>
@@ -61,12 +61,12 @@ export function ConnectionCard({
                 <ItemTitle>
                     <Link
                         href={`/profile/${user.username || user.id}`}
-                        className="hover:underline truncate"
+                        className="hover:text-brand-primary truncate"
                     >
                         {displayName}
                     </Link>
                     {user.is_verified && (
-                        <BadgeCheck className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                        <BadgeCheck className="h-4 w-4 text-brand-secondary flex-shrink-0" />
                     )}
                     {showMutualBadge && isMutual && (
                         <Badge variant="secondary" className="text-xs">

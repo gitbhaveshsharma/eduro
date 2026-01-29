@@ -3,44 +3,53 @@
 /**
  * Connection Request List Component
  * 
- * Displays list of received or sent connection requests.
- * Handles empty states and loading states.
+ * Displays list of received or sent connection requests in a grid layout.
+ * Handles empty states and loading states with infinite scroll.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import {
     Inbox, Send, Loader2,
     RefreshCw
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { ItemGroup, ItemSeparator } from '@/components/ui/item';
 import { ConnectionRequestCard } from './connection-request-card';
+import { ConnectionRequestCardSkeleton } from './connection-request-card-skeleton';
 import {
     useReceivedRequests,
     useSentRequests,
     useRequestsLoading,
     useFollowStore,
-    usePendingRequests,
+    type FollowerProfile,
 } from '@/lib/follow';
 import { cn } from '@/lib/utils';
 
+const REQUESTS_PER_PAGE = 21; // 3 columns * 7 rows
+
 interface ConnectionRequestListProps {
     defaultTab?: 'received' | 'sent';
+    currentUser?: FollowerProfile;
     className?: string;
 }
 
 export function ConnectionRequestList({
     defaultTab = 'received',
+    currentUser,
     className,
 }: ConnectionRequestListProps) {
     const receivedRequests = useReceivedRequests();
     const sentRequests = useSentRequests();
     const isLoading = useRequestsLoading();
-    const pendingRequests = usePendingRequests();
 
     // Controlled tab state that updates when defaultTab changes
     const [activeTab, setActiveTab] = useState(defaultTab);
+
+    // Infinite scroll state
+    const [visibleReceivedCount, setVisibleReceivedCount] = useState(REQUESTS_PER_PAGE);
+    const [visibleSentCount, setVisibleSentCount] = useState(REQUESTS_PER_PAGE);
+    const receivedSentinelRef = useRef<HTMLDivElement | null>(null);
+    const sentSentinelRef = useRef<HTMLDivElement | null>(null);
 
     // Update active tab when defaultTab prop changes
     useEffect(() => {
@@ -57,10 +66,81 @@ export function ConnectionRequestList({
         const store = useFollowStore.getState();
         store.loadReceivedRequests(undefined, undefined, 1, true);
         store.loadSentRequests(undefined, undefined, 1, true);
+        // Reset visible counts on refresh
+        setVisibleReceivedCount(REQUESTS_PER_PAGE);
+        setVisibleSentCount(REQUESTS_PER_PAGE);
     };
 
     const pendingReceivedRequests = receivedRequests.filter(r => r.status === 'pending');
     const pendingSentRequests = sentRequests.filter(r => r.status === 'pending');
+
+    // Infinite scroll for received requests
+    const handleReceivedIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
+        const target = entries[0];
+        if (target.isIntersecting) {
+            setVisibleReceivedCount(prev => Math.min(prev + REQUESTS_PER_PAGE, pendingReceivedRequests.length));
+        }
+    }, [pendingReceivedRequests.length]);
+
+    // Infinite scroll for sent requests
+    const handleSentIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
+        const target = entries[0];
+        if (target.isIntersecting) {
+            setVisibleSentCount(prev => Math.min(prev + REQUESTS_PER_PAGE, pendingSentRequests.length));
+        }
+    }, [pendingSentRequests.length]);
+
+    // Setup intersection observer for received requests
+    useEffect(() => {
+        const observer = new IntersectionObserver(handleReceivedIntersection, {
+            root: null,
+            rootMargin: '200px',
+            threshold: 0.1
+        });
+
+        const sentinel = receivedSentinelRef.current;
+        if (sentinel) {
+            observer.observe(sentinel);
+        }
+
+        return () => {
+            if (sentinel) {
+                observer.unobserve(sentinel);
+            }
+        };
+    }, [handleReceivedIntersection]);
+
+    // Setup intersection observer for sent requests
+    useEffect(() => {
+        const observer = new IntersectionObserver(handleSentIntersection, {
+            root: null,
+            rootMargin: '200px',
+            threshold: 0.1
+        });
+
+        const sentinel = sentSentinelRef.current;
+        if (sentinel) {
+            observer.observe(sentinel);
+        }
+
+        return () => {
+            if (sentinel) {
+                observer.unobserve(sentinel);
+            }
+        };
+    }, [handleSentIntersection]);
+
+    // Reset visible counts when requests change
+    useEffect(() => {
+        setVisibleReceivedCount(REQUESTS_PER_PAGE);
+    }, [pendingReceivedRequests.length]);
+
+    useEffect(() => {
+        setVisibleSentCount(REQUESTS_PER_PAGE);
+    }, [pendingSentRequests.length]);
+
+    const visibleReceivedRequests = pendingReceivedRequests.slice(0, visibleReceivedCount);
+    const visibleSentRequests = pendingSentRequests.slice(0, visibleSentCount);
 
     return (
         <div className={cn('', className)}>
@@ -90,9 +170,7 @@ export function ConnectionRequestList({
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                             <>
-                                {/* Show only icon on mobile */}
-                                <RefreshCw className="h-4 w-4 md:hidden" />
-                                {/* Show text on desktop/tablet */}
+                                <RefreshCw className="h-4 w-4 md:mr-2" />
                                 <span className="hidden md:inline">Refresh</span>
                             </>
                         )}
@@ -102,8 +180,10 @@ export function ConnectionRequestList({
                 {/* Received Requests */}
                 <TabsContent value="received" className="space-y-4">
                     {isLoading && pendingReceivedRequests.length === 0 ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                            {Array.from({ length: Math.min(REQUESTS_PER_PAGE, 12) }).map((_, idx) => (
+                                <ConnectionRequestCardSkeleton key={`skeleton-received-${idx}`} />
+                            ))}
                         </div>
                     ) : pendingReceivedRequests.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -119,18 +199,22 @@ export function ConnectionRequestList({
                                 {pendingReceivedRequests.length}{' '}
                                 {pendingReceivedRequests.length === 1 ? 'request' : 'requests'} pending
                             </p>
-                            <ItemGroup className="space-y-1 divide-y overflow-hidden">
-                                {pendingReceivedRequests.map((request, index) => (
-                                    <div key={request.id}>
-                                        <ConnectionRequestCard
-                                            request={request}
-                                            type="received"
-                                            onRequestHandled={handleRefresh}
-                                        />
-                                        {index < pendingReceivedRequests.length - 1 && <ItemSeparator />}
-                                    </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                {visibleReceivedRequests.map((request, idx) => (
+                                    <ConnectionRequestCard
+                                        key={request.id}
+                                        request={request}
+                                        type="received"
+                                        currentUser={currentUser}
+                                        onRequestHandled={handleRefresh}
+                                        index={idx}
+                                    />
                                 ))}
-                            </ItemGroup>
+                                {/* Sentinel for infinite scroll */}
+                                {visibleReceivedCount < pendingReceivedRequests.length && (
+                                    <div ref={receivedSentinelRef} style={{ height: 1 }} />
+                                )}
+                            </div>
                         </>
                     )}
                 </TabsContent>
@@ -138,8 +222,10 @@ export function ConnectionRequestList({
                 {/* Sent Requests */}
                 <TabsContent value="sent" className="space-y-4">
                     {isLoading && pendingSentRequests.length === 0 ? (
-                        <div className="flex items-center justify-center py-12">
-                            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                            {Array.from({ length: Math.min(REQUESTS_PER_PAGE, 12) }).map((_, idx) => (
+                                <ConnectionRequestCardSkeleton key={`skeleton-sent-${idx}`} />
+                            ))}
                         </div>
                     ) : pendingSentRequests.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -155,18 +241,22 @@ export function ConnectionRequestList({
                                 {pendingSentRequests.length}{' '}
                                 {pendingSentRequests.length === 1 ? 'request' : 'requests'} pending
                             </p>
-                            <ItemGroup className="space-y-1 divide-y overflow-hidden">
-                                {pendingSentRequests.map((request, index) => (
-                                    <div key={request.id}>
-                                        <ConnectionRequestCard
-                                            request={request}
-                                            type="sent"
-                                            onRequestHandled={handleRefresh}
-                                        />
-                                        {index < pendingSentRequests.length - 1 && <ItemSeparator />}
-                                    </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                                {visibleSentRequests.map((request, idx) => (
+                                    <ConnectionRequestCard
+                                        key={request.id}
+                                        request={request}
+                                        type="sent"
+                                        currentUser={currentUser}
+                                        onRequestHandled={handleRefresh}
+                                        index={idx}
+                                    />
                                 ))}
-                            </ItemGroup>
+                                {/* Sentinel for infinite scroll */}
+                                {visibleSentCount < pendingSentRequests.length && (
+                                    <div ref={sentSentinelRef} style={{ height: 1 }} />
+                                )}
+                            </div>
                         </>
                     )}
                 </TabsContent>
