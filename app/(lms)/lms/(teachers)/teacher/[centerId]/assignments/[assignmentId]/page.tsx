@@ -261,7 +261,6 @@ export default function TeacherAssignmentDetailPage() {
             {error && (
                 <Alert variant="destructive">
                     <div className="flex items-start gap-3 w-full">
-                        <AlertCircle className="h-4 w-4 mt-0.5" />
                         <AlertDescription className="flex-1">{error}</AlertDescription>
                         <button onClick={clearError} className="shrink-0">
                             <X className="h-4 w-4" />

@@ -101,7 +101,6 @@ export function TeacherClassesDashboard({ centerId }: TeacherClassesDashboardPro
     if (fetchError) {
         return (
             <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{fetchError}</AlertDescription>
             </Alert>
         );

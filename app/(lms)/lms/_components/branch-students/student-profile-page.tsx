@@ -282,6 +282,7 @@ export function StudentProfilePage({
                 parent_guardian_phone: enrollment.parent_guardian_phone,
                 student_notes: enrollment.student_notes,
                 registration_date: enrollment.enrollment_date || enrollment.created_at,
+                
                 metadata: enrollment.metadata,
                 created_at: enrollment.created_at,
                 updated_at: enrollment.updated_at,
@@ -308,7 +309,6 @@ export function StudentProfilePage({
                     Back to Students
                 </Button>
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error || 'Failed to load student profile'}
                     </AlertDescription>

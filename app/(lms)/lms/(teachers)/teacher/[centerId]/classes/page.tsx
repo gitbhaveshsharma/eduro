@@ -44,7 +44,6 @@ export default function TeacherClassesPage() {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error || 'Coaching center not found'}
                     </AlertDescription>

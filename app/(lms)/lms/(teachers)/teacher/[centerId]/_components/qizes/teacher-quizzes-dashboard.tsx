@@ -337,7 +337,6 @@ export function TeacherQuizzesDashboard({
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{friendlyErrorMessage}</AlertDescription>
                 </Alert>
                 <button
@@ -385,8 +384,7 @@ export function TeacherQuizzesDashboard({
 
             {/* No classes warning */}
             {availableClasses.length === 0 && (
-                <Alert>
-                    <AlertCircle className="h-4 w-4" />
+                <Alert variant="warning">
                     <AlertDescription>
                         You need to be assigned to at least one class before creating quizzes.
                     </AlertDescription>
