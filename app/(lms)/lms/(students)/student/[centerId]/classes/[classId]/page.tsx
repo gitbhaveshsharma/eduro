@@ -219,7 +219,6 @@ export default function StudentClassDetailPage() {
                     Back to Classes
                 </Button>
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {fetchError || classError || 'Class not found or you are not enrolled in this class'}
                     </AlertDescription>

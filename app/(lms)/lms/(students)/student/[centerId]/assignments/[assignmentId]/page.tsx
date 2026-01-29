@@ -128,7 +128,6 @@ export default function AssignmentDetailPage() {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {contextError || 'Coaching center not found'}
                     </AlertDescription>
@@ -142,7 +141,6 @@ export default function AssignmentDetailPage() {
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error}
                     </AlertDescription>

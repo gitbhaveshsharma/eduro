@@ -679,7 +679,6 @@ export function AssignmentForm({
                                     {/* Upload Error */}
                                     {uploadError && (
                                         <Alert variant="destructive">
-                                            <AlertCircle className="h-4 w-4" />
                                             <AlertDescription>{uploadError}</AlertDescription>
                                         </Alert>
                                     )}

@@ -201,7 +201,6 @@ export default function QuizStartPage({ params }: QuizStartPageProps) {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error?.message || 'Quiz not found'}</AlertDescription>
                 </Alert>
                 <Button variant="outline" onClick={() => router.back()}>
