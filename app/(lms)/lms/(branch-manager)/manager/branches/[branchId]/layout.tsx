@@ -154,7 +154,6 @@ export default function BranchesLayout({ children, params }: BranchesLayoutProps
             <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 p-6">
                 <div className="max-w-2xl mx-auto">
                     <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
                         <AlertTitle>Error</AlertTitle>
                         <AlertDescription>{error}</AlertDescription>
                     </Alert>

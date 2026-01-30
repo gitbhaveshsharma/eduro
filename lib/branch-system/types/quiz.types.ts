@@ -509,6 +509,9 @@ export interface StartAttemptDTO {
     quiz_id: string;
     student_id: string;
     class_id: string;
+    ip_address?: string;
+    user_agent?: string;
+    session_id?: string;
 }
 
 /**

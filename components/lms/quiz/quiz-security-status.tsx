@@ -18,6 +18,10 @@ interface QuizSecurityStatusProps {
     violationCount: number;
     /** Maximum allowed violations */
     maxViolations: number;
+    /** Current fullscreen violation count */
+    fullscreenExitCount: number;
+    /** Maximum allowed fullscreen exits */
+    maxFullscreenExits: number;
     /** Whether currently in violation state (flash warning) */
     isInViolation: boolean;
     /** Is fullscreen active */
@@ -31,14 +35,18 @@ interface QuizSecurityStatusProps {
 export function QuizSecurityStatus({
     violationCount,
     maxViolations,
+    fullscreenExitCount,
+    maxFullscreenExits,
     isInViolation,
     isFullscreen,
     isWebcamActive,
     requireWebcam,
 }: QuizSecurityStatusProps) {
-    const violationPercentage = (violationCount / maxViolations) * 100;
-    const isWarning = violationCount > 0;
-    const isCritical = violationCount >= maxViolations - 1;
+    const totalViolations = violationCount + fullscreenExitCount;
+    const maxTotalViolations = Math.max(maxViolations, maxFullscreenExits);
+    const violationPercentage = (totalViolations / maxTotalViolations) * 100;
+    const isWarning = totalViolations > 0;
+    const isCritical = totalViolations >= maxTotalViolations - 1;
 
     return (
         <div
@@ -62,9 +70,13 @@ export function QuizSecurityStatus({
             <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium truncate">
-                        {violationCount === 0
+                        {totalViolations === 0
                             ? 'No violations'
-                            : `${violationCount}/${maxViolations} warnings`}
+                            : violationCount > 0 && fullscreenExitCount > 0
+                                ? `${violationCount} tab + ${fullscreenExitCount} FS`
+                                : violationCount > 0
+                                    ? `${violationCount} tab switch`
+                                    : `${fullscreenExitCount} FS exit`}
                     </span>
                 </div>
                 <Progress

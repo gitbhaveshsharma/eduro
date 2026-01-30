@@ -306,7 +306,6 @@ export default function PostPage() {
                 <div className="max-w-2xl mx-auto px-4 py-6">
                     {/* Error message */}
                     <Alert className="mb-6">
-                        <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                             {error}
                         </AlertDescription>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { ProfileCard } from './network-profile-card';
+import { ProfileCardSkeleton } from './network-profile-card-skeleton';
 import type { FollowerProfile } from '@/lib/follow';
 
 const PROFILES_PER_PAGE = 21; // 3 columns * 7 rows
@@ -10,12 +11,14 @@ interface ProfileGridProps {
     profiles: FollowerProfile[];
     currentUser?: FollowerProfile;
     onConnectionChange?: () => void;
+    connectionStateReady?: boolean;
 }
 
 export function ProfileGrid({
     profiles,
     currentUser,
-    onConnectionChange
+    onConnectionChange,
+    connectionStateReady = true
 }: ProfileGridProps) {
     const [visibleCount, setVisibleCount] = useState(PROFILES_PER_PAGE);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -53,6 +56,17 @@ export function ProfileGrid({
 
     const visibleProfiles = profiles.slice(0, visibleCount);
 
+    // Show skeletons while connection state is loading
+    if (!connectionStateReady) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {Array.from({ length: Math.min(PROFILES_PER_PAGE, profiles.length || 12) }).map((_, idx) => (
+                    <ProfileCardSkeleton key={`skeleton-${idx}`} />
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {visibleProfiles.map((profile, idx) => (
@@ -65,7 +79,7 @@ export function ProfileGrid({
                 />
             ))}
             {/* Sentinel for infinite scroll */}
-            {visibleCount < profiles.length && <div ref={sentinelRef} style={{ height: 1 }} />} 
+            {visibleCount < profiles.length && <div ref={sentinelRef} style={{ height: 1 }} />}
         </div>
     );
 }

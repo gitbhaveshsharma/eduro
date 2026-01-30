@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { ItemGroup, ItemSeparator } from '@/components/ui/item';
 import { ConnectionCard } from './connection-card';
 import {
     useFollowSuggestions,
@@ -33,16 +34,17 @@ export function ConnectionSuggestions({
     showRefreshButton = true,
     className,
 }: ConnectionSuggestionsProps) {
-    const { loadSuggestions } = useFollowStore();
     const suggestions = useFollowSuggestions();
     const isLoading = useSuggestionsLoading();
 
     useEffect(() => {
-        loadSuggestions(limit, false);
+        const store = useFollowStore.getState();
+        store.loadSuggestions(limit, false);
     }, [limit]);
 
     const handleRefresh = () => {
-        loadSuggestions(limit, true);
+        const store = useFollowStore.getState();
+        store.loadSuggestions(limit, true);
     };
 
     const getSuggestionReasonBadge = (reason: string) => {
@@ -129,32 +131,37 @@ export function ConnectionSuggestions({
             </p>
 
             {/* Suggestions List */}
-            <div className="space-y-3">
-                {suggestions.suggestions.map((suggestion) => {
-                    const reasonBadge = getSuggestionReasonBadge(suggestion.reason);
+            <ItemGroup className="space-y-1 divide-y overflow-hidden">
+                {suggestions.suggestions
+                    .filter((suggestion) => suggestion.user && suggestion.user.id) // Filter out invalid suggestions
+                    .map((suggestion, index, filteredArray) => {
+                        const reasonBadge = getSuggestionReasonBadge(suggestion.reason);
 
-                    return (
-                        <div key={suggestion.user.id} className="relative">
-                            <ConnectionCard
-                                user={suggestion.user}
-                                currentUser={currentUser}
-                                showStats
-                                showMutualBadge={false}
-                            />
+                        return (
+                            <div key={suggestion.user.id}>
+                                <div className="relative">
+                                    <ConnectionCard
+                                        user={suggestion.user}
+                                        currentUser={currentUser}
+                                        showStats
+                                        showMutualBadge={false}
+                                    />
 
-                            {/* Reason Badge */}
-                            <div className="absolute top-4 right-4">
-                                <Badge variant={reasonBadge.variant} className="text-xs">
-                                    {reasonBadge.label}
-                                    {suggestion.connection_count && suggestion.connection_count > 0 && (
-                                        <span className="ml-1">({suggestion.connection_count})</span>
-                                    )}
-                                </Badge>
+                                    {/* Reason Badge */}
+                                    <div className="absolute top-4 right-4">
+                                        <Badge variant={reasonBadge.variant} className="text-xs">
+                                            {reasonBadge.label}
+                                            {suggestion.connection_count && suggestion.connection_count > 0 && (
+                                                <span className="ml-1">({suggestion.connection_count})</span>
+                                            )}
+                                        </Badge>
+                                    </div>
+                                </div>
+                                {index < filteredArray.length - 1 && <ItemSeparator />}
                             </div>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+            </ItemGroup>
 
             {/* Next Refresh Info */}
             {suggestions.refresh_available_at && (

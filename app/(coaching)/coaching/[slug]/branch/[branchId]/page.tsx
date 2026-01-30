@@ -122,7 +122,6 @@ export default function CoachingBranchProfilePage() {
         return (
             <div className="min-h-screen bg-gradient-to-br from-primary/5 to-secondary/5 flex items-center justify-center p-4">
                 <Alert variant="destructive" className="max-w-md shadow-lg">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {error || 'Branch not found'}
                     </AlertDescription>

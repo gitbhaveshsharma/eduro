@@ -408,7 +408,6 @@ export function TeacherAttendanceDashboard({ centerId }: TeacherAttendanceDashbo
     if (classesError) {
         return (
             <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{classesError}</AlertDescription>
             </Alert>
         );

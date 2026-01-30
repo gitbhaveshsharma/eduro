@@ -52,7 +52,7 @@ export class BranchTeacherService {
     // Table name
     private readonly TABLE_NAME = 'branch_teacher';
 
-    private constructor() {}
+    private constructor() { }
 
     /**
      * Gets singleton instance
@@ -1129,6 +1129,7 @@ export class BranchTeacherService {
         branchId?: string | null
     ): Promise<BranchTeacherOperationResult<TeacherDashboardStats>> {
         try {
+            console.log('Fetching dashboard stats for teacher:', teacherId, 'branch:', branchId);
             const { data, error } = await this.supabase.rpc(
                 'get_teacher_dashboard_stats_v2',
                 {

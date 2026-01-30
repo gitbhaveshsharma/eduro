@@ -244,7 +244,6 @@ export function StudentFeesDashboard({ centerId }: StudentFeesDashboardProps) {
         return (
             <div className="flex flex-col items-center justify-center py-16">
                 <Alert variant="destructive" className="max-w-md mb-4">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
                 <Button

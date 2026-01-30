@@ -89,7 +89,7 @@ export default function TeacherStudentsPage() {
         if (attendanceFilter !== 'all') {
             filtered = filtered.filter(student => {
                 const attendance = student.attendance_percentage || 0;
-                
+
                 switch (attendanceFilter) {
                     case 'excellent':
                         return attendance >= 90;
@@ -111,7 +111,7 @@ export default function TeacherStudentsPage() {
     // Extract available classes for filter dropdown
     const availableClasses = useMemo(() => {
         const classMap = new Map<string, string>();
-        
+
         currentTeacherStudents.forEach(student => {
             if (student.class_id && student.class_name) {
                 classMap.set(student.class_id, student.class_name);
@@ -132,7 +132,7 @@ export default function TeacherStudentsPage() {
     // Handle view student details
     const handleViewDetails = useCallback((studentId: string) => {
         console.log('[TeacherStudentsPage] View details for student:', studentId);
-        
+
         const student = currentTeacherStudents.find(s => s.student_id === studentId);
         if (student?.enrollment_id) {
             router.push(`/lms/teacher/${centerId}/students/${student.enrollment_id}`);
@@ -152,10 +152,10 @@ export default function TeacherStudentsPage() {
     // Handle retry with loading state
     const handleRetry = async () => {
         if (!teacherId) return;
-        
+
         setIsRetrying(true);
         setError(null);
-        
+
         try {
             await fetchTeacherStudents(teacherId);
         } catch (err) {
@@ -176,7 +176,6 @@ export default function TeacherStudentsPage() {
         return (
             <div className="space-y-6">
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Error Loading Students</AlertTitle>
                     <AlertDescription className="flex items-center justify-between">
                         <span>{error}</span>
@@ -203,7 +202,6 @@ export default function TeacherStudentsPage() {
         return (
             <div className="container max-w-7xl mx-auto px-4 py-8">
                 <Alert>
-                    <AlertCircle className="h-4 w-4" />
                     <AlertTitle>Authentication Required</AlertTitle>
                     <AlertDescription>
                         Please log in to view your students.

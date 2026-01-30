@@ -81,7 +81,7 @@ export interface LayoutConfig {
     page?: PageType;
     showHeader: boolean;
     showBottomNav: boolean;
-    headerType: 'community' | 'lms' | 'minimal' | 'network' | 'universal';
+    headerType: 'community' | 'lms' | 'minimal' | 'network' | 'connections' | 'universal';
     bottomNavType?: 'default' | 'network';
     sidebar?: SidebarConfig;
     title?: string; // Page title for header

@@ -1269,40 +1269,101 @@ export class BranchStudentsService {
     /**
      * Calculates student enrollment summary
      */
-    private calculateStudentSummary(enrollments: BranchStudentWithRelations[]): StudentEnrollmentSummary {
-        const totalEnrollments = enrollments.length;
-        const activeEnrollments = enrollments.filter(e =>
-            e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'ENROLLED')
-        ).length;
-        const completedEnrollments = enrollments.filter(e =>
-            e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'COMPLETED')
-        ).length;
+    // private calculateStudentSummary(enrollments: BranchStudentWithRelations[]): StudentEnrollmentSummary {
+    //     const totalEnrollments = enrollments.length;
+    //     const activeEnrollments = enrollments.filter(e =>
+    //         e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'ENROLLED')
+    //     ).length;
+    //     const completedEnrollments = enrollments.filter(e =>
+    //         e.class_enrollments?.some((ce: { enrollment_status: string }) => ce.enrollment_status === 'COMPLETED')
+    //     ).length;
 
-        const totalFeesDue = enrollments.reduce((sum, e) => sum + (e.total_fees_due || 0), 0);
-        const totalFeesPaid = enrollments.reduce((sum, e) => sum + (e.total_fees_paid || 0), 0);
+    //     const totalFeesDue = enrollments.reduce((sum, e) => sum + (e.total_fees_due || 0), 0);
+    //     const totalFeesPaid = enrollments.reduce((sum, e) => sum + (e.total_fees_paid || 0), 0);
 
-        const attendances = enrollments.flatMap(e =>
-            e.class_enrollments?.map((ce: { attendance_percentage: number }) => ce.attendance_percentage) || []
-        );
-        const avgAttendance = attendances.length > 0
-            ? attendances.reduce((a, b) => a + b, 0) / attendances.length
-            : 0;
+    //     const attendances = enrollments.flatMap(e =>
+    //         e.class_enrollments?.map((ce: { attendance_percentage: number }) => ce.attendance_percentage) || []
+    //     );
+    //     const avgAttendance = attendances.length > 0
+    //         ? attendances.reduce((a, b) => a + b, 0) / attendances.length
+    //         : 0;
 
-        return {
-            total_enrollments: totalEnrollments,
-            active_enrollments: activeEnrollments,
-            completed_enrollments: completedEnrollments,
-            total_fees_due: totalFeesDue,
-            total_fees_paid: totalFeesPaid,
-            outstanding_balance: Math.max(0, totalFeesDue - totalFeesPaid),
-            average_attendance: Number(avgAttendance.toFixed(2)),
-        };
-    }
+    //     return {
+    //         total_enrollments: totalEnrollments,
+    //         active_enrollments: activeEnrollments,
+    //         completed_enrollments: completedEnrollments,
+    //         total_fees_due: totalFeesDue,
+    //         total_fees_paid: totalFeesPaid,
+    //         outstanding_balance: Math.max(0, totalFeesDue - totalFeesPaid),
+    //         average_attendance: Number(avgAttendance.toFixed(2)),
+    //     };
+    // }
+
+    // ============================================================
+    // STUDENT DASHBOARD OPERATIONS
+    // ============================================================
 
     /**
-     * Calculates branch student statistics
+    * Gets student dashboard statistics using RPC function
+    * Calls get_student_dashboard_stats_v2 from the database
+    * 
+    * @param studentId - Student UUID
+    * @param coachingCenterId - Optional coaching center UUID to filter by all branches under this center
+    * @returns Operation result with dashboard statistics
+    */
+    async getStudentDashboardStats(
+        studentId: string,
+        coachingCenterId?: string | null
+    ): Promise<BranchStudentOperationResult<import('../types/branch-students.types').StudentDashboardStats>> {
+        try {
+            const { data, error } = await this.supabase.rpc(
+                'get_student_dashboard_stats_v2',
+                {
+                    p_student_id: studentId,
+                    p_coaching_center_id: coachingCenterId || null,  // Updated parameter name
+                }
+            );
+
+            if (error) {
+                console.error('Student dashboard stats RPC error:', error);
+                return {
+                    success: false,
+                    error: `Failed to fetch student dashboard stats: ${error.message}`,
+                };
+            }
+            console.log('Student dashboard stats RPC data:', data);
+            if (!data) {
+                return {
+                    success: false,
+                    error: 'No dashboard data returned',
+                };
+            }
+
+            // The RPC returns JSON directly
+            const stats = data as import('../types/branch-students.types').StudentDashboardStats;
+
+            return {
+                success: true,
+                data: stats,
+            };
+        } catch (error) {
+            console.error('Student dashboard stats error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
+        }
+    }
+
+
+    // ============================================================
+    // PRIVATE HELPER METHODS
+    // ============================================================
+
+    /**
+     * Calculates student enrollment summary
      */
-    private calculateBranchStats(data: any[]): BranchStudentStats {
+    private calculateStudentSummary(enrollments: BranchStudentWithRelations[]): StudentEnrollmentSummary {
         // Get unique students
         const uniqueStudents = new Set(data.map(d => d.student_id));
         const totalStudents = uniqueStudents.size;

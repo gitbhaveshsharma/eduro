@@ -50,7 +50,7 @@ export function ConnectionButton({
     className,
     onConnectionChange,
 }: ConnectionButtonProps) {
-    const { followUser, unfollowUser, sendFollowRequest } = useFollowStore();
+    const { followUser, unfollowUser, sendFollowRequest, cancelFollowRequest } = useFollowStore();
     const isConnected = useIsFollowing(targetUser.id);
     const isConnecting = useFollowLoading(targetUser.id);
     const isDisconnecting = useUnfollowLoading(targetUser.id);
@@ -81,16 +81,23 @@ export function ConnectionButton({
 
         try {
             if (isConnected) {
-                // Remove connection
+                // Remove connection (mutual connection exists)
                 const success = await unfollowUser({ following_id: targetUser.id });
                 if (success) {
                     onConnectionChange?.(false);
                 }
+            } else if (hasPendingRequest) {
+                // Cancel pending request
+                const success = await cancelFollowRequest(targetUser.id);
+                if (success) {
+                    onConnectionChange?.(false);
+                }
             } else {
-                // Make connection (auto-accepts and creates mutual connection)
-                const success = await followUser({
-                    following_id: targetUser.id,
-                    notification_enabled: true,
+                // Send connection request (LinkedIn-style)
+                // This creates a pending request until the other user accepts
+                const success = await sendFollowRequest({
+                    target_id: targetUser.id,
+                    message: '', // Optional connection message
                 });
                 if (success) {
                     onConnectionChange?.(true);
@@ -127,7 +134,7 @@ export function ConnectionButton({
         );
     }
 
-    // Pending request state
+    // Pending request state - now cancellable
     if (hasPendingRequest && !isConnected) {
         return (
             <TooltipProvider>
@@ -136,15 +143,25 @@ export function ConnectionButton({
                         <Button
                             variant="outline"
                             size={size}
-                            disabled
+                            onClick={handleConnectionAction}
+                            disabled={isLoading}
                             className={cn('gap-2', className)}
                         >
-                            {showIcon && <Clock className="h-4 w-4" />}
-                            {showText && 'Pending'}
+                            {isLoading ? (
+                                <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                    {showText && 'Cancelling...'}
+                                </>
+                            ) : (
+                                <>
+                                    {showIcon && <Clock className="h-4 w-4" />}
+                                    {showText && 'Requested'}
+                                </>
+                            )}
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                        <p>Connection request sent</p>
+                        <p>Click to cancel connection request</p>
                     </TooltipContent>
                 </Tooltip>
             </TooltipProvider>

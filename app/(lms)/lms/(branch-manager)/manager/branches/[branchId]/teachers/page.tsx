@@ -89,7 +89,6 @@ export default function BranchTeachersPage() {
         return (
             <div className="max-w-6xl mx-auto space-y-6">
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="ml-2">
                         {error}
                     </AlertDescription>

@@ -14,6 +14,7 @@ import { ProfileAPI } from '@/lib/profile';
 import { ProfileDisplayUtils, ProfileUrlUtils } from '@/lib/utils/profile.utils';
 import type { ProfileFilters, ProfileSort, PublicProfile } from '@/lib/schema/profile.types';
 import type { FollowerProfile } from '@/lib/follow';
+import { useFollowStore } from '@/lib/follow';
 import { cn } from '@/lib/utils';
 
 // Import sub-components
@@ -54,6 +55,7 @@ export function NetworkDiscovery({
     const [currentPage, setCurrentPage] = useState(1);
     const [hasMore, setHasMore] = useState(false);
     const [hasInitialLoad, setHasInitialLoad] = useState(false); // Track if we've done initial load
+    const [connectionStateReady, setConnectionStateReady] = useState(false); // Track if connection state is loaded
 
     // Refs for lifecycle and callbacks
     const searchTimerRef = useRef<NodeJS.Timeout>();
@@ -66,6 +68,26 @@ export function NetworkDiscovery({
         onLoadingChangeRef.current = onLoadingChange;
         onTotalCountChangeRef.current = onTotalCountChange;
     }, [onLoadingChange, onTotalCountChange]);
+
+    /**
+     * Effect: Pre-load connection state (sent requests) on mount
+     * This ensures the ConnectionButton shows the correct state without flickering
+     */
+    useEffect(() => {
+        const loadConnectionState = async () => {
+            try {
+                const store = useFollowStore.getState();
+                await store.loadSentRequests(undefined, undefined, 1, false);
+                setConnectionStateReady(true);
+            } catch (error) {
+                console.error('Failed to load connection state:', error);
+                // Still set ready to true to show cards even if loading fails
+                setConnectionStateReady(true);
+            }
+        };
+
+        loadConnectionState();
+    }, []);
 
     /**
      * Fetch profiles with filters
@@ -351,6 +373,7 @@ export function NetworkDiscovery({
                     <ProfileGrid
                         profiles={profiles}
                         onConnectionChange={handleConnectionChange}
+                        connectionStateReady={connectionStateReady}
                     />
 
                     {/* Load More Button */}

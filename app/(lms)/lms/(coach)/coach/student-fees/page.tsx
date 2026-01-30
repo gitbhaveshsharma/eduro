@@ -17,9 +17,10 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, AlertCircle,
+import {
+    Plus, AlertCircle,
     LayoutDashboard, ListChecks
- } from 'lucide-react';
+} from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCoachContext } from '../layout';
 import { Card, CardContent } from '@/components/ui/card';
@@ -62,7 +63,6 @@ export default function StudentFeesPage() {
         return (
             <div className="max-w-6xl mx-auto space-y-6">
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription className="ml-2">
                         {error}
                     </AlertDescription>
@@ -93,10 +93,10 @@ export default function StudentFeesPage() {
             {/* Tab Navigation */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList className="grid w-full max-w-md grid-cols-2">
-                     <TabsTrigger value="dashboard" className="flex items-center gap-2">
+                    <TabsTrigger value="dashboard" className="flex items-center gap-2">
                         <LayoutDashboard className="h-4 w-4" />
                         <span>Dashboard</span>
-                    </TabsTrigger>                    
+                    </TabsTrigger>
                     <TabsTrigger value="receipts" className="flex items-center gap-2">
                         <ListChecks className="h-4 w-4" />
                         <span>Receipts List</span>
@@ -111,9 +111,9 @@ export default function StudentFeesPage() {
                 {/* Receipts List Tab */}
                 <TabsContent value="receipts" className="space-y-6">
                     <ReceiptFilters coachingCenterId={coachingCenterId} />
-                   <Card>
+                    <Card>
                         <CardContent className="pt-6">
-                    <ReceiptsTable coachingCenterId={coachingCenterId} />
+                            <ReceiptsTable coachingCenterId={coachingCenterId} />
                         </CardContent>
                     </Card>
                 </TabsContent>
