@@ -598,6 +598,285 @@ export const PAYMENT_WARNING_DAYS = {
 } as const;
 
 // ============================================================
+// STUDENT DASHBOARD TYPES (for get_student_dashboard_stats_v2 RPC)
+// ============================================================
+
+/**
+ * Student dashboard statistics from get_student_dashboard_stats_v2 RPC
+ */
+export interface StudentDashboardStats {
+    enrollment_stats: StudentEnrollmentStats;
+    today_schedule: StudentTodayScheduleItem[];
+    upcoming_assignments: StudentUpcomingAssignment[];
+    upcoming_quizzes: StudentUpcomingQuiz[];
+    recent_submissions: StudentRecentSubmission[];
+    performance_summary: StudentPerformanceSummary;
+    recent_notices: StudentRecentNotice[];
+    today_attendance: StudentTodayAttendance | null;
+    profile_status: StudentProfileStatus;
+    overdue_items: StudentOverdueItems;
+    class_progress: StudentClassProgress[];
+}
+
+/**
+ * Enrollment statistics summary
+ */
+export interface StudentEnrollmentStats {
+    total_enrollments: number;
+    active_enrollments: number;
+    completed_enrollments: number;
+    total_fees_due: number;
+    total_fees_paid: number;
+    average_attendance: number;
+}
+
+/**
+ * Today's class schedule item for student
+ */
+export interface StudentTodayScheduleItem {
+    class_id: string;
+    class_name: string;
+    subject: string;
+    batch_name: string | null;
+    grade_level: string | null;
+    start_time: string; // HH:MM:SS format
+    end_time: string; // HH:MM:SS format
+    room_number: string | null;
+    teacher_name: string | null;
+    is_current_class: boolean;
+}
+
+/**
+ * Upcoming assignment for student
+ */
+export interface StudentUpcomingAssignment {
+    assignment_id: string;
+    title: string;
+    description: string | null;
+    class_name: string;
+    subject: string;
+    submission_type: string;
+    due_date: string; // ISO timestamp
+    close_date: string | null; // ISO timestamp
+    days_remaining: number;
+    max_score: number;
+    max_submissions: number;
+    allow_late_submission: boolean;
+    status: string;
+    is_submitted: boolean;
+    submission_score: number | null;
+    submission_status: string | null;
+}
+
+/**
+ * Upcoming quiz for student
+ */
+export interface StudentUpcomingQuiz {
+    quiz_id: string;
+    title: string;
+    description: string | null;
+    class_name: string;
+    subject: string;
+    available_from: string; // ISO timestamp
+    available_to: string; // ISO timestamp
+    time_limit_minutes: number | null;
+    hours_remaining: number;
+    max_score: number;
+    total_questions: number;
+    max_attempts: number;
+    show_score_immediately: boolean;
+    is_active: boolean;
+    attempts_used: number;
+    best_score: number | null;
+    can_attempt: boolean;
+    last_attempt_status: string | null;
+}
+
+/**
+ * Recent submission (assignment or quiz)
+ */
+export interface StudentRecentSubmission {
+    type: 'assignment' | 'quiz';
+    id: string;
+    title: string;
+    class_name: string;
+    submitted_at: string; // ISO timestamp
+    score: number | null;
+    max_score: number;
+    percentage: number | null;
+    status: string;
+    is_late: boolean;
+}
+
+/**
+ * Performance summary for student
+ */
+export interface StudentPerformanceSummary {
+    assignments: {
+        total_submitted: number;
+        total_graded: number;
+        pending_grading: number;
+        average_score: number;
+        submission_rate: number;
+    };
+    quizzes: {
+        total_attempted: number;
+        completed: number;
+        in_progress: number;
+        average_percentage: number;
+        passed_count: number;
+        best_percentage: number;
+    };
+    overall: {
+        average_attendance: number;
+        enrolled_classes: number;
+        completed_assignments: number;
+        completed_quizzes: number;
+    };
+}
+
+/**
+ * Recent notice for student
+ */
+export interface StudentRecentNotice {
+    id: string;
+    title: string;
+    content: string;
+    class_name: string;
+    published_at: string; // ISO timestamp
+    priority: 'HIGH' | 'MEDIUM' | 'LOW';
+    is_read: boolean;
+}
+
+/**
+ * Today's attendance status
+ */
+export interface StudentTodayAttendance {
+    status: string;
+    check_in_time: string | null; // HH:MM:SS format
+    check_out_time: string | null; // HH:MM:SS format
+    late_minutes: number;
+    remarks: string | null;
+}
+
+/**
+ * Profile completion status
+ */
+export interface StudentProfileStatus {
+    is_complete: boolean;
+    missing_fields: (string | null)[];
+    completion_percentage: number;
+    has_profile_picture: boolean;
+}
+
+/**
+ * Overdue items summary
+ */
+export interface StudentOverdueItems {
+    overdue_assignments: number;
+    expiring_quizzes: number;
+}
+
+/**
+ * Class progress tracking
+ */
+export interface StudentClassProgress {
+    class_id: string;
+    class_name: string;
+    subject: string;
+    grade_level: string | null;
+    attendance_percentage: number;
+    assignments_completed: number;
+    assignments_total: number;
+    quizzes_completed: number;
+    quizzes_total: number;
+    average_assignment_score: number;
+    average_quiz_percentage: number;
+    next_assignment_due: string | null; // ISO timestamp
+    next_quiz_available: string | null; // ISO timestamp
+}
+
+// ============================================================
+// FORMATTED STUDENT DASHBOARD TYPES (for display)
+// ============================================================
+
+/**
+ * Formatted schedule item for student display
+ */
+export interface FormattedStudentScheduleItem extends StudentTodayScheduleItem {
+    formatted_time: string; // "9:00 AM - 10:30 AM"
+    status: 'upcoming' | 'ongoing' | 'completed';
+}
+
+/**
+ * Formatted assignment for student display
+ */
+export interface FormattedStudentAssignment extends StudentUpcomingAssignment {
+    urgency: 'critical' | 'warning' | 'normal';
+    formatted_due_date: string;
+    submission_percentage: number; // For class-wide submission progress
+}
+
+/**
+ * Formatted quiz for student display
+ */
+export interface FormattedStudentQuiz extends StudentUpcomingQuiz {
+    urgency: 'critical' | 'warning' | 'normal';
+    formatted_available_from: string;
+    formatted_available_to: string;
+    progress_percentage: number; // attempts_used / max_attempts * 100
+}
+
+/**
+ * Student dashboard quick stats for cards
+ */
+export interface StudentDashboardQuickStats {
+    enrollments: {
+        total: number;
+        active: number;
+    };
+    assignments: {
+        upcoming: number;
+        overdue: number;
+    };
+    quizzes: {
+        available: number;
+        remaining_attempts: number;
+    };
+    performance: {
+        average_score: number;
+        attendance: number;
+    };
+}
+
+// ============================================================
+// STUDENT DASHBOARD OPERATION TYPES
+// ============================================================
+
+/**
+ * Student dashboard fetch params
+ */
+export interface StudentDashboardFetchParams {
+    student_id: string;
+    branch_id?: string | null;
+}
+
+/**
+ * Student dashboard cache entry
+ */
+export interface StudentDashboardCacheEntry {
+    data: StudentDashboardStats;
+    timestamp: number;
+    student_id: string;
+    branch_id: string | null;
+}
+
+/**
+ * Student dashboard cache configuration
+ */
+export const STUDENT_DASHBOARD_CACHE_TTL = 3 * 60 * 1000; // 3 minutes
+
+// ============================================================
 // RE-EXPORTS for backward compatibility
 // ============================================================
 
