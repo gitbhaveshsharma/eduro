@@ -223,7 +223,6 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
         return (
             <div className="flex items-center justify-center min-h-[50vh]">
                 <Alert variant="destructive" className="max-w-md">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {contextError || error?.message || 'Failed to load quiz'}
                     </AlertDescription>
@@ -567,7 +566,6 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
 
                 {!isCurrentlyAvailable && (
                     <Alert variant={hasEnded ? 'destructive' : 'default'}>
-                        <AlertCircle className="h-4 w-4" />
                         <AlertDescription>
                             {isUpcoming
                                 ? `This quiz will be available starting ${formatDateTime(quiz.available_from, 'long')}`
@@ -578,7 +576,6 @@ export default function StudentQuizDetailPage({ params }: StudentQuizDetailPageP
 
                 {!attemptability.canAttempt && attemptability.reason && isCurrentlyAvailable && (
                     <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
                         <AlertDescription>{attemptability.reason}</AlertDescription>
                     </Alert>
                 )}

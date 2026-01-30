@@ -32,7 +32,6 @@ import {
     Users,
     MapPin,
     FileText,
-    AlertCircle,
     CheckCircle,
     Info,
 } from 'lucide-react';
@@ -115,7 +114,6 @@ export default function TeacherClassDetailPage() {
                     Back to Classes
                 </Button>
                 <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                         {fetchError || 'Class not found'}
                     </AlertDescription>

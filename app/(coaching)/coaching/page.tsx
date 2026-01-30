@@ -184,7 +184,6 @@ export default function CoachingCentersPage() {
                         {/* Error State */}
                         {centerSearchError && !centerSearchLoading && (
                             <Alert variant="destructive" className="mb-6">
-                                <AlertCircle className="h-4 w-4" />
                                 <AlertTitle>Unable to load coaching centers</AlertTitle>
                                 <AlertDescription className="flex flex-col gap-3">
                                     <span>{centerSearchError}</span>
