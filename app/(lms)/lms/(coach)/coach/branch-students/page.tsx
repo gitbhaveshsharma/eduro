@@ -22,7 +22,7 @@ import { DeleteEnrollmentDialog } from '../../../_components/branch-students/del
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Plus, LayoutDashboard, List, AlertCircle } from 'lucide-react';
+import { Plus, LayoutDashboard, List } from 'lucide-react';
 import { LoadingSpinner } from '@/components/ui/loading-spinner';
 import { useBranchStudentsStore } from '@/lib/branch-system/stores/branch-students.store';
 import { Card, CardContent } from '@/components/ui/card';
