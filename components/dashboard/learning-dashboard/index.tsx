@@ -109,8 +109,20 @@ export function LearningDashboard({
     };
 
     const handleContentAction = (contentId: string) => {
-        console.log('Content action:', contentId);
-        // TODO: Implement content action logic
+        // Navigate to the learning resource page
+        // Map content IDs to resource slugs
+        const contentToSlugMap: Record<string, string> = {
+            '1': 'laws-of-motion',
+            '2': 'mapping-earth-secrets',
+            '3': 'foundations-of-chemistry',
+            '4': 'business-strategy-essentials',
+        };
+        const slug = contentToSlugMap[contentId];
+        if (slug) {
+            router.push(`/learn/${slug}`);
+        } else {
+            router.push('/learn');
+        }
     };
 
     const handleSettingsClick = () => {
@@ -192,7 +204,7 @@ export function LearningDashboard({
                     <LearningProgressItems
                         contents={filteredContent}
                         onContentAction={handleContentAction}
-                        onViewAll={() => console.log('View all content')}
+                        onViewAll={() => router.push('/learn')}
                     />
                 </div>
 
@@ -207,8 +219,8 @@ export function LearningDashboard({
                             contentBreakdown={CONTENT_BREAKDOWN}
                             dashboardStats={DASHBOARD_STATS}
                             onSettingsClick={handleSettingsClick}
-                            onViewAllContent={() => console.log('View all content')}
-                            onViewAllLearning={() => console.log('View all learning')}
+                            onViewAllContent={() => router.push('/learn')}
+                            onViewAllLearning={() => router.push('/learn')}
                         />
                     </div>
                 </div>
