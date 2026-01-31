@@ -301,10 +301,10 @@ export class BranchClassesService {
         includeInactive: boolean = false
     ): Promise<BranchClassOperationResult<BranchClass[]>> {
         try {
-            console.log('🔵 [getClassesByBranch] Fetching classes for branch:', {
-                branchId,
-                includeInactive,
-            });
+            // console.log('🔵 [getClassesByBranch] Fetching classes for branch:', {
+            //     branchId,
+            //     includeInactive,
+            // });
 
             let query = this.supabase
                 .from('branch_classes')
@@ -1095,6 +1095,8 @@ export class BranchClassesService {
                 batch_name,
                 class_start_date,
                 class_end_date,
+                expected_completion_date,
+                actual_completion_date,
                 class_start_time,
                 class_end_time,
                 class_days,
@@ -1105,7 +1107,7 @@ export class BranchClassesService {
                 .eq('coaching_center_id', coachingCenterId)
                 .eq('enrollment_status', 'ENROLLED')
                 .eq('class_status', 'ACTIVE')
-                .gte('class_end_date', new Date().toISOString().split('T')[0])
+                // .gte('actual_completion_date', new Date().toISOString().split('T')[0])
                 .order('class_start_date', { ascending: true });
 
             if (error) {
@@ -1151,7 +1153,8 @@ export class BranchClassesService {
                     grade_level: row.grade_level,
                     batch_name: row.batch_name,
                     start_date: row.class_start_date,
-                    end_date: row.class_end_date,
+                    end_date: row.actual_completion_date,
+                    expected_completion_date: row.expected_completion_date,
                     class_days: row.class_days,
                     start_time: row.class_start_time,
                     end_time: row.class_end_time,

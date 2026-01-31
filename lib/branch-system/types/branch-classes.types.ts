@@ -522,6 +522,8 @@ export interface UpcomingClassData {
     class_days: DayOfWeek[];
     start_time: string; // HH:MM:SS
     end_time: string; // HH:MM:SS
+    expected_completion_date: string | null; // ISO date
+
 
     // Relations
     teacher_id: string | null;

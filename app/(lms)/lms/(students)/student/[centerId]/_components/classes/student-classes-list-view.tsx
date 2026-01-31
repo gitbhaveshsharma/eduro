@@ -11,6 +11,12 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
     Item,
     ItemActions,
     ItemContent,
@@ -26,7 +32,8 @@ import {
     BookOpen,
     TrendingUp,
     GraduationCap,
-    AlertCircle
+    AlertCircle,
+    CalendarClock,
 } from 'lucide-react';
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
 import {
@@ -45,7 +52,11 @@ import {
     needsAttendanceAttention,
 } from '@/lib/branch-system/utils/student-attendance.utils';
 import { cn } from '@/lib/utils';
-import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
+import {
+    getSubjectImageById,
+    getSubjectColor,
+    getSubjectConfig
+} from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
 
 interface StudentClassesListViewProps {
@@ -79,6 +90,7 @@ function getEnrollmentStatusLabel(status: string): string {
 
 /**
  * Gets attendance performance badge variant based on percentage
+ * Maps attendance utils color strings to Badge variants
  */
 function getAttendancePerformanceVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
     const color = getAttendancePerformanceColor(percentage);
@@ -96,6 +108,7 @@ function getAttendancePerformanceVariant(percentage: number): 'success' | 'defau
 
 /**
  * Gets attendance color class based on performance color from attendance utils
+ * Maps to Tailwind color classes
  */
 function getAttendanceColorClass(percentage: number): string {
     const color = getAttendancePerformanceColor(percentage);
@@ -111,10 +124,103 @@ function getAttendanceColorClass(percentage: number): string {
     return classes[color] || 'text-muted-foreground';
 }
 
+/**
+ * Format completion date to a readable string
+ */
+function formatCompletionDate(dateString?: string | null): string | null {
+    if (!dateString) return null;
+
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get days remaining until completion date
+ */
+function getDaysRemaining(dateString?: string | null): number | null {
+    if (!dateString) return null;
+
+    try {
+        const completionDate = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        completionDate.setHours(0, 0, 0, 0);
+
+        const diffTime = completionDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Check if completion date is approaching (within 30 days)
+ */
+function isCompletionDateApproaching(dateString?: string | null): boolean {
+    const daysRemaining = getDaysRemaining(dateString);
+    return daysRemaining !== null && daysRemaining <= 30 && daysRemaining > 0;
+}
+
+/**
+ * Check if completion date has passed
+ */
+function isCompletionDatePassed(dateString?: string | null): boolean {
+    const daysRemaining = getDaysRemaining(dateString);
+    return daysRemaining !== null && daysRemaining < 0;
+}
+
+/**
+ * Get completion status message based on date status
+ */
+function getCompletionStatusMessage(dateString?: string | null): {
+    message: string;
+    description: string;
+} {
+    const daysRemaining = getDaysRemaining(dateString);
+
+    if (!dateString || daysRemaining === null) {
+        return {
+            message: 'No completion date set',
+            description: 'Contact your instructor for completion schedule'
+        };
+    }
+
+    if (isCompletionDatePassed(dateString)) {
+        const daysOverdue = Math.abs(daysRemaining);
+        return {
+            message: `Course completion overdue by ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}`,
+            description: 'This course was expected to be completed by now. Please check with your instructor.'
+        };
+    }
+
+    if (isCompletionDateApproaching(dateString)) {
+        return {
+            message: `Course ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`,
+            description: 'Complete your assignments and prepare for final assessments.'
+        };
+    }
+
+    return {
+        message: `Course ends in ${daysRemaining} days`,
+        description: 'You are on track to complete the course as scheduled.'
+    };
+}
+
 function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassData; onViewDetails: (id: string) => void }) {
     const [imageLoaded, setImageLoaded] = useState(false);
 
     const subjectId = mapSubjectToId(classItem.subject) as SubjectId;
+    const subjectConfig = getSubjectConfig(subjectId);
     const subjectColor = getSubjectColor(subjectId);
     const subjectImagePath = getSubjectImageById(subjectId);
 
@@ -127,6 +233,13 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
     const statusVariant = getEnrollmentStatusVariant(classItem.enrollment_status);
     const statusLabel = getEnrollmentStatusLabel(classItem.enrollment_status);
 
+    // Format completion date
+    const formattedCompletionDate = formatCompletionDate(classItem.expected_completion_date);
+    const isApproaching = isCompletionDateApproaching(classItem.expected_completion_date);
+    const isPassed = isCompletionDatePassed(classItem.expected_completion_date);
+    const completionStatus = getCompletionStatusMessage(classItem.expected_completion_date);
+    const daysRemaining = getDaysRemaining(classItem.expected_completion_date);
+
     // Memoize attendance performance calculations using standard attendance utils
     const attendanceMetrics = useMemo(() => {
         const percentage = classItem.attendance_percentage || 0;
@@ -134,7 +247,6 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
         const performanceVariant = getAttendancePerformanceVariant(percentage);
         const colorClass = getAttendanceColorClass(percentage);
         // needsAttendanceAttention checks: percentage < 60% (NEEDS_IMPROVEMENT) OR consecutiveAbsences >= 3
-        // Example: 89% attendance = false (Good), 55% attendance = true (needs attention)
         const needsAttention = needsAttendanceAttention(percentage, 0);
 
         return {
@@ -161,7 +273,7 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                 <div className="relative w-16 h-11 rounded-lg overflow-hidden flex-shrink-0">
                     <Image
                         src={subjectImagePath}
-                        alt={classItem.subject}
+                        alt={subjectConfig.name}
                         fill
                         className={cn(
                             "object-cover transition-opacity duration-300",
@@ -172,8 +284,13 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                         onError={() => setImageLoaded(true)}
                     />
                     {!imageLoaded && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-muted">
-                            <BookOpen className="h-5 w-5 text-muted-foreground/50" />
+                        <div className={cn(
+                            "absolute inset-0 flex items-center justify-center",
+                            subjectColor
+                        )}>
+                            <div className="text-2xl">
+                                {subjectConfig.icon}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -181,7 +298,7 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
 
             {/* Content */}
             <ItemContent>
-                {/* ✅ FIXED: Single row layout - works on ALL screen sizes */}
+                {/* Single row layout - works on ALL screen sizes */}
                 <ItemTitle className="flex flex-wrap items-center gap-2">
                     {/* Class name - always visible */}
                     <span className="font-semibold text-sm truncate transition-colors duration-200 group-hover/item:text-primary flex-1 min-w-0">
@@ -209,15 +326,72 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                             </Badge>
                         )}
 
+                        {/* Completion Date Badge with Tooltip */}
+                        {formattedCompletionDate && (
+                            <TooltipProvider>
+                                <Tooltip delayDuration={300}>
+                                    <TooltipTrigger asChild>
+                                        <Badge
+                                            variant={isPassed ? "destructive" : isApproaching ? "warning" : "secondary"}
+                                            className="text-xs font-medium gap-1 cursor-help h-5 px-1.5"
+                                        >
+                                            <CalendarClock className="h-3 w-3" />
+                                            <span className="hidden sm:inline">{formattedCompletionDate}</span>
+                                        </Badge>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs p-4" side="bottom" align="start">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                                                <h4 className="font-semibold text-sm">
+                                                    Course Completion
+                                                </h4>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-medium">
+                                                    {completionStatus.message}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {completionStatus.description}
+                                                </p>
+                                                {daysRemaining !== null && (
+                                                    <div className="pt-2 mt-2 border-t border-border">
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-muted-foreground">Expected completion:</span>
+                                                            <span className="font-medium">{formattedCompletionDate}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs mt-1">
+                                                            <span className="text-muted-foreground">
+                                                                {daysRemaining >= 0 ? 'Days remaining:' : 'Days overdue:'}
+                                                            </span>
+                                                            <span className={cn(
+                                                                "font-medium",
+                                                                isPassed ? "text-destructive" :
+                                                                    isApproaching ? "text-warning" :
+                                                                        "text-success"
+                                                            )}>
+                                                                {Math.abs(daysRemaining)} {Math.abs(daysRemaining) === 1 ? 'day' : 'days'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+
                         {/* Subject badge - hidden on very small screens */}
                         <Badge
                             variant="outline"
                             className={cn(
                                 'text-xs font-medium px-2 py-0.5 border-0 h-5',
+                                subjectColor,
                                 'max-sm:hidden' // Hidden only on extra small screens
                             )}
                         >
-                            {classItem.subject}
+                            {subjectConfig.name}
                         </Badge>
                     </div>
                 </ItemTitle>
@@ -233,8 +407,8 @@ function ClassListItem({ classItem, onViewDetails }: { classItem: UpcomingClassD
                             {timeRange}
                         </span>
                         <span className="flex items-center gap-1.5">
-                            <TrendingUp className={cn('h-3.5 w-3.5 flex-shrink-0')} />
-                            <span className={cn('font-medium')}>
+                            <TrendingUp className={cn('h-3.5 w-3.5 flex-shrink-0', attendanceMetrics.colorClass)} />
+                            <span className={cn('font-medium', attendanceMetrics.colorClass)}>
                                 {attendanceMetrics.percentage.toFixed(1)}%
                             </span>
                             <span className="hidden sm:inline">attendance</span>

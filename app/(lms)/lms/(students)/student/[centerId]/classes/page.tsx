@@ -17,7 +17,6 @@ import { useStudentContext } from '../layout';
 import { StudentClassesDashboard } from '../_components/dashboard/student-classes-dashboard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle } from 'lucide-react';
 
 export default function StudentClassesPage() {
     const { coachingCenter, isLoading, error, centerId } = useStudentContext();
