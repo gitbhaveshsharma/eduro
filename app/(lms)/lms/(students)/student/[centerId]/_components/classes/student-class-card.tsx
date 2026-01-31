@@ -48,41 +48,17 @@ import {
     getAttendancePerformanceColor,
     needsAttendanceAttention,
 } from '@/lib/branch-system/utils/student-attendance.utils';
-import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
+import {
+    getSubjectImageById,
+    getSubjectColor,
+    getSubjectConfig
+} from '@/lib/utils/subject-assets';
 import type { SubjectId } from '@/components/dashboard/learning-dashboard/types';
 
 interface StudentClassCardProps {
     classData: UpcomingClassData;
     onViewDetails?: (classId: string) => void;
 }
-
-// Placeholder gradients for subject backgrounds
-const PLACEHOLDER_GRADIENTS: Record<string, { gradient: string; decoration: string }> = {
-    physics: {
-        gradient: 'from-blue-50 to-indigo-100',
-        decoration: 'text-blue-800/20'
-    },
-    chemistry: {
-        gradient: 'from-purple-50 to-pink-100',
-        decoration: 'text-purple-800/20'
-    },
-    english: {
-        gradient: 'from-orange-50 to-amber-100',
-        decoration: 'text-orange-800/20'
-    },
-    mathematics: {
-        gradient: 'from-indigo-50 to-blue-100',
-        decoration: 'text-indigo-800/20'
-    },
-    biology: {
-        gradient: 'from-green-50 to-lime-100',
-        decoration: 'text-green-800/20'
-    },
-    default: {
-        gradient: 'from-gray-100 to-gray-200',
-        decoration: 'text-gray-600/20'
-    }
-};
 
 /**
  * Get enrollment status badge variant using CLASS_ENROLLMENT_STATUS_OPTIONS
@@ -118,6 +94,7 @@ function getEnrollmentStatusLabel(status: string): string {
 function getAttendancePerformanceVariant(percentage: number): 'success' | 'default' | 'warning' | 'secondary' | 'destructive' {
     const color = getAttendancePerformanceColor(percentage);
 
+    // Map attendance utils color strings to Badge variants
     const colorMap: Record<string, 'success' | 'default' | 'warning' | 'secondary' | 'destructive'> = {
         'green': 'success',
         'blue': 'default',
@@ -131,20 +108,21 @@ function getAttendancePerformanceVariant(percentage: number): 'success' | 'defau
 
 /**
  * Gets attendance color class based on performance color
+ * Maps to Tailwind color classes
  */
 function getAttendanceColorClass(percentage: number): string {
     const color = getAttendancePerformanceColor(percentage);
 
+    // Map attendance utils color strings to Tailwind classes
     const classes: Record<string, string> = {
         'green': 'text-green-600 dark:text-green-500',
         'blue': 'text-blue-600 dark:text-blue-500',
         'orange': 'text-orange-600 dark:text-orange-500',
         'yellow': 'text-yellow-600 dark:text-yellow-500',
         'red': 'text-red-600 dark:text-red-500',
-        'default': 'text-muted-foreground',
     };
 
-    return classes[color] || classes['default'];
+    return classes[color] || 'text-muted-foreground';
 }
 
 /**
@@ -243,7 +221,7 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
     const [imageLoaded, setImageLoaded] = useState(false);
 
     const subjectId = mapSubjectToId(classData.subject) as SubjectId;
-    const gradientConfig = PLACEHOLDER_GRADIENTS[subjectId] || PLACEHOLDER_GRADIENTS.default;
+    const subjectConfig = getSubjectConfig(subjectId);
     const subjectImagePath = getSubjectImageById(subjectId);
     const subjectColor = getSubjectColor(subjectId);
 
@@ -288,7 +266,6 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
             onViewDetails(classData.class_id);
         }
     };
-    console.log('Rendering StudentClassCard for class:', classData);
 
     return (
         <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl p-0 gap-0 group">
@@ -371,15 +348,10 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                 </div>
 
                 {/* Subject Image with Gradient Background */}
-                <div
-                    className={cn(
-                        'h-32 w-full bg-gradient-to-br relative overflow-hidden rounded-2xl',
-                        gradientConfig.gradient
-                    )}
-                >
+                <div className="h-32 w-full relative overflow-hidden rounded-2xl">
                     <Image
                         src={subjectImagePath}
-                        alt={`${classData.subject} class`}
+                        alt={`${subjectConfig.name} class`}
                         fill
                         className={cn(
                             "object-cover transition-opacity duration-300",
@@ -395,15 +367,15 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                     {!imageLoaded && (
                         <div className={cn(
                             'absolute inset-0 animate-pulse',
-                            gradientConfig.gradient
+                            subjectColor
                         )} />
                     )}
 
-                    {/* Decorative overlay */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none -z-10">
-                        <BookOpen
-                            className={cn('w-32 h-32 opacity-10', gradientConfig.decoration)}
-                        />
+                    {/* Decorative overlay with subject icon */}
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
+                        <div className="text-8xl">
+                            {subjectConfig.icon}
+                        </div>
                     </div>
                 </div>
             </div>
@@ -416,7 +388,7 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                         variant="outline"
                         className={cn('text-xs font-medium px-2 py-0.5 border-0', subjectColor)}
                     >
-                        {classData.subject}
+                        {subjectConfig.name}
                     </Badge>
                     {/* Grade & Batch */}
                     <div className="text-sm text-muted-foreground">
@@ -452,8 +424,8 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                     {/* Attendance Stats */}
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <TrendingUp className={cn('h-4 w-4')} />
-                            <span className={cn('text-sm font-medium')}>
+                            <TrendingUp className={cn('h-4 w-4', attendanceMetrics.colorClass)} />
+                            <span className={cn('text-sm font-medium', attendanceMetrics.colorClass)}>
                                 {attendanceMetrics.percentage.toFixed(1)}%
                             </span>
                             <span className="text-xs text-muted-foreground">attendance</span>
