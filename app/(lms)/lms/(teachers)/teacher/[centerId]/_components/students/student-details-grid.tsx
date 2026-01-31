@@ -1,13 +1,11 @@
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import {
     User,
     BookOpen,
     Users,
     Shield,
-    Building2,
-    DollarSign,
 } from 'lucide-react';
 
 interface StudentDetailsGridProps {
@@ -17,16 +15,16 @@ interface StudentDetailsGridProps {
 export function StudentDetailsGrid({ enrollment }: StudentDetailsGridProps) {
     const calculateAge = (dateOfBirth: string | null): string | null => {
         if (!dateOfBirth) return null;
-        
+
         const today = new Date();
         const birthDate = new Date(dateOfBirth);
         let age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
-        
+
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
             age--;
         }
-        
+
         return age > 0 ? `${age} years` : null;
     };
 
@@ -39,27 +37,21 @@ export function StudentDetailsGrid({ enrollment }: StudentDetailsGridProps) {
         });
     };
 
-    const getPaymentStatusVariant = (status: string): 'default' | 'secondary' | 'destructive' => {
-        switch (status?.toUpperCase()) {
-            case 'PAID':
-                return 'default';
-            case 'PARTIAL':
-                return 'secondary';
-            case 'PENDING':
-            case 'OVERDUE':
-                return 'destructive';
-            default:
-                return 'secondary';
-        }
+    const isExpired = (date: string | null | undefined): boolean => {
+        if (!date) return false;
+        return new Date(date) < new Date();
     };
 
     const age = calculateAge(enrollment.student?.date_of_birth);
-    const paymentStatusVariant = getPaymentStatusVariant(enrollment.payment_status);
+
+    const expectedCompletionDate =
+        enrollment.class_enrollments?.[0]?.expected_completion_date ||
+        enrollment.expected_completion_date;
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Class Enrollments */}
-            {enrollment.class_enrollments && enrollment.class_enrollments.length > 0 && (
+            {/* Enrolled Classes */}
+            {enrollment.class_enrollments?.length > 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
@@ -67,78 +59,74 @@ export function StudentDetailsGrid({ enrollment }: StudentDetailsGridProps) {
                             Enrolled Classes
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            {enrollment.class_enrollments.map((classEnrollment: any, index: number) => (
-                                <div
-                                    key={classEnrollment.id || index}
-                                    className="p-4 rounded-lg border bg-muted/30 space-y-2"
-                                >
-                                    <div className="flex items-start justify-between gap-2">
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-semibold text-base">
-                                                {classEnrollment.class_name || 'Unnamed Class'}
+                    <CardContent className="space-y-3">
+                        {enrollment.class_enrollments.map((classEnrollment: any, index: number) => (
+                            <div
+                                key={classEnrollment.id || index}
+                                className="p-4 rounded-lg border bg-muted/30 space-y-2"
+                            >
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-semibold text-base">
+                                            {classEnrollment.class_name || 'Unnamed Class'}
+                                        </p>
+                                        {classEnrollment.subject_name && (
+                                            <p className="text-sm text-muted-foreground mt-1">
+                                                {classEnrollment.subject_name}
                                             </p>
-                                            {classEnrollment.subject_name && (
-                                                <p className="text-sm text-muted-foreground mt-1">
-                                                    {classEnrollment.subject_name}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <Badge variant="secondary" className="flex-shrink-0">
-                                            Active
-                                        </Badge>
+                                        )}
                                     </div>
+                                    <Badge variant="secondary">Active</Badge>
                                 </div>
-                            ))}
-                        </div>
+                            </div>
+                        ))}
                     </CardContent>
                 </Card>
             )}
 
-            {/* Personal Information */}
+            {/* enrolment Information */}
             <Card>
                 <CardHeader>
                     <CardTitle className="text-lg flex items-center gap-2">
                         <User className="h-5 w-5" />
-                        Personal Information
+                        Enrolment Information
                     </CardTitle>
                 </CardHeader>
+
                 <CardContent className="space-y-3">
                     <InfoRow
-                        label="Full Name"
-                        value={enrollment.student?.full_name || enrollment.student_name || 'N/A'}
+                        label="Expected Completion Date"
+                        value={expectedCompletionDate ? formatDate(expectedCompletionDate) : 'N/A'}
+                        className={
+                            isExpired(expectedCompletionDate)
+                                ? 'bg-brand-highlight rounded-md px-2 text-red-600'
+                                : undefined
+                        }
                     />
+
                     {age && <InfoRow label="Age" value={age} />}
+
                     {enrollment.student?.date_of_birth && (
                         <InfoRow
                             label="Date of Birth"
                             value={formatDate(enrollment.student.date_of_birth)}
                         />
                     )}
+
                     <InfoRow
                         label="Registration Date"
                         value={formatDate(enrollment.registration_date)}
                     />
-                    {enrollment.student_notes && (
-                        <>
-                            <Separator className="my-3" />
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-muted-foreground">Notes</p>
-                                <p className="text-sm">{enrollment.student_notes}</p>
-                            </div>
-                        </>
-                    )}
                 </CardContent>
             </Card>
 
-            {/* Parent/Guardian Information */}
+            {/* Parent / Guardian */}
             {(enrollment.parent_guardian_name || enrollment.parent_guardian_phone) && (
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-lg flex items-center gap-2">
                             <Users className="h-5 w-5" />
-                            Parent/Guardian
+                            Parent / Guardian
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -175,19 +163,25 @@ export function StudentDetailsGrid({ enrollment }: StudentDetailsGridProps) {
     );
 }
 
-// InfoRow Helper Component
+/* ================= InfoRow ================= */
+
 interface InfoRowProps {
     label: string;
     value: React.ReactNode;
+    className?: string;
 }
 
-function InfoRow({ label, value }: InfoRowProps) {
+function InfoRow({ label, value, className }: InfoRowProps) {
     return (
-        <div className="flex items-start justify-between gap-4 py-2">
-            <span className="text-sm text-muted-foreground font-medium flex-shrink-0">
+        <div
+            className={`flex items-start justify-between gap-4 py-2 ${className ?? ''}`}
+        >
+            <span className="text-sm text-muted-foreground font-medium">
                 {label}
             </span>
-            <span className="text-sm font-medium text-right">{value}</span>
+            <span className="text-sm font-medium text-right">
+                {value}
+            </span>
         </div>
     );
 }

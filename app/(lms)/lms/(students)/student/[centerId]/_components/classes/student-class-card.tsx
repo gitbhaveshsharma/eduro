@@ -12,6 +12,12 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import {
     Clock,
@@ -21,7 +27,9 @@ import {
     Eye,
     TrendingUp,
     GraduationCap,
-    AlertCircle
+    AlertCircle,
+    CalendarClock,
+    Info
 } from 'lucide-react';
 
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
@@ -38,7 +46,6 @@ import {
 import {
     getAttendancePerformanceLevel,
     getAttendancePerformanceColor,
-    ATTENDANCE_THRESHOLDS,
     needsAttendanceAttention,
 } from '@/lib/branch-system/utils/student-attendance.utils';
 import { getSubjectImageById, getSubjectColor } from '@/lib/utils/subject-assets';
@@ -140,6 +147,98 @@ function getAttendanceColorClass(percentage: number): string {
     return classes[color] || classes['default'];
 }
 
+/**
+ * Format completion date to a readable string
+ */
+function formatCompletionDate(dateString?: string | null): string | null {
+    if (!dateString) return null;
+
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Get days remaining until completion date
+ */
+function getDaysRemaining(dateString?: string | null): number | null {
+    if (!dateString) return null;
+
+    try {
+        const completionDate = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        completionDate.setHours(0, 0, 0, 0);
+
+        const diffTime = completionDate.getTime() - today.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Check if completion date is approaching (within 30 days)
+ */
+function isCompletionDateApproaching(dateString?: string | null): boolean {
+    const daysRemaining = getDaysRemaining(dateString);
+    return daysRemaining !== null && daysRemaining <= 30 && daysRemaining > 0;
+}
+
+/**
+ * Check if completion date has passed
+ */
+function isCompletionDatePassed(dateString?: string | null): boolean {
+    const daysRemaining = getDaysRemaining(dateString);
+    return daysRemaining !== null && daysRemaining < 0;
+}
+
+/**
+ * Get completion status message based on date status
+ */
+function getCompletionStatusMessage(dateString?: string | null): {
+    message: string;
+    description: string;
+} {
+    const daysRemaining = getDaysRemaining(dateString);
+
+    if (!dateString || daysRemaining === null) {
+        return {
+            message: 'No completion date set',
+            description: 'Contact your instructor for completion schedule'
+        };
+    }
+
+    if (isCompletionDatePassed(dateString)) {
+        const daysOverdue = Math.abs(daysRemaining);
+        return {
+            message: `Course completion overdue by ${daysOverdue} ${daysOverdue === 1 ? 'day' : 'days'}`,
+            description: 'This course was expected to be completed by now. Please check with your instructor.'
+        };
+    }
+
+    if (isCompletionDateApproaching(dateString)) {
+        return {
+            message: `Course ends in ${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'}`,
+            description: 'Complete your assignments and prepare for final assessments.'
+        };
+    }
+
+    return {
+        message: `Course ends in ${daysRemaining} days`,
+        description: 'You are on track to complete the course as scheduled.'
+    };
+}
+
 export function StudentClassCard({ classData, onViewDetails }: StudentClassCardProps) {
     const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -156,6 +255,13 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
 
     const statusVariant = getEnrollmentStatusVariant(classData.enrollment_status);
     const statusLabel = getEnrollmentStatusLabel(classData.enrollment_status);
+
+    // Format completion date
+    const formattedCompletionDate = formatCompletionDate(classData.expected_completion_date);
+    const isApproaching = isCompletionDateApproaching(classData.expected_completion_date);
+    const isPassed = isCompletionDatePassed(classData.expected_completion_date);
+    const completionStatus = getCompletionStatusMessage(classData.expected_completion_date);
+    const daysRemaining = getDaysRemaining(classData.expected_completion_date);
 
     // Memoize attendance performance calculations
     const attendanceMetrics = useMemo(() => {
@@ -182,6 +288,7 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
             onViewDetails(classData.class_id);
         }
     };
+    console.log('Rendering StudentClassCard for class:', classData);
 
     return (
         <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl p-0 gap-0 group">
@@ -203,6 +310,63 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
                             <AlertCircle className="h-3 w-3" />
                             Low
                         </Badge>
+                    )}
+                    {/* Completion Date Badge with Tooltip */}
+                    {formattedCompletionDate && (
+                        <TooltipProvider>
+                            <Tooltip delayDuration={300}>
+                                <TooltipTrigger asChild>
+                                    <Badge
+                                        variant={isPassed ? "destructive" : isApproaching ? "warning" : "secondary"}
+                                        className="text-xs font-medium gap-1 cursor-help"
+                                    >
+                                        <CalendarClock className="h-3 w-3" />
+                                        {formattedCompletionDate}
+                                    </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs p-4" side="bottom" align="start">
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                                            <h4 className="font-semibold text-sm">
+                                                Course Completion
+                                            </h4>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-medium">
+                                                {completionStatus.message}
+                                            </p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {completionStatus.description}
+                                            </p>
+                                            {daysRemaining !== null && (
+                                                <div className="pt-2 mt-2 border-t border-border">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-muted-foreground">Expected completion:</span>
+                                                        <span className="font-medium">{formattedCompletionDate}</span>
+                                                    </div>
+                                                    {daysRemaining !== null && (
+                                                        <div className="flex items-center justify-between text-xs mt-1">
+                                                            <span className="text-muted-foreground">
+                                                                {daysRemaining >= 0 ? 'Days remaining:' : 'Days overdue:'}
+                                                            </span>
+                                                            <span className={cn(
+                                                                "font-medium",
+                                                                isPassed ? "text-destructive" :
+                                                                    isApproaching ? "text-warning" :
+                                                                        "text-success"
+                                                            )}>
+                                                                {Math.abs(daysRemaining)} {Math.abs(daysRemaining) === 1 ? 'day' : 'days'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
                     )}
                 </div>
 
