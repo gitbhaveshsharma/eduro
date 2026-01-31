@@ -44,7 +44,7 @@ export function ClassProgress({ classProgress, onClassClick }: ClassProgressProp
                         <TrendingUp className="h-5 w-5 text-brand-primary" />
                         Class Progress
                     </CardTitle>
-                    <Badge variant="secondary" className="text-xs">
+                    <Badge variant="secondary" className="text-xs bg-secondary/10 text-brand-secondary">
                         {classProgress.length} class{classProgress.length !== 1 ? 'es' : ''}
                     </Badge>
                 </div>
@@ -70,19 +70,38 @@ function ClassProgressCard({ classProgress, onClick }: { classProgress: StudentC
     const assignmentCompletion = calculatePercentage(classProgress.assignments_completed, classProgress.assignments_total);
     const quizCompletion = calculatePercentage(classProgress.quizzes_completed, classProgress.quizzes_total);
 
+    // Determine progress bar color based on completion percentage
+    const getProgressColor = (percentage: number) => {
+        if (percentage >= 80) return 'bg-success';
+        if (percentage >= 50) return 'bg-secondary';
+        return 'bg-brand-highlight';
+    };
+
     return (
         <div
-            className="p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm hover:border-brand-primary/20"
+            className="group p-3 rounded-lg border cursor-pointer transition-all hover:shadow-sm hover:border-primary/30 hover:bg-primary/5 active:bg-primary/10"
             onClick={onClick}
         >
             <div className="flex items-start justify-between gap-2 mb-3">
                 <div className="flex-1">
-                    <h4 className="font-medium text-sm line-clamp-1">{classProgress.class_name}</h4>
+                    <h4 className="font-medium text-sm line-clamp-1 group-hover:text-brand-primary transition-colors">
+                        {classProgress.class_name}
+                    </h4>
                     <Badge variant="outline" className={cn('text-[10px] mt-1 border-0', subjectColor)}>
                         {classProgress.subject}
                     </Badge>
                 </div>
-                <Badge variant="secondary" className="text-xs">
+                <Badge
+                    variant="secondary"
+                    className={cn(
+                        "text-xs transition-colors",
+                        classProgress.attendance_percentage >= 80
+                            ? "bg-success/10 text-success border-success/20"
+                            : classProgress.attendance_percentage >= 70
+                                ? "bg-secondary/10 text-brand-secondary border-brand-secondary/20"
+                                : "bg-brand-highlight/10 text-brand-highlight border-brand-highlight/20"
+                    )}
+                >
                     {classProgress.attendance_percentage.toFixed(0)}%
                 </Badge>
             </div>
@@ -92,21 +111,45 @@ function ClassProgressCard({ classProgress, onClick }: { classProgress: StudentC
                 <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Assignments</span>
-                        <span className="font-medium">
+                        <span className="font-medium text-brand-primary">
                             {classProgress.assignments_completed}/{classProgress.assignments_total}
                         </span>
                     </div>
-                    <Progress value={assignmentCompletion} className="h-1.5" />
+                    <div className="relative">
+                        <Progress
+                            value={assignmentCompletion}
+                            className="h-1.5 bg-muted"
+                        />
+                        <div
+                            className={cn(
+                                "absolute top-0 left-0 h-1.5 rounded-full transition-all duration-500",
+                                getProgressColor(assignmentCompletion)
+                            )}
+                            style={{ width: `${assignmentCompletion}%` }}
+                        />
+                    </div>
                 </div>
 
                 <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-muted-foreground">Quizzes</span>
-                        <span className="font-medium">
+                        <span className="font-medium text-brand-primary">
                             {classProgress.quizzes_completed}/{classProgress.quizzes_total}
                         </span>
                     </div>
-                    <Progress value={quizCompletion} className="h-1.5" />
+                    <div className="relative">
+                        <Progress
+                            value={quizCompletion}
+                            className="h-1.5 bg-muted"
+                        />
+                        <div
+                            className={cn(
+                                "absolute top-0 left-0 h-1.5 rounded-full transition-all duration-500",
+                                getProgressColor(quizCompletion)
+                            )}
+                            style={{ width: `${quizCompletion}%` }}
+                        />
+                    </div>
                 </div>
             </div>
 
@@ -114,14 +157,20 @@ function ClassProgressCard({ classProgress, onClick }: { classProgress: StudentC
             <div className="flex items-center gap-3 mt-3 text-xs">
                 {classProgress.average_assignment_score > 0 && (
                     <div className="flex items-center gap-1">
-                        <CheckCircle className="h-3 w-3 text-green-600" />
-                        <span className="text-muted-foreground">Avg: {classProgress.average_assignment_score.toFixed(0)}%</span>
+                        <CheckCircle className="h-3 w-3 text-success" />
+                        <span className="text-muted-foreground">
+                            Avg: <span className="font-medium text-success">
+                                {classProgress.average_assignment_score.toFixed(0)}%
+                            </span>
+                        </span>
                     </div>
                 )}
                 {classProgress.next_assignment_due && (
-                    <div className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 text-amber-600" />
-                        <span className="text-muted-foreground">Due soon</span>
+                    <div className="flex items-center gap-1 ml-auto">
+                        <Clock className="h-3 w-3 text-brand-highlight" />
+                        <span className="text-muted-foreground">
+                            Due soon
+                        </span>
                     </div>
                 )}
             </div>

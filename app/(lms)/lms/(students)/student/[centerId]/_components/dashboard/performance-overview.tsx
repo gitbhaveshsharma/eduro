@@ -6,11 +6,65 @@ import { Progress } from '@/components/ui/progress';
 import { TrendingUp, Award, Target, BookOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { StudentPerformanceSummary } from '@/lib/branch-system/types/branch-students.types';
-import { getScoreVariant } from '@/lib/branch-system/utils/student-dashboard.utils';
+import {
+    getAttendancePerformanceLevel,
+    getAttendancePerformanceColor,
+} from '@/lib/branch-system/utils/student-attendance.utils';
 import { StatWithBar } from './mini-charts';
 
 interface PerformanceOverviewProps {
     performanceSummary: StudentPerformanceSummary | null;
+}
+
+/**
+ * Get progress bar color based on percentage using attendance utils logic
+ */
+function getProgressColor(percentage: number): string {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, string> = {
+        'green': 'bg-green-500',
+        'blue': 'bg-blue-500',
+        'orange': 'bg-orange-500',
+        'yellow': 'bg-yellow-500',
+        'red': 'bg-red-500',
+    };
+
+    return colorMap[color] || 'bg-gray-500';
+}
+
+/**
+ * Get icon color class based on percentage using attendance utils logic
+ */
+function getIconColor(percentage: number): string {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, string> = {
+        'green': 'text-green-600 dark:text-green-500',
+        'blue': 'text-blue-600 dark:text-blue-500',
+        'orange': 'text-orange-600 dark:text-orange-500',
+        'yellow': 'text-yellow-600 dark:text-yellow-500',
+        'red': 'text-red-600 dark:text-red-500',
+    };
+
+    return colorMap[color] || 'text-muted-foreground';
+}
+
+/**
+ * Get badge background color based on percentage using attendance utils logic
+ */
+function getBadgeColor(percentage: number): string {
+    const color = getAttendancePerformanceColor(percentage);
+
+    const colorMap: Record<string, string> = {
+        'green': 'bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-500',
+        'blue': 'bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-500',
+        'orange': 'bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-500',
+        'yellow': 'bg-yellow-500/10 text-yellow-600 border-yellow-500/20 dark:text-yellow-500',
+        'red': 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-500',
+    };
+
+    return colorMap[color] || 'bg-gray-500/10 text-gray-600 border-gray-500/20';
 }
 
 export function PerformanceOverview({ performanceSummary }: PerformanceOverviewProps) {
@@ -56,6 +110,15 @@ export function PerformanceOverview({ performanceSummary }: PerformanceOverviewP
         average_attendance: overall?.average_attendance ?? 0,
     };
 
+    // Calculate pass rate for quizzes
+    const quizPassRate = safeQuizzes.total_attempted > 0
+        ? (safeQuizzes.passed_count / safeQuizzes.total_attempted) * 100
+        : 0;
+
+    // Get performance levels using attendance utils
+    const assignmentPerformance = getAttendancePerformanceLevel(safeAssignments.average_score);
+    const attendancePerformance = getAttendancePerformanceLevel(safeOverall.average_attendance);
+
     return (
         <Card className="border-muted/50">
             <CardHeader className="pb-3">
@@ -64,7 +127,13 @@ export function PerformanceOverview({ performanceSummary }: PerformanceOverviewP
                         <TrendingUp className="h-5 w-5 text-brand-primary" />
                         Performance Overview
                     </CardTitle>
-                    <Badge variant={getScoreVariant(safeAssignments.average_score)} className="text-xs">
+                    <Badge
+                        variant="secondary"
+                        className={cn(
+                            "text-xs transition-colors",
+                            getBadgeColor(safeAssignments.average_score)
+                        )}
+                    >
                         {safeAssignments.average_score.toFixed(0)}% Avg
                     </Badge>
                 </div>
@@ -72,65 +141,76 @@ export function PerformanceOverview({ performanceSummary }: PerformanceOverviewP
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Assignment Stats */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
-                            <BookOpen className="h-4 w-4 text-blue-600" />
-                            <span className="font-medium">Assignments</span>
+                            <BookOpen className={cn(
+                                "h-4 w-4",
+                                getIconColor(safeAssignments.average_score)
+                            )} />
+                            <span className="font-medium text-foreground">Assignments</span>
                         </div>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                             {safeAssignments.total_graded}/{safeAssignments.total_submitted} graded
                         </span>
                     </div>
                     <StatWithBar
                         label="Submission Rate"
                         percentage={safeAssignments.submission_rate}
-                        color="bg-blue-500"
+                        color={getProgressColor(safeAssignments.submission_rate)}
                     />
                     <StatWithBar
                         label="Average Score"
                         percentage={safeAssignments.average_score}
-                        color="bg-green-500"
+                        color={getProgressColor(safeAssignments.average_score)}
                     />
                 </div>
 
                 {/* Quiz Stats */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                     <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-2">
-                            <Award className="h-4 w-4 text-purple-600" />
-                            <span className="font-medium">Quizzes</span>
+                            <Award className={cn(
+                                "h-4 w-4",
+                                getIconColor(quizPassRate)
+                            )} />
+                            <span className="font-medium text-foreground">Quizzes</span>
                         </div>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground text-xs">
                             {safeQuizzes.completed}/{safeQuizzes.total_attempted} completed
                         </span>
                     </div>
                     <StatWithBar
                         label="Pass Rate"
-                        percentage={safeQuizzes.total_attempted > 0 ? (safeQuizzes.passed_count / safeQuizzes.total_attempted) * 100 : 0}
-                        color="bg-purple-500"
+                        percentage={quizPassRate}
+                        color={getProgressColor(quizPassRate)}
                     />
                     <StatWithBar
                         label="Average Score"
                         percentage={safeQuizzes.average_percentage}
-                        color="bg-amber-500"
+                        color={getProgressColor(safeQuizzes.average_percentage)}
                     />
                 </div>
 
                 {/* Overall Stats */}
-                <div className="pt-3 border-t">
+                <div className="pt-4 border-t border-border/50">
                     <div className="grid grid-cols-3 gap-3 text-center">
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{safeOverall.enrolled_classes}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Classes</p>
+                        <div className="space-y-1">
+                            <p className="text-2xl font-bold text-brand-primary">{safeOverall.enrolled_classes}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Classes</p>
                         </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{safeOverall.completed_assignments}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Completed</p>
+                        <div className="space-y-1">
+                            <p className="text-2xl font-bold text-green-600 dark:text-green-500">{safeOverall.completed_assignments}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Completed</p>
                         </div>
-                        <div>
-                            <p className="text-2xl font-bold text-foreground">{safeOverall.average_attendance.toFixed(0)}%</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Attendance</p>
+                        <div className="space-y-1">
+                            <p className={cn(
+                                "text-2xl font-bold",
+                                getIconColor(safeOverall.average_attendance)
+                            )}>
+                                {safeOverall.average_attendance.toFixed(0)}%
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Attendance</p>
                         </div>
                     </div>
                 </div>

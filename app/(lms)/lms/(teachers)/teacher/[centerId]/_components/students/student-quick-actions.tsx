@@ -19,7 +19,7 @@ interface StudentQuickActionsProps {
 
 export function StudentQuickActions({ enrollment, onMarkAttendance }: StudentQuickActionsProps) {
     const { toast } = useToast();
-    console.log('Rendering StudentQuickActions for enrollment:', enrollment);
+    // console.log('Rendering StudentQuickActions for enrollment:', enrollment);
 
     // Extract attendance data from the class_attendence array
     const attendanceData = Array.isArray(enrollment.class_attendence)

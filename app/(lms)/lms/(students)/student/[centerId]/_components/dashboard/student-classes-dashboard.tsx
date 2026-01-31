@@ -14,7 +14,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, BookOpen } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth-guard';
 
 import {

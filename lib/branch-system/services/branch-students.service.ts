@@ -1232,6 +1232,7 @@ export class BranchStudentsService {
                 class_name: viewData.class_name || '',
                 enrollment_status: viewData.enrollment_status || 'ENROLLED',
                 attendance_percentage: viewData.attendance_percentage || 0,
+                expected_completion_date: viewData.expected_completion_date || null,
             }] : [],
         };
     }
@@ -1260,6 +1261,7 @@ export class BranchStudentsService {
             enrollment_status: viewData.enrollment_status || null,
             attendance_percentage: viewData.attendance_percentage || 0,
             class_name: viewData.class_name || null,
+            expected_completion_date: viewData.expected_completion_date || null,
             // Computed fields
             outstanding_balance: Math.max(0, outstandingBalance),
             is_payment_overdue: isOverdue,
@@ -1331,7 +1333,7 @@ export class BranchStudentsService {
                     error: `Failed to fetch student dashboard stats: ${error.message}`,
                 };
             }
-            console.log('Student dashboard stats RPC data:', data);
+            // console.log('Student dashboard stats RPC data:', data);
             if (!data) {
                 return {
                     success: false,

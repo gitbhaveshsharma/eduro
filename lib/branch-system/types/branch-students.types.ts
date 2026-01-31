@@ -98,6 +98,7 @@ export interface PublicBranchStudent {
     registration_date: string;
     created_at: string;
     updated_at: string;
+    expected_completion_date?: string | null;
 
     // Class enrollment fields (from class_enrollments)
     enrollment_status: string | null;
@@ -204,6 +205,7 @@ export interface BranchStudentWithRelations extends BranchStudent {
         class_name: string;
         enrollment_status: string;
         attendance_percentage: number;
+        expected_completion_date?: string | null;
     }[];
     class_attendence?: {
         class_id: string;
