@@ -362,14 +362,30 @@ export const useQuizStore = create<QuizStoreState & QuizStoreActions>()(
                     // Check cache first
                     const cached = get().cache.quizById.get(quizId);
                     if (cached && get().isCacheValid(quizId)) {
-                        set((state) => {
-                            state.selectedQuiz = cached.data;
-                        });
-                        if (includeQuestions) {
-                            await get().fetchQuestions(quizId);
+                        // If we need questions but cached quiz doesn't have them, fetch from API
+                        if (includeQuestions && !cached.data.questions) {
+                            console.log('[QuizStore] Cache hit but questions needed, fetching from API');
+                            // Fall through to API fetch below
+                        } else {
+                            console.log('[QuizStore] Using cached quiz:', {
+                                quizId,
+                                hasQuestions: !!cached.data.questions,
+                                questionsCount: cached.data.questions?.length || 0,
+                            });
+                            set((state) => {
+                                state.selectedQuiz = cached.data;
+                                if (cached.data.questions) {
+                                    state.questions = cached.data.questions;
+                                }
+                            });
+                            return;
                         }
-                        return;
                     }
+
+                    console.log('[QuizStore] Fetching quiz from API:', {
+                        quizId,
+                        includeQuestions,
+                    });
 
                     set((state) => {
                         state.loading.quiz = true;

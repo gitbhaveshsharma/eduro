@@ -878,17 +878,48 @@ CREATE POLICY "teachers_select_questions"
         )
     );
 
--- 5. STUDENTS: Can view questions only during active quiz attempts
+-- -------------------------------------------------------------
+-- QUIZ_QUESTIONS TABLE - RLS POLICIES (UPDATED)
+-- -------------------------------------------------------------
+
+-- Drop existing student policy
+DROP POLICY IF EXISTS "students_select_questions" ON quiz_questions;
+
+-- SELECT POLICIES (Read Access) - UPDATED FOR STUDENTS
+-- 5. STUDENTS: Can view questions only during active quiz attempts OR after quiz period ends (for review)
 CREATE POLICY "students_select_questions"
     ON quiz_questions FOR SELECT
     USING (
         public.get_user_role(auth.uid()) = 'S'
-        AND quiz_id IN (
-            SELECT quiz_id FROM quiz_attempts 
-            WHERE student_id = auth.uid()
-            AND attempt_status = 'IN_PROGRESS'
+        AND (
+            -- Option 1: During active quiz attempt
+            quiz_id IN (
+                SELECT quiz_id FROM quiz_attempts 
+                WHERE student_id = auth.uid()
+                AND attempt_status = 'IN_PROGRESS'
+            )
+            OR
+            -- Option 2: After quiz availability period has ended AND quiz is active
+            (
+                quiz_id IN (
+                    SELECT q.id FROM quizzes q
+                    WHERE q.is_active = TRUE
+                    AND q.available_to < NOW()  -- Quiz period has ended
+                    AND q.id IN (
+                        SELECT quiz_id FROM quiz_attempts 
+                        WHERE student_id = auth.uid()
+                        AND attempt_status = 'COMPLETED'
+                    )
+                )
+            )
         )
     );
+
+COMMENT ON POLICY "students_select_questions" ON quiz_questions IS 
+'Students can view questions:
+1. During active (IN_PROGRESS) quiz attempts
+2. AFTER quiz period ends (available_to < NOW()) for completed attempts, if quiz is still active
+Allows review of questions after quiz window closes for learning purposes.';
 
 -- INSERT, UPDATE, DELETE POLICIES (Only staff can manage questions)
 -- 1. ADMINS & SUPER ADMINS: Full control

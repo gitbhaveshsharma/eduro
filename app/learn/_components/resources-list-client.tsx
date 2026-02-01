@@ -51,6 +51,7 @@ export function ResourcesListClient({ resources }: ResourcesListClientProps) {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedSubject, setSelectedSubject] = useState('all');
     const [showInProgress, setShowInProgress] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
 
     // User profile
     const currentProfile = useProfileStore(state => state.currentProfile);
@@ -215,18 +216,19 @@ export function ResourcesListClient({ resources }: ResourcesListClientProps) {
                 </div>
             </header>
 
-            {/* Filters Section */}
             <section className="sticky top-0 z-30 bg-background/95 backdrop-blur-md border-b border-border/50">
                 <div className="max-w-7xl mx-auto px-4 py-3">
                     <div className="flex flex-col md:flex-row gap-3">
                         {/* Search */}
-                        <div className="relative flex-1 max-w-md">
+                        <div className="relative flex-1 max-w-max md:max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search resources..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-10 h-9 text-sm"
+                                onFocus={() => setIsFocused(true)}
+                                onBlur={() => setIsFocused(false)}
+                                className={`pl-10 h-9 text-sm transition-all duration-300 ${isFocused ? 'w-48' : 'w-full'}`}
                             />
                         </div>
 
@@ -259,6 +261,7 @@ export function ResourcesListClient({ resources }: ResourcesListClientProps) {
                     </div>
                 </div>
             </section>
+
 
             {/* Resources Grid */}
             <main className="max-w-7xl mx-auto px-4 py-8">

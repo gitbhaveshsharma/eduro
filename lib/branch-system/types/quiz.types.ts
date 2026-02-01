@@ -523,9 +523,12 @@ export interface SubmitAttemptDTO {
         question_id: string;
         selected_answers: string[];
         time_spent_seconds?: number;
+        question_started_at?: string;
+        question_answered_at?: string;
     }[];
 }
 
+/**
 /**
  * DTO for saving a response (auto-save during quiz)
  */
@@ -534,6 +537,8 @@ export interface SaveResponseDTO {
     question_id: string;
     selected_answers: string[];
     time_spent_seconds?: number;
+    question_started_at?: string;
+    question_answered_at?: string;
 }
 
 /**

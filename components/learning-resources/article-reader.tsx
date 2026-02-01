@@ -243,7 +243,7 @@ export function ArticleReader({ resource, onBack }: ArticleReaderProps) {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="bg-gradient-to-br from-primary/5 to-secondary/5 min-h-screen">
             {/* Fixed Progress Bar at Top */}
             <div className="fixed top-0 left-0 right-0 z-50 bg-background/95 backdrop-blur-md border-b border-border/50">
                 <Progress value={scrollProgress} className="h-0.5 rounded-none" variant="primary" />

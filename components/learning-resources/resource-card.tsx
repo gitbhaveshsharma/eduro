@@ -170,7 +170,7 @@ export function ResourceCardCompact({
 
     return (
         <Card
-            className="group cursor-pointer transition-all hover:shadow-sm hover:border-primary/20"
+            className="group cursor-pointer transition-all"
             onClick={onStart}
         >
             <CardContent className="p-3">
@@ -251,22 +251,22 @@ export function ResourceCardSkeleton() {
         <Card className="overflow-hidden border-border/50 bg-card">
             {/* Image skeleton */}
             <Skeleton className="h-48 w-full rounded-none" />
-            
+
             <CardContent className="pb-4">
                 {/* Title skeleton */}
                 <Skeleton className="h-5 w-3/4 mb-2" />
-                
+
                 {/* Subtitle skeleton */}
                 <Skeleton className="h-4 w-full mb-1" />
                 <Skeleton className="h-4 w-2/3 mb-3" />
-                
+
                 {/* Meta row skeleton */}
                 <div className="flex items-center gap-3 mb-3">
                     <Skeleton className="h-4 w-20" />
                     <Skeleton className="h-4 w-16" />
                     <Skeleton className="h-4 w-12 ml-auto" />
                 </div>
-                
+
                 {/* Button skeleton */}
                 <Skeleton className="h-9 w-full" />
             </CardContent>
@@ -284,14 +284,14 @@ export function ResourceCardCompactSkeleton() {
                 <div className="flex items-center gap-3">
                     {/* Thumbnail skeleton */}
                     <Skeleton className="w-14 h-14 rounded-lg flex-shrink-0" />
-                    
+
                     {/* Content skeleton */}
                     <div className="flex-1 min-w-0">
                         <Skeleton className="h-4 w-16 mb-1" />
                         <Skeleton className="h-5 w-3/4 mb-1" />
                         <Skeleton className="h-3 w-1/2" />
                     </div>
-                    
+
                     {/* Button skeleton */}
                     <Skeleton className="h-8 w-16 flex-shrink-0" />
                 </div>

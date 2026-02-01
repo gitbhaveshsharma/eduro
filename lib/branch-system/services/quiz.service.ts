@@ -80,6 +80,11 @@ import {
     decryptQuestions,
     decryptQuestionsForStudent,
     isQuestionEncrypted,
+    // Response encryption
+    prepareResponseForInsert,
+    decryptResponse,
+    decryptResponses,
+    encryptResponseData,
 } from '../utils/quiz-crypto';
 
 // ============================================================
@@ -576,20 +581,43 @@ export class QuizService {
 
             let questions: QuizQuestion[] | undefined;
             if (includeQuestions) {
-                const { data: questionData } = await this.supabase
+                console.log('[QuizService] Fetching questions for quiz:', quizId);
+                const { data: questionData, error: questionError } = await this.supabase
                     .from('quiz_questions')
                     .select('*')
                     .eq('quiz_id', quizId)
                     .order('question_order', { ascending: true });
 
+                if (questionError) {
+                    console.error('[QuizService] Error fetching questions:', questionError);
+                }
+
+                console.log('[QuizService] Questions fetched:', {
+                    count: questionData?.length || 0,
+                    hasData: !!questionData,
+                });
+
                 // Decrypt questions (for teacher view - keeps correct_answers)
                 questions = questionData ? decryptQuestions(questionData as QuizQuestion[]) : undefined;
+                
+                console.log('[QuizService] Questions after decryption:', {
+                    count: questions?.length || 0,
+                    hasQuestions: !!questions,
+                });
             }
 
             const quiz = rowToQuiz({
                 ...data,
                 teacher_profile: teacherProfile,
                 quiz_questions: questions,
+            });
+
+            console.log('[QuizService] Quiz object created:', {
+                id: quiz.id,
+                title: quiz.title,
+                hasQuestions: !!quiz.questions,
+                questionsCount: quiz.questions?.length || 0,
+                includeQuestionsFlag: includeQuestions,
             });
 
             return { success: true, data: quiz };
@@ -1459,8 +1487,9 @@ export class QuizService {
             const typedQuestions = decryptedQuestions as QuizQuestionDbRow[];
             const questionMap = new Map(typedQuestions.map((q: QuizQuestionDbRow) => [q.id, q]));
 
-            // Calculate scores and insert responses
+            // Calculate scores and prepare responses with encryption
             let totalScore = 0;
+            const now = getCurrentDateTime();
             const responsesToInsert = validatedInput.responses.map(r => {
                 const question = questionMap.get(r.question_id);
                 if (!question) return null;
@@ -1475,7 +1504,8 @@ export class QuizService {
 
                 totalScore += result.earned - result.deducted;
 
-                return {
+                // Prepare encrypted response
+                return prepareResponseForInsert({
                     attempt_id: validatedInput.attempt_id,
                     question_id: r.question_id,
                     selected_answers: r.selected_answers,
@@ -1483,7 +1513,9 @@ export class QuizService {
                     points_earned: result.earned,
                     points_deducted: result.deducted,
                     time_spent_seconds: r.time_spent_seconds ?? 0,
-                };
+                    question_started_at: r.question_started_at ?? null,
+                    question_answered_at: r.question_answered_at ?? now,
+                });
             }).filter((r): r is NonNullable<typeof r> => r !== null);
 
             // Upsert responses (update if exists from auto-save, insert if new)
@@ -1550,6 +1582,7 @@ export class QuizService {
 
     /**
      * Saves a response during quiz (auto-save)
+     * Encrypts the response and stores timing information
      * Checks if response exists first to avoid 409 Conflict
      */
     async saveResponse(
@@ -1568,22 +1601,33 @@ export class QuizService {
             }
 
             const validatedInput = validationResult.data;
+            const now = getCurrentDateTime();
+
+            // Encrypt the response data
+            const encrypted = encryptResponseData({
+                selected_answers: validatedInput.selected_answers,
+            });
 
             // Check if response already exists
             const { data: existing } = await this.supabase
                 .from('quiz_responses')
-                .select('id')
+                .select('id, question_started_at')
                 .eq('attempt_id', validatedInput.attempt_id)
                 .eq('question_id', validatedInput.question_id)
                 .maybeSingle();
 
             if (existing) {
-                // Update existing response
+                // Update existing response with encrypted data
                 const { data: updateData, error: updateError } = await this.supabase
                     .from('quiz_responses')
                     .update({
-                        selected_answers: validatedInput.selected_answers,
+                        selected_answers: [encrypted.encrypted_selected_answers],
                         time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
+                        question_answered_at: now,
+                        metadata: {
+                            nonce: encrypted.nonce,
+                            is_encrypted: true,
+                        },
                     })
                     .eq('id', existing.id)
                     .select('*')
@@ -1599,17 +1643,23 @@ export class QuizService {
 
                 return { success: true, data: updateData as QuizResponse };
             } else {
-                // Insert new response
+                // Insert new response with encrypted data
                 const { data: insertData, error: insertError } = await this.supabase
                     .from('quiz_responses')
                     .insert({
                         attempt_id: validatedInput.attempt_id,
                         question_id: validatedInput.question_id,
-                        selected_answers: validatedInput.selected_answers,
+                        selected_answers: [encrypted.encrypted_selected_answers],
                         time_spent_seconds: validatedInput.time_spent_seconds ?? 0,
+                        question_started_at: validatedInput.question_started_at ?? now,
+                        question_answered_at: now,
                         is_correct: false,
                         points_earned: 0,
                         points_deducted: 0,
+                        metadata: {
+                            nonce: encrypted.nonce,
+                            is_encrypted: true,
+                        },
                     })
                     .select('*')
                     .single();
@@ -1709,7 +1759,7 @@ export class QuizService {
     }
 
     /**
-     * Gets attempt details with responses
+     * Gets attempt details with responses (decrypted)
      */
     async getAttemptDetails(
         attemptId: string
@@ -1746,14 +1796,20 @@ export class QuizService {
                 .eq('id', attemptId)
                 .single();
 
-            const responses = attemptWithResponses?.quiz_responses || [];
+            const rawResponses = attemptWithResponses?.quiz_responses || [];
+            
+            // Decrypt responses (handles both encrypted and unencrypted for backward compatibility)
+            const responses = decryptResponses(rawResponses as Array<{
+                selected_answers: string[];
+                metadata?: Record<string, unknown>;
+            }>);
 
             console.log('[QuizService] Responses query result:', {
                 attemptId,
                 responsesCount: responses?.length || 0,
                 responses,
                 error: responsesError,
-                method: 'JOIN via quiz_attempts'
+                method: 'JOIN via quiz_attempts (decrypted)'
             });
 
             // Get student profile

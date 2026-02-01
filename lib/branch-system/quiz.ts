@@ -219,12 +219,22 @@ export {
     decryptQuestionForStudent,
     decryptQuestionsForStudent,
     generateEncryptionKey,
+    // Response encryption
+    encryptResponseData,
+    decryptResponseData,
+    isResponseEncrypted,
+    prepareResponseForInsert,
+    decryptResponse,
+    decryptResponses,
 } from './utils/quiz-crypto';
 
 export type {
     EncryptedQuestionData,
     DecryptedQuestionData,
     QuestionDataToEncrypt,
+    // Response encryption types
+    EncryptedResponseData,
+    ResponseDataToEncrypt,
 } from './utils/quiz-crypto';
 
 // Statistics Calculations

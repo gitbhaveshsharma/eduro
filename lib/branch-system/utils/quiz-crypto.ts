@@ -399,6 +399,195 @@ export function decryptQuestionsForStudent(questions: QuizQuestion[]): QuizQuest
 }
 
 // ============================================================
+// RESPONSE ENCRYPTION (For student answers)
+// ============================================================
+
+/**
+ * Encrypted response data structure
+ */
+export interface EncryptedResponseData {
+    /** Encrypted selected_answers JSON (base64) */
+    encrypted_selected_answers: string;
+    /** Nonce used for encryption (base64) */
+    nonce: string;
+    /** Flag to indicate this response is encrypted */
+    is_encrypted: boolean;
+}
+
+/**
+ * Response data to be encrypted
+ */
+export interface ResponseDataToEncrypt {
+    selected_answers: string[];
+    answer_text?: string | null;
+}
+
+/**
+ * Encrypt student response data for storage
+ * 
+ * @param data - Response data to encrypt (selected_answers, answer_text)
+ * @returns Encrypted data structure ready for database storage
+ * 
+ * @example
+ * ```typescript
+ * const encryptedData = encryptResponseData({
+ *   selected_answers: ["A", "C"],
+ *   answer_text: null
+ * });
+ * 
+ * // Store in database
+ * await supabase.from('quiz_responses').insert({
+ *   ...otherFields,
+ *   selected_answers: [encryptedData.encrypted_selected_answers],
+ *   metadata: { nonce: encryptedData.nonce, is_encrypted: true }
+ * });
+ * ```
+ */
+export function encryptResponseData(data: ResponseDataToEncrypt): EncryptedResponseData {
+    const key = getEncryptionKey();
+    const nonce = generateNonce();
+    const nonceBase64 = naclUtil.encodeBase64(nonce);
+
+    // Encrypt selected_answers as JSON
+    const answersJson = JSON.stringify(data.selected_answers);
+    const messageUint8 = naclUtil.decodeUTF8(answersJson);
+    const encrypted = nacl.secretbox(messageUint8, nonce, key);
+    const encryptedBase64 = naclUtil.encodeBase64(encrypted);
+
+    return {
+        encrypted_selected_answers: encryptedBase64,
+        nonce: nonceBase64,
+        is_encrypted: true,
+    };
+}
+
+/**
+ * Decrypt student response data from database
+ * 
+ * @param encryptedAnswers - The encrypted selected_answers string from database
+ * @param nonce - The nonce used during encryption
+ * @returns Decrypted selected_answers array
+ */
+export function decryptResponseData(encryptedAnswers: string, nonce: string): string[] {
+    try {
+        const key = getEncryptionKey();
+        const nonceUint8 = naclUtil.decodeBase64(nonce);
+        const encryptedUint8 = naclUtil.decodeBase64(encryptedAnswers);
+        
+        const decrypted = nacl.secretbox.open(encryptedUint8, nonceUint8, key);
+        
+        if (!decrypted) {
+            console.error('Response decryption failed - invalid key or corrupted data');
+            return [];
+        }
+
+        return JSON.parse(naclUtil.encodeUTF8(decrypted));
+    } catch (error) {
+        console.error('Error decrypting response:', error);
+        return [];
+    }
+}
+
+/**
+ * Check if a response is encrypted
+ * 
+ * @param response - Response data from database
+ * @returns True if the response is encrypted
+ */
+export function isResponseEncrypted(response: { metadata?: Record<string, unknown> }): boolean {
+    return (
+        response.metadata &&
+        typeof response.metadata === 'object' &&
+        'is_encrypted' in response.metadata &&
+        response.metadata.is_encrypted === true
+    );
+}
+
+/**
+ * Prepare response data for database insert (with encryption)
+ * 
+ * @param responseData - Original response data
+ * @returns Data ready for Supabase insert with encrypted answers
+ */
+export function prepareResponseForInsert(responseData: {
+    attempt_id: string;
+    question_id: string;
+    selected_answers: string[];
+    answer_text?: string | null;
+    is_correct: boolean;
+    points_earned: number;
+    points_deducted: number;
+    time_spent_seconds: number;
+    question_started_at?: string | null;
+    question_answered_at?: string | null;
+}): Record<string, unknown> {
+    const encrypted = encryptResponseData({
+        selected_answers: responseData.selected_answers,
+        answer_text: responseData.answer_text,
+    });
+
+    return {
+        attempt_id: responseData.attempt_id,
+        question_id: responseData.question_id,
+        // Store encrypted answer as single string in array
+        selected_answers: [encrypted.encrypted_selected_answers],
+        answer_text: null, // Answer text is included in encrypted data
+        is_correct: responseData.is_correct,
+        points_earned: responseData.points_earned,
+        points_deducted: responseData.points_deducted,
+        time_spent_seconds: responseData.time_spent_seconds,
+        question_started_at: responseData.question_started_at,
+        question_answered_at: responseData.question_answered_at,
+        // Store nonce and encryption flag in metadata
+        metadata: {
+            nonce: encrypted.nonce,
+            is_encrypted: true,
+        },
+    };
+}
+
+/**
+ * Decrypt a response from database format
+ * Handles both encrypted and unencrypted responses for backward compatibility
+ * 
+ * @param response - Response from database
+ * @returns Response with decrypted selected_answers
+ */
+export function decryptResponse<T extends { 
+    selected_answers: string[]; 
+    metadata?: Record<string, unknown>;
+}>(response: T): T {
+    // If not encrypted, return as-is (backward compatibility)
+    if (!isResponseEncrypted(response)) {
+        return response;
+    }
+
+    const metadata = response.metadata as { nonce: string; is_encrypted: boolean };
+    
+    // The encrypted answer is stored as the first (and only) element
+    const encryptedAnswer = response.selected_answers[0] || '';
+    const decryptedAnswers = decryptResponseData(encryptedAnswer, metadata.nonce);
+
+    return {
+        ...response,
+        selected_answers: decryptedAnswers,
+    };
+}
+
+/**
+ * Decrypt multiple responses
+ * 
+ * @param responses - Array of responses from database
+ * @returns Array of responses with decrypted selected_answers
+ */
+export function decryptResponses<T extends { 
+    selected_answers: string[]; 
+    metadata?: Record<string, unknown>;
+}>(responses: T[]): T[] {
+    return responses.map(decryptResponse);
+}
+
+// ============================================================
 // EXPORTS FOR CONVENIENCE
 // ============================================================
 
@@ -408,17 +597,25 @@ export const quizCrypto = {
     generateEncryptionKey,
     generateNonce,
 
-    // Core encryption
+    // Core encryption (questions)
     encryptQuestionData,
     decryptQuestionData,
 
-    // Database helpers
+    // Question database helpers
     prepareQuestionForInsert,
     isQuestionEncrypted,
     decryptQuestion,
     decryptQuestions,
     decryptQuestionForStudent,
     decryptQuestionsForStudent,
+
+    // Response encryption
+    encryptResponseData,
+    decryptResponseData,
+    isResponseEncrypted,
+    prepareResponseForInsert,
+    decryptResponse,
+    decryptResponses,
 };
 
 export default quizCrypto;
