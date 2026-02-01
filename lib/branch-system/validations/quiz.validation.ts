@@ -398,8 +398,10 @@ export const startAttemptSchema = z.object({
  */
 const responseItemSchema = z.object({
     question_id: uuidSchema,
-    selected_answers: z.array(z.string().max(5)).default([]),
+    selected_answers: z.array(z.string().max(500)).default([]), // Increased for encrypted data
     time_spent_seconds: z.number().int().min(0).optional(),
+    question_started_at: z.string().datetime().optional(),
+    question_answered_at: z.string().datetime().optional(),
 });
 
 /**
@@ -417,8 +419,10 @@ export const submitAttemptSchema = z.object({
 export const saveResponseSchema = z.object({
     attempt_id: uuidSchema,
     question_id: uuidSchema,
-    selected_answers: z.array(z.string().max(5)).default([]),
+    selected_answers: z.array(z.string().max(500)).default([]), // Increased for encrypted data
     time_spent_seconds: z.number().int().min(0).optional(),
+    question_started_at: z.string().datetime().optional(),
+    question_answered_at: z.string().datetime().optional(),
 });
 
 /**

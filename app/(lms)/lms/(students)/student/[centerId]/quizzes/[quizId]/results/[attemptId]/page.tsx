@@ -15,7 +15,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import {
     AlertCircle,
@@ -29,6 +28,12 @@ import {
     Home,
     ChevronDown,
     ChevronUp,
+    Eye,
+    EyeOff,
+    CalendarClock,
+    Lock,
+    Check,
+    X,
 } from 'lucide-react';
 import {
     Collapsible,
@@ -36,6 +41,7 @@ import {
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 // Quiz imports
 import {
@@ -66,6 +72,16 @@ interface QuestionResult {
     isCorrect: boolean;
 }
 
+// Interface for quiz availability status
+interface QuizAvailability {
+    isQuizActive: boolean;
+    hasEnded: boolean;
+    canReviewQuestions: boolean;
+    reviewAllowedDate: Date | null;
+    reviewMessage: string;
+    showReviewCountdown: boolean;
+}
+
 export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     const { centerId, quizId, attemptId } = params;
     const router = useRouter();
@@ -82,6 +98,69 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
     const [questionResults, setQuestionResults] = useState<QuestionResult[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
+    const [quizAvailability, setQuizAvailability] = useState<QuizAvailability>({
+        isQuizActive: false,
+        hasEnded: false,
+        canReviewQuestions: false,
+        reviewAllowedDate: null,
+        reviewMessage: '',
+        showReviewCountdown: false,
+    });
+
+    // Check if student can review questions
+    const checkQuestionReviewAvailability = useCallback((quizData: any, attemptData: QuizAttempt) => {
+        if (!quizData) {
+            return;
+        }
+
+        const now = new Date();
+        const availableTo = quizData.available_to ? new Date(quizData.available_to) : null;
+        const isQuizActive = quizData.is_active === true;
+        const hasEnded = availableTo ? availableTo < now : false;
+        const attemptStatus = attemptData.attempt_status;
+
+        // Determine when questions can be reviewed
+        let canReviewQuestions = false;
+        let reviewAllowedDate: Date | null = null;
+        let reviewMessage = '';
+        let showReviewCountdown = false;
+
+        if (attemptStatus === 'IN_PROGRESS') {
+            canReviewQuestions = true;
+            reviewMessage = 'You can view questions during your attempt.';
+        } else if (attemptStatus === 'COMPLETED') {
+            if (quizData.show_correct_answers === true) {
+                canReviewQuestions = true;
+                reviewMessage = 'You can review questions as this quiz allows viewing correct answers.';
+            } else if (hasEnded && isQuizActive && availableTo) {
+                canReviewQuestions = true;
+                reviewMessage = 'You can now review questions as the quiz period has ended.';
+            } else if (!hasEnded && availableTo) {
+                canReviewQuestions = false;
+                reviewAllowedDate = availableTo;
+                reviewMessage = `Questions will be available for review after ${format(availableTo, 'PPP p')}.`;
+                showReviewCountdown = true;
+            } else if (hasEnded && !isQuizActive) {
+                canReviewQuestions = false;
+                reviewMessage = 'Question review is not available for this quiz.';
+            } else if (!availableTo) {
+                canReviewQuestions = false;
+                reviewMessage = 'Question review is not available for this quiz.';
+            }
+        } else {
+            canReviewQuestions = false;
+            reviewMessage = 'Question review is not available for this attempt.';
+        }
+
+        setQuizAvailability({
+            isQuizActive,
+            hasEnded,
+            canReviewQuestions,
+            reviewAllowedDate,
+            reviewMessage,
+            showReviewCountdown,
+        });
+    }, []);
 
     // Fetch attempt details
     const loadResults = useCallback(async () => {
@@ -89,34 +168,21 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
             setIsLoading(true);
             clearError();
 
-            // Fetch the specific attempt details with responses
-            // This is RLS-protected, so only the student's own attempts can be accessed
             const attemptData = await fetchAttemptDetails(attemptId);
 
             if (!attemptData) {
-                console.error('Attempt not found or access denied:', attemptId);
                 throw new Error('Attempt not found');
             }
 
-            console.log('Attempt data received:', {
-                id: attemptData.id,
-                hasResponses: !!attemptData.responses,
-                responsesCount: attemptData.responses?.length || 0,
-                responses: attemptData.responses
-            });
-
-            // Fetch the quiz to get questions (updates store state)
             await fetchQuizById(quizId, true);
 
-            // Get the quiz from store after fetching
             const quiz = useQuizStore.getState().selectedQuiz;
 
             if (!quiz) {
-                console.error('Quiz not found:', quizId);
                 throw new Error('Quiz not found');
             }
 
-            // Create a new attempt object with quiz data (don't mutate the original)
+            // Create a new attempt object with quiz data
             const attemptWithQuiz: QuizAttempt = {
                 ...attemptData,
                 quiz: {
@@ -127,48 +193,61 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                     passing_score: quiz.passing_score,
                     show_correct_answers: quiz.show_correct_answers ?? false,
                     show_score_immediately: quiz.show_score_immediately ?? false,
+                    available_to: quiz.available_to,
+                    is_active: quiz.is_active,
                 }
             };
 
             setAttempt(attemptWithQuiz);
 
-            // Build question results (if quiz allows showing answers AND we have responses)
-            if (quiz.questions && quiz.show_correct_answers && attemptData.responses && attemptData.responses.length > 0) {
+            // Check question review availability
+            checkQuestionReviewAvailability(quiz, attemptData);
+
+            // Build question results if questions are available
+            if (quiz.questions && quiz.questions.length > 0 && attemptData.responses && attemptData.responses.length > 0) {
                 const results: QuestionResult[] = quiz.questions.map((question: QuizQuestion) => {
                     const response = attemptData.responses?.find(
-                        (r: { question_id: string }) => r.question_id === question.id
+                        (r: QuizResponse) => r.question_id === question.id
                     );
-                    const selectedAnswers = response?.selected_answers || [];
-                    const correctAnswers = question.correct_answers || [];
-
-                    const isCorrect =
-                        selectedAnswers.length === correctAnswers.length &&
-                        selectedAnswers.every((a: string) => correctAnswers.includes(a));
 
                     return {
                         question,
-                        selectedAnswers,
-                        isCorrect,
+                        selectedAnswers: response?.selected_answers ?? [],
+                        isCorrect: response?.is_correct ?? false,
                     };
                 });
 
                 setQuestionResults(results);
-            } else {
-                console.warn('Cannot show question results:', {
-                    hasQuestions: !!quiz.questions,
-                    questionsCount: quiz.questions?.length || 0,
-                    showCorrectAnswers: quiz.show_correct_answers,
-                    hasResponses: !!attemptData.responses,
-                    responsesCount: attemptData.responses?.length || 0
+            } else if (attemptData.responses && attemptData.responses.length > 0) {
+                const results: QuestionResult[] = attemptData.responses.map((response: QuizResponse, index: number) => {
+                    const minimalQuestion: QuizQuestion = {
+                        id: response.question_id,
+                        quiz_id: quizId,
+                        question_text: `Question ${index + 1}`,
+                        question_type: 'MCQ_SINGLE',
+                        options: [],
+                        correct_answers: [],
+                        points: response.points_earned + response.points_deducted,
+                        question_order: index + 1,
+                        created_at: response.created_at,
+                        metadata: null,
+                    };
+
+                    return {
+                        question: minimalQuestion,
+                        selectedAnswers: response.selected_answers ?? [],
+                        isCorrect: response.is_correct ?? false,
+                    };
                 });
+
+                setQuestionResults(results);
             }
         } catch (err) {
-            console.error('Error loading results:', err);
-            // Error is handled by the store and displayed below
+            // Don't throw - let the error state handle it
         } finally {
             setIsLoading(false);
         }
-    }, [quizId, attemptId, fetchQuizById, fetchAttemptDetails, clearError]);
+    }, [quizId, attemptId, fetchQuizById, fetchAttemptDetails, clearError, checkQuestionReviewAvailability]);
 
     useEffect(() => {
         loadResults();
@@ -176,6 +255,8 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
 
     // Toggle question expansion
     const toggleQuestion = (questionId: string) => {
+        if (!quizAvailability.canReviewQuestions) return;
+
         setExpandedQuestions(prev => {
             const next = new Set(prev);
             if (next.has(questionId)) {
@@ -193,9 +274,10 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
         : 0;
     const passed = attempt?.passed ?? false;
     const correctCount = questionResults.filter(r => r.isCorrect).length;
+    const totalQuestions = questionResults.length;
 
-    // Check if retry is allowed - simplified since we don't have full quiz data
-    const canRetry = false; // Would need full quiz data to determine this
+    // Check if retry is allowed
+    const canRetry = attempt?.quiz?.is_active && !quizAvailability.hasEnded;
 
     // Loading state
     if (contextLoading || isLoading) {
@@ -293,6 +375,39 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 </CardContent>
             </Card>
 
+            {/* Question Review Availability Banner */}
+            {!quizAvailability.canReviewQuestions && (
+                <Alert className={cn(
+                    'border-amber-200 bg-amber-50/50',
+                    quizAvailability.showReviewCountdown && 'border-blue-200 bg-blue-50/50'
+                )}>
+                    <CalendarClock className="h-4 w-4 text-amber-600" />
+                    <AlertDescription>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <EyeOff className="h-4 w-4" />
+                                <span className="font-medium">
+                                    Question details are not currently available
+                                </span>
+                            </div>
+                            <p className="text-sm">
+                                {quizAvailability.reviewMessage}
+                            </p>
+                            {quizAvailability.reviewAllowedDate && quizAvailability.showReviewCountdown && (
+                                <div className="mt-2 p-3 bg-blue-100/50 rounded-lg">
+                                    <div className="flex items-center gap-2 text-blue-700">
+                                        <CalendarClock className="h-4 w-4" />
+                                        <span className="font-medium">
+                                            Available on: {format(quizAvailability.reviewAllowedDate, 'PPP p')}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </AlertDescription>
+                </Alert>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
@@ -306,7 +421,7 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                 <Card>
                     <CardContent className="p-4 text-center">
                         <XCircle className="h-6 w-6 mx-auto text-red-600 mb-2" />
-                        <p className="text-2xl font-bold">{questionResults.length - correctCount}</p>
+                        <p className="text-2xl font-bold">{totalQuestions - correctCount}</p>
                         <p className="text-xs text-muted-foreground">Incorrect</p>
                     </CardContent>
                 </Card>
@@ -355,32 +470,65 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                         <span className="text-muted-foreground">Attempt #</span>
                         <span>{attempt?.attempt_number || 1}</span>
                     </div>
+                    <Separator />
+                    <div className="flex justify-between">
+                        <span className="text-muted-foreground">Quiz Status</span>
+                        <div className="flex items-center gap-1">
+                            {quizAvailability.isQuizActive ? (
+                                <>
+                                    <Check className="h-3 w-3 text-green-600" />
+                                    <span>Active</span>
+                                </>
+                            ) : (
+                                <>
+                                    <X className="h-3 w-3 text-red-600" />
+                                    <span>Inactive</span>
+                                </>
+                            )}
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
-            {/* Question Review */}
-            {questionResults.length > 0 ? (
+            {/* Question Review Section */}
+            {totalQuestions > 0 ? (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Question Review</CardTitle>
-                        <CardDescription>
-                            Click on each question to see the details
-                        </CardDescription>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <CardTitle>Question Review</CardTitle>
+                                <CardDescription>
+                                    {quizAvailability.canReviewQuestions
+                                        ? 'Click on each question to see the details'
+                                        : 'Question details will be available for review later'}
+                                </CardDescription>
+                            </div>
+                            {!quizAvailability.canReviewQuestions && (
+                                <Badge variant="outline" className="flex items-center gap-1">
+                                    <Lock className="h-3 w-3" />
+                                    Locked
+                                </Badge>
+                            )}
+                        </div>
                     </CardHeader>
+
                     <CardContent className="space-y-3">
                         {questionResults.map((result, index) => (
                             <Collapsible
                                 key={result.question.id}
                                 open={expandedQuestions.has(result.question.id)}
                                 onOpenChange={() => toggleQuestion(result.question.id)}
+                                disabled={!quizAvailability.canReviewQuestions}
                             >
                                 <CollapsibleTrigger asChild>
                                     <div
                                         className={cn(
                                             'flex items-center justify-between p-4 rounded-lg border cursor-pointer transition-colors',
+                                            !quizAvailability.canReviewQuestions && 'cursor-not-allowed opacity-70',
                                             result.isCorrect
                                                 ? 'bg-green-50 border-green-200 hover:bg-green-100'
-                                                : 'bg-red-50 border-red-200 hover:bg-red-100'
+                                                : 'bg-red-50 border-red-200 hover:bg-red-100',
+                                            !quizAvailability.canReviewQuestions && 'hover:bg-initial'
                                         )}
                                     >
                                         <div className="flex items-center gap-3">
@@ -389,74 +537,87 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                                             ) : (
                                                 <XCircle className="h-5 w-5 text-red-600 shrink-0" />
                                             )}
-                                            <span className="font-medium">Question {index + 1}</span>
+                                            <div className="text-left">
+                                                <span className="font-medium">Question {index + 1}</span>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Your answer: {result.selectedAnswers.length > 0
+                                                        ? result.selectedAnswers.join(', ')
+                                                        : 'No answer'}
+                                                </p>
+                                            </div>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <Badge variant="outline">
                                                 {result.isCorrect ? result.question.points : 0}/{result.question.points} pts
                                             </Badge>
-                                            {expandedQuestions.has(result.question.id) ? (
-                                                <ChevronUp className="h-4 w-4" />
+                                            {quizAvailability.canReviewQuestions ? (
+                                                expandedQuestions.has(result.question.id) ? (
+                                                    <ChevronUp className="h-4 w-4" />
+                                                ) : (
+                                                    <ChevronDown className="h-4 w-4" />
+                                                )
                                             ) : (
-                                                <ChevronDown className="h-4 w-4" />
+                                                <Lock className="h-4 w-4 text-muted-foreground" />
                                             )}
                                         </div>
                                     </div>
                                 </CollapsibleTrigger>
 
-                                <CollapsibleContent className="p-4 border-x border-b rounded-b-lg bg-background">
-                                    <div className="space-y-4">
-                                        {/* Question Text */}
-                                        <p className="font-medium">{result.question.question_text}</p>
+                                {quizAvailability.canReviewQuestions && (
+                                    <CollapsibleContent className="p-4 border-x border-b rounded-b-lg bg-background">
+                                        <div className="space-y-4">
+                                            {/* Question Text */}
+                                            <p className="font-medium">{result.question.question_text}</p>
 
-                                        {/* Options */}
-                                        <div className="space-y-2">
-                                            {optionsToArray(result.question.options).map((option) => {
-                                                const isSelected = result.selectedAnswers.includes(option.key);
-                                                const isCorrect = result.question.correct_answers?.includes(option.key);
+                                            {/* Options */}
+                                            <div className="space-y-2">
+                                                {optionsToArray(result.question.options).map((option) => {
+                                                    const isSelected = result.selectedAnswers.includes(option.key);
+                                                    const isCorrect = result.question.correct_answers?.includes(option.key);
 
-                                                return (
-                                                    <div
-                                                        key={option.key}
-                                                        className={cn(
-                                                            'flex items-center gap-3 p-3 rounded-lg border',
-                                                            isCorrect && 'bg-green-50 border-green-300',
-                                                            isSelected && !isCorrect && 'bg-red-50 border-red-300',
-                                                            !isSelected && !isCorrect && 'bg-muted/30'
-                                                        )}
-                                                    >
-                                                        {isCorrect ? (
-                                                            <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                                                        ) : isSelected ? (
-                                                            <XCircle className="h-4 w-4 text-red-600 shrink-0" />
-                                                        ) : (
-                                                            <div className="h-4 w-4 rounded-full border shrink-0" />
-                                                        )}
-                                                        <span className={cn(
-                                                            isCorrect && 'font-medium text-green-700',
-                                                            isSelected && !isCorrect && 'font-medium text-red-700'
-                                                        )}>
-                                                            {option.key}. {option.text}
-                                                        </span>
-                                                        {isSelected && (
-                                                            <Badge variant="outline" className="ml-auto text-xs">
-                                                                Your answer
-                                                            </Badge>
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-
-                                        {/* Explanation */}
-                                        {result.question.explanation && (
-                                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                                                <p className="text-sm font-medium text-blue-800 mb-1">Explanation:</p>
-                                                <p className="text-sm text-blue-700">{result.question.explanation}</p>
+                                                    return (
+                                                        <div
+                                                            key={option.key}
+                                                            className={cn(
+                                                                'flex items-center gap-3 p-3 rounded-lg border',
+                                                                isCorrect && 'bg-green-50 border-green-300',
+                                                                isSelected && !isCorrect && 'bg-red-50 border-red-300',
+                                                                !isSelected && !isCorrect && 'bg-muted/30'
+                                                            )}
+                                                        >
+                                                            {isCorrect ? (
+                                                                <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                                                            ) : isSelected ? (
+                                                                <XCircle className="h-4 w-4 text-red-600 shrink-0" />
+                                                            ) : (
+                                                                <div className="h-4 w-4 rounded-full border shrink-0" />
+                                                            )}
+                                                            <span className={cn(
+                                                                isCorrect && 'font-medium text-green-700',
+                                                                isSelected && !isCorrect && 'font-medium text-red-700'
+                                                            )}>
+                                                                {option.key}. {option.text}
+                                                            </span>
+                                                            {isSelected && (
+                                                                <Badge variant="outline" className="ml-auto text-xs">
+                                                                    Your answer
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
-                                        )}
-                                    </div>
-                                </CollapsibleContent>
+
+                                            {/* Explanation */}
+                                            {result.question.explanation && (
+                                                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                    <p className="text-sm font-medium text-blue-800 mb-1">Explanation:</p>
+                                                    <p className="text-sm text-blue-700">{result.question.explanation}</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </CollapsibleContent>
+                                )}
                             </Collapsible>
                         ))}
                     </CardContent>
@@ -467,8 +628,9 @@ export default function QuizResultsPage({ params }: QuizResultsPageProps) {
                         <AlertCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                         <h3 className="text-lg font-semibold mb-2">Question Details Unavailable</h3>
                         <p className="text-sm text-muted-foreground">
-                            The detailed question breakdown is not available for this attempt.
-                            Your score and results have been recorded.
+                            {quizAvailability.canReviewQuestions
+                                ? 'No question details are available for this attempt.'
+                                : 'Question details will be available for review later.'}
                         </p>
                     </CardContent>
                 </Card>

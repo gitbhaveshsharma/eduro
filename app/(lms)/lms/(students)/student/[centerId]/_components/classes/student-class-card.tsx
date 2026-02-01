@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,7 +29,8 @@ import {
     GraduationCap,
     AlertCircle,
     CalendarClock,
-    Info
+    Info,
+    X
 } from 'lucide-react';
 
 import type { UpcomingClassData } from '@/lib/branch-system/types/branch-classes.types';
@@ -217,8 +218,34 @@ function getCompletionStatusMessage(dateString?: string | null): {
     };
 }
 
+/**
+ * Check if device is mobile/tablet
+ */
+function useIsMobile() {
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 1024); // lg breakpoint
+        };
+
+        // Initial check
+        checkMobile();
+
+        // Add event listener
+        window.addEventListener('resize', checkMobile);
+
+        // Cleanup
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    return isMobile;
+}
+
 export function StudentClassCard({ classData, onViewDetails }: StudentClassCardProps) {
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [showCompletionPopup, setShowCompletionPopup] = useState(false);
+    const isMobile = useIsMobile();
 
     const subjectId = mapSubjectToId(classData.subject) as SubjectId;
     const subjectConfig = getSubjectConfig(subjectId);
@@ -267,212 +294,311 @@ export function StudentClassCard({ classData, onViewDetails }: StudentClassCardP
         }
     };
 
+    const handleCompletionBadgeClick = () => {
+        if (isMobile) {
+            setShowCompletionPopup(true);
+        }
+    };
+
+    const handleClosePopup = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowCompletionPopup(false);
+    };
+
     return (
-        <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl p-0 gap-0 group">
-            {/* Header with Status Badge */}
-            <div className="relative p-2">
-                <div className="absolute top-5 left-5 z-10 flex gap-2">
-                    <Badge
-                        variant={statusVariant}
-                        className="text-xs font-medium"
-                    >
-                        {statusLabel}
-                    </Badge>
-                    {/* Only shows if attendance < 60% (NEEDS_IMPROVEMENT threshold) */}
-                    {attendanceMetrics.needsAttention && (
+        <>
+            <Card className="overflow-hidden shadow-sm hover:shadow-md transition-all duration-300 bg-card rounded-2xl p-0 gap-0 group">
+                {/* Header with Status Badge */}
+                <div className="relative p-2">
+                    <div className="absolute top-5 left-5 z-10 flex gap-2">
                         <Badge
-                            variant="destructive"
-                            className="text-xs font-medium gap-1"
+                            variant={statusVariant}
+                            className="text-xs font-medium"
                         >
-                            <AlertCircle className="h-3 w-3" />
-                            Low
+                            {statusLabel}
                         </Badge>
-                    )}
-                    {/* Completion Date Badge with Tooltip */}
-                    {formattedCompletionDate && (
-                        <TooltipProvider>
-                            <Tooltip delayDuration={300}>
-                                <TooltipTrigger asChild>
+                        {/* Only shows if attendance < 60% (NEEDS_IMPROVEMENT threshold) */}
+                        {attendanceMetrics.needsAttention && (
+                            <Badge
+                                variant="destructive"
+                                className="text-xs font-medium gap-1"
+                            >
+                                <AlertCircle className="h-3 w-3" />
+                                Low
+                            </Badge>
+                        )}
+                        {/* Completion Date Badge with Tooltip for desktop, clickable for mobile */}
+                        {formattedCompletionDate && (
+                            <>
+                                {isMobile ? (
+                                    // Mobile: Clickable badge
                                     <Badge
                                         variant={isPassed ? "destructive" : isApproaching ? "warning" : "secondary"}
-                                        className="text-xs font-medium gap-1 cursor-help"
+                                        className="text-xs font-medium gap-1 cursor-pointer active:opacity-80"
+                                        onClick={handleCompletionBadgeClick}
                                     >
                                         <CalendarClock className="h-3 w-3" />
                                         {formattedCompletionDate}
                                     </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs p-4" side="bottom" align="start">
-                                    <div className="space-y-2">
-                                        <div className="flex items-center gap-2">
-                                            <CalendarClock className="h-4 w-4 text-muted-foreground" />
-                                            <h4 className="font-semibold text-sm">
-                                                Course Completion
-                                            </h4>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-sm font-medium">
-                                                {completionStatus.message}
-                                            </p>
-                                            <p className="text-xs text-muted-foreground">
-                                                {completionStatus.description}
-                                            </p>
-                                            {daysRemaining !== null && (
-                                                <div className="pt-2 mt-2 border-t border-border">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-muted-foreground">Expected completion:</span>
-                                                        <span className="font-medium">{formattedCompletionDate}</span>
+                                ) : (
+                                    // Desktop: Tooltip
+                                    <TooltipProvider>
+                                        <Tooltip delayDuration={300}>
+                                            <TooltipTrigger asChild>
+                                                <Badge
+                                                    variant={isPassed ? "destructive" : isApproaching ? "warning" : "secondary"}
+                                                    className="text-xs font-medium gap-1 cursor-help"
+                                                >
+                                                    <CalendarClock className="h-3 w-3" />
+                                                    {formattedCompletionDate}
+                                                </Badge>
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs p-4" side="bottom" align="start">
+                                                <div className="space-y-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <CalendarClock className="h-4 w-4 text-muted-foreground" />
+                                                        <h4 className="font-semibold text-sm">
+                                                            Course Completion
+                                                        </h4>
                                                     </div>
-                                                    {daysRemaining !== null && (
-                                                        <div className="flex items-center justify-between text-xs mt-1">
-                                                            <span className="text-muted-foreground">
-                                                                {daysRemaining >= 0 ? 'Days remaining:' : 'Days overdue:'}
-                                                            </span>
-                                                            <span className={cn(
-                                                                "font-medium",
-                                                                isPassed ? "text-destructive" :
-                                                                    isApproaching ? "text-warning" :
-                                                                        "text-success"
-                                                            )}>
-                                                                {Math.abs(daysRemaining)} {Math.abs(daysRemaining) === 1 ? 'day' : 'days'}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    <div className="space-y-1">
+                                                        <p className="text-sm font-medium">
+                                                            {completionStatus.message}
+                                                        </p>
+                                                        <p className="text-xs text-muted-foreground">
+                                                            {completionStatus.description}
+                                                        </p>
+                                                        {daysRemaining !== null && (
+                                                            <div className="pt-2 mt-2 border-t border-border">
+                                                                <div className="flex items-center justify-between text-xs">
+                                                                    <span className="text-muted-foreground">Expected completion:</span>
+                                                                    <span className="font-medium">{formattedCompletionDate}</span>
+                                                                </div>
+                                                                {daysRemaining !== null && (
+                                                                    <div className="flex items-center justify-between text-xs mt-1">
+                                                                        <span className="text-muted-foreground">
+                                                                            {daysRemaining >= 0 ? 'Days remaining:' : 'Days overdue:'}
+                                                                        </span>
+                                                                        <span className={cn(
+                                                                            "font-medium",
+                                                                            isPassed ? "text-destructive" :
+                                                                                isApproaching ? "text-warning" :
+                                                                                    "text-success"
+                                                                        )}>
+                                                                            {Math.abs(daysRemaining)} {Math.abs(daysRemaining) === 1 ? 'day' : 'days'}
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
-                    )}
-                </div>
-
-                {/* Subject Image with Gradient Background */}
-                <div className="h-32 w-full relative overflow-hidden rounded-2xl">
-                    <Image
-                        src={subjectImagePath}
-                        alt={`${subjectConfig.name} class`}
-                        fill
-                        className={cn(
-                            "object-cover transition-opacity duration-300",
-                            imageLoaded ? "opacity-100" : "opacity-0"
-                        )}
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        priority={false}
-                        onLoad={() => setImageLoaded(true)}
-                        onError={() => setImageLoaded(true)}
-                    />
-
-                    {/* Gradient background - visible while image loads */}
-                    {!imageLoaded && (
-                        <div className={cn(
-                            'absolute inset-0 animate-pulse',
-                            subjectColor
-                        )} />
-                    )}
-
-                    {/* Decorative overlay with subject icon */}
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-10">
-                        <div className="text-8xl">
-                            {subjectConfig.icon}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content */}
-            <div className="p-4 space-y-3">
-                {/* Subject Badge & Grade/Batch in same line */}
-                <div className="flex items-center gap-2">
-                    <Badge
-                        variant="outline"
-                        className={cn('text-xs font-medium px-2 py-0.5 border-0', subjectColor)}
-                    >
-                        {subjectConfig.name}
-                    </Badge>
-                    {/* Grade & Batch */}
-                    <div className="text-sm text-muted-foreground">
-                        <span className="font-medium">{classData.grade_level}</span>
-                        {classData.batch_name && (
-                            <>
-                                <span className="mx-1">•</span>
-                                <span>{classData.batch_name}</span>
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                )}
                             </>
                         )}
                     </div>
+
+                    {/* Subject Image with Gradient Background */}
+                    <div className="h-32 w-full relative overflow-hidden rounded-2xl">
+                        <Image
+                            src={subjectImagePath}
+                            alt={`${subjectConfig.name} class`}
+                            fill
+                            className={cn(
+                                "object-cover transition-opacity duration-300",
+                                imageLoaded ? "opacity-100" : "opacity-0"
+                            )}
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            priority={false}
+                            onLoad={() => setImageLoaded(true)}
+                            onError={() => setImageLoaded(true)}
+                        />
+
+                        {/* Gradient background - visible while image loads */}
+                        {!imageLoaded && (
+                            <div className={cn(
+                                'absolute inset-0 animate-pulse',
+                                subjectColor
+                            )} />
+                        )}
+                    </div>
                 </div>
 
-                {/* Title with hover effect */}
-                <h3 className="font-semibold text-foreground text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-200">
-                    {displayName}
-                </h3>
-
-                {/* Schedule Info */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                {/* Content */}
+                <div className="p-4 space-y-3">
+                    {/* Subject Badge & Grade/Batch in same line */}
                     <div className="flex items-center gap-2">
-                        <Calendar className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{schedule || 'No schedule'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate">{timeRange}</span>
-                    </div>
-                </div>
-
-                {/* Attendance Performance Section */}
-                <div className="space-y-2 pt-2 border-t border-border">
-                    {/* Attendance Stats */}
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <TrendingUp className={cn('h-4 w-4', attendanceMetrics.colorClass)} />
-                            <span className={cn('text-sm font-medium', attendanceMetrics.colorClass)}>
-                                {attendanceMetrics.percentage.toFixed(1)}%
-                            </span>
-                            <span className="text-xs text-muted-foreground">attendance</span>
-                        </div>
                         <Badge
-                            variant={attendanceMetrics.performanceVariant}
-                            className="text-xs"
+                            variant="outline"
+                            className={cn('text-xs font-medium px-2 py-0.5 border-0', subjectColor)}
                         >
-                            {attendanceMetrics.performanceLevel}
+                            {subjectConfig.name}
                         </Badge>
+                        {/* Grade & Batch */}
+                        <div className="text-sm text-muted-foreground">
+                            <span className="font-medium">{classData.grade_level}</span>
+                            {classData.batch_name && (
+                                <>
+                                    <span className="mx-1">•</span>
+                                    <span>{classData.batch_name}</span>
+                                </>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Attendance Progress Bar */}
-                    <Progress
-                        value={attendanceMetrics.percentage}
-                        className="h-2"
+                    {/* Title with hover effect */}
+                    <h3 className="font-semibold text-foreground text-base leading-tight line-clamp-2 group-hover:text-primary transition-colors duration-200">
+                        {displayName}
+                    </h3>
+
+                    {/* Schedule Info */}
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{schedule || 'No schedule'}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 flex-shrink-0" />
+                            <span className="truncate">{timeRange}</span>
+                        </div>
+                    </div>
+
+                    {/* Attendance Performance Section */}
+                    <div className="space-y-2 pt-2 border-t border-border">
+                        {/* Attendance Stats */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <TrendingUp className={cn('h-4 w-4', attendanceMetrics.colorClass)} />
+                                <span className={cn('text-sm font-medium', attendanceMetrics.colorClass)}>
+                                    {attendanceMetrics.percentage.toFixed(1)}%
+                                </span>
+                                <span className="text-xs text-muted-foreground">attendance</span>
+                            </div>
+                            <Badge
+                                variant={attendanceMetrics.performanceVariant}
+                                className="text-xs"
+                            >
+                                {attendanceMetrics.performanceLevel}
+                            </Badge>
+                        </div>
+
+                        {/* Attendance Progress Bar */}
+                        <Progress
+                            value={attendanceMetrics.percentage}
+                            className="h-2"
+                        />
+
+                        {/* Current Grade */}
+                        {classData.current_grade && (
+                            <div className="flex items-center gap-2 text-sm">
+                                <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{classData.current_grade}</span>
+                                <span className="text-xs text-muted-foreground">current grade</span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center justify-between pt-2">
+                        {/* Description preview */}
+                        <div className="text-xs text-muted-foreground truncate max-w-[60%]">
+                            {classData.description || 'No description'}
+                        </div>
+
+                        {/* View Details Button */}
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleViewDetails}
+                            className="rounded-full px-4 text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors"
+                        >
+                            <Eye className="h-3 w-3 mr-1" />
+                            View Details
+                        </Button>
+                    </div>
+                </div>
+            </Card>
+
+            {/* Mobile Completion Date Popup */}
+            {showCompletionPopup && isMobile && (
+                <>
+                    {/* Backdrop */}
+                    <div
+                        className="fixed inset-0 bg-black/50 z-50 lg:hidden"
+                        onClick={handleClosePopup}
                     />
 
-                    {/* Current Grade */}
-                    {classData.current_grade && (
-                        <div className="flex items-center gap-2 text-sm">
-                            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                            <span className="font-medium">{classData.current_grade}</span>
-                            <span className="text-xs text-muted-foreground">current grade</span>
+                    {/* Popup Content */}
+                    <div className="fixed inset-x-4 bottom-4 z-50 lg:hidden animate-in slide-in-from-bottom duration-300">
+                        <div className="bg-card rounded-2xl shadow-lg p-4 border border-border max-w-md mx-auto">
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-2">
+                                    <CalendarClock className="h-5 w-5 text-muted-foreground" />
+                                    <h3 className="font-semibold text-base">
+                                        Course Completion
+                                    </h3>
+                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-full"
+                                    onClick={handleClosePopup}
+                                >
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            </div>
+
+                            {/* Content */}
+                            <div className="space-y-3">
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium">
+                                        {completionStatus.message}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {completionStatus.description}
+                                    </p>
+                                </div>
+
+                                {daysRemaining !== null && (
+                                    <div className="pt-3 border-t border-border space-y-2">
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-muted-foreground">Expected completion:</span>
+                                            <span className="font-medium">{formattedCompletionDate}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-sm">
+                                            <span className="text-muted-foreground">
+                                                {daysRemaining >= 0 ? 'Days remaining:' : 'Days overdue:'}
+                                            </span>
+                                            <span className={cn(
+                                                "font-medium",
+                                                isPassed ? "text-destructive" :
+                                                    isApproaching ? "text-warning" :
+                                                        "text-success"
+                                            )}>
+                                                {Math.abs(daysRemaining)} {Math.abs(daysRemaining) === 1 ? 'day' : 'days'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Close Button */}
+                                <Button
+                                    variant="default"
+                                    size="sm"
+                                    className="w-full mt-4 rounded-full"
+                                    onClick={handleClosePopup}
+                                >
+                                    Got it
+                                </Button>
+                            </div>
                         </div>
-                    )}
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center justify-between pt-2">
-                    {/* Description preview */}
-                    <div className="text-xs text-muted-foreground truncate max-w-[60%]">
-                        {classData.description || 'No description'}
                     </div>
-
-                    {/* View Details Button */}
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleViewDetails}
-                        className="rounded-full px-4 text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-colors"
-                    >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View Details
-                    </Button>
-                </div>
-            </div>
-        </Card>
+                </>
+            )}
+        </>
     );
 }

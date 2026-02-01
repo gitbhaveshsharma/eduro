@@ -124,6 +124,10 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
     const [isLoadingQuestion, setIsLoadingQuestion] = useState(false);
     const [currentQuestion, setCurrentQuestion] = useState<QuizQuestion | null>(null);
 
+    // Question timing tracking
+    const [questionStartTimes, setQuestionStartTimes] = useState<Record<string, string>>({});
+    const [questionTimeSpent, setQuestionTimeSpent] = useState<Record<string, number>>({});
+
     const timerRef = useRef<NodeJS.Timeout | null>(null);
     const initializationAttemptedRef = useRef(false);
     const attemptRef = useRef<QuizAttempt | null>(null);
@@ -146,17 +150,32 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
     // Security hook must be defined before callbacks that use it
     const securityRef = useRef<ReturnType<typeof useQuizSecurity> | null>(null);
 
-    // Security hook - define callbacks first
+    // Security hook - define callbacks first with timing data
     const handleAutoSubmit = useCallback(async () => {
         const currentAttempt = attemptRef.current;
         if (!currentAttempt || isSubmitting) return;
 
         setIsSubmitting(true);
         try {
-            const responseArray = Object.entries(responses).map(([questionId, selectedAnswers]) => ({
-                question_id: questionId,
-                selected_answers: selectedAnswers,
-            }));
+            const now = new Date().toISOString();
+            const responseArray = Object.entries(responses).map(([questionId, selectedAnswers]) => {
+                const questionStartTime = questionStartTimes[questionId];
+                const previousTimeSpent = questionTimeSpent[questionId] || 0;
+                let totalTimeSpent = previousTimeSpent;
+
+                if (questionStartTime) {
+                    const startDate = new Date(questionStartTime);
+                    totalTimeSpent = previousTimeSpent + Math.floor((Date.now() - startDate.getTime()) / 1000);
+                }
+
+                return {
+                    question_id: questionId,
+                    selected_answers: selectedAnswers,
+                    time_spent_seconds: totalTimeSpent,
+                    question_started_at: questionStartTime,
+                    question_answered_at: now,
+                };
+            });
 
             const result = await submitAttempt({
                 attempt_id: currentAttempt.id,
@@ -180,7 +199,7 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         } finally {
             setIsSubmitting(false);
         }
-    }, [responses, submitAttempt, clearActiveAttempt, router, centerId, quizId, isSubmitting]);
+    }, [responses, questionStartTimes, questionTimeSpent, submitAttempt, clearActiveAttempt, router, centerId, quizId, isSubmitting]);
 
     const security = useQuizSecurity(
         {
@@ -319,9 +338,15 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                             setResponses(existingResponses);
                         }
 
-                        // Fetch first question
+                        // Fetch first question and initialize timing
                         if (metadataResult.length > 0) {
-                            await loadQuestion(activeAttemptData.attempt.id, metadataResult[0]);
+                            const firstQuestionId = metadataResult[0];
+                            await loadQuestion(activeAttemptData.attempt.id, firstQuestionId);
+
+                            // Initialize timing for first question
+                            setQuestionStartTimes({
+                                [firstQuestionId]: new Date().toISOString()
+                            });
                         }
 
                         setIsInitialized(true);
@@ -379,7 +404,7 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         };
     }, [attempt?.started_at, attempt?.quiz?.time_limit_minutes, isInitialized, isSubmitting, handleAutoSubmit]);
 
-    // Handle response change
+    // Handle response change with timing tracking
     const handleResponseChange = (questionId: string, answer: string, isMultiple: boolean) => {
         setResponses(prev => {
             let newResponses: Record<string, string[]>;
@@ -393,11 +418,22 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                 newResponses = { ...prev, [questionId]: [answer] };
             }
 
-            // Auto-save response (debounced to prevent rapid requests)
+            // Auto-save response with timing (debounced to prevent rapid requests)
             if (attempt) {
                 // Clear previous timeout
                 if (saveTimeoutRef.current) {
                     clearTimeout(saveTimeoutRef.current);
+                }
+
+                // Calculate time spent on this question
+                const questionStartTime = questionStartTimes[questionId];
+                const previousTimeSpent = questionTimeSpent[questionId] || 0;
+                let currentTimeSpent = previousTimeSpent;
+
+                if (questionStartTime) {
+                    const startDate = new Date(questionStartTime);
+                    const now = new Date();
+                    currentTimeSpent = previousTimeSpent + Math.floor((now.getTime() - startDate.getTime()) / 1000);
                 }
 
                 // Save after 500ms of no changes
@@ -406,6 +442,9 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
                         attempt_id: attempt.id,
                         question_id: questionId,
                         selected_answers: newResponses[questionId],
+                        time_spent_seconds: currentTimeSpent,
+                        question_started_at: questionStartTime,
+                        question_answered_at: new Date().toISOString(),
                     }).catch(err => {
                         console.error('Failed to auto-save response:', err);
                     });
@@ -416,16 +455,32 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         });
     };
 
-    // Handle manual submit
+    // Handle manual submit with timing data
     const handleSubmit = async () => {
         if (!attempt || isSubmitting) return;
 
         setIsSubmitting(true);
         try {
-            const responseArray = Object.entries(responses).map(([questionId, selectedAnswers]) => ({
-                question_id: questionId,
-                selected_answers: selectedAnswers,
-            }));
+            const now = new Date().toISOString();
+            const responseArray = Object.entries(responses).map(([questionId, selectedAnswers]) => {
+                // Calculate final time spent on this question
+                const questionStartTime = questionStartTimes[questionId];
+                const previousTimeSpent = questionTimeSpent[questionId] || 0;
+                let totalTimeSpent = previousTimeSpent;
+
+                if (questionStartTime) {
+                    const startDate = new Date(questionStartTime);
+                    totalTimeSpent = previousTimeSpent + Math.floor((Date.now() - startDate.getTime()) / 1000);
+                }
+
+                return {
+                    question_id: questionId,
+                    selected_answers: selectedAnswers,
+                    time_spent_seconds: totalTimeSpent,
+                    question_started_at: questionStartTime,
+                    question_answered_at: now,
+                };
+            });
 
             const result = await submitAttempt({
                 attempt_id: attempt.id,
@@ -455,11 +510,29 @@ export default function StudentQuizAttemptPage({ params }: StudentQuizAttemptPag
         }
     };
 
-    // Navigation - load question when changing
+    // Navigation - load question when changing with timing tracking
     const goToQuestion = async (index: number) => {
         if (index >= 0 && index < questionIds.length && !isLoadingQuestion && attempt) {
+            // Save time spent on current question before leaving
+            const currentQuestionId = questionIds[currentQuestionIndex];
+            if (currentQuestionId && questionStartTimes[currentQuestionId]) {
+                const startDate = new Date(questionStartTimes[currentQuestionId]);
+                const previousTimeSpent = questionTimeSpent[currentQuestionId] || 0;
+                const additionalTime = Math.floor((Date.now() - startDate.getTime()) / 1000);
+                setQuestionTimeSpent(prev => ({
+                    ...prev,
+                    [currentQuestionId]: previousTimeSpent + additionalTime
+                }));
+            }
+
             setCurrentQuestionIndex(index);
             const questionId = questionIds[index];
+
+            // Track when this question was started (or resumed)
+            setQuestionStartTimes(prev => ({
+                ...prev,
+                [questionId]: prev[questionId] || new Date().toISOString()
+            }));
 
             // Check if we already have this question loaded
             const existingQuestion = questions.find(q => q.id === questionId);
